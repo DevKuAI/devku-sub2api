@@ -6,6 +6,10 @@ ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 TEMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TEMP_DIR"' EXIT
 
+GITHUB_API_CURL_HELPER="$TEMP_DIR/github-api-curl.sh"
+sed -n '/^github_api_curl()/,/^}/p' "$ROOT_DIR/deploy/install.sh" > "$GITHUB_API_CURL_HELPER"
+grep -Fq 'github_api_curl()' "$GITHUB_API_CURL_HELPER"
+
 cat > "$TEMP_DIR/curl" <<'EOF'
 #!/bin/bash
 printf '%s\n' "$@" > "$CURL_ARGS_LOG"
@@ -23,8 +27,8 @@ EOF
 run_api_curl() {
     CURL_ARGS_LOG="$1" HOME="$TEMP_DIR/home" PATH="$TEMP_DIR:$PATH" UPDATE_GITHUB_TOKEN="${2:-}" \
         GITHUB_TOKEN="github-fallback" GH_TOKEN="gh-fallback" \
-        bash -c 'source <(head -n -1 "$1"); github_api_curl -s "$2"' bash \
-        "$ROOT_DIR/deploy/install.sh" "https://api.github.com/repos/Wei-Shaw/sub2api/releases/latest"
+        bash -c 'source "$1"; github_api_curl -s "$2"' bash \
+        "$GITHUB_API_CURL_HELPER" "https://api.github.com/repos/DevKuAI/devku-sub2api/releases/latest"
 }
 
 run_api_curl "$TEMP_DIR/authenticated" "update-secret"
@@ -41,7 +45,7 @@ if grep -Eq 'update-secret|github-fallback|gh-fallback' "$TEMP_DIR/authenticated
     echo "installer exposed a token in curl environment" >&2
     exit 1
 fi
-test "$(grep -Fxc 'https://api.github.com/repos/Wei-Shaw/sub2api/releases/latest' "$TEMP_DIR/authenticated")" -eq 1
+test "$(grep -Fxc 'https://api.github.com/repos/DevKuAI/devku-sub2api/releases/latest' "$TEMP_DIR/authenticated")" -eq 1
 if grep -Fq 'example.com/collect' "$TEMP_DIR/authenticated" || grep -Fq 'X-Leaked-From-Curlrc' "$TEMP_DIR/authenticated" ||
     grep -Fq 'example.com/collect' "$TEMP_DIR/authenticated.stdin" || grep -Fq 'X-Leaked-From-Curlrc' "$TEMP_DIR/authenticated.stdin"; then
     echo "installer allowed hostile curl config into authenticated invocation" >&2
@@ -59,7 +63,7 @@ if grep -Fq 'Authorization:' "$TEMP_DIR/anonymous"; then
     exit 1
 fi
 test ! -s "$TEMP_DIR/anonymous.stdin"
-test "$(grep -Fxc 'https://api.github.com/repos/Wei-Shaw/sub2api/releases/latest' "$TEMP_DIR/anonymous")" -eq 1
+test "$(grep -Fxc 'https://api.github.com/repos/DevKuAI/devku-sub2api/releases/latest' "$TEMP_DIR/anonymous")" -eq 1
 if grep -Fq 'example.com/collect' "$TEMP_DIR/anonymous" || grep -Fq 'X-Leaked-From-Curlrc' "$TEMP_DIR/anonymous"; then
     echo "installer allowed hostile curl config into anonymous invocation" >&2
     exit 1
@@ -70,8 +74,8 @@ assert_unsafe_invocation_rejected() {
     shift
     rm -f "$TEMP_DIR/$name" "$TEMP_DIR/$name.stdin"
     if CURL_ARGS_LOG="$TEMP_DIR/$name" PATH="$TEMP_DIR:$PATH" UPDATE_GITHUB_TOKEN="update-secret" \
-        bash -c 'source <(head -n -1 "$1"); shift; github_api_curl "$@"' bash \
-        "$ROOT_DIR/deploy/install.sh" "$@" 2>/dev/null; then
+        bash -c 'source "$1"; shift; github_api_curl "$@"' bash \
+        "$GITHUB_API_CURL_HELPER" "$@" 2>/dev/null; then
         echo "installer accepted unsafe curl invocation: $name" >&2
         exit 1
     fi
@@ -82,16 +86,16 @@ assert_unsafe_invocation_rejected() {
 }
 
 assert_unsafe_invocation_rejected non-api -s \
-    "https://github.com/Wei-Shaw/sub2api/releases/download/v1/asset"
+    "https://github.com/DevKuAI/devku-sub2api/releases/download/v1/asset"
 assert_unsafe_invocation_rejected mixed-host -s \
-    "https://api.github.com/repos/Wei-Shaw/sub2api/releases/latest" \
+    "https://api.github.com/repos/DevKuAI/devku-sub2api/releases/latest" \
     "https://example.com/collect"
 assert_unsafe_invocation_rejected multiple-api -s \
-    "https://api.github.com/repos/Wei-Shaw/sub2api/releases/latest" \
-    "https://api.github.com/repos/Wei-Shaw/sub2api/releases"
+    "https://api.github.com/repos/DevKuAI/devku-sub2api/releases/latest" \
+    "https://api.github.com/repos/DevKuAI/devku-sub2api/releases"
 assert_unsafe_invocation_rejected url-option -s --url \
     "https://example.com/collect" \
-    "https://api.github.com/repos/Wei-Shaw/sub2api/releases/latest"
+    "https://api.github.com/repos/DevKuAI/devku-sub2api/releases/latest"
 
 # Every installer release API request must use the scoped helper.
 test "$(grep -c 'github_api_curl .*https://api.github.com/' "$ROOT_DIR/deploy/install.sh")" -eq 3

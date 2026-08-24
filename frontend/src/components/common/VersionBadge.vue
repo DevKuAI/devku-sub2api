@@ -651,7 +651,7 @@ import {
 import { useClipboard } from '@/composables/useClipboard'
 import Icon from '@/components/icons/Icon.vue'
 
-const GITHUB_REPO = 'Wei-Shaw/sub2api'
+const GITHUB_REPO = 'DevKuAI/devku-sub2api'
 // Docker Hub image published by CI (tags carry no "v" prefix, e.g. huanghua581/devku-sub2api:0.1.146)
 const DOCKER_IMAGE = 'huanghua581/devku-sub2api'
 
