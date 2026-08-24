@@ -10,8 +10,6 @@
 [![Redis](https://img.shields.io/badge/Redis-7+-DC382D.svg)](https://redis.io/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
 
-<a href="https://trendshift.io/repositories/21823" target="_blank"><img src="https://trendshift.io/api/badge/repositories/21823" alt="Wei-Shaw%2Fsub2api | Trendshift" width="250" height="55"/></a>
-
 **AI API Gateway for Managing and Distributing Subscription Quotas**
 
 English | [中文](README_CN.md) | [日本語](README_JA.md)
@@ -42,14 +40,6 @@ Sub2API is an API gateway for distributing and managing subscription quotas from
 - **Admin dashboard:** Provides a web interface for monitoring and administration.
 - **Composite groups:** Resolves requested models to concrete upstream providers within multi-provider groups.
 - **External integrations:** Embeds external systems, such as ticketing tools, in the admin dashboard through an iframe.
-
-## Community Projects
-
-Projects that extend or integrate with Sub2API:
-
-| Project | Description |
-|---------|-------------|
-| [sub2api-mobile](https://github.com/ckken/sub2api-mobile) | Cross-platform admin console for iOS, Android, and Web, built with Expo and React Native. Supports user and account management, monitoring, and multiple backends. |
 
 ## Tech Stack
 
@@ -706,16 +696,6 @@ sub2api/
     ├── config.example.yaml   # Full config file for binary deployment
     └── install.sh            # One-click installation script
 ```
-
-## Star History
-
-<a href="https://star-history.dera.page/#Wei-Shaw/sub2api&Date">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=Wei-Shaw/sub2api&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=Wei-Shaw/sub2api&type=Date" />
-   <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=Wei-Shaw/sub2api&type=Date" />
- </picture>
-</a>
 
 ---
 

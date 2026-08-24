@@ -10,8 +10,6 @@
 [![Redis](https://img.shields.io/badge/Redis-7+-DC382D.svg)](https://redis.io/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
 
-<a href="https://trendshift.io/repositories/21823" target="_blank"><img src="https://trendshift.io/api/badge/repositories/21823" alt="Wei-Shaw%2Fsub2api | Trendshift" width="250" height="55"/></a>
-
 **面向订阅配额分发与管理的 AI API 网关**
 
 [English](README.md) | 中文 | [日本語](README_JA.md)
@@ -42,14 +40,6 @@ Sub2API 是用于分发和管理上游 AI 服务订阅配额的 API 网关。平
 - **管理后台**：通过 Web 界面进行监控和管理。
 - **复合分组**：在多 Provider 分组中，将请求模型解析到具体的上游 Provider。
 - **外部系统集成**：通过 iframe 将工单等外部系统嵌入管理后台。
-
-## 社区项目
-
-以下社区项目可扩展 Sub2API 或与其集成：
-
-| 项目 | 说明 |
-|------|------|
-| [sub2api-mobile](https://github.com/ckken/sub2api-mobile) | 基于 Expo 和 React Native 的 iOS、Android、Web 跨平台管理控制台，支持用户与账号管理、监控看板和多后端切换。 |
 
 ## 技术栈
 
@@ -614,16 +604,6 @@ sub2api/
     ├── config.example.yaml   # 二进制部署完整配置文件
     └── install.sh            # 一键安装脚本
 ```
-
-## Star History
-
-<a href="https://star-history.dera.page/#Wei-Shaw/sub2api&Date">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=Wei-Shaw/sub2api&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=Wei-Shaw/sub2api&type=Date" />
-   <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=Wei-Shaw/sub2api&type=Date" />
- </picture>
-</a>
 
 ---
 

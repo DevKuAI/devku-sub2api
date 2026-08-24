@@ -10,8 +10,6 @@
 [![Redis](https://img.shields.io/badge/Redis-7+-DC382D.svg)](https://redis.io/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
 
-<a href="https://trendshift.io/repositories/21823" target="_blank"><img src="https://trendshift.io/api/badge/repositories/21823" alt="Wei-Shaw%2Fsub2api | Trendshift" width="250" height="55"/></a>
-
 **サブスクリプションクォータを配分・管理するAI APIゲートウェイ**
 
 [English](README.md) | [中文](README_CN.md) | 日本語
@@ -42,14 +40,6 @@ Sub2APIは、上流AIサービスのサブスクリプションクォータを�
 - **管理ダッシュボード**：監視と管理のためのWebインターフェースを提供します。
 - **複合グループ**：複数Providerのグループ内で、リクエストされたモデルを具体的な上流Providerに割り当てます。
 - **外部システム連携**：チケット管理などの外部システムをiframeで管理ダッシュボードに埋め込めます。
-
-## コミュニティプロジェクト
-
-Sub2APIを拡張、またはSub2APIと連携するコミュニティプロジェクトです。
-
-| プロジェクト | 説明 |
-|-------------|------|
-| [sub2api-mobile](https://github.com/ckken/sub2api-mobile) | ExpoとReact Nativeで構築されたiOS、Android、Web対応の管理コンソールです。ユーザー管理、アカウント管理、監視、複数バックエンドの切り替えに対応します。 |
 
 ## 技術スタック
 
@@ -571,16 +561,6 @@ sub2api/
     ├── config.example.yaml   # バイナリデプロイ用フル設定ファイル
     └── install.sh            # ワンクリックインストールスクリプト
 ```
-
-## スター履歴
-
-<a href="https://star-history.dera.page/#Wei-Shaw/sub2api&Date">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=Wei-Shaw/sub2api&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=Wei-Shaw/sub2api&type=Date" />
-   <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=Wei-Shaw/sub2api&type=Date" />
- </picture>
-</a>
 
 ---
 
