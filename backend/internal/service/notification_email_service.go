@@ -1448,10 +1448,10 @@ func notificationEmailOpsScheduledReportTemplate(locale string) string {
   <style>
     body { margin: 0; padding: 24px 12px; background: #f4f6f8; color: #1f2937; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
     .container { width: 100%; max-width: 680px; margin: 0 auto; background: #ffffff; border: 1px solid #dfe7ea; border-radius: 8px; overflow: hidden; }
-    .header { padding: 28px 32px 24px; background: #0f766e; color: #ffffff; }
-    .eyebrow { margin: 0 0 8px; color: #ccfbf1; font-size: 12px; font-weight: 700; letter-spacing: 0; text-transform: uppercase; }
+    .header { padding: 28px 32px 24px; background: #1d4ed8; color: #ffffff; }
+    .eyebrow { margin: 0 0 8px; color: #dbeafe; font-size: 12px; font-weight: 700; letter-spacing: 0; text-transform: uppercase; }
     h1 { margin: 0; font-size: 26px; line-height: 1.3; }
-    .header p { margin: 8px 0 0; color: #e6fffb; font-size: 14px; }
+    .header p { margin: 8px 0 0; color: #eff6ff; font-size: 14px; }
     .content { padding: 28px 32px 32px; }
     .meta { width: 100%; margin: 0 0 20px; border-collapse: collapse; background: #f8fafc; border: 1px solid #e2e8f0; }
     .meta td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; vertical-align: top; }
@@ -1543,10 +1543,10 @@ func notificationEmailOpsScheduledReportTemplate(locale string) string {
   <style>
     body { margin: 0; padding: 24px 12px; background: #f4f6f8; color: #1f2937; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
     .container { width: 100%; max-width: 680px; margin: 0 auto; background: #ffffff; border: 1px solid #dfe7ea; border-radius: 8px; overflow: hidden; }
-    .header { padding: 28px 32px 24px; background: #0f766e; color: #ffffff; }
-    .eyebrow { margin: 0 0 8px; color: #ccfbf1; font-size: 12px; font-weight: 700; letter-spacing: 0; text-transform: uppercase; }
+    .header { padding: 28px 32px 24px; background: #1d4ed8; color: #ffffff; }
+    .eyebrow { margin: 0 0 8px; color: #dbeafe; font-size: 12px; font-weight: 700; letter-spacing: 0; text-transform: uppercase; }
     h1 { margin: 0; font-size: 26px; line-height: 1.3; }
-    .header p { margin: 8px 0 0; color: #e6fffb; font-size: 14px; }
+    .header p { margin: 8px 0 0; color: #eff6ff; font-size: 14px; }
     .content { padding: 28px 32px 32px; }
     .meta { width: 100%; margin: 0 0 20px; border-collapse: collapse; background: #f8fafc; border: 1px solid #e2e8f0; }
     .meta td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; vertical-align: top; }

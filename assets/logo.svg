@@ -12,9 +12,9 @@
       <stop offset="1" stop-color="#3E68B0" stop-opacity="0"/>
     </radialGradient>
     <linearGradient id="s2a-brand" x1="4" y1="4" x2="20" y2="20" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#79F4BD"/>
-      <stop offset=".48" stop-color="#39D9E7"/>
-      <stop offset="1" stop-color="#3875F6"/>
+      <stop stop-color="#93C5FD"/>
+      <stop offset=".48" stop-color="#38BDF8"/>
+      <stop offset="1" stop-color="#2563EB"/>
     </linearGradient>
     <filter id="s2a-shadow" x="-25%" y="-25%" width="150%" height="165%" color-interpolation-filters="sRGB">
       <feDropShadow dx="0" dy=".55" stdDeviation=".65" flood-color="#020817" flood-opacity=".34"/>
