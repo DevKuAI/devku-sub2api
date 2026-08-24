@@ -118,6 +118,10 @@ func normalizeUserRole(role, fallback string) (string, error) {
 }
 
 func (s *adminServiceImpl) CreateUser(ctx context.Context, input *CreateUserInput) (*User, error) {
+	if input.APIKeyLimit < 0 {
+		return nil, ErrAPIKeyLimitInvalid
+	}
+
 	balance := 0.0
 	if input.Balance != nil {
 		balance = *input.Balance
@@ -139,6 +143,7 @@ func (s *adminServiceImpl) CreateUser(ctx context.Context, input *CreateUserInpu
 		Balance:       balance,
 		Concurrency:   input.Concurrency,
 		RPMLimit:      input.RPMLimit,
+		APIKeyLimit:   input.APIKeyLimit,
 		Status:        StatusActive,
 		AllowedGroups: input.AllowedGroups,
 	}
@@ -193,6 +198,10 @@ func (s *adminServiceImpl) assignDefaultSubscriptions(ctx context.Context, userI
 }
 
 func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *UpdateUserInput) (*User, error) {
+	if input.APIKeyLimit != nil && *input.APIKeyLimit < 0 {
+		return nil, ErrAPIKeyLimitInvalid
+	}
+
 	// 校验用户专属分组倍率：必须 > 0（nil 合法，表示清除专属倍率）
 	if input.GroupRates != nil {
 		for groupID, rate := range input.GroupRates {
@@ -272,6 +281,11 @@ func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *Upda
 	if input.RPMLimit != nil {
 		user.RPMLimit = *input.RPMLimit
 		fields.RPMLimit = true
+	}
+
+	if input.APIKeyLimit != nil {
+		user.APIKeyLimit = *input.APIKeyLimit
+		fields.APIKeyLimit = true
 	}
 
 	if input.AllowedGroups != nil {

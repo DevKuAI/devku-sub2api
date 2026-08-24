@@ -7,6 +7,7 @@ import KeysView from '../KeysView.vue'
 
 const {
   listKeys,
+  getCreationQuota,
   getPublicSettings,
   getDashboardApiKeysUsage,
   getAvailableGroups,
@@ -18,6 +19,7 @@ const {
   nextStep,
 } = vi.hoisted(() => ({
   listKeys: vi.fn(),
+  getCreationQuota: vi.fn(),
   getPublicSettings: vi.fn(),
   getDashboardApiKeysUsage: vi.fn(),
   getAvailableGroups: vi.fn(),
@@ -39,6 +41,9 @@ const messages: Record<string, string> = {
   'keys.allStatus': 'All Status',
   'keys.columnSettings': 'Column Settings',
   'keys.createKey': 'Create API Key',
+  'keys.creationQuota': 'API Keys {used} / {limit}',
+  'keys.creationQuotaUnlimited': '{used} API Keys, unlimited',
+  'keys.creationLimitReached': 'API key creation limit reached',
   'keys.created': 'Created',
   'keys.expiresAt': 'Expires',
   'keys.group': 'Group',
@@ -58,6 +63,7 @@ const messages: Record<string, string> = {
 vi.mock('@/api', () => ({
   keysAPI: {
     list: listKeys,
+    getCreationQuota,
     create: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
@@ -100,7 +106,13 @@ vi.mock('vue-i18n', async () => {
   return {
     ...actual,
     useI18n: () => ({
-      t: (key: string) => messages[key] ?? key,
+      t: (key: string, params?: Record<string, unknown>) => {
+        const message = messages[key] ?? key
+        return Object.entries(params ?? {}).reduce(
+          (result, [name, value]) => result.replace(`{${name}}`, String(value)),
+          message
+        )
+      },
     }),
   }
 })
@@ -261,6 +273,7 @@ describe('user KeysView column settings', () => {
     localStorage.clear()
 
     listKeys.mockReset()
+    getCreationQuota.mockReset()
     getPublicSettings.mockReset()
     getDashboardApiKeysUsage.mockReset()
     getAvailableGroups.mockReset()
@@ -277,6 +290,12 @@ describe('user KeysView column settings', () => {
       page: 1,
       page_size: 20,
       pages: 1,
+    })
+    getCreationQuota.mockResolvedValue({
+      limit: 0,
+      used: 1,
+      remaining: 0,
+      unlimited: true,
     })
     getPublicSettings.mockResolvedValue({})
     getDashboardApiKeysUsage.mockResolvedValue({ stats: {} })
@@ -303,6 +322,30 @@ describe('user KeysView column settings', () => {
     expect(visibleColumnKeys(wrapper)).not.toContain('last_used_at')
     expect(visibleColumnKeys(wrapper)).not.toContain('last_used_ip')
     expect(visibleColumnKeys(wrapper)).not.toContain('id')
+  })
+
+  it('shows creation quota and disables creation when the limit is reached', async () => {
+    getCreationQuota.mockResolvedValueOnce({
+      limit: 1,
+      used: 1,
+      remaining: 0,
+      unlimited: false,
+    })
+
+    const wrapper = await mountView()
+    const createButton = getButtonByText(wrapper, 'Create API Key')
+
+    expect(wrapper.text()).toContain('API Keys 1 / 1')
+    expect(createButton.attributes('disabled')).toBeDefined()
+    expect(createButton.attributes('title')).toBe('API key creation limit reached')
+  })
+
+  it('keeps creation enabled for an unlimited user', async () => {
+    const wrapper = await mountView()
+    const createButton = getButtonByText(wrapper, 'Create API Key')
+
+    expect(wrapper.text()).toContain('1 API Keys, unlimited')
+    expect(createButton.attributes('disabled')).toBeUndefined()
   })
 
   it('shows a hidden column when toggled and persists the preference', async () => {

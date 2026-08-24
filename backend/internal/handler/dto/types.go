@@ -33,6 +33,8 @@ type User struct {
 
 	// RPMLimit 用户级每分钟请求数上限（0 = 不限制），仅在所用分组未设置 rpm_limit 时作为兜底生效。
 	RPMLimit int `json:"rpm_limit"`
+	// APIKeyLimit is the maximum number of non-deleted API keys. Zero means unlimited.
+	APIKeyLimit int `json:"api_key_limit"`
 
 	APIKeys       []APIKey           `json:"api_keys,omitempty"`
 	Subscriptions []UserSubscription `json:"subscriptions,omitempty"`
@@ -85,6 +87,13 @@ type APIKey struct {
 
 	User  *User  `json:"user,omitempty"`
 	Group *Group `json:"group,omitempty"`
+}
+
+type APIKeyCreationQuota struct {
+	Limit     int   `json:"limit"`
+	Used      int64 `json:"used"`
+	Remaining int64 `json:"remaining"`
+	Unlimited bool  `json:"unlimited"`
 }
 
 type Group struct {

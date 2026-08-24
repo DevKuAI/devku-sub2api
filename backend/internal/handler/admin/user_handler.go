@@ -67,6 +67,7 @@ type CreateUserRequest struct {
 	Balance       *float64 `json:"balance"`
 	Concurrency   int      `json:"concurrency"`
 	RPMLimit      int      `json:"rpm_limit"`
+	APIKeyLimit   int      `json:"api_key_limit" binding:"gte=0"`
 	AllowedGroups []int64  `json:"allowed_groups"`
 }
 
@@ -81,6 +82,7 @@ type UpdateUserRequest struct {
 	Balance       *float64 `json:"balance"`
 	Concurrency   *int     `json:"concurrency"`
 	RPMLimit      *int     `json:"rpm_limit"`
+	APIKeyLimit   *int     `json:"api_key_limit" binding:"omitempty,gte=0"`
 	Status        string   `json:"status" binding:"omitempty,oneof=active disabled"`
 	AllowedGroups *[]int64 `json:"allowed_groups"`
 	// GroupRates 用户专属分组倍率配置
@@ -292,6 +294,7 @@ func (h *UserHandler) Create(c *gin.Context) {
 		Balance:       req.Balance,
 		Concurrency:   req.Concurrency,
 		RPMLimit:      req.RPMLimit,
+		APIKeyLimit:   req.APIKeyLimit,
 		AllowedGroups: req.AllowedGroups,
 		ActorAdminID:  getAdminIDFromContext(c),
 	})
@@ -350,6 +353,7 @@ func (h *UserHandler) Update(c *gin.Context) {
 		Balance:       req.Balance,
 		Concurrency:   req.Concurrency,
 		RPMLimit:      req.RPMLimit,
+		APIKeyLimit:   req.APIKeyLimit,
 		Status:        req.Status,
 		AllowedGroups: req.AllowedGroups,
 		GroupRates:    req.GroupRates,

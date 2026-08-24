@@ -32,7 +32,7 @@
       </template>
 
       <template #actions>
-        <div class="flex justify-end gap-3">
+        <div class="flex flex-wrap items-center justify-end gap-3">
           <button
             @click="loadApiKeys"
             :disabled="loading"
@@ -73,7 +73,19 @@
               </button>
             </div>
           </div>
-          <button @click="showCreateModal = true" class="btn btn-primary" data-tour="keys-create-btn">
+          <span v-if="creationQuota" class="self-center text-sm text-gray-500 dark:text-gray-400">
+            {{ creationQuota.unlimited
+              ? t('keys.creationQuotaUnlimited', { used: creationQuota.used })
+              : t('keys.creationQuota', { used: creationQuota.used, limit: creationQuota.limit })
+            }}
+          </span>
+          <button
+            @click="openCreateModal"
+            :disabled="creationLimitReached"
+            :title="creationLimitReached ? t('keys.creationLimitReached') : undefined"
+            class="btn btn-primary"
+            data-tour="keys-create-btn"
+          >
             <Icon name="plus" size="md" class="mr-2" />
             {{ t('keys.createKey') }}
           </button>
@@ -426,7 +438,7 @@
               :title="t('keys.noKeysYet')"
               :description="t('keys.createFirstKey')"
               :action-text="t('keys.createKey')"
-              @action="showCreateModal = true"
+              @action="openCreateModal"
             />
           </template>
         </DataTable>
@@ -916,7 +928,7 @@
           <button
             form="key-form"
             type="submit"
-            :disabled="submitting"
+            :disabled="submitting || (!showEditModal && creationLimitReached)"
             class="btn btn-primary"
             data-tour="key-form-submit"
           >
@@ -1140,7 +1152,7 @@ import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 	import EndpointPopover from '@/components/keys/EndpointPopover.vue'
 	import GroupBadge from '@/components/common/GroupBadge.vue'
 	import GroupOptionItem from '@/components/common/GroupOptionItem.vue'
-	import type { ApiKey, Group, PublicSettings, SubscriptionType, GroupPlatform, UpdateApiKeyRequest } from '@/types'
+	import type { APIKeyCreationQuota, ApiKey, Group, PublicSettings, SubscriptionType, GroupPlatform, UpdateApiKeyRequest } from '@/types'
 import type { Column } from '@/components/common/types'
 import type { BatchApiKeyUsageStats } from '@/api/usage'
 import { formatDateTime } from '@/utils/format'
@@ -1270,6 +1282,7 @@ const columns = computed<Column[]>(() =>
 )
 
 const apiKeys = ref<ApiKey[]>([])
+const creationQuota = ref<APIKeyCreationQuota | null>(null)
 const groups = ref<Group[]>([])
 const loading = ref(false)
 const submitting = ref(false)
@@ -1312,6 +1325,20 @@ const columnDropdownRef = ref<HTMLElement | null>(null)
 const dropdownPosition = ref<{ top?: number; bottom?: number; left: number } | null>(null)
 const groupButtonRefs = ref<Map<number, HTMLElement>>(new Map())
 let abortController: AbortController | null = null
+
+const creationLimitReached = computed(() =>
+  creationQuota.value !== null &&
+  !creationQuota.value.unlimited &&
+  creationQuota.value.remaining <= 0
+)
+
+const openCreateModal = () => {
+  if (creationLimitReached.value) {
+    appStore.showError(t('keys.creationLimitReached'))
+    return
+  }
+  showCreateModal.value = true
+}
 
 // Get the currently selected key for group change
 const selectedKeyForGroup = computed(() => {
@@ -1502,6 +1529,14 @@ const loadApiKeys = async () => {
     if (abortController === controller) {
       loading.value = false
     }
+  }
+}
+
+const loadCreationQuota = async () => {
+  try {
+    creationQuota.value = await keysAPI.getCreationQuota()
+  } catch (error) {
+    console.error('Failed to load API key creation quota:', error)
   }
 }
 
@@ -1753,10 +1788,15 @@ const handleSubmit = async () => {
       }
     }
     closeModals()
-    loadApiKeys()
+    await Promise.all([loadApiKeys(), loadCreationQuota()])
   } catch (error: any) {
-    const errorMsg = error.response?.data?.detail || t('keys.failedToSave')
-    appStore.showError(errorMsg)
+    if (error?.reason === 'API_KEY_LIMIT_REACHED') {
+      await loadCreationQuota()
+      appStore.showError(t('keys.creationLimitReached'))
+    } else {
+      const errorMsg = error?.message || error.response?.data?.detail || t('keys.failedToSave')
+      appStore.showError(errorMsg)
+    }
     // Don't advance tour on error
   } finally {
     submitting.value = false
@@ -1775,7 +1815,7 @@ const handleDelete = async () => {
     await keysAPI.delete(selectedKey.value.id)
     appStore.showSuccess(t('keys.keyDeletedSuccess'))
     showDeleteDialog.value = false
-    loadApiKeys()
+    await Promise.all([loadApiKeys(), loadCreationQuota()])
   } catch (error: any) {
     // 优先使用后端返回的错误消息，提供更具体的错误信息给用户
     const errorMsg = error?.message || t('keys.failedToDelete')
@@ -1956,6 +1996,7 @@ function formatResetTime(resetAt: string | null): string {
 onMounted(() => {
   loadSavedColumns()
   loadApiKeys()
+  loadCreationQuota()
   loadGroups()
   loadUserGroupRates()
   loadPublicSettings()

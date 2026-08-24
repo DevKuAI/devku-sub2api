@@ -89,6 +89,7 @@ export interface User {
   frozen_balance?: number // Balance currently held by async batch jobs
   concurrency: number // Allowed concurrent requests
   rpm_limit?: number // User-level RPM cap (0 = unlimited); effective as fallback when group has no rpm_limit
+  api_key_limit: number // Maximum number of non-deleted API keys (0 = unlimited)
   status: 'active' | 'disabled' // Account status
   allowed_groups: number[] | null // Allowed group IDs (null = all non-exclusive groups)
   balance_notify_enabled: boolean
@@ -730,6 +731,13 @@ export interface ApiKey {
   reset_5h_at: string | null
   reset_1d_at: string | null
   reset_7d_at: string | null
+}
+
+export interface APIKeyCreationQuota {
+  limit: number
+  used: number
+  remaining: number
+  unlimited: boolean
 }
 
 export interface CreateApiKeyRequest {

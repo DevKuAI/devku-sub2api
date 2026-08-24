@@ -579,7 +579,11 @@ export default {
         selectStatus: '选择状态',
         rpmLimit: '每分钟请求数 (RPM)',
         rpmLimitPlaceholder: '0 表示不限制',
-        rpmLimitHint: '该用户每分钟最大请求数，0 = 不限制；仅在所用分组未设置 rpm_limit 时作为兜底生效'
+        rpmLimitHint: '该用户每分钟最大请求数，0 = 不限制；仅在所用分组未设置 rpm_limit 时作为兜底生效',
+        apiKeyLimit: 'API 密钥数量上限',
+        apiKeyLimitPlaceholder: '0 表示不限制',
+        apiKeyLimitHint: '该用户最多可拥有的未删除 API 密钥数量，删除后会释放名额；0 = 不限制',
+        apiKeyLimitInvalid: 'API 密钥数量上限必须是非负整数'
       },
       adjustBalance: '调整余额',
       adjustConcurrency: '调整并发数',

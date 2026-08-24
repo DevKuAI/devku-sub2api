@@ -514,7 +514,11 @@ export default {
         selectStatus: 'Select status',
         rpmLimit: 'Requests Per Minute (RPM)',
         rpmLimitPlaceholder: '0 = unlimited',
-        rpmLimitHint: 'Max requests per minute for this user; 0 = unlimited. Acts as a fallback only when the group has no rpm_limit set.'
+        rpmLimitHint: 'Max requests per minute for this user; 0 = unlimited. Acts as a fallback only when the group has no rpm_limit set.',
+        apiKeyLimit: 'API Key Limit',
+        apiKeyLimitPlaceholder: '0 = unlimited',
+        apiKeyLimitHint: 'Maximum number of non-deleted API keys this user may own. Deleting a key releases a slot; 0 = unlimited.',
+        apiKeyLimitInvalid: 'API key limit must be a non-negative integer'
       },
       columns: {
         user: 'User',

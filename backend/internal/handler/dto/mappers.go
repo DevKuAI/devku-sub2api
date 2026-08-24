@@ -31,7 +31,20 @@ func UserFromServiceShallow(u *service.User) *User {
 		BalanceNotifyExtraEmails:   NotifyEmailEntriesFromService(u.BalanceNotifyExtraEmails),
 		TotalRecharged:             u.TotalRecharged,
 		RPMLimit:                   u.RPMLimit,
+		APIKeyLimit:                u.APIKeyLimit,
 		DeletedAt:                  u.DeletedAt,
+	}
+}
+
+func APIKeyCreationQuotaFromService(quota *service.APIKeyCreationQuota) *APIKeyCreationQuota {
+	if quota == nil {
+		return nil
+	}
+	return &APIKeyCreationQuota{
+		Limit:     quota.Limit,
+		Used:      quota.Used,
+		Remaining: quota.Remaining,
+		Unlimited: quota.Unlimited,
 	}
 }
 

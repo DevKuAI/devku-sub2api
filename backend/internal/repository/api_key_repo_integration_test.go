@@ -4,6 +4,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -52,6 +53,21 @@ func (s *APIKeyRepoSuite) TestCreate() {
 	got, err := s.repo.GetByID(s.ctx, key.ID)
 	s.Require().NoError(err, "GetByID")
 	s.Require().Equal("sk-create-test", got.Key)
+}
+
+func (s *APIKeyRepoSuite) TestCreateWithinUserLimitRejectsAtLimitAndReleasesAfterDelete() {
+	owner := s.mustCreateUser("create-limit@test.com")
+	s.Require().NoError(s.client.User.UpdateOneID(owner.ID).SetAPIKeyLimit(1).Exec(s.ctx))
+
+	first := &service.APIKey{UserID: owner.ID, Key: "sk-limit-first", Name: "First", Status: service.StatusActive}
+	s.Require().NoError(s.repo.CreateWithinUserLimit(s.ctx, first))
+
+	second := &service.APIKey{UserID: owner.ID, Key: "sk-limit-second", Name: "Second", Status: service.StatusActive}
+	err := s.repo.CreateWithinUserLimit(s.ctx, second)
+	s.Require().ErrorIs(err, service.ErrAPIKeyLimitReached)
+
+	s.Require().NoError(s.repo.Delete(s.ctx, first.ID))
+	s.Require().NoError(s.repo.CreateWithinUserLimit(s.ctx, second))
 }
 
 func (s *APIKeyRepoSuite) TestGetByID_NotFound() {
@@ -554,6 +570,61 @@ func TestIncrementQuotaUsed_Concurrent(t *testing.T) {
 	require.NoError(t, err, "GetByID")
 	require.Equal(t, float64(goroutines)*increment, got.QuotaUsed,
 		"并发递增后总和应为 %v，实际为 %v", float64(goroutines)*increment, got.QuotaUsed)
+}
+
+func TestCreateWithinUserLimitConcurrentDoesNotExceedLimit(t *testing.T) {
+	client := testEntClient(t)
+	repo := NewAPIKeyRepository(client, integrationDB).(*apiKeyRepository)
+	ctx := context.Background()
+	unique := time.Now().Format("20060102150405.000000000")
+
+	owner, err := client.User.Create().
+		SetEmail("concurrent-key-limit-" + unique + "@test.com").
+		SetPasswordHash("hash").
+		SetStatus(service.StatusActive).
+		SetRole(service.RoleUser).
+		SetAPIKeyLimit(1).
+		Save(ctx)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM api_keys WHERE user_id = $1", owner.ID)
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM users WHERE id = $1", owner.ID)
+	})
+
+	start := make(chan struct{})
+	errs := make(chan error, 2)
+	for i := 0; i < 2; i++ {
+		i := i
+		go func() {
+			<-start
+			errs <- repo.CreateWithinUserLimit(ctx, &service.APIKey{
+				UserID: owner.ID,
+				Key:    "sk-concurrent-limit-" + unique + "-" + string(rune('a'+i)),
+				Name:   "Concurrent",
+				Status: service.StatusActive,
+			})
+		}()
+	}
+	close(start)
+
+	var created, rejected int
+	for i := 0; i < 2; i++ {
+		err := <-errs
+		switch {
+		case err == nil:
+			created++
+		case errors.Is(err, service.ErrAPIKeyLimitReached):
+			rejected++
+		default:
+			require.NoError(t, err)
+		}
+	}
+	require.Equal(t, 1, created)
+	require.Equal(t, 1, rejected)
+
+	count, err := repo.CountByUserID(ctx, owner.ID)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), count)
 }
 
 func (s *APIKeyRepoSuite) TestDeleteWithAudit_TombstonesWithoutRetainingCredential() {

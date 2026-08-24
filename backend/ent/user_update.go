@@ -432,6 +432,27 @@ func (_u *UserUpdate) AddRpmLimit(v int) *UserUpdate {
 	return _u
 }
 
+// SetAPIKeyLimit sets the "api_key_limit" field.
+func (_u *UserUpdate) SetAPIKeyLimit(v int) *UserUpdate {
+	_u.mutation.ResetAPIKeyLimit()
+	_u.mutation.SetAPIKeyLimit(v)
+	return _u
+}
+
+// SetNillableAPIKeyLimit sets the "api_key_limit" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableAPIKeyLimit(v *int) *UserUpdate {
+	if v != nil {
+		_u.SetAPIKeyLimit(*v)
+	}
+	return _u
+}
+
+// AddAPIKeyLimit adds value to the "api_key_limit" field.
+func (_u *UserUpdate) AddAPIKeyLimit(v int) *UserUpdate {
+	_u.mutation.AddAPIKeyLimit(v)
+	return _u
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by IDs.
 func (_u *UserUpdate) AddAPIKeyIDs(ids ...int64) *UserUpdate {
 	_u.mutation.AddAPIKeyIDs(ids...)
@@ -979,6 +1000,11 @@ func (_u *UserUpdate) check() error {
 			return &ValidationError{Name: "signup_source", err: fmt.Errorf(`ent: validator failed for field "User.signup_source": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.APIKeyLimit(); ok {
+		if err := user.APIKeyLimitValidator(v); err != nil {
+			return &ValidationError{Name: "api_key_limit", err: fmt.Errorf(`ent: validator failed for field "User.api_key_limit": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -1098,6 +1124,12 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.AddedRpmLimit(); ok {
 		_spec.AddField(user.FieldRpmLimit, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.APIKeyLimit(); ok {
+		_spec.SetField(user.FieldAPIKeyLimit, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedAPIKeyLimit(); ok {
+		_spec.AddField(user.FieldAPIKeyLimit, field.TypeInt, value)
 	}
 	if _u.mutation.APIKeysCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -2108,6 +2140,27 @@ func (_u *UserUpdateOne) AddRpmLimit(v int) *UserUpdateOne {
 	return _u
 }
 
+// SetAPIKeyLimit sets the "api_key_limit" field.
+func (_u *UserUpdateOne) SetAPIKeyLimit(v int) *UserUpdateOne {
+	_u.mutation.ResetAPIKeyLimit()
+	_u.mutation.SetAPIKeyLimit(v)
+	return _u
+}
+
+// SetNillableAPIKeyLimit sets the "api_key_limit" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableAPIKeyLimit(v *int) *UserUpdateOne {
+	if v != nil {
+		_u.SetAPIKeyLimit(*v)
+	}
+	return _u
+}
+
+// AddAPIKeyLimit adds value to the "api_key_limit" field.
+func (_u *UserUpdateOne) AddAPIKeyLimit(v int) *UserUpdateOne {
+	_u.mutation.AddAPIKeyLimit(v)
+	return _u
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by IDs.
 func (_u *UserUpdateOne) AddAPIKeyIDs(ids ...int64) *UserUpdateOne {
 	_u.mutation.AddAPIKeyIDs(ids...)
@@ -2668,6 +2721,11 @@ func (_u *UserUpdateOne) check() error {
 			return &ValidationError{Name: "signup_source", err: fmt.Errorf(`ent: validator failed for field "User.signup_source": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.APIKeyLimit(); ok {
+		if err := user.APIKeyLimitValidator(v); err != nil {
+			return &ValidationError{Name: "api_key_limit", err: fmt.Errorf(`ent: validator failed for field "User.api_key_limit": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -2804,6 +2862,12 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 	}
 	if value, ok := _u.mutation.AddedRpmLimit(); ok {
 		_spec.AddField(user.FieldRpmLimit, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.APIKeyLimit(); ok {
+		_spec.SetField(user.FieldAPIKeyLimit, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedAPIKeyLimit(); ok {
+		_spec.AddField(user.FieldAPIKeyLimit, field.TypeInt, value)
 	}
 	if _u.mutation.APIKeysCleared() {
 		edge := &sqlgraph.EdgeSpec{

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 	"time"
 
@@ -43,7 +44,56 @@ func (r *apiKeyRepository) activeQuery() *dbent.APIKeyQuery {
 }
 
 func (r *apiKeyRepository) Create(ctx context.Context, key *service.APIKey) error {
-	builder := r.client.APIKey.Create().
+	return r.createWithClient(ctx, clientFromContext(ctx, r.client), key)
+}
+
+func (r *apiKeyRepository) CreateWithinUserLimit(ctx context.Context, key *service.APIKey) error {
+	if existingTx := dbent.TxFromContext(ctx); existingTx != nil {
+		return r.createWithinUserLimit(ctx, existingTx.Client(), key)
+	}
+
+	tx, err := r.client.Tx(ctx)
+	if err != nil && !errors.Is(err, dbent.ErrTxStarted) {
+		return err
+	}
+	if errors.Is(err, dbent.ErrTxStarted) {
+		return r.createWithinUserLimit(ctx, clientFromContext(ctx, r.client), key)
+	}
+
+	defer func() { _ = tx.Rollback() }()
+	txCtx := dbent.NewTxContext(ctx, tx)
+	if err := r.createWithinUserLimit(txCtx, tx.Client(), key); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (r *apiKeyRepository) createWithinUserLimit(ctx context.Context, client *dbent.Client, key *service.APIKey) error {
+	owner, err := client.User.Query().
+		Where(user.IDEQ(key.UserID), user.DeletedAtIsNil()).
+		ForUpdate().
+		Only(ctx)
+	if err != nil {
+		return translatePersistenceError(err, service.ErrUserNotFound, nil)
+	}
+
+	count, err := client.APIKey.Query().
+		Where(apikey.UserIDEQ(key.UserID), apikey.DeletedAtIsNil()).
+		Count(ctx)
+	if err != nil {
+		return err
+	}
+	if owner.APIKeyLimit > 0 && count >= owner.APIKeyLimit {
+		return service.ErrAPIKeyLimitReached.WithMetadata(map[string]string{
+			"limit":   strconv.Itoa(owner.APIKeyLimit),
+			"current": strconv.Itoa(count),
+		})
+	}
+	return r.createWithClient(ctx, client, key)
+}
+
+func (r *apiKeyRepository) createWithClient(ctx context.Context, client *dbent.Client, key *service.APIKey) error {
+	builder := client.APIKey.Create().
 		SetUserID(key.UserID).
 		SetKey(key.Key).
 		SetName(key.Name).
@@ -935,6 +985,7 @@ func userEntityToService(u *dbent.User) *service.User {
 		BalanceNotifyThreshold:     u.BalanceNotifyThreshold,
 		TotalRecharged:             u.TotalRecharged,
 		RPMLimit:                   u.RpmLimit,
+		APIKeyLimit:                u.APIKeyLimit,
 		CreatedAt:                  u.CreatedAt,
 		UpdatedAt:                  u.UpdatedAt,
 		DeletedAt:                  u.DeletedAt,

@@ -21,6 +21,7 @@ func TestUserFromServiceAdmin_MapsActivityTimestamps(t *testing.T) {
 		Username:     "admin",
 		Role:         service.RoleAdmin,
 		Status:       service.StatusActive,
+		APIKeyLimit:  6,
 		LastActiveAt: &lastActiveAt,
 		LastUsedAt:   &lastUsedAt,
 	})
@@ -28,6 +29,7 @@ func TestUserFromServiceAdmin_MapsActivityTimestamps(t *testing.T) {
 	require.NotNil(t, out)
 	require.NotNil(t, out.LastActiveAt)
 	require.NotNil(t, out.LastUsedAt)
+	require.Equal(t, 6, out.APIKeyLimit)
 	require.WithinDuration(t, lastActiveAt, *out.LastActiveAt, time.Second)
 	require.WithinDuration(t, lastUsedAt, *out.LastUsedAt, time.Second)
 }

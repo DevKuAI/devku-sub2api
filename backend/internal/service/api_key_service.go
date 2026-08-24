@@ -24,14 +24,20 @@ import (
 )
 
 var (
-	ErrAPIKeyNotFound       = infraerrors.NotFound("API_KEY_NOT_FOUND", "api key not found")
-	ErrGroupNotAllowed      = infraerrors.Forbidden("GROUP_NOT_ALLOWED", "user is not allowed to bind this group")
-	ErrAPIKeyExists         = infraerrors.Conflict("API_KEY_EXISTS", "api key already exists")
-	ErrAPIKeyTooShort       = infraerrors.BadRequest("API_KEY_TOO_SHORT", "api key must be at least 16 characters")
-	ErrAPIKeyInvalidChars   = infraerrors.BadRequest("API_KEY_INVALID_CHARS", "api key can only contain letters, numbers, underscores, and hyphens")
-	ErrAPIKeyRateLimited    = infraerrors.TooManyRequests("API_KEY_RATE_LIMITED", "too many failed attempts, please try again later")
-	ErrAPIKeyAuthOverloaded = infraerrors.ServiceUnavailable("API_KEY_AUTH_OVERLOADED", "api key authentication is temporarily overloaded")
-	ErrInvalidIPPattern     = infraerrors.BadRequest("INVALID_IP_PATTERN", "invalid IP or CIDR pattern")
+	ErrAPIKeyNotFound                    = infraerrors.NotFound("API_KEY_NOT_FOUND", "api key not found")
+	ErrGroupNotAllowed                   = infraerrors.Forbidden("GROUP_NOT_ALLOWED", "user is not allowed to bind this group")
+	ErrAPIKeyExists                      = infraerrors.Conflict("API_KEY_EXISTS", "api key already exists")
+	ErrAPIKeyTooShort                    = infraerrors.BadRequest("API_KEY_TOO_SHORT", "api key must be at least 16 characters")
+	ErrAPIKeyInvalidChars                = infraerrors.BadRequest("API_KEY_INVALID_CHARS", "api key can only contain letters, numbers, underscores, and hyphens")
+	ErrAPIKeyRateLimited                 = infraerrors.TooManyRequests("API_KEY_RATE_LIMITED", "too many failed attempts, please try again later")
+	ErrAPIKeyAuthOverloaded              = infraerrors.ServiceUnavailable("API_KEY_AUTH_OVERLOADED", "api key authentication is temporarily overloaded")
+	ErrInvalidIPPattern                  = infraerrors.BadRequest("INVALID_IP_PATTERN", "invalid IP or CIDR pattern")
+	ErrAPIKeyLimitInvalid                = infraerrors.BadRequest("API_KEY_LIMIT_INVALID", "api key creation limit must be non-negative")
+	ErrAPIKeyLimitReached                = infraerrors.Conflict("API_KEY_LIMIT_REACHED", "api key creation limit reached")
+	ErrAPIKeyLimitEnforcementUnavailable = infraerrors.ServiceUnavailable(
+		"API_KEY_LIMIT_ENFORCEMENT_UNAVAILABLE",
+		"api key creation limit cannot be enforced",
+	)
 	// ErrAPIKeyExpired        = infraerrors.Forbidden("API_KEY_EXPIRED", "api key has expired")
 	ErrAPIKeyExpired = infraerrors.Forbidden("API_KEY_EXPIRED", "api key 已过期")
 	// ErrAPIKeyQuotaExhausted = infraerrors.TooManyRequests("API_KEY_QUOTA_EXHAUSTED", "api key quota exhausted")
@@ -121,6 +127,11 @@ type APIKeyRepository interface {
 	GetRateLimitData(ctx context.Context, id int64) (*APIKeyRateLimitData, error)
 }
 
+// APIKeyCreationLimitRepository atomically enforces the owner's current key limit while creating a key.
+type APIKeyCreationLimitRepository interface {
+	CreateWithinUserLimit(ctx context.Context, key *APIKey) error
+}
+
 type apiKeyAllByUserIDLister interface {
 	ListAllByUserID(ctx context.Context, userID int64, filters APIKeyListFilters) ([]APIKey, error)
 }
@@ -166,6 +177,13 @@ type APIKeyQuotaUsageState struct {
 	Quota     float64
 	Key       string
 	Status    string
+}
+
+type APIKeyCreationQuota struct {
+	Limit     int
+	Used      int64
+	Remaining int64
+	Unlimited bool
 }
 
 // APIKeyCache defines cache operations for API key service
@@ -552,7 +570,14 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 		apiKey.ExpiresAt = &expiresAt
 	}
 
-	if err := s.apiKeyRepo.Create(ctx, apiKey); err != nil {
+	if repo, ok := s.apiKeyRepo.(APIKeyCreationLimitRepository); ok {
+		err = repo.CreateWithinUserLimit(ctx, apiKey)
+	} else if user.APIKeyLimit > 0 {
+		err = ErrAPIKeyLimitEnforcementUnavailable
+	} else {
+		err = s.apiKeyRepo.Create(ctx, apiKey)
+	}
+	if err != nil {
 		return nil, fmt.Errorf("create api key: %w", err)
 	}
 
@@ -560,6 +585,30 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 	s.compileAPIKeyIPRules(apiKey)
 
 	return apiKey, nil
+}
+
+func (s *APIKeyService) GetCreationQuota(ctx context.Context, userID int64) (*APIKeyCreationQuota, error) {
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get user: %w", err)
+	}
+	used, err := s.apiKeyRepo.CountByUserID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("count api keys: %w", err)
+	}
+
+	quota := &APIKeyCreationQuota{
+		Limit:     user.APIKeyLimit,
+		Used:      used,
+		Unlimited: user.APIKeyLimit == 0,
+	}
+	if !quota.Unlimited {
+		quota.Remaining = int64(user.APIKeyLimit) - used
+		if quota.Remaining < 0 {
+			quota.Remaining = 0
+		}
+	}
+	return quota, nil
 }
 
 // List 获取用户的API Key列表

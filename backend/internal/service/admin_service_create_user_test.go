@@ -23,6 +23,7 @@ func TestAdminService_CreateUser_Success(t *testing.T) {
 		Notes:         "note",
 		Balance:       &balance,
 		Concurrency:   7,
+		APIKeyLimit:   4,
 		AllowedGroups: []int64{3, 5},
 	}
 
@@ -35,6 +36,7 @@ func TestAdminService_CreateUser_Success(t *testing.T) {
 	require.Equal(t, input.Notes, user.Notes)
 	require.Equal(t, balance, user.Balance)
 	require.Equal(t, input.Concurrency, user.Concurrency)
+	require.Equal(t, input.APIKeyLimit, user.APIKeyLimit)
 	require.Equal(t, input.AllowedGroups, user.AllowedGroups)
 	require.Equal(t, RoleUser, user.Role)
 	require.Equal(t, StatusActive, user.Status)

@@ -175,6 +175,11 @@ func RpmLimit(v int) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldRpmLimit, v))
 }
 
+// APIKeyLimit applies equality check predicate on the "api_key_limit" field. It's identical to APIKeyLimitEQ.
+func APIKeyLimit(v int) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldAPIKeyLimit, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldCreatedAt, v))
@@ -1383,6 +1388,46 @@ func RpmLimitLT(v int) predicate.User {
 // RpmLimitLTE applies the LTE predicate on the "rpm_limit" field.
 func RpmLimitLTE(v int) predicate.User {
 	return predicate.User(sql.FieldLTE(FieldRpmLimit, v))
+}
+
+// APIKeyLimitEQ applies the EQ predicate on the "api_key_limit" field.
+func APIKeyLimitEQ(v int) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldAPIKeyLimit, v))
+}
+
+// APIKeyLimitNEQ applies the NEQ predicate on the "api_key_limit" field.
+func APIKeyLimitNEQ(v int) predicate.User {
+	return predicate.User(sql.FieldNEQ(FieldAPIKeyLimit, v))
+}
+
+// APIKeyLimitIn applies the In predicate on the "api_key_limit" field.
+func APIKeyLimitIn(vs ...int) predicate.User {
+	return predicate.User(sql.FieldIn(FieldAPIKeyLimit, vs...))
+}
+
+// APIKeyLimitNotIn applies the NotIn predicate on the "api_key_limit" field.
+func APIKeyLimitNotIn(vs ...int) predicate.User {
+	return predicate.User(sql.FieldNotIn(FieldAPIKeyLimit, vs...))
+}
+
+// APIKeyLimitGT applies the GT predicate on the "api_key_limit" field.
+func APIKeyLimitGT(v int) predicate.User {
+	return predicate.User(sql.FieldGT(FieldAPIKeyLimit, v))
+}
+
+// APIKeyLimitGTE applies the GTE predicate on the "api_key_limit" field.
+func APIKeyLimitGTE(v int) predicate.User {
+	return predicate.User(sql.FieldGTE(FieldAPIKeyLimit, v))
+}
+
+// APIKeyLimitLT applies the LT predicate on the "api_key_limit" field.
+func APIKeyLimitLT(v int) predicate.User {
+	return predicate.User(sql.FieldLT(FieldAPIKeyLimit, v))
+}
+
+// APIKeyLimitLTE applies the LTE predicate on the "api_key_limit" field.
+func APIKeyLimitLTE(v int) predicate.User {
+	return predicate.User(sql.FieldLTE(FieldAPIKeyLimit, v))
 }
 
 // HasAPIKeys applies the HasEdge predicate on the "api_keys" edge.

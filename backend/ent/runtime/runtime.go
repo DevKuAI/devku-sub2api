@@ -2237,6 +2237,12 @@ func init() {
 	userDescRpmLimit := userFields[20].Descriptor()
 	// user.DefaultRpmLimit holds the default value on creation for the rpm_limit field.
 	user.DefaultRpmLimit = userDescRpmLimit.Default.(int)
+	// userDescAPIKeyLimit is the schema descriptor for api_key_limit field.
+	userDescAPIKeyLimit := userFields[21].Descriptor()
+	// user.DefaultAPIKeyLimit holds the default value on creation for the api_key_limit field.
+	user.DefaultAPIKeyLimit = userDescAPIKeyLimit.Default.(int)
+	// user.APIKeyLimitValidator is a validator for the "api_key_limit" field. It is called by the builders before save.
+	user.APIKeyLimitValidator = userDescAPIKeyLimit.Validators[0].(func(int) error)
 	userallowedgroupFields := schema.UserAllowedGroup{}.Fields()
 	_ = userallowedgroupFields
 	// userallowedgroupDescCreatedAt is the schema descriptor for created_at field.

@@ -115,6 +115,10 @@ func (User) Fields() []ent.Field {
 		// 用户级每分钟请求数上限（0 = 不限制）。仅当所在分组未设置 rpm_limit 时作为兜底生效。
 		field.Int("rpm_limit").
 			Default(0),
+		// Maximum number of active API key records the user may own. Zero means unlimited.
+		field.Int("api_key_limit").
+			NonNegative().
+			Default(0),
 	}
 }
 

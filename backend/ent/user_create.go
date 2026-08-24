@@ -354,6 +354,20 @@ func (_c *UserCreate) SetNillableRpmLimit(v *int) *UserCreate {
 	return _c
 }
 
+// SetAPIKeyLimit sets the "api_key_limit" field.
+func (_c *UserCreate) SetAPIKeyLimit(v int) *UserCreate {
+	_c.mutation.SetAPIKeyLimit(v)
+	return _c
+}
+
+// SetNillableAPIKeyLimit sets the "api_key_limit" field if the given value is not nil.
+func (_c *UserCreate) SetNillableAPIKeyLimit(v *int) *UserCreate {
+	if v != nil {
+		_c.SetAPIKeyLimit(*v)
+	}
+	return _c
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by IDs.
 func (_c *UserCreate) AddAPIKeyIDs(ids ...int64) *UserCreate {
 	_c.mutation.AddAPIKeyIDs(ids...)
@@ -656,6 +670,10 @@ func (_c *UserCreate) defaults() error {
 		v := user.DefaultRpmLimit
 		_c.mutation.SetRpmLimit(v)
 	}
+	if _, ok := _c.mutation.APIKeyLimit(); !ok {
+		v := user.DefaultAPIKeyLimit
+		_c.mutation.SetAPIKeyLimit(v)
+	}
 	return nil
 }
 
@@ -744,6 +762,14 @@ func (_c *UserCreate) check() error {
 	}
 	if _, ok := _c.mutation.RpmLimit(); !ok {
 		return &ValidationError{Name: "rpm_limit", err: errors.New(`ent: missing required field "User.rpm_limit"`)}
+	}
+	if _, ok := _c.mutation.APIKeyLimit(); !ok {
+		return &ValidationError{Name: "api_key_limit", err: errors.New(`ent: missing required field "User.api_key_limit"`)}
+	}
+	if v, ok := _c.mutation.APIKeyLimit(); ok {
+		if err := user.APIKeyLimitValidator(v); err != nil {
+			return &ValidationError{Name: "api_key_limit", err: fmt.Errorf(`ent: validator failed for field "User.api_key_limit": %w`, err)}
+		}
 	}
 	return nil
 }
@@ -867,6 +893,10 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.RpmLimit(); ok {
 		_spec.SetField(user.FieldRpmLimit, field.TypeInt, value)
 		_node.RpmLimit = value
+	}
+	if value, ok := _c.mutation.APIKeyLimit(); ok {
+		_spec.SetField(user.FieldAPIKeyLimit, field.TypeInt, value)
+		_node.APIKeyLimit = value
 	}
 	if nodes := _c.mutation.APIKeysIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -1480,6 +1510,24 @@ func (u *UserUpsert) AddRpmLimit(v int) *UserUpsert {
 	return u
 }
 
+// SetAPIKeyLimit sets the "api_key_limit" field.
+func (u *UserUpsert) SetAPIKeyLimit(v int) *UserUpsert {
+	u.Set(user.FieldAPIKeyLimit, v)
+	return u
+}
+
+// UpdateAPIKeyLimit sets the "api_key_limit" field to the value that was provided on create.
+func (u *UserUpsert) UpdateAPIKeyLimit() *UserUpsert {
+	u.SetExcluded(user.FieldAPIKeyLimit)
+	return u
+}
+
+// AddAPIKeyLimit adds v to the "api_key_limit" field.
+func (u *UserUpsert) AddAPIKeyLimit(v int) *UserUpsert {
+	u.Add(user.FieldAPIKeyLimit, v)
+	return u
+}
+
 // UpdateNewValues updates the mutable fields using the new values that were set on create.
 // Using this option is equivalent to using:
 //
@@ -1928,6 +1976,27 @@ func (u *UserUpsertOne) AddRpmLimit(v int) *UserUpsertOne {
 func (u *UserUpsertOne) UpdateRpmLimit() *UserUpsertOne {
 	return u.Update(func(s *UserUpsert) {
 		s.UpdateRpmLimit()
+	})
+}
+
+// SetAPIKeyLimit sets the "api_key_limit" field.
+func (u *UserUpsertOne) SetAPIKeyLimit(v int) *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.SetAPIKeyLimit(v)
+	})
+}
+
+// AddAPIKeyLimit adds v to the "api_key_limit" field.
+func (u *UserUpsertOne) AddAPIKeyLimit(v int) *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.AddAPIKeyLimit(v)
+	})
+}
+
+// UpdateAPIKeyLimit sets the "api_key_limit" field to the value that was provided on create.
+func (u *UserUpsertOne) UpdateAPIKeyLimit() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateAPIKeyLimit()
 	})
 }
 
@@ -2545,6 +2614,27 @@ func (u *UserUpsertBulk) AddRpmLimit(v int) *UserUpsertBulk {
 func (u *UserUpsertBulk) UpdateRpmLimit() *UserUpsertBulk {
 	return u.Update(func(s *UserUpsert) {
 		s.UpdateRpmLimit()
+	})
+}
+
+// SetAPIKeyLimit sets the "api_key_limit" field.
+func (u *UserUpsertBulk) SetAPIKeyLimit(v int) *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.SetAPIKeyLimit(v)
+	})
+}
+
+// AddAPIKeyLimit adds v to the "api_key_limit" field.
+func (u *UserUpsertBulk) AddAPIKeyLimit(v int) *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.AddAPIKeyLimit(v)
+	})
+}
+
+// UpdateAPIKeyLimit sets the "api_key_limit" field to the value that was provided on create.
+func (u *UserUpsertBulk) UpdateAPIKeyLimit() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateAPIKeyLimit()
 	})
 }
 

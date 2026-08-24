@@ -4,7 +4,7 @@
  */
 
 import { apiClient } from './client'
-import type { ApiKey, CreateApiKeyRequest, UpdateApiKeyRequest, PaginatedResponse } from '@/types'
+import type { APIKeyCreationQuota, ApiKey, CreateApiKeyRequest, UpdateApiKeyRequest, PaginatedResponse } from '@/types'
 
 /**
  * List all API keys for current user
@@ -42,6 +42,11 @@ export async function list(
  */
 export async function getById(id: number): Promise<ApiKey> {
   const { data } = await apiClient.get<ApiKey>(`/keys/${id}`)
+  return data
+}
+
+export async function getCreationQuota(): Promise<APIKeyCreationQuota> {
+  const { data } = await apiClient.get<APIKeyCreationQuota>('/keys/quota')
   return data
 }
 
@@ -133,6 +138,7 @@ export async function toggleStatus(id: number, status: 'active' | 'inactive'): P
 
 export const keysAPI = {
   list,
+  getCreationQuota,
   getById,
   create,
   update,
