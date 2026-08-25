@@ -1,0 +1,3 @@
+interface:
+  display_name: "Sync Upstream Release"
+  short_description: "Sync the sub2api fork and verify matching releases"
