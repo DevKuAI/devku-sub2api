@@ -14,6 +14,8 @@
 
 English | [中文](README_CN.md) | [日本語](README_JA.md)
 
+[Upstream repository](https://github.com/Wei-Shaw/sub2api)
+
 </div>
 
 ## Important Notice

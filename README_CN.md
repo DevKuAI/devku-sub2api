@@ -14,6 +14,8 @@
 
 [English](README.md) | 中文 | [日本語](README_JA.md)
 
+[上游仓库](https://github.com/Wei-Shaw/sub2api)
+
 </div>
 
 ## 重要提醒

@@ -14,6 +14,8 @@
 
 [English](README.md) | [中文](README_CN.md) | 日本語
 
+[アップストリームリポジトリ](https://github.com/Wei-Shaw/sub2api)
+
 </div>
 
 ## 重要なお知らせ
