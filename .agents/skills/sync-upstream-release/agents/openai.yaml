@@ -1,3 +1,3 @@
 interface:
   display_name: "Sync Upstream Release"
-  short_description: "Sync the sub2api fork and verify matching releases"
+  short_description: "Preserve DevKu behavior while syncing and releasing sub2api"
