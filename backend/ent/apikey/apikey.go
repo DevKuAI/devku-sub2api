@@ -67,6 +67,8 @@ const (
 	EdgeGroup = "group"
 	// EdgeUsageLogs holds the string denoting the usage_logs edge name in mutations.
 	EdgeUsageLogs = "usage_logs"
+	// EdgeDesktopMemberAssignment holds the string denoting the desktop_member_assignment edge name in mutations.
+	EdgeDesktopMemberAssignment = "desktop_member_assignment"
 	// Table holds the table name of the apikey in the database.
 	Table = "api_keys"
 	// UserTable is the table that holds the user relation/edge.
@@ -90,6 +92,13 @@ const (
 	UsageLogsInverseTable = "usage_logs"
 	// UsageLogsColumn is the table column denoting the usage_logs relation/edge.
 	UsageLogsColumn = "api_key_id"
+	// DesktopMemberAssignmentTable is the table that holds the desktop_member_assignment relation/edge.
+	DesktopMemberAssignmentTable = "desktop_member_api_keys"
+	// DesktopMemberAssignmentInverseTable is the table name for the DesktopMemberAPIKey entity.
+	// It exists in this package in order to avoid circular dependency with the "desktopmemberapikey" package.
+	DesktopMemberAssignmentInverseTable = "desktop_member_api_keys"
+	// DesktopMemberAssignmentColumn is the table column denoting the desktop_member_assignment relation/edge.
+	DesktopMemberAssignmentColumn = "api_key_id"
 )
 
 // Columns holds all SQL columns for apikey fields.
@@ -310,6 +319,13 @@ func ByUsageLogs(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newUsageLogsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByDesktopMemberAssignmentField orders the results by desktop_member_assignment field.
+func ByDesktopMemberAssignmentField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newDesktopMemberAssignmentStep(), sql.OrderByField(field, opts...))
+	}
+}
 func newUserStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -329,5 +345,12 @@ func newUsageLogsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(UsageLogsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, UsageLogsTable, UsageLogsColumn),
+	)
+}
+func newDesktopMemberAssignmentStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(DesktopMemberAssignmentInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2O, false, DesktopMemberAssignmentTable, DesktopMemberAssignmentColumn),
 	)
 }

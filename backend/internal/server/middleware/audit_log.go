@@ -122,6 +122,10 @@ var auditSensitiveReads = map[string]string{
 
 // auditActionOverrides 变更类请求的动作名精确映射（未命中时自动推导）。
 var auditActionOverrides = map[string]string{
+	"POST /api/desktop/v1/auth/organization-lookup":           "desktop.auth.organization_lookup",
+	"POST /api/desktop/v1/auth/login":                         "desktop.auth.login",
+	"POST /api/desktop/v1/auth/refresh":                       "desktop.auth.refresh",
+	"POST /api/desktop/v1/auth/logout":                        "desktop.auth.logout",
 	"POST /api/v1/auth/login":                                 service.AuditActionLogin,
 	"POST /api/v1/auth/login/2fa":                             service.AuditActionLogin2FA,
 	"POST /api/v1/auth/passkey/login/finish":                  service.AuditActionLogin,
@@ -147,6 +151,10 @@ var auditActionOverrides = map[string]string{
 // auditBodyOmittedRoutes 请求体几乎整体由凭证构成的路由（如整块粘贴 auth JSON 的导入接口）。
 // 这类 body 的凭证内嵌在普通字符串值里，键级脱敏无法覆盖，整体不入库。
 var auditBodyOmittedRoutes = map[string]struct{}{
+	"POST /api/desktop/v1/auth/organization-lookup":             {},
+	"POST /api/desktop/v1/auth/login":                           {},
+	"POST /api/desktop/v1/auth/refresh":                         {},
+	"POST /api/desktop/v1/auth/logout":                          {},
 	"POST /api/v1/auth/passkey/login/finish":                    {},
 	"POST /api/v1/user/passkeys/register/finish":                {},
 	"POST /api/v1/admin/accounts/import/codex-session":          {},
@@ -201,6 +209,11 @@ func NewAuditLogMiddleware(auditService *service.AuditLogService) AuditLogMiddle
 					closer: orig,
 				}
 				bodyRedacted = service.RedactAuditBody(raw, c.GetHeader("Content-Type"))
+			} else {
+				c.Request.Body = &restoredBody{
+					Reader: io.MultiReader(bytes.NewReader(raw), &readErrorOnce{err: err}),
+					closer: orig,
+				}
 			}
 		}
 
@@ -304,6 +317,19 @@ type restoredBody struct {
 }
 
 func (b *restoredBody) Close() error { return b.closer.Close() }
+
+type readErrorOnce struct {
+	err  error
+	done bool
+}
+
+func (r *readErrorOnce) Read(_ []byte) (int, error) {
+	if r.done {
+		return 0, io.EOF
+	}
+	r.done = true
+	return 0, r.err
+}
 
 // MaskedRequestCredential 提取请求头中的凭证并做首尾掩码。
 func MaskedRequestCredential(c *gin.Context) string {

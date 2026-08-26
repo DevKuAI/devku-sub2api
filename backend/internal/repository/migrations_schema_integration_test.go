@@ -61,6 +61,18 @@ func TestMigrationsRunner_IsIdempotent_AndSchemaIsUpToDate(t *testing.T) {
 	// api_keys: key length should be 128
 	requireColumn(t, tx, "api_keys", "key", "character varying", 128, false)
 
+	// Desktop organizations keep the gateway user exclusive among non-deleted rows.
+	requireColumn(t, tx, "desktop_organizations", "gateway_user_id", "bigint", 0, false)
+	requirePartialUniqueIndexDefinition(
+		t,
+		tx,
+		"desktop_organizations",
+		"idx_desktop_organizations_gateway_user_active",
+		"gateway_user_id",
+		"WHERE",
+		"deleted_at IS NULL",
+	)
+
 	// redeem_codes: subscription fields
 	requireColumn(t, tx, "redeem_codes", "group_id", "bigint", 0, true)
 	requireColumn(t, tx, "redeem_codes", "validity_days", "integer", 0, false)

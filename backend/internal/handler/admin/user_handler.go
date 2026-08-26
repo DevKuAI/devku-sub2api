@@ -12,6 +12,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
 	"github.com/Wei-Shaw/sub2api/internal/handler/quotaview"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -34,6 +35,11 @@ type UserHandler struct {
 	totpService           *service.TotpService                // 角色提升为管理员的 step-up 门控
 	userService           *service.UserService
 	settingService        *service.SettingService // step-up 功能开关
+	desktopService        *service.DesktopService
+}
+
+func (h *UserHandler) SetDesktopService(desktopService *service.DesktopService) {
+	h.desktopService = desktopService
 }
 
 // NewUserHandler creates a new admin user handler
@@ -130,6 +136,22 @@ func (h *UserHandler) List(c *gin.Context) {
 	search = strings.TrimSpace(search)
 	if runes := []rune(search); len(runes) > 100 {
 		search = string(runes[:100])
+	}
+	if c.Query("available_for_desktop") == "true" {
+		if h.desktopService == nil {
+			response.ErrorFrom(c, service.ErrDesktopOrganizationNotFound)
+			return
+		}
+		users, result, err := h.desktopService.ListAvailableGatewayUsers(c.Request.Context(), pagination.PaginationParams{Page: page, PageSize: pageSize}, search)
+		if response.ErrorFrom(c, err) {
+			return
+		}
+		out := make([]*dto.AdminUser, 0, len(users))
+		for i := range users {
+			out = append(out, dto.UserFromServiceAdmin(&users[i]))
+		}
+		response.Paginated(c, out, result.Total, result.Page, result.PageSize)
+		return
 	}
 
 	filters := service.UserListFilters{
@@ -342,6 +364,12 @@ func (h *UserHandler) Update(c *gin.Context) {
 			}
 		}
 	}
+	if req.AllowedGroups != nil && h.desktopService != nil {
+		if err := h.desktopService.EnsureGatewayUserAllowedGroups(c.Request.Context(), userID, *req.AllowedGroups); err != nil {
+			response.ErrorFrom(c, err)
+			return
+		}
+	}
 
 	// 使用指针类型直接传递，nil 表示未提供该字段
 	user, err := h.adminService.UpdateUser(c.Request.Context(), userID, &service.UpdateUserInput{
@@ -374,6 +402,12 @@ func (h *UserHandler) Delete(c *gin.Context) {
 	if err != nil {
 		response.BadRequest(c, "Invalid user ID")
 		return
+	}
+	if h.desktopService != nil {
+		if err := h.desktopService.EnsureGatewayUserCanBeDeleted(c.Request.Context(), userID); err != nil {
+			response.ErrorFrom(c, err)
+			return
+		}
 	}
 
 	err = h.adminService.DeleteUser(c.Request.Context(), userID)
@@ -516,6 +550,12 @@ func (h *UserHandler) ReplaceGroup(c *gin.Context) {
 	if err != nil {
 		response.BadRequest(c, "Invalid user ID")
 		return
+	}
+	if h.desktopService != nil {
+		if err := h.desktopService.EnsureGatewayUserCanBeDeleted(c.Request.Context(), userID); err != nil {
+			response.ErrorFrom(c, err)
+			return
+		}
 	}
 
 	var req ReplaceGroupRequest

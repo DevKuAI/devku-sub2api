@@ -152,6 +152,8 @@ const (
 	EdgeAccounts = "accounts"
 	// EdgeAllowedUsers holds the string denoting the allowed_users edge name in mutations.
 	EdgeAllowedUsers = "allowed_users"
+	// EdgeDesktopOrganizations holds the string denoting the desktop_organizations edge name in mutations.
+	EdgeDesktopOrganizations = "desktop_organizations"
 	// EdgeAccountGroups holds the string denoting the account_groups edge name in mutations.
 	EdgeAccountGroups = "account_groups"
 	// EdgeUserAllowedGroups holds the string denoting the user_allowed_groups edge name in mutations.
@@ -196,6 +198,13 @@ const (
 	// AllowedUsersInverseTable is the table name for the User entity.
 	// It exists in this package in order to avoid circular dependency with the "user" package.
 	AllowedUsersInverseTable = "users"
+	// DesktopOrganizationsTable is the table that holds the desktop_organizations relation/edge.
+	DesktopOrganizationsTable = "desktop_organizations"
+	// DesktopOrganizationsInverseTable is the table name for the DesktopOrganization entity.
+	// It exists in this package in order to avoid circular dependency with the "desktoporganization" package.
+	DesktopOrganizationsInverseTable = "desktop_organizations"
+	// DesktopOrganizationsColumn is the table column denoting the desktop_organizations relation/edge.
+	DesktopOrganizationsColumn = "group_id"
 	// AccountGroupsTable is the table that holds the account_groups relation/edge.
 	AccountGroupsTable = "account_groups"
 	// AccountGroupsInverseTable is the table name for the AccountGroup entity.
@@ -781,6 +790,20 @@ func ByAllowedUsers(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByDesktopOrganizationsCount orders the results by desktop_organizations count.
+func ByDesktopOrganizationsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newDesktopOrganizationsStep(), opts...)
+	}
+}
+
+// ByDesktopOrganizations orders the results by desktop_organizations terms.
+func ByDesktopOrganizations(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newDesktopOrganizationsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByAccountGroupsCount orders the results by account_groups count.
 func ByAccountGroupsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -848,6 +871,13 @@ func newAllowedUsersStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(AllowedUsersInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2M, true, AllowedUsersTable, AllowedUsersPrimaryKey...),
+	)
+}
+func newDesktopOrganizationsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(DesktopOrganizationsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, DesktopOrganizationsTable, DesktopOrganizationsColumn),
 	)
 }
 func newAccountGroupsStep() *sqlgraph.Step {

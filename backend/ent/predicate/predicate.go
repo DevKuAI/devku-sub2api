@@ -51,6 +51,15 @@ type ChannelMonitorRequestTemplate func(*sql.Selector)
 // CompositeModelRoute is the predicate function for compositemodelroute builders.
 type CompositeModelRoute func(*sql.Selector)
 
+// DesktopMember is the predicate function for desktopmember builders.
+type DesktopMember func(*sql.Selector)
+
+// DesktopMemberAPIKey is the predicate function for desktopmemberapikey builders.
+type DesktopMemberAPIKey func(*sql.Selector)
+
+// DesktopOrganization is the predicate function for desktoporganization builders.
+type DesktopOrganization func(*sql.Selector)
+
 // ErrorPassthroughRule is the predicate function for errorpassthroughrule builders.
 type ErrorPassthroughRule func(*sql.Selector)
 

@@ -1729,6 +1729,29 @@ func HasPlatformQuotasWith(preds ...predicate.UserPlatformQuota) predicate.User 
 	})
 }
 
+// HasDesktopOrganizations applies the HasEdge predicate on the "desktop_organizations" edge.
+func HasDesktopOrganizations() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, DesktopOrganizationsTable, DesktopOrganizationsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasDesktopOrganizationsWith applies the HasEdge predicate on the "desktop_organizations" edge with a given conditions (other predicates).
+func HasDesktopOrganizationsWith(preds ...predicate.DesktopOrganization) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newDesktopOrganizationsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasUserAllowedGroups applies the HasEdge predicate on the "user_allowed_groups" edge.
 func HasUserAllowedGroups() predicate.User {
 	return predicate.User(func(s *sql.Selector) {

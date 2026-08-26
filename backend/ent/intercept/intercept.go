@@ -23,6 +23,9 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
 	"github.com/Wei-Shaw/sub2api/ent/compositemodelroute"
+	"github.com/Wei-Shaw/sub2api/ent/desktopmember"
+	"github.com/Wei-Shaw/sub2api/ent/desktopmemberapikey"
+	"github.com/Wei-Shaw/sub2api/ent/desktoporganization"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
@@ -509,6 +512,87 @@ func (f TraverseCompositeModelRoute) Traverse(ctx context.Context, q ent.Query) 
 		return f(ctx, q)
 	}
 	return fmt.Errorf("unexpected query type %T. expect *ent.CompositeModelRouteQuery", q)
+}
+
+// The DesktopMemberFunc type is an adapter to allow the use of ordinary function as a Querier.
+type DesktopMemberFunc func(context.Context, *ent.DesktopMemberQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f DesktopMemberFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.DesktopMemberQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.DesktopMemberQuery", q)
+}
+
+// The TraverseDesktopMember type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseDesktopMember func(context.Context, *ent.DesktopMemberQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseDesktopMember) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseDesktopMember) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.DesktopMemberQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.DesktopMemberQuery", q)
+}
+
+// The DesktopMemberAPIKeyFunc type is an adapter to allow the use of ordinary function as a Querier.
+type DesktopMemberAPIKeyFunc func(context.Context, *ent.DesktopMemberAPIKeyQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f DesktopMemberAPIKeyFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.DesktopMemberAPIKeyQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.DesktopMemberAPIKeyQuery", q)
+}
+
+// The TraverseDesktopMemberAPIKey type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseDesktopMemberAPIKey func(context.Context, *ent.DesktopMemberAPIKeyQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseDesktopMemberAPIKey) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseDesktopMemberAPIKey) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.DesktopMemberAPIKeyQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.DesktopMemberAPIKeyQuery", q)
+}
+
+// The DesktopOrganizationFunc type is an adapter to allow the use of ordinary function as a Querier.
+type DesktopOrganizationFunc func(context.Context, *ent.DesktopOrganizationQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f DesktopOrganizationFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.DesktopOrganizationQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.DesktopOrganizationQuery", q)
+}
+
+// The TraverseDesktopOrganization type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseDesktopOrganization func(context.Context, *ent.DesktopOrganizationQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseDesktopOrganization) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseDesktopOrganization) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.DesktopOrganizationQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.DesktopOrganizationQuery", q)
 }
 
 // The ErrorPassthroughRuleFunc type is an adapter to allow the use of ordinary function as a Querier.
@@ -1192,6 +1276,12 @@ func NewQuery(q ent.Query) (Query, error) {
 		return &query[*ent.ChannelMonitorRequestTemplateQuery, predicate.ChannelMonitorRequestTemplate, channelmonitorrequesttemplate.OrderOption]{typ: ent.TypeChannelMonitorRequestTemplate, tq: q}, nil
 	case *ent.CompositeModelRouteQuery:
 		return &query[*ent.CompositeModelRouteQuery, predicate.CompositeModelRoute, compositemodelroute.OrderOption]{typ: ent.TypeCompositeModelRoute, tq: q}, nil
+	case *ent.DesktopMemberQuery:
+		return &query[*ent.DesktopMemberQuery, predicate.DesktopMember, desktopmember.OrderOption]{typ: ent.TypeDesktopMember, tq: q}, nil
+	case *ent.DesktopMemberAPIKeyQuery:
+		return &query[*ent.DesktopMemberAPIKeyQuery, predicate.DesktopMemberAPIKey, desktopmemberapikey.OrderOption]{typ: ent.TypeDesktopMemberAPIKey, tq: q}, nil
+	case *ent.DesktopOrganizationQuery:
+		return &query[*ent.DesktopOrganizationQuery, predicate.DesktopOrganization, desktoporganization.OrderOption]{typ: ent.TypeDesktopOrganization, tq: q}, nil
 	case *ent.ErrorPassthroughRuleQuery:
 		return &query[*ent.ErrorPassthroughRuleQuery, predicate.ErrorPassthroughRule, errorpassthroughrule.OrderOption]{typ: ent.TypeErrorPassthroughRule, tq: q}, nil
 	case *ent.GroupQuery:

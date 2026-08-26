@@ -114,6 +114,11 @@ export const FeatureFlags = {
     mode: 'opt-in',
     label: 'Plugin Management',
   }),
+  desktop: defineFlag({
+    key: 'desktop_enabled',
+    mode: 'opt-in',
+    label: 'Desktop',
+  }),
   payment: defineFlag({
     key: 'payment_enabled',
     mode: 'opt-out',

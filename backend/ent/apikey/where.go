@@ -1194,6 +1194,29 @@ func HasUsageLogsWith(preds ...predicate.UsageLog) predicate.APIKey {
 	})
 }
 
+// HasDesktopMemberAssignment applies the HasEdge predicate on the "desktop_member_assignment" edge.
+func HasDesktopMemberAssignment() predicate.APIKey {
+	return predicate.APIKey(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, DesktopMemberAssignmentTable, DesktopMemberAssignmentColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasDesktopMemberAssignmentWith applies the HasEdge predicate on the "desktop_member_assignment" edge with a given conditions (other predicates).
+func HasDesktopMemberAssignmentWith(preds ...predicate.DesktopMemberAPIKey) predicate.APIKey {
+	return predicate.APIKey(func(s *sql.Selector) {
+		step := newDesktopMemberAssignmentStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.APIKey) predicate.APIKey {
 	return predicate.APIKey(sql.AndPredicates(predicates...))

@@ -119,6 +119,7 @@ function simulateGuard(
     const restrictedPaths = [
       '/admin/groups',
       '/admin/subscriptions',
+      '/admin/desktop',
       '/admin/redeem',
       '/subscriptions',
       '/redeem',
@@ -304,6 +305,22 @@ describe('路由守卫逻辑', () => {
       }
       const redirect = simulateGuard(
         '/admin/subscriptions',
+        { requiresAdmin: true },
+        authState
+      )
+      expect(redirect).toBe('/admin/dashboard')
+    })
+
+    it('管理员简易模式访问 Desktop 管理重定向', () => {
+      const authState: MockAuthState = {
+        isAuthenticated: true,
+        isAdmin: true,
+        isSimpleMode: true,
+        backendModeEnabled: false,
+        hasPendingAuthSession: false,
+      }
+      const redirect = simulateGuard(
+        '/admin/desktop/organizations',
         { requiresAdmin: true },
         authState
       )

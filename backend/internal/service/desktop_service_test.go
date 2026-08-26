@@ -1,0 +1,237 @@
+package service
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/usagestats"
+	"github.com/stretchr/testify/require"
+)
+
+type desktopRepositoryStub struct {
+	authorized                   *DesktopAuthorizedMember
+	members                      []DesktopMember
+	listMemberFilters            []DesktopMemberListFilters
+	keyIDs                       []int64
+	hasUserOrganization          bool
+	hasGroupOrganization         bool
+	userOrganizationGroupID      int64
+	userOrganizationGroupPresent bool
+}
+
+func (s *desktopRepositoryStub) CreateOrganization(context.Context, DesktopCreateOrganizationInput) (*DesktopOrganization, error) {
+	return nil, nil
+}
+func (s *desktopRepositoryStub) ListOrganizations(context.Context, pagination.PaginationParams, DesktopOrganizationListFilters) ([]DesktopOrganization, *pagination.PaginationResult, error) {
+	return nil, nil, nil
+}
+func (s *desktopRepositoryStub) GetOrganization(context.Context, string) (*DesktopOrganization, error) {
+	return nil, nil
+}
+func (s *desktopRepositoryStub) UpdateOrganization(context.Context, string, DesktopUpdateOrganizationInput) (*DesktopOrganization, []string, error) {
+	return nil, nil, nil
+}
+func (s *desktopRepositoryStub) UpdateTargetConfig(context.Context, string, *DesktopTargetConfig) (*DesktopOrganization, error) {
+	return nil, nil
+}
+func (s *desktopRepositoryStub) CreateMember(context.Context, string, DesktopCreateMemberInput) (*DesktopMember, error) {
+	return nil, nil
+}
+func (s *desktopRepositoryStub) ListMembers(_ context.Context, _ string, params pagination.PaginationParams, filters DesktopMemberListFilters) ([]DesktopMember, *pagination.PaginationResult, error) {
+	s.listMemberFilters = append(s.listMemberFilters, filters)
+	members := append([]DesktopMember(nil), s.members...)
+	return members, &pagination.PaginationResult{Total: int64(len(members)), Page: params.Page, PageSize: params.PageSize, Pages: 1}, nil
+}
+func (s *desktopRepositoryStub) GetMember(context.Context, string, string) (*DesktopMember, error) {
+	return nil, nil
+}
+func (s *desktopRepositoryStub) UpdateMember(context.Context, string, string, DesktopUpdateMemberInput) (*DesktopMember, []string, error) {
+	return nil, nil, nil
+}
+func (s *desktopRepositoryStub) DeleteMember(context.Context, string, string) ([]string, error) {
+	return nil, nil
+}
+func (s *desktopRepositoryStub) RotateMemberAPIKey(context.Context, string, string, *APIKey) (*DesktopMember, []string, error) {
+	return nil, nil, nil
+}
+func (s *desktopRepositoryStub) FindActiveOrganizationByCode(context.Context, string) (*DesktopOrganization, error) {
+	return nil, nil
+}
+func (s *desktopRepositoryStub) FindMemberByPhone(context.Context, int64, string) (*DesktopMember, error) {
+	return nil, nil
+}
+func (s *desktopRepositoryStub) GetAuthorizedMember(context.Context, string) (*DesktopAuthorizedMember, error) {
+	return s.authorized, nil
+}
+func (s *desktopRepositoryStub) ListMemberAPIKeyIDs(context.Context, int64) ([]int64, error) {
+	return append([]int64(nil), s.keyIDs...), nil
+}
+func (s *desktopRepositoryStub) IsManagedAPIKey(context.Context, int64) (bool, error) {
+	return false, nil
+}
+func (s *desktopRepositoryStub) HasOrganizationForUser(context.Context, int64) (bool, error) {
+	return s.hasUserOrganization, nil
+}
+func (s *desktopRepositoryStub) HasOrganizationForGroup(context.Context, int64) (bool, error) {
+	return s.hasGroupOrganization, nil
+}
+func (s *desktopRepositoryStub) ListAvailableGatewayUsers(context.Context, pagination.PaginationParams, string) ([]User, *pagination.PaginationResult, error) {
+	return nil, nil, nil
+}
+func (s *desktopRepositoryStub) DesktopOrganizationGroupIDForUser(context.Context, int64) (int64, bool, error) {
+	return s.userOrganizationGroupID, s.userOrganizationGroupPresent, nil
+}
+
+type desktopUsageRepositoryStub struct {
+	calls [][]int64
+	next  []*usagestats.UsageStats
+}
+
+func (s *desktopUsageRepositoryStub) GetAPIKeysStatsAggregated(_ context.Context, ids []int64, _, _ time.Time) (*usagestats.UsageStats, error) {
+	s.calls = append(s.calls, append([]int64(nil), ids...))
+	result := s.next[0]
+	s.next = s.next[1:]
+	return result, nil
+}
+
+func activeDesktopAuthorization() *DesktopAuthorizedMember {
+	keyID := int64(42)
+	return &DesktopAuthorizedMember{
+		Member: &DesktopMember{
+			ID: 7, PublicID: "mem_one", Name: "Member", Phone: "+8613800000000", Status: DesktopStatusActive,
+			AuthVersion: 2, CurrentAPIKeyID: &keyID, CurrentAPIKey: "sk-model-one", CurrentAPIKeyStatus: StatusAPIKeyActive,
+		},
+		Organization: &DesktopOrganization{
+			PublicID: "org_one", Code: "desktop", Name: "Desktop", Status: DesktopStatusActive, AuthVersion: 3,
+			TargetConfig: &DesktopTargetConfig{SchemaVersion: 1, Targets: DesktopTargets{
+				ChatGPTCodex: &DesktopTarget{Enabled: true, ProviderID: "provider", DisplayName: "Model", RequestedModel: "model-one", WireAPI: "responses"},
+			}},
+		},
+		GatewayUser: &User{ID: 9, Status: StatusActive},
+	}
+}
+
+func TestDesktopTargetConfigValidatesWireAPIByTarget(t *testing.T) {
+	newConfig := func(chatWireAPI, workbuddyWireAPI string, workbuddyEnabled bool) *DesktopTargetConfig {
+		return &DesktopTargetConfig{SchemaVersion: 1, Targets: DesktopTargets{
+			ChatGPTCodex: &DesktopTarget{
+				Enabled: true, ProviderID: "provider", DisplayName: "Codex", RequestedModel: "model-one", WireAPI: chatWireAPI,
+			},
+			Workbuddy: &DesktopTarget{
+				Enabled: workbuddyEnabled, ProviderID: "provider", DisplayName: "Workbuddy", RequestedModel: "model-two", WireAPI: workbuddyWireAPI,
+			},
+		}}
+	}
+
+	require.NoError(t, newConfig(DesktopWireAPIResponses, DesktopWireAPIChatCompletions, false).Validate())
+	require.ErrorIs(t, newConfig(DesktopWireAPIChatCompletions, DesktopWireAPIChatCompletions, false).Validate(), ErrDesktopValidation)
+	require.ErrorIs(t, newConfig(DesktopWireAPIResponses, DesktopWireAPIResponses, false).Validate(), ErrDesktopValidation)
+	require.ErrorIs(t, newConfig(DesktopWireAPIResponses, DesktopWireAPIChatCompletions, true).Validate(), ErrDesktopValidation)
+}
+
+func TestDesktopModelConfigurationETagIgnoresRawKeyAndUpdatedAt(t *testing.T) {
+	authorized := activeDesktopAuthorization()
+	svc := &DesktopService{config: config.DesktopConfig{PublicGatewayBaseURL: "https://gateway.example.com/v1"}}
+
+	first, firstVersion, err := svc.ModelConfiguration(authorized, nil)
+	require.NoError(t, err)
+	require.Equal(t, "sk-model-one", first.ModelToken)
+
+	authorized.Member.CurrentAPIKey = "sk-model-two"
+	authorized.Member.UpdatedAt = time.Now().Add(24 * time.Hour)
+	authorized.Organization.UpdatedAt = time.Now().Add(48 * time.Hour)
+	second, secondVersion, err := svc.ModelConfiguration(authorized, nil)
+	require.NoError(t, err)
+	require.Equal(t, "sk-model-two", second.ModelToken)
+	require.Equal(t, firstVersion, secondVersion)
+
+	nextKeyID := *authorized.Member.CurrentAPIKeyID + 1
+	authorized.Member.CurrentAPIKeyID = &nextKeyID
+	_, rotatedVersion, err := svc.ModelConfiguration(authorized, nil)
+	require.NoError(t, err)
+	require.NotEqual(t, firstVersion, rotatedVersion)
+}
+
+func TestDesktopListMembersReturnsFullPhoneAndNormalizesExactSearch(t *testing.T) {
+	repo := &desktopRepositoryStub{members: []DesktopMember{{
+		PublicID: "mem_one", Name: "Member", Phone: "+8613800000000", Status: DesktopStatusActive,
+	}}}
+	svc := &DesktopService{repo: repo}
+
+	for _, search := range []string{"13800000000", "+8613800000000"} {
+		members, _, listErr := svc.ListMembers(context.Background(), "org_one", pagination.PaginationParams{Page: 1, PageSize: 20}, DesktopMemberListFilters{Search: search})
+		require.NoError(t, listErr)
+		require.Len(t, members, 1)
+		require.Equal(t, "+8613800000000", members[0].Phone)
+	}
+
+	require.Len(t, repo.listMemberFilters, 2)
+	require.Empty(t, repo.listMemberFilters[0].Search)
+	require.Equal(t, "+8613800000000", repo.listMemberFilters[0].Phone)
+	require.Equal(t, repo.listMemberFilters[0].Phone, repo.listMemberFilters[1].Phone)
+}
+
+func TestDesktopUsageSummaryAggregatesAllHistoricalKeys(t *testing.T) {
+	repo := &desktopRepositoryStub{keyIDs: []int64{11, 12, 13}}
+	usage := &desktopUsageRepositoryStub{next: []*usagestats.UsageStats{{TotalTokens: 100}, {TotalTokens: 900}}}
+	svc := &DesktopService{repo: repo, usage: usage, now: func() time.Time {
+		return time.Date(2026, 8, 26, 12, 0, 0, 0, time.UTC)
+	}}
+
+	result, err := svc.UsageSummary(context.Background(), activeDesktopAuthorization(), "Asia/Shanghai")
+	require.NoError(t, err)
+	require.Equal(t, int64(100), result.Today.Used)
+	require.Equal(t, int64(900), result.Month.Used)
+	require.Nil(t, result.Today.Limit)
+	require.Nil(t, result.Month.Remaining)
+	require.Equal(t, [][]int64{{11, 12, 13}, {11, 12, 13}}, usage.calls)
+}
+
+func TestDesktopAuthorizeRevalidatesCarrierAndAuthVersions(t *testing.T) {
+	cfg := desktopSecurityConfig()
+	manager, err := NewDesktopTokenManager(cfg)
+	require.NoError(t, err)
+	authorized := activeDesktopAuthorization()
+	token, err := manager.Issue(
+		&DesktopMemberOrganizationClaims{PublicID: authorized.Member.PublicID, AuthVersion: authorized.Member.AuthVersion},
+		&DesktopMemberOrganizationClaims{PublicID: authorized.Organization.PublicID, AuthVersion: authorized.Organization.AuthVersion},
+		"family_one", time.Now(),
+	)
+	require.NoError(t, err)
+	svc := &DesktopService{repo: &desktopRepositoryStub{authorized: authorized}, tokens: manager}
+
+	_, _, err = svc.Authorize(context.Background(), token)
+	require.NoError(t, err)
+
+	authorized.GatewayUser.Status = StatusDisabled
+	_, _, err = svc.Authorize(context.Background(), token)
+	require.ErrorIs(t, err, ErrDesktopMembershipRevoked)
+
+	authorized.GatewayUser.Status = StatusActive
+	authorized.Organization.AuthVersion++
+	_, _, err = svc.Authorize(context.Background(), token)
+	require.ErrorIs(t, err, ErrDesktopMembershipRevoked)
+}
+
+func TestDesktopDependencyGuards(t *testing.T) {
+	t.Run("gateway user deletion", func(t *testing.T) {
+		svc := &DesktopService{repo: &desktopRepositoryStub{hasUserOrganization: true}}
+		require.ErrorIs(t, svc.EnsureGatewayUserCanBeDeleted(context.Background(), 9), ErrDesktopDependency)
+	})
+
+	t.Run("group deletion", func(t *testing.T) {
+		svc := &DesktopService{repo: &desktopRepositoryStub{hasGroupOrganization: true}}
+		require.ErrorIs(t, svc.EnsureGroupCanBeDeleted(context.Background(), 7), ErrDesktopDependency)
+	})
+
+	t.Run("assigned group removal", func(t *testing.T) {
+		svc := &DesktopService{repo: &desktopRepositoryStub{
+			userOrganizationGroupID: 7, userOrganizationGroupPresent: true,
+		}}
+		require.ErrorIs(t, svc.EnsureGatewayUserAllowedGroups(context.Background(), 9, []int64{8}), ErrDesktopDependency)
+		require.NoError(t, svc.EnsureGatewayUserAllowedGroups(context.Background(), 9, []int64{7, 8}))
+	})
+}

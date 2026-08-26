@@ -66,6 +66,20 @@ afterEach(() => {
 })
 
 describe('Select dropdown viewport constraints', () => {
+  it('uses localized accessible names by default', () => {
+    const wrapper = mount(Select, {
+      props: {
+        modelValue: 'example',
+        clearable: true,
+        options: [{ value: 'example', label: 'Example' }],
+      },
+    })
+    unmountWrapper = () => wrapper.unmount()
+
+    expect(wrapper.get('.select-trigger').attributes('aria-label')).toBe('common.selectOption')
+    expect(wrapper.get('.select-clear').attributes('aria-label')).toBe('common.clearSelection')
+  })
+
   it('preserves the existing 200px minimum width when space is available', async () => {
     setViewportWidth(1024)
     mockTriggerRect(20, 80)

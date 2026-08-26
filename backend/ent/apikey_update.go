@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
+	"github.com/Wei-Shaw/sub2api/ent/desktopmemberapikey"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
@@ -463,6 +464,25 @@ func (_u *APIKeyUpdate) AddUsageLogs(v ...*UsageLog) *APIKeyUpdate {
 	return _u.AddUsageLogIDs(ids...)
 }
 
+// SetDesktopMemberAssignmentID sets the "desktop_member_assignment" edge to the DesktopMemberAPIKey entity by ID.
+func (_u *APIKeyUpdate) SetDesktopMemberAssignmentID(id int64) *APIKeyUpdate {
+	_u.mutation.SetDesktopMemberAssignmentID(id)
+	return _u
+}
+
+// SetNillableDesktopMemberAssignmentID sets the "desktop_member_assignment" edge to the DesktopMemberAPIKey entity by ID if the given value is not nil.
+func (_u *APIKeyUpdate) SetNillableDesktopMemberAssignmentID(id *int64) *APIKeyUpdate {
+	if id != nil {
+		_u = _u.SetDesktopMemberAssignmentID(*id)
+	}
+	return _u
+}
+
+// SetDesktopMemberAssignment sets the "desktop_member_assignment" edge to the DesktopMemberAPIKey entity.
+func (_u *APIKeyUpdate) SetDesktopMemberAssignment(v *DesktopMemberAPIKey) *APIKeyUpdate {
+	return _u.SetDesktopMemberAssignmentID(v.ID)
+}
+
 // Mutation returns the APIKeyMutation object of the builder.
 func (_u *APIKeyUpdate) Mutation() *APIKeyMutation {
 	return _u.mutation
@@ -499,6 +519,12 @@ func (_u *APIKeyUpdate) RemoveUsageLogs(v ...*UsageLog) *APIKeyUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveUsageLogIDs(ids...)
+}
+
+// ClearDesktopMemberAssignment clears the "desktop_member_assignment" edge to the DesktopMemberAPIKey entity.
+func (_u *APIKeyUpdate) ClearDesktopMemberAssignment() *APIKeyUpdate {
+	_u.mutation.ClearDesktopMemberAssignment()
+	return _u
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -792,6 +818,35 @@ func (_u *APIKeyUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(usagelog.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.DesktopMemberAssignmentCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   apikey.DesktopMemberAssignmentTable,
+			Columns: []string{apikey.DesktopMemberAssignmentColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(desktopmemberapikey.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.DesktopMemberAssignmentIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   apikey.DesktopMemberAssignmentTable,
+			Columns: []string{apikey.DesktopMemberAssignmentColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(desktopmemberapikey.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {
@@ -1250,6 +1305,25 @@ func (_u *APIKeyUpdateOne) AddUsageLogs(v ...*UsageLog) *APIKeyUpdateOne {
 	return _u.AddUsageLogIDs(ids...)
 }
 
+// SetDesktopMemberAssignmentID sets the "desktop_member_assignment" edge to the DesktopMemberAPIKey entity by ID.
+func (_u *APIKeyUpdateOne) SetDesktopMemberAssignmentID(id int64) *APIKeyUpdateOne {
+	_u.mutation.SetDesktopMemberAssignmentID(id)
+	return _u
+}
+
+// SetNillableDesktopMemberAssignmentID sets the "desktop_member_assignment" edge to the DesktopMemberAPIKey entity by ID if the given value is not nil.
+func (_u *APIKeyUpdateOne) SetNillableDesktopMemberAssignmentID(id *int64) *APIKeyUpdateOne {
+	if id != nil {
+		_u = _u.SetDesktopMemberAssignmentID(*id)
+	}
+	return _u
+}
+
+// SetDesktopMemberAssignment sets the "desktop_member_assignment" edge to the DesktopMemberAPIKey entity.
+func (_u *APIKeyUpdateOne) SetDesktopMemberAssignment(v *DesktopMemberAPIKey) *APIKeyUpdateOne {
+	return _u.SetDesktopMemberAssignmentID(v.ID)
+}
+
 // Mutation returns the APIKeyMutation object of the builder.
 func (_u *APIKeyUpdateOne) Mutation() *APIKeyMutation {
 	return _u.mutation
@@ -1286,6 +1360,12 @@ func (_u *APIKeyUpdateOne) RemoveUsageLogs(v ...*UsageLog) *APIKeyUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveUsageLogIDs(ids...)
+}
+
+// ClearDesktopMemberAssignment clears the "desktop_member_assignment" edge to the DesktopMemberAPIKey entity.
+func (_u *APIKeyUpdateOne) ClearDesktopMemberAssignment() *APIKeyUpdateOne {
+	_u.mutation.ClearDesktopMemberAssignment()
+	return _u
 }
 
 // Where appends a list predicates to the APIKeyUpdate builder.
@@ -1609,6 +1689,35 @@ func (_u *APIKeyUpdateOne) sqlSave(ctx context.Context) (_node *APIKey, err erro
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(usagelog.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.DesktopMemberAssignmentCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   apikey.DesktopMemberAssignmentTable,
+			Columns: []string{apikey.DesktopMemberAssignmentColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(desktopmemberapikey.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.DesktopMemberAssignmentIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   apikey.DesktopMemberAssignmentTable,
+			Columns: []string{apikey.DesktopMemberAssignmentColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(desktopmemberapikey.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

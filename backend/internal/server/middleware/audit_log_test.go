@@ -152,6 +152,54 @@ func TestPasskeyLoginAuditUsesCanonicalLoginActionAndOmitsCredentialBody(t *test
 	require.Contains(t, auditBodyOmittedRoutes, route)
 }
 
+func TestDesktopAuthAuditUsesStableActionsAndOmitsBodies(t *testing.T) {
+	expected := map[string]string{
+		"POST /api/desktop/v1/auth/organization-lookup": "desktop.auth.organization_lookup",
+		"POST /api/desktop/v1/auth/login":               "desktop.auth.login",
+		"POST /api/desktop/v1/auth/refresh":             "desktop.auth.refresh",
+		"POST /api/desktop/v1/auth/logout":              "desktop.auth.logout",
+	}
+	for route, action := range expected {
+		require.Equal(t, action, auditActionOverrides[route])
+		require.Contains(t, auditBodyOmittedRoutes, route)
+	}
+}
+
+func TestAuditMiddlewarePreservesBodyLimitError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	repository := &auditCaptureRepository{}
+	auditService := service.NewAuditLogService(repository, nil)
+	auditService.Start()
+
+	router := gin.New()
+	router.Use(StrictBodyLimit(32))
+	router.Use(gin.HandlerFunc(NewAuditLogMiddleware(auditService)))
+	router.POST("/api/desktop/v1/auth/login", func(c *gin.Context) {
+		var payload map[string]any
+		err := c.ShouldBindJSON(&payload)
+		if IsBodyTooLarge(err) {
+			c.Status(http.StatusRequestEntityTooLarge)
+			return
+		}
+		c.Status(http.StatusUnprocessableEntity)
+	})
+
+	request := httptest.NewRequest(http.MethodPost, "/api/desktop/v1/auth/login",
+		bytes.NewBufferString(`{"organization_code":"desktop","name":"Member","phone":"13800000000"}`))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+	require.Equal(t, http.StatusRequestEntityTooLarge, recorder.Code)
+	auditService.Stop()
+
+	repository.mu.Lock()
+	logs := append([]*service.AuditLog(nil), repository.logs...)
+	repository.mu.Unlock()
+	require.Len(t, logs, 1)
+	require.Equal(t, "<credential-bearing body omitted>", logs[0].RequestBody)
+	require.NotContains(t, logs[0].RequestBody, "13800000000")
+}
+
 // Ollama 会话保存的请求体整体就是浏览器 Cookie 明文，键级脱敏清单曾漏掉裸键
 // "session"，必须走整体不入库路径，防止会话凭证长期留存在 audit_logs。
 func TestOllamaCloudUsageSessionRouteOmitsAuditBody(t *testing.T) {

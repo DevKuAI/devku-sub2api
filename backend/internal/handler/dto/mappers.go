@@ -92,10 +92,14 @@ func APIKeyFromService(k *service.APIKey) *APIKey {
 	if k == nil {
 		return nil
 	}
+	key := k.Key
+	if k.ManagedBy == "desktop" {
+		key = "***"
+	}
 	out := &APIKey{
 		ID:                 k.ID,
 		UserID:             k.UserID,
-		Key:                k.Key,
+		Key:                key,
 		Name:               k.Name,
 		GroupID:            k.GroupID,
 		Status:             k.Status,
@@ -109,6 +113,7 @@ func APIKeyFromService(k *service.APIKey) *APIKey {
 		CreatedAt:          k.CreatedAt,
 		UpdatedAt:          k.UpdatedAt,
 		CurrentConcurrency: k.CurrentConcurrency,
+		ManagedBy:          k.ManagedBy,
 		RateLimit5h:        k.RateLimit5h,
 		RateLimit1d:        k.RateLimit1d,
 		RateLimit7d:        k.RateLimit7d,

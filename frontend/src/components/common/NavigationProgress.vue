@@ -4,9 +4,11 @@
  * 在页面顶部显示加载进度，提供导航反馈
  */
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useNavigationLoadingState } from '@/composables/useNavigationLoading'
 
 const { isLoading } = useNavigationLoadingState()
+const { t } = useI18n()
 
 // 进度条可见性
 const isVisible = computed(() => isLoading.value)
@@ -18,7 +20,7 @@ const isVisible = computed(() => isLoading.value)
       v-show="isVisible"
       class="navigation-progress"
       role="progressbar"
-      aria-label="Loading"
+      :aria-label="t('common.loading')"
       aria-valuenow="0"
       aria-valuemin="0"
       aria-valuemax="100"

@@ -44,6 +44,12 @@ type Tx struct {
 	ChannelMonitorRequestTemplate *ChannelMonitorRequestTemplateClient
 	// CompositeModelRoute is the client for interacting with the CompositeModelRoute builders.
 	CompositeModelRoute *CompositeModelRouteClient
+	// DesktopMember is the client for interacting with the DesktopMember builders.
+	DesktopMember *DesktopMemberClient
+	// DesktopMemberAPIKey is the client for interacting with the DesktopMemberAPIKey builders.
+	DesktopMemberAPIKey *DesktopMemberAPIKeyClient
+	// DesktopOrganization is the client for interacting with the DesktopOrganization builders.
+	DesktopOrganization *DesktopOrganizationClient
 	// ErrorPassthroughRule is the client for interacting with the ErrorPassthroughRule builders.
 	ErrorPassthroughRule *ErrorPassthroughRuleClient
 	// Group is the client for interacting with the Group builders.
@@ -238,6 +244,9 @@ func (tx *Tx) init() {
 	tx.ChannelMonitorHistory = NewChannelMonitorHistoryClient(tx.config)
 	tx.ChannelMonitorRequestTemplate = NewChannelMonitorRequestTemplateClient(tx.config)
 	tx.CompositeModelRoute = NewCompositeModelRouteClient(tx.config)
+	tx.DesktopMember = NewDesktopMemberClient(tx.config)
+	tx.DesktopMemberAPIKey = NewDesktopMemberAPIKeyClient(tx.config)
+	tx.DesktopOrganization = NewDesktopOrganizationClient(tx.config)
 	tx.ErrorPassthroughRule = NewErrorPassthroughRuleClient(tx.config)
 	tx.Group = NewGroupClient(tx.config)
 	tx.IdempotencyRecord = NewIdempotencyRecordClient(tx.config)

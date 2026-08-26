@@ -101,6 +101,23 @@ webauthn:
 run_mode: "standard"
 
 # =============================================================================
+# Devku Desktop (disabled by default)
+# =============================================================================
+desktop:
+  enabled: false
+  # Generate with: openssl rand -base64 32
+  jwt_secret: ""
+  # Must be an externally reachable HTTPS URL ending exactly in /v1.
+  public_gateway_base_url: ""
+  access_token_ttl_minutes: 15
+  refresh_family_ttl_days: 30
+  lookup_ip_per_minute: 10
+  login_ip_per_minute: 10
+  login_organization_per_minute: 30
+  login_phone_failure_limit: 5
+  login_phone_freeze_minutes: 15
+
+# =============================================================================
 # CORS Configuration
 # 跨域资源共享 (CORS) 配置
 # =============================================================================

@@ -34,4 +34,30 @@ describe('BaseDialog', () => {
     expect(document.body.querySelector<HTMLElement>('.modal-body')?.scrollTop).toBe(0)
     wrapper.unmount()
   })
+
+  it('traps keyboard focus inside the open dialog', async () => {
+    const wrapper = mount(BaseDialog, {
+      attachTo: document.body,
+      props: { show: true, title: 'Confirm' },
+      slots: {
+        default: '<button id="first-action">First</button>',
+        footer: '<button id="last-action">Last</button>'
+      },
+      global: { stubs: { Icon: true } }
+    })
+    await nextTick()
+
+    const first = document.body.querySelector<HTMLButtonElement>('button[aria-label="Close modal"]')!
+    const last = document.body.querySelector<HTMLButtonElement>('#last-action')!
+    expect(document.activeElement).toBe(first)
+
+    last.focus()
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }))
+    expect(document.activeElement).toBe(first)
+
+    first.focus()
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true }))
+    expect(document.activeElement).toBe(last)
+    wrapper.unmount()
+  })
 })

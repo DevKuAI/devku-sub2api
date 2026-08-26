@@ -15,6 +15,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
+	"github.com/Wei-Shaw/sub2api/ent/desktoporganization"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
@@ -1252,6 +1253,21 @@ func (_u *GroupUpdate) AddAllowedUsers(v ...*User) *GroupUpdate {
 	return _u.AddAllowedUserIDs(ids...)
 }
 
+// AddDesktopOrganizationIDs adds the "desktop_organizations" edge to the DesktopOrganization entity by IDs.
+func (_u *GroupUpdate) AddDesktopOrganizationIDs(ids ...int64) *GroupUpdate {
+	_u.mutation.AddDesktopOrganizationIDs(ids...)
+	return _u
+}
+
+// AddDesktopOrganizations adds the "desktop_organizations" edges to the DesktopOrganization entity.
+func (_u *GroupUpdate) AddDesktopOrganizations(v ...*DesktopOrganization) *GroupUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddDesktopOrganizationIDs(ids...)
+}
+
 // Mutation returns the GroupMutation object of the builder.
 func (_u *GroupUpdate) Mutation() *GroupMutation {
 	return _u.mutation
@@ -1381,6 +1397,27 @@ func (_u *GroupUpdate) RemoveAllowedUsers(v ...*User) *GroupUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveAllowedUserIDs(ids...)
+}
+
+// ClearDesktopOrganizations clears all "desktop_organizations" edges to the DesktopOrganization entity.
+func (_u *GroupUpdate) ClearDesktopOrganizations() *GroupUpdate {
+	_u.mutation.ClearDesktopOrganizations()
+	return _u
+}
+
+// RemoveDesktopOrganizationIDs removes the "desktop_organizations" edge to DesktopOrganization entities by IDs.
+func (_u *GroupUpdate) RemoveDesktopOrganizationIDs(ids ...int64) *GroupUpdate {
+	_u.mutation.RemoveDesktopOrganizationIDs(ids...)
+	return _u
+}
+
+// RemoveDesktopOrganizations removes "desktop_organizations" edges to DesktopOrganization entities.
+func (_u *GroupUpdate) RemoveDesktopOrganizations(v ...*DesktopOrganization) *GroupUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveDesktopOrganizationIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -2136,6 +2173,51 @@ func (_u *GroupUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		createE.defaults()
 		_, specE := createE.createSpec()
 		edge.Target.Fields = specE.Fields
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.DesktopOrganizationsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.DesktopOrganizationsTable,
+			Columns: []string{group.DesktopOrganizationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(desktoporganization.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedDesktopOrganizationsIDs(); len(nodes) > 0 && !_u.mutation.DesktopOrganizationsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.DesktopOrganizationsTable,
+			Columns: []string{group.DesktopOrganizationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(desktoporganization.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.DesktopOrganizationsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.DesktopOrganizationsTable,
+			Columns: []string{group.DesktopOrganizationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(desktoporganization.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
@@ -3373,6 +3455,21 @@ func (_u *GroupUpdateOne) AddAllowedUsers(v ...*User) *GroupUpdateOne {
 	return _u.AddAllowedUserIDs(ids...)
 }
 
+// AddDesktopOrganizationIDs adds the "desktop_organizations" edge to the DesktopOrganization entity by IDs.
+func (_u *GroupUpdateOne) AddDesktopOrganizationIDs(ids ...int64) *GroupUpdateOne {
+	_u.mutation.AddDesktopOrganizationIDs(ids...)
+	return _u
+}
+
+// AddDesktopOrganizations adds the "desktop_organizations" edges to the DesktopOrganization entity.
+func (_u *GroupUpdateOne) AddDesktopOrganizations(v ...*DesktopOrganization) *GroupUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddDesktopOrganizationIDs(ids...)
+}
+
 // Mutation returns the GroupMutation object of the builder.
 func (_u *GroupUpdateOne) Mutation() *GroupMutation {
 	return _u.mutation
@@ -3502,6 +3599,27 @@ func (_u *GroupUpdateOne) RemoveAllowedUsers(v ...*User) *GroupUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveAllowedUserIDs(ids...)
+}
+
+// ClearDesktopOrganizations clears all "desktop_organizations" edges to the DesktopOrganization entity.
+func (_u *GroupUpdateOne) ClearDesktopOrganizations() *GroupUpdateOne {
+	_u.mutation.ClearDesktopOrganizations()
+	return _u
+}
+
+// RemoveDesktopOrganizationIDs removes the "desktop_organizations" edge to DesktopOrganization entities by IDs.
+func (_u *GroupUpdateOne) RemoveDesktopOrganizationIDs(ids ...int64) *GroupUpdateOne {
+	_u.mutation.RemoveDesktopOrganizationIDs(ids...)
+	return _u
+}
+
+// RemoveDesktopOrganizations removes "desktop_organizations" edges to DesktopOrganization entities.
+func (_u *GroupUpdateOne) RemoveDesktopOrganizations(v ...*DesktopOrganization) *GroupUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveDesktopOrganizationIDs(ids...)
 }
 
 // Where appends a list predicates to the GroupUpdate builder.
@@ -4287,6 +4405,51 @@ func (_u *GroupUpdateOne) sqlSave(ctx context.Context) (_node *Group, err error)
 		createE.defaults()
 		_, specE := createE.createSpec()
 		edge.Target.Fields = specE.Fields
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.DesktopOrganizationsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.DesktopOrganizationsTable,
+			Columns: []string{group.DesktopOrganizationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(desktoporganization.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedDesktopOrganizationsIDs(); len(nodes) > 0 && !_u.mutation.DesktopOrganizationsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.DesktopOrganizationsTable,
+			Columns: []string{group.DesktopOrganizationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(desktoporganization.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.DesktopOrganizationsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.DesktopOrganizationsTable,
+			Columns: []string{group.DesktopOrganizationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(desktoporganization.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	_node = &Group{config: _u.config}

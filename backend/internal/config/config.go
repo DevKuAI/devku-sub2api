@@ -3,6 +3,7 @@ package config
 
 import (
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"log/slog"
@@ -104,6 +105,21 @@ type Config struct {
 	BatchImage              BatchImageConfig              `mapstructure:"batch_image"`
 	ImageStorage            ImageStorageConfig            `mapstructure:"image_storage"`
 	Plugins                 PluginConfig                  `mapstructure:"plugins"`
+	Desktop                 DesktopConfig                 `mapstructure:"desktop"`
+}
+
+// DesktopConfig controls the isolated Desktop authentication domain.
+type DesktopConfig struct {
+	Enabled                    bool   `mapstructure:"enabled"`
+	JWTSecret                  string `mapstructure:"jwt_secret"`
+	PublicGatewayBaseURL       string `mapstructure:"public_gateway_base_url"`
+	AccessTokenTTLMinutes      int    `mapstructure:"access_token_ttl_minutes"`
+	RefreshFamilyTTLDays       int    `mapstructure:"refresh_family_ttl_days"`
+	LookupIPPerMinute          int    `mapstructure:"lookup_ip_per_minute"`
+	LoginIPPerMinute           int    `mapstructure:"login_ip_per_minute"`
+	LoginOrganizationPerMinute int    `mapstructure:"login_organization_per_minute"`
+	LoginPhoneFailureLimit     int    `mapstructure:"login_phone_failure_limit"`
+	LoginPhoneFreezeMinutes    int    `mapstructure:"login_phone_freeze_minutes"`
 }
 
 // PluginConfig 控制管理员手动上传的本地进程插件。
@@ -1840,6 +1856,8 @@ func load(allowMissingJWTSecret bool) (*Config, error) {
 	}
 	cfg.Server.FrontendURL = strings.TrimSpace(cfg.Server.FrontendURL)
 	cfg.JWT.Secret = strings.TrimSpace(cfg.JWT.Secret)
+	cfg.Desktop.JWTSecret = strings.TrimSpace(cfg.Desktop.JWTSecret)
+	cfg.Desktop.PublicGatewayBaseURL = strings.TrimRight(strings.TrimSpace(cfg.Desktop.PublicGatewayBaseURL), "/")
 	cfg.LinuxDo.ClientID = strings.TrimSpace(cfg.LinuxDo.ClientID)
 	cfg.LinuxDo.ClientSecret = strings.TrimSpace(cfg.LinuxDo.ClientSecret)
 	cfg.LinuxDo.AuthorizeURL = strings.TrimSpace(cfg.LinuxDo.AuthorizeURL)
@@ -1986,6 +2004,18 @@ func configureConfigSource(setConfigFile, addConfigPath func(string)) {
 
 func setDefaults() {
 	viper.SetDefault("run_mode", RunModeStandard)
+
+	// Desktop authentication domain
+	viper.SetDefault("desktop.enabled", false)
+	viper.SetDefault("desktop.jwt_secret", "")
+	viper.SetDefault("desktop.public_gateway_base_url", "")
+	viper.SetDefault("desktop.access_token_ttl_minutes", 15)
+	viper.SetDefault("desktop.refresh_family_ttl_days", 30)
+	viper.SetDefault("desktop.lookup_ip_per_minute", 10)
+	viper.SetDefault("desktop.login_ip_per_minute", 10)
+	viper.SetDefault("desktop.login_organization_per_minute", 30)
+	viper.SetDefault("desktop.login_phone_failure_limit", 5)
+	viper.SetDefault("desktop.login_phone_freeze_minutes", 15)
 
 	// Server
 	viper.SetDefault("server.host", "0.0.0.0")
@@ -2641,6 +2671,9 @@ func setEnvReachableDefaults() {
 }
 
 func (c *Config) Validate() error {
+	if err := c.validateDesktop(); err != nil {
+		return err
+	}
 	forwardedClientIPHeaders, err := NormalizeForwardedClientIPHeaders(c.Security.ForwardedClientIPHeaders)
 	if err != nil {
 		return fmt.Errorf("security.forwarded_client_ip_headers: %w", err)
@@ -3698,6 +3731,41 @@ func (c *Config) Validate() error {
 	}
 	if err := ValidateDingTalkConfig(c.DingTalk); err != nil {
 		return fmt.Errorf("dingtalk_connect: %w", err)
+	}
+	return nil
+}
+
+func (c *Config) validateDesktop() error {
+	if !c.Desktop.Enabled {
+		return nil
+	}
+	decodedJWTSecret, err := base64.StdEncoding.Strict().DecodeString(c.Desktop.JWTSecret)
+	if err != nil {
+		return fmt.Errorf("desktop.jwt_secret must be standard base64")
+	}
+	if len(decodedJWTSecret) < 32 {
+		return fmt.Errorf("desktop.jwt_secret must decode to at least 32 bytes")
+	}
+	u, err := url.Parse(c.Desktop.PublicGatewayBaseURL)
+	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Path != "/v1" {
+		return fmt.Errorf("desktop.public_gateway_base_url must be an HTTPS URL ending exactly in /v1")
+	}
+	positive := []struct {
+		name  string
+		value int
+	}{
+		{name: "desktop.access_token_ttl_minutes", value: c.Desktop.AccessTokenTTLMinutes},
+		{name: "desktop.refresh_family_ttl_days", value: c.Desktop.RefreshFamilyTTLDays},
+		{name: "desktop.lookup_ip_per_minute", value: c.Desktop.LookupIPPerMinute},
+		{name: "desktop.login_ip_per_minute", value: c.Desktop.LoginIPPerMinute},
+		{name: "desktop.login_organization_per_minute", value: c.Desktop.LoginOrganizationPerMinute},
+		{name: "desktop.login_phone_failure_limit", value: c.Desktop.LoginPhoneFailureLimit},
+		{name: "desktop.login_phone_freeze_minutes", value: c.Desktop.LoginPhoneFreezeMinutes},
+	}
+	for _, item := range positive {
+		if item.value <= 0 {
+			return fmt.Errorf("%s must be positive", item.name)
+		}
 	}
 	return nil
 }

@@ -154,6 +154,10 @@ func NewUsageLogRepository(client *dbent.Client, sqlDB *sql.DB) service.UsageLog
 	return newUsageLogRepositoryWithSQL(client, sqlDB)
 }
 
+func NewDesktopUsageRepository(client *dbent.Client, sqlDB *sql.DB) service.DesktopUsageRepository {
+	return newUsageLogRepositoryWithSQL(client, sqlDB)
+}
+
 func newUsageLogRepositoryWithSQL(client *dbent.Client, sqlq sqlExecutor) *usageLogRepository {
 	// 使用 scanSingleRow 替代 QueryRowContext，保证 ent.Tx 作为 sqlExecutor 可用。
 	repo := &usageLogRepository{client: client, sql: sqlq}

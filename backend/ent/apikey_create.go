@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
+	"github.com/Wei-Shaw/sub2api/ent/desktopmemberapikey"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
@@ -332,6 +333,25 @@ func (_c *APIKeyCreate) AddUsageLogs(v ...*UsageLog) *APIKeyCreate {
 	return _c.AddUsageLogIDs(ids...)
 }
 
+// SetDesktopMemberAssignmentID sets the "desktop_member_assignment" edge to the DesktopMemberAPIKey entity by ID.
+func (_c *APIKeyCreate) SetDesktopMemberAssignmentID(id int64) *APIKeyCreate {
+	_c.mutation.SetDesktopMemberAssignmentID(id)
+	return _c
+}
+
+// SetNillableDesktopMemberAssignmentID sets the "desktop_member_assignment" edge to the DesktopMemberAPIKey entity by ID if the given value is not nil.
+func (_c *APIKeyCreate) SetNillableDesktopMemberAssignmentID(id *int64) *APIKeyCreate {
+	if id != nil {
+		_c = _c.SetDesktopMemberAssignmentID(*id)
+	}
+	return _c
+}
+
+// SetDesktopMemberAssignment sets the "desktop_member_assignment" edge to the DesktopMemberAPIKey entity.
+func (_c *APIKeyCreate) SetDesktopMemberAssignment(v *DesktopMemberAPIKey) *APIKeyCreate {
+	return _c.SetDesktopMemberAssignmentID(v.ID)
+}
+
 // Mutation returns the APIKeyMutation object of the builder.
 func (_c *APIKeyCreate) Mutation() *APIKeyMutation {
 	return _c.mutation
@@ -638,6 +658,22 @@ func (_c *APIKeyCreate) createSpec() (*APIKey, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(usagelog.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.DesktopMemberAssignmentIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   apikey.DesktopMemberAssignmentTable,
+			Columns: []string{apikey.DesktopMemberAssignmentColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(desktopmemberapikey.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

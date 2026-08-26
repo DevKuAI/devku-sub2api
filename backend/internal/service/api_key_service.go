@@ -813,6 +813,9 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 	if err != nil {
 		return nil, fmt.Errorf("get api key: %w", err)
 	}
+	if apiKey.ManagedBy == "desktop" {
+		return nil, ErrDesktopManagedAPIKey
+	}
 
 	// 验证所有权
 	if apiKey.UserID != userID {
@@ -964,13 +967,16 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 
 // Delete 删除API Key
 func (s *APIKeyService) Delete(ctx context.Context, id int64, userID int64) error {
-	key, ownerID, err := s.apiKeyRepo.GetKeyAndOwnerID(ctx, id)
+	apiKey, err := s.apiKeyRepo.GetByID(ctx, id)
 	if err != nil {
 		return fmt.Errorf("get api key: %w", err)
 	}
+	if apiKey.ManagedBy == "desktop" {
+		return ErrDesktopManagedAPIKey
+	}
 
 	// 验证当前用户是否为该 API Key 的所有者
-	if ownerID != userID {
+	if apiKey.UserID != userID {
 		return ErrInsufficientPerms
 	}
 
@@ -983,7 +989,7 @@ func (s *APIKeyService) Delete(ctx context.Context, id int64, userID int64) erro
 	if s.cache != nil {
 		_ = s.cache.DeleteCreateAttemptCount(ctx, userID)
 	}
-	s.InvalidateAuthCacheByKey(ctx, key)
+	s.InvalidateAuthCacheByKey(ctx, apiKey.Key)
 	s.lastUsedTouchL1.Delete(id)
 
 	return nil

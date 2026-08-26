@@ -863,6 +863,165 @@ var (
 			},
 		},
 	}
+	// DesktopMembersColumns holds the columns for the "desktop_members" table.
+	DesktopMembersColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "public_id", Type: field.TypeString, Unique: true, Size: 40},
+		{Name: "name", Type: field.TypeString, Size: 100},
+		{Name: "name_normalized", Type: field.TypeString, Size: 100},
+		{Name: "phone", Type: field.TypeString, Size: 16},
+		{Name: "status", Type: field.TypeString, Size: 20, Default: "active"},
+		{Name: "auth_version", Type: field.TypeInt64, Default: 1},
+		{Name: "api_key_suspended_by_organization", Type: field.TypeBool, Default: false},
+		{Name: "organization_id", Type: field.TypeInt64},
+	}
+	// DesktopMembersTable holds the schema information for the "desktop_members" table.
+	DesktopMembersTable = &schema.Table{
+		Name:       "desktop_members",
+		Columns:    DesktopMembersColumns,
+		PrimaryKey: []*schema.Column{DesktopMembersColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "desktop_members_desktop_organizations_members",
+				Columns:    []*schema.Column{DesktopMembersColumns[11]},
+				RefColumns: []*schema.Column{DesktopOrganizationsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "idx_desktop_members_org_phone_active",
+				Unique:  true,
+				Columns: []*schema.Column{DesktopMembersColumns[11], DesktopMembersColumns[7]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "deleted_at IS NULL",
+				},
+			},
+			{
+				Name:    "idx_desktop_members_org_status_active",
+				Unique:  false,
+				Columns: []*schema.Column{DesktopMembersColumns[11], DesktopMembersColumns[8]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "deleted_at IS NULL",
+				},
+			},
+		},
+	}
+	// DesktopMemberAPIKeysColumns holds the columns for the "desktop_member_api_keys" table.
+	DesktopMemberAPIKeysColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "assigned_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "retired_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "api_key_id", Type: field.TypeInt64, Unique: true},
+		{Name: "member_id", Type: field.TypeInt64},
+	}
+	// DesktopMemberAPIKeysTable holds the schema information for the "desktop_member_api_keys" table.
+	DesktopMemberAPIKeysTable = &schema.Table{
+		Name:       "desktop_member_api_keys",
+		Columns:    DesktopMemberAPIKeysColumns,
+		PrimaryKey: []*schema.Column{DesktopMemberAPIKeysColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "desktop_member_api_keys_api_keys_desktop_member_assignment",
+				Columns:    []*schema.Column{DesktopMemberAPIKeysColumns[3]},
+				RefColumns: []*schema.Column{APIKeysColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "desktop_member_api_keys_desktop_members_api_key_assignments",
+				Columns:    []*schema.Column{DesktopMemberAPIKeysColumns[4]},
+				RefColumns: []*schema.Column{DesktopMembersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "idx_desktop_member_api_keys_current",
+				Unique:  true,
+				Columns: []*schema.Column{DesktopMemberAPIKeysColumns[4]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "retired_at IS NULL",
+				},
+			},
+			{
+				Name:    "idx_desktop_member_api_keys_history",
+				Unique:  false,
+				Columns: []*schema.Column{DesktopMemberAPIKeysColumns[4], DesktopMemberAPIKeysColumns[1]},
+			},
+		},
+	}
+	// DesktopOrganizationsColumns holds the columns for the "desktop_organizations" table.
+	DesktopOrganizationsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "public_id", Type: field.TypeString, Unique: true, Size: 40},
+		{Name: "code", Type: field.TypeString, Size: 16},
+		{Name: "name", Type: field.TypeString, Size: 200},
+		{Name: "status", Type: field.TypeString, Size: 20, Default: "active"},
+		{Name: "auth_version", Type: field.TypeInt64, Default: 1},
+		{Name: "target_config", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "group_id", Type: field.TypeInt64},
+		{Name: "gateway_user_id", Type: field.TypeInt64},
+	}
+	// DesktopOrganizationsTable holds the schema information for the "desktop_organizations" table.
+	DesktopOrganizationsTable = &schema.Table{
+		Name:       "desktop_organizations",
+		Columns:    DesktopOrganizationsColumns,
+		PrimaryKey: []*schema.Column{DesktopOrganizationsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "desktop_organizations_groups_desktop_organizations",
+				Columns:    []*schema.Column{DesktopOrganizationsColumns[10]},
+				RefColumns: []*schema.Column{GroupsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "desktop_organizations_users_desktop_organizations",
+				Columns:    []*schema.Column{DesktopOrganizationsColumns[11]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "idx_desktop_organizations_code_active",
+				Unique:  true,
+				Columns: []*schema.Column{DesktopOrganizationsColumns[5]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "deleted_at IS NULL",
+				},
+			},
+			{
+				Name:    "idx_desktop_organizations_gateway_user_active",
+				Unique:  true,
+				Columns: []*schema.Column{DesktopOrganizationsColumns[11]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "deleted_at IS NULL",
+				},
+			},
+			{
+				Name:    "idx_desktop_organizations_group_active",
+				Unique:  false,
+				Columns: []*schema.Column{DesktopOrganizationsColumns[10]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "deleted_at IS NULL",
+				},
+			},
+			{
+				Name:    "idx_desktop_organizations_status_updated_active",
+				Unique:  false,
+				Columns: []*schema.Column{DesktopOrganizationsColumns[7], DesktopOrganizationsColumns[2]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "deleted_at IS NULL",
+				},
+			},
+		},
+	}
 	// ErrorPassthroughRulesColumns holds the columns for the "error_passthrough_rules" table.
 	ErrorPassthroughRulesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -2099,6 +2258,9 @@ var (
 		ChannelMonitorHistoriesTable,
 		ChannelMonitorRequestTemplatesTable,
 		CompositeModelRoutesTable,
+		DesktopMembersTable,
+		DesktopMemberAPIKeysTable,
+		DesktopOrganizationsTable,
 		ErrorPassthroughRulesTable,
 		GroupsTable,
 		IdempotencyRecordsTable,
@@ -2185,6 +2347,20 @@ func init() {
 	CompositeModelRoutesTable.ForeignKeys[0].RefTable = GroupsTable
 	CompositeModelRoutesTable.Annotation = &entsql.Annotation{
 		Table: "composite_model_routes",
+	}
+	DesktopMembersTable.ForeignKeys[0].RefTable = DesktopOrganizationsTable
+	DesktopMembersTable.Annotation = &entsql.Annotation{
+		Table: "desktop_members",
+	}
+	DesktopMemberAPIKeysTable.ForeignKeys[0].RefTable = APIKeysTable
+	DesktopMemberAPIKeysTable.ForeignKeys[1].RefTable = DesktopMembersTable
+	DesktopMemberAPIKeysTable.Annotation = &entsql.Annotation{
+		Table: "desktop_member_api_keys",
+	}
+	DesktopOrganizationsTable.ForeignKeys[0].RefTable = GroupsTable
+	DesktopOrganizationsTable.ForeignKeys[1].RefTable = UsersTable
+	DesktopOrganizationsTable.Annotation = &entsql.Annotation{
+		Table: "desktop_organizations",
 	}
 	ErrorPassthroughRulesTable.Annotation = &entsql.Annotation{
 		Table: "error_passthrough_rules",

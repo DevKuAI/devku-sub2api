@@ -112,6 +112,42 @@ const handleEscape = (event: KeyboardEvent) => {
   }
 }
 
+const focusableSelector = [
+  'button:not([disabled])',
+  '[href]',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])'
+].join(', ')
+
+const handleTab = (event: KeyboardEvent) => {
+  if (!props.show || event.key !== 'Tab' || !dialogRef.value) return
+
+  const focusable = Array.from(dialogRef.value.querySelectorAll<HTMLElement>(focusableSelector))
+    .filter((element) => element.getAttribute('aria-hidden') !== 'true')
+  if (focusable.length === 0) {
+    event.preventDefault()
+    dialogRef.value.focus()
+    return
+  }
+
+  const first = focusable[0]
+  const last = focusable[focusable.length - 1]
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault()
+    last.focus()
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault()
+    first.focus()
+  }
+}
+
+const handleKeydown = (event: KeyboardEvent) => {
+  handleEscape(event)
+  handleTab(event)
+}
+
 // Prevent body scroll when modal is open and manage focus
 watch(
   () => props.show,
@@ -128,10 +164,12 @@ watch(
         modalBodyRef.value.scrollTop = 0
       }
       if (dialogRef.value) {
-        const firstFocusable = dialogRef.value.querySelector<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        )
-        firstFocusable?.focus()
+        const firstFocusable = dialogRef.value.querySelector<HTMLElement>(focusableSelector)
+        if (firstFocusable) firstFocusable.focus()
+        else {
+          dialogRef.value.tabIndex = -1
+          dialogRef.value.focus()
+        }
       }
     } else {
       document.body.classList.remove('modal-open')
@@ -146,11 +184,11 @@ watch(
 )
 
 onMounted(() => {
-  document.addEventListener('keydown', handleEscape)
+  document.addEventListener('keydown', handleKeydown)
 })
 
 onUnmounted(() => {
-  document.removeEventListener('keydown', handleEscape)
+  document.removeEventListener('keydown', handleKeydown)
   // 确保组件卸载时移除滚动锁定
   document.body.classList.remove('modal-open')
 })

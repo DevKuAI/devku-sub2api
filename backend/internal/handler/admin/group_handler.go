@@ -24,6 +24,11 @@ type GroupHandler struct {
 	adminService         service.AdminService
 	dashboardService     *service.DashboardService
 	groupCapacityService *service.GroupCapacityService
+	desktopService       *service.DesktopService
+}
+
+func (h *GroupHandler) SetDesktopService(desktopService *service.DesktopService) {
+	h.desktopService = desktopService
 }
 
 // GetLiveCapability 返回当前服务端是否具备生成 Live attestation 的运行环境。
@@ -704,6 +709,12 @@ func (h *GroupHandler) Delete(c *gin.Context) {
 	if err != nil {
 		response.BadRequest(c, "Invalid group ID")
 		return
+	}
+	if h.desktopService != nil {
+		if err := h.desktopService.EnsureGroupCanBeDeleted(c.Request.Context(), groupID); err != nil {
+			response.ErrorFrom(c, err)
+			return
+		}
 	}
 
 	err = h.adminService.DeleteGroup(c.Request.Context(), groupID)

@@ -927,6 +927,7 @@ export default {
 
   // Pagination
   pagination: {
+    label: 'Pagination',
     showing: 'Showing',
     to: 'to',
     of: 'of',

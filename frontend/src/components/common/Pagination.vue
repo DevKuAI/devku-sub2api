@@ -45,6 +45,7 @@
             <Select
               :model-value="pageSize"
               :options="pageSizeSelectOptions"
+              :aria-label="t('pagination.perPage')"
               @update:model-value="handlePageSizeChange"
             />
           </div>
@@ -70,7 +71,7 @@
       <!-- Desktop pagination buttons -->
       <nav
         class="relative z-0 inline-flex -space-x-px rounded-md shadow-sm"
-        aria-label="Pagination"
+        :aria-label="t('pagination.label')"
       >
         <!-- Previous button -->
         <button

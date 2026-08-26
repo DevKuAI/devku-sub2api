@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestMaskAuditCredential(t *testing.T) {
@@ -74,6 +76,18 @@ func TestRedactAuditBody_BareSessionKeyRedacted(t *testing.T) {
 	if !strings.Contains(out, "sid-visible") {
 		t.Fatalf("session_id should be preserved for accountability: %s", out)
 	}
+}
+
+func TestRedactAuditBody_DesktopCredentialsRedacted(t *testing.T) {
+	raw := []byte(`{"organization_code":"desktop","name":"Member","phone":"13800000000","refresh_token":"refresh-secret"}`)
+	out := RedactAuditBody(raw, "application/json")
+
+	require.Contains(t, out, `"organization_code":"desktop"`)
+	require.Contains(t, out, `"name":"Member"`)
+	require.Contains(t, out, `"phone":"***"`)
+	require.Contains(t, out, `"refresh_token":"***"`)
+	require.NotContains(t, out, "13800000000")
+	require.NotContains(t, out, "refresh-secret")
 }
 
 // TestRedactAuditBody_AuthoritativeTablesSynced 覆盖曾经漏网的凭证字段：

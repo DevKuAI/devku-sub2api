@@ -189,6 +189,42 @@ func (f CompositeModelRouteFunc) Mutate(ctx context.Context, m ent.Mutation) (en
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.CompositeModelRouteMutation", m)
 }
 
+// The DesktopMemberFunc type is an adapter to allow the use of ordinary
+// function as DesktopMember mutator.
+type DesktopMemberFunc func(context.Context, *ent.DesktopMemberMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f DesktopMemberFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.DesktopMemberMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.DesktopMemberMutation", m)
+}
+
+// The DesktopMemberAPIKeyFunc type is an adapter to allow the use of ordinary
+// function as DesktopMemberAPIKey mutator.
+type DesktopMemberAPIKeyFunc func(context.Context, *ent.DesktopMemberAPIKeyMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f DesktopMemberAPIKeyFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.DesktopMemberAPIKeyMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.DesktopMemberAPIKeyMutation", m)
+}
+
+// The DesktopOrganizationFunc type is an adapter to allow the use of ordinary
+// function as DesktopOrganization mutator.
+type DesktopOrganizationFunc func(context.Context, *ent.DesktopOrganizationMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f DesktopOrganizationFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.DesktopOrganizationMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.DesktopOrganizationMutation", m)
+}
+
 // The ErrorPassthroughRuleFunc type is an adapter to allow the use of ordinary
 // function as ErrorPassthroughRule mutator.
 type ErrorPassthroughRuleFunc func(context.Context, *ent.ErrorPassthroughRuleMutation) (ent.Value, error)

@@ -53,3 +53,11 @@ describe('AppSidebar header styles', () => {
     expect(sidebarBrandBlockMatch?.[0]).not.toContain('overflow: hidden;')
   })
 })
+
+describe('AppSidebar Desktop navigation', () => {
+  it('keeps Desktop management opt-in and hidden in simple mode', () => {
+    expect(componentSource).toContain("const flagDesktop = makeSidebarFlag(FeatureFlags.desktop)")
+    expect(componentSource).toContain("path: '/admin/desktop/organizations'")
+    expect(componentSource).toMatch(/path: '\/admin\/desktop\/organizations'.*hideInSimpleMode: true.*featureFlag: flagDesktop/)
+  })
+})

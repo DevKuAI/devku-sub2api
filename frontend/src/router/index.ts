@@ -462,6 +462,31 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/desktop/organizations',
+    name: 'AdminDesktopOrganizations',
+    component: () => import('@/views/admin/desktop/DesktopOrganizationsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      requiresDesktop: true,
+      title: 'Desktop Management',
+      titleKey: 'admin.desktop.title',
+      descriptionKey: 'admin.desktop.description'
+    }
+  },
+  {
+    path: '/admin/desktop/organizations/:organizationId',
+    name: 'AdminDesktopOrganizationDetail',
+    component: () => import('@/views/admin/desktop/DesktopOrganizationDetailView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      requiresDesktop: true,
+      title: 'Desktop Organization',
+      titleKey: 'admin.desktop.detailTitle'
+    }
+  },
+  {
     path: '/admin/channels',
     redirect: '/admin/channels/pricing'
   },
@@ -907,7 +932,7 @@ router.beforeEach(async (to, _from, next) => {
   // 公共设置可能尚未加载（App.vue 的 onMounted 异步拉取晚于首次导航，且纯静态部署
   // 无 __APP_CONFIG__ 注入）。此时 cachedPublicSettings 为空会把 payment/risk_control
   // 误判为“未启用”而错误拦截，故这里先确保设置加载完成。
-  if ((to.meta.requiresPayment || to.meta.requiresRiskControl) && !appStore.publicSettingsLoaded) {
+  if ((to.meta.requiresPayment || to.meta.requiresRiskControl || to.meta.requiresDesktop) && !appStore.publicSettingsLoaded) {
     try {
       await appStore.fetchPublicSettings()
     } catch (error) {
@@ -935,11 +960,17 @@ router.beforeEach(async (to, _from, next) => {
     return
   }
 
+  if (to.meta.requiresDesktop && appStore.cachedPublicSettings?.desktop_enabled !== true) {
+    next('/admin/dashboard')
+    return
+  }
+
   // 简易模式下限制访问某些页面
   if (authStore.isSimpleMode) {
     const restrictedPaths = [
       '/admin/groups',
       '/admin/subscriptions',
+      '/admin/desktop',
       '/admin/redeem',
       '/subscriptions',
       '/redeem'

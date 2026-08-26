@@ -311,6 +311,22 @@ func TestApiKeyService_Delete_OwnerMismatch(t *testing.T) {
 	require.Empty(t, cache.deleteAuthKeys)
 }
 
+func TestAPIKeyServiceRejectsDesktopManagedKeyMutation(t *testing.T) {
+	repo := &apiKeyRepoStub{apiKey: &APIKey{
+		ID: 10, UserID: 7, Key: "sk-desktop-secret", ManagedBy: "desktop",
+	}}
+	svc := &APIKeyService{apiKeyRepo: repo}
+	name := "renamed"
+
+	_, err := svc.Update(context.Background(), 10, 7, UpdateAPIKeyRequest{Name: &name})
+	require.ErrorIs(t, err, ErrDesktopManagedAPIKey)
+	require.Empty(t, repo.updatedKeys)
+
+	err = svc.Delete(context.Background(), 10, 7)
+	require.ErrorIs(t, err, ErrDesktopManagedAPIKey)
+	require.Empty(t, repo.deletedIDs)
+}
+
 // TestApiKeyService_Delete_Success 测试所有者成功删除 API Key 的场景。
 // 预期行为：
 //   - GetKeyAndOwnerID 返回所有者 ID 为 7

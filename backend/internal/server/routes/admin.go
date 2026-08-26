@@ -2,6 +2,7 @@
 package routes
 
 import (
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/handler"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
@@ -19,6 +20,7 @@ func RegisterAdminRoutes(
 	stepUpAuth middleware.StepUpAuthMiddleware,
 	settingService *service.SettingService,
 	panelRateLimiter *middleware.PanelRateLimiter,
+	configs ...*config.Config,
 ) {
 	// 插件 UI 使用短时能力 URL，仅提供经过安装校验的静态资源。
 	v1.GET("/plugin-ui/:token/*path", h.Admin.Plugin.ServeUIAsset)
@@ -27,6 +29,11 @@ func RegisterAdminRoutes(
 	admin.Use(gin.HandlerFunc(adminAuth))
 	// 面板全局按用户限流（默认管理员豁免，可在系统设置中关闭豁免）
 	admin.Use(panelRateLimiter.Global())
+	var cfg *config.Config
+	if len(configs) > 0 {
+		cfg = configs[0]
+	}
+	registerDesktopAdminRoutesIfEnabled(admin, h, auditLog, settingService, cfg)
 	// 审计中间件挂在认证之后：所有管理面变更类操作 + 敏感读取入审计日志
 	admin.Use(gin.HandlerFunc(auditLog))
 	admin.Use(middleware.AdminComplianceGuard(settingService))
@@ -131,6 +138,36 @@ func RegisterAdminRoutes(
 		// 操作审计日志
 		registerAuditLogRoutes(admin, h, stepUpAuth)
 	}
+}
+
+func registerDesktopAdminRoutesIfEnabled(
+	admin *gin.RouterGroup,
+	h *handler.Handlers,
+	auditLog middleware.AuditLogMiddleware,
+	settingService *service.SettingService,
+	cfg *config.Config,
+) {
+	if cfg == nil || !cfg.Desktop.Enabled {
+		return
+	}
+	desktop := admin.Group("/desktop")
+	desktop.Use(middleware.DesktopAdminBodyLimit())
+	desktop.Use(gin.HandlerFunc(auditLog))
+	desktop.Use(middleware.AdminComplianceGuard(settingService))
+	registerDesktopAdminRoutes(desktop, h)
+}
+
+func registerDesktopAdminRoutes(desktop *gin.RouterGroup, h *handler.Handlers) {
+	desktop.POST("/organizations", h.Admin.Desktop.CreateOrganization)
+	desktop.GET("/organizations", h.Admin.Desktop.ListOrganizations)
+	desktop.GET("/organizations/:organization_id", h.Admin.Desktop.GetOrganization)
+	desktop.PATCH("/organizations/:organization_id", h.Admin.Desktop.UpdateOrganization)
+	desktop.PUT("/organizations/:organization_id/model-configuration", h.Admin.Desktop.UpdateModelConfiguration)
+	desktop.POST("/organizations/:organization_id/members", h.Admin.Desktop.CreateMember)
+	desktop.GET("/organizations/:organization_id/members", h.Admin.Desktop.ListMembers)
+	desktop.PATCH("/organizations/:organization_id/members/:member_id", h.Admin.Desktop.UpdateMember)
+	desktop.DELETE("/organizations/:organization_id/members/:member_id", h.Admin.Desktop.DeleteMember)
+	desktop.POST("/organizations/:organization_id/members/:member_id/model-token/rotate", h.Admin.Desktop.RotateModelToken)
 }
 
 func registerPromptAuditRoutes(admin *gin.RouterGroup, h *handler.Handlers) {

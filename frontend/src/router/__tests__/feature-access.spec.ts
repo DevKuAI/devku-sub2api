@@ -25,6 +25,7 @@ const appStore = vi.hoisted(() => ({
   cachedPublicSettings: null as null | {
     payment_enabled?: boolean
     risk_control_enabled?: boolean
+    desktop_enabled?: boolean
     custom_menu_items?: []
   },
   fetchPublicSettings: vi.fn(),
@@ -173,5 +174,34 @@ describe('feature route guard', () => {
     expect(appStore.fetchPublicSettings).not.toHaveBeenCalled()
     expect(next).toHaveBeenCalledOnce()
     expect(next).toHaveBeenCalledWith(target)
+  })
+
+  it('fails closed when Desktop settings cannot be loaded', async () => {
+    authStore.isAdmin = true
+    appStore.fetchPublicSettings.mockResolvedValue(null)
+
+    const { navigation, next } = runGuard(
+      { requiresAdmin: true, requiresDesktop: true },
+      '/admin/desktop/organizations'
+    )
+    await navigation
+
+    expect(next).toHaveBeenCalledOnce()
+    expect(next).toHaveBeenCalledWith('/admin/dashboard')
+  })
+
+  it('allows Desktop routes only when the opt-in flag is true', async () => {
+    authStore.isAdmin = true
+    appStore.publicSettingsLoaded = true
+    appStore.cachedPublicSettings = { desktop_enabled: true }
+
+    const { navigation, next } = runGuard(
+      { requiresAdmin: true, requiresDesktop: true },
+      '/admin/desktop/organizations'
+    )
+    await navigation
+
+    expect(next).toHaveBeenCalledOnce()
+    expect(next).toHaveBeenCalledWith()
   })
 })

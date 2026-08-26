@@ -20,6 +20,9 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
 	"github.com/Wei-Shaw/sub2api/ent/compositemodelroute"
+	"github.com/Wei-Shaw/sub2api/ent/desktopmember"
+	"github.com/Wei-Shaw/sub2api/ent/desktopmemberapikey"
+	"github.com/Wei-Shaw/sub2api/ent/desktoporganization"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
@@ -927,6 +930,204 @@ func init() {
 	compositemodelrouteDescEnabled := compositemodelrouteFields[7].Descriptor()
 	// compositemodelroute.DefaultEnabled holds the default value on creation for the enabled field.
 	compositemodelroute.DefaultEnabled = compositemodelrouteDescEnabled.Default.(bool)
+	desktopmemberMixin := schema.DesktopMember{}.Mixin()
+	desktopmemberMixinHooks1 := desktopmemberMixin[1].Hooks()
+	desktopmember.Hooks[0] = desktopmemberMixinHooks1[0]
+	desktopmemberMixinInters1 := desktopmemberMixin[1].Interceptors()
+	desktopmember.Interceptors[0] = desktopmemberMixinInters1[0]
+	desktopmemberMixinFields0 := desktopmemberMixin[0].Fields()
+	_ = desktopmemberMixinFields0
+	desktopmemberFields := schema.DesktopMember{}.Fields()
+	_ = desktopmemberFields
+	// desktopmemberDescCreatedAt is the schema descriptor for created_at field.
+	desktopmemberDescCreatedAt := desktopmemberMixinFields0[0].Descriptor()
+	// desktopmember.DefaultCreatedAt holds the default value on creation for the created_at field.
+	desktopmember.DefaultCreatedAt = desktopmemberDescCreatedAt.Default.(func() time.Time)
+	// desktopmemberDescUpdatedAt is the schema descriptor for updated_at field.
+	desktopmemberDescUpdatedAt := desktopmemberMixinFields0[1].Descriptor()
+	// desktopmember.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	desktopmember.DefaultUpdatedAt = desktopmemberDescUpdatedAt.Default.(func() time.Time)
+	// desktopmember.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	desktopmember.UpdateDefaultUpdatedAt = desktopmemberDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// desktopmemberDescPublicID is the schema descriptor for public_id field.
+	desktopmemberDescPublicID := desktopmemberFields[0].Descriptor()
+	// desktopmember.PublicIDValidator is a validator for the "public_id" field. It is called by the builders before save.
+	desktopmember.PublicIDValidator = func() func(string) error {
+		validators := desktopmemberDescPublicID.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(public_id string) error {
+			for _, fn := range fns {
+				if err := fn(public_id); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// desktopmemberDescName is the schema descriptor for name field.
+	desktopmemberDescName := desktopmemberFields[2].Descriptor()
+	// desktopmember.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	desktopmember.NameValidator = func() func(string) error {
+		validators := desktopmemberDescName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(name string) error {
+			for _, fn := range fns {
+				if err := fn(name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// desktopmemberDescNameNormalized is the schema descriptor for name_normalized field.
+	desktopmemberDescNameNormalized := desktopmemberFields[3].Descriptor()
+	// desktopmember.NameNormalizedValidator is a validator for the "name_normalized" field. It is called by the builders before save.
+	desktopmember.NameNormalizedValidator = func() func(string) error {
+		validators := desktopmemberDescNameNormalized.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(name_normalized string) error {
+			for _, fn := range fns {
+				if err := fn(name_normalized); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// desktopmemberDescPhone is the schema descriptor for phone field.
+	desktopmemberDescPhone := desktopmemberFields[4].Descriptor()
+	// desktopmember.PhoneValidator is a validator for the "phone" field. It is called by the builders before save.
+	desktopmember.PhoneValidator = func() func(string) error {
+		validators := desktopmemberDescPhone.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(phone string) error {
+			for _, fn := range fns {
+				if err := fn(phone); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// desktopmemberDescStatus is the schema descriptor for status field.
+	desktopmemberDescStatus := desktopmemberFields[5].Descriptor()
+	// desktopmember.DefaultStatus holds the default value on creation for the status field.
+	desktopmember.DefaultStatus = desktopmemberDescStatus.Default.(string)
+	// desktopmember.StatusValidator is a validator for the "status" field. It is called by the builders before save.
+	desktopmember.StatusValidator = desktopmemberDescStatus.Validators[0].(func(string) error)
+	// desktopmemberDescAuthVersion is the schema descriptor for auth_version field.
+	desktopmemberDescAuthVersion := desktopmemberFields[6].Descriptor()
+	// desktopmember.DefaultAuthVersion holds the default value on creation for the auth_version field.
+	desktopmember.DefaultAuthVersion = desktopmemberDescAuthVersion.Default.(int64)
+	// desktopmember.AuthVersionValidator is a validator for the "auth_version" field. It is called by the builders before save.
+	desktopmember.AuthVersionValidator = desktopmemberDescAuthVersion.Validators[0].(func(int64) error)
+	// desktopmemberDescAPIKeySuspendedByOrganization is the schema descriptor for api_key_suspended_by_organization field.
+	desktopmemberDescAPIKeySuspendedByOrganization := desktopmemberFields[7].Descriptor()
+	// desktopmember.DefaultAPIKeySuspendedByOrganization holds the default value on creation for the api_key_suspended_by_organization field.
+	desktopmember.DefaultAPIKeySuspendedByOrganization = desktopmemberDescAPIKeySuspendedByOrganization.Default.(bool)
+	desktopmemberapikeyFields := schema.DesktopMemberAPIKey{}.Fields()
+	_ = desktopmemberapikeyFields
+	// desktopmemberapikeyDescAssignedAt is the schema descriptor for assigned_at field.
+	desktopmemberapikeyDescAssignedAt := desktopmemberapikeyFields[2].Descriptor()
+	// desktopmemberapikey.DefaultAssignedAt holds the default value on creation for the assigned_at field.
+	desktopmemberapikey.DefaultAssignedAt = desktopmemberapikeyDescAssignedAt.Default.(func() time.Time)
+	desktoporganizationMixin := schema.DesktopOrganization{}.Mixin()
+	desktoporganizationMixinHooks1 := desktoporganizationMixin[1].Hooks()
+	desktoporganization.Hooks[0] = desktoporganizationMixinHooks1[0]
+	desktoporganizationMixinInters1 := desktoporganizationMixin[1].Interceptors()
+	desktoporganization.Interceptors[0] = desktoporganizationMixinInters1[0]
+	desktoporganizationMixinFields0 := desktoporganizationMixin[0].Fields()
+	_ = desktoporganizationMixinFields0
+	desktoporganizationFields := schema.DesktopOrganization{}.Fields()
+	_ = desktoporganizationFields
+	// desktoporganizationDescCreatedAt is the schema descriptor for created_at field.
+	desktoporganizationDescCreatedAt := desktoporganizationMixinFields0[0].Descriptor()
+	// desktoporganization.DefaultCreatedAt holds the default value on creation for the created_at field.
+	desktoporganization.DefaultCreatedAt = desktoporganizationDescCreatedAt.Default.(func() time.Time)
+	// desktoporganizationDescUpdatedAt is the schema descriptor for updated_at field.
+	desktoporganizationDescUpdatedAt := desktoporganizationMixinFields0[1].Descriptor()
+	// desktoporganization.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	desktoporganization.DefaultUpdatedAt = desktoporganizationDescUpdatedAt.Default.(func() time.Time)
+	// desktoporganization.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	desktoporganization.UpdateDefaultUpdatedAt = desktoporganizationDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// desktoporganizationDescPublicID is the schema descriptor for public_id field.
+	desktoporganizationDescPublicID := desktoporganizationFields[0].Descriptor()
+	// desktoporganization.PublicIDValidator is a validator for the "public_id" field. It is called by the builders before save.
+	desktoporganization.PublicIDValidator = func() func(string) error {
+		validators := desktoporganizationDescPublicID.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(public_id string) error {
+			for _, fn := range fns {
+				if err := fn(public_id); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// desktoporganizationDescCode is the schema descriptor for code field.
+	desktoporganizationDescCode := desktoporganizationFields[1].Descriptor()
+	// desktoporganization.CodeValidator is a validator for the "code" field. It is called by the builders before save.
+	desktoporganization.CodeValidator = func() func(string) error {
+		validators := desktoporganizationDescCode.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(code string) error {
+			for _, fn := range fns {
+				if err := fn(code); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// desktoporganizationDescName is the schema descriptor for name field.
+	desktoporganizationDescName := desktoporganizationFields[2].Descriptor()
+	// desktoporganization.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	desktoporganization.NameValidator = func() func(string) error {
+		validators := desktoporganizationDescName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(name string) error {
+			for _, fn := range fns {
+				if err := fn(name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// desktoporganizationDescStatus is the schema descriptor for status field.
+	desktoporganizationDescStatus := desktoporganizationFields[3].Descriptor()
+	// desktoporganization.DefaultStatus holds the default value on creation for the status field.
+	desktoporganization.DefaultStatus = desktoporganizationDescStatus.Default.(string)
+	// desktoporganization.StatusValidator is a validator for the "status" field. It is called by the builders before save.
+	desktoporganization.StatusValidator = desktoporganizationDescStatus.Validators[0].(func(string) error)
+	// desktoporganizationDescAuthVersion is the schema descriptor for auth_version field.
+	desktoporganizationDescAuthVersion := desktoporganizationFields[4].Descriptor()
+	// desktoporganization.DefaultAuthVersion holds the default value on creation for the auth_version field.
+	desktoporganization.DefaultAuthVersion = desktoporganizationDescAuthVersion.Default.(int64)
+	// desktoporganization.AuthVersionValidator is a validator for the "auth_version" field. It is called by the builders before save.
+	desktoporganization.AuthVersionValidator = desktoporganizationDescAuthVersion.Validators[0].(func(int64) error)
 	errorpassthroughruleMixin := schema.ErrorPassthroughRule{}.Mixin()
 	errorpassthroughruleMixinFields0 := errorpassthroughruleMixin[0].Fields()
 	_ = errorpassthroughruleMixinFields0
