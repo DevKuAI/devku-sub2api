@@ -4,14 +4,15 @@
 # =============================================================================
 # This script prepares deployment files for Sub2API:
 #   - Downloads docker-compose.local.yml and .env.example
-#   - Generates secure secrets (JWT_SECRET, TOTP_ENCRYPTION_KEY, POSTGRES_PASSWORD)
+#   - Generates secure secrets (JWT_SECRET, DESKTOP_JWT_SECRET,
+#     TOTP_ENCRYPTION_KEY, POSTGRES_PASSWORD)
 #   - Creates necessary data directories
 #
 # After running this script, you can start services with:
 #   docker-compose up -d
 # =============================================================================
 
-set -e
+set -euo pipefail
 
 # Colors for output
 RED='\033[0;31m'
@@ -45,9 +46,64 @@ generate_secret() {
     openssl rand -hex 32
 }
 
+# Generate a standard base64 secret accepted by Desktop JWT validation
+generate_desktop_jwt_secret() {
+    openssl rand -base64 32
+}
+
 # Check if command exists
 command_exists() {
     command -v "$1" >/dev/null 2>&1
+}
+
+# Replace one dotenv value without treating base64 slashes as sed delimiters
+replace_env_value() {
+    local key="$1"
+    local value="$2"
+
+    if sed --version >/dev/null 2>&1; then
+        sed -i "s|^${key}=.*|${key}=${value}|" .env
+    else
+        sed -i '' "s|^${key}=.*|${key}=${value}|" .env
+    fi
+}
+
+# Keep the downloaded Compose file and environment template in sync
+validate_desktop_configuration() {
+    local variable
+    local compose_count
+    local template_count
+    local has_errors=false
+    local desktop_variables=(
+        DESKTOP_ENABLED
+        DESKTOP_JWT_SECRET
+        DESKTOP_PUBLIC_GATEWAY_BASE_URL
+        DESKTOP_ACCESS_TOKEN_TTL_MINUTES
+        DESKTOP_REFRESH_FAMILY_TTL_DAYS
+        DESKTOP_LOOKUP_IP_PER_MINUTE
+        DESKTOP_LOGIN_IP_PER_MINUTE
+        DESKTOP_LOGIN_ORGANIZATION_PER_MINUTE
+        DESKTOP_LOGIN_PHONE_FAILURE_LIMIT
+        DESKTOP_LOGIN_PHONE_FREEZE_MINUTES
+    )
+
+    for variable in "${desktop_variables[@]}"; do
+        compose_count=$(grep -Ec "^[[:space:]]*-[[:space:]]*${variable}=" docker-compose.yml || true)
+        template_count=$(grep -Ec "^${variable}=" .env.example || true)
+
+        if [ "$compose_count" -ne 1 ]; then
+            print_error "docker-compose.yml must map ${variable} exactly once."
+            has_errors=true
+        fi
+        if [ "$template_count" -ne 1 ]; then
+            print_error ".env.example must define ${variable} exactly once."
+            has_errors=true
+        fi
+    done
+
+    if [ "$has_errors" = true ]; then
+        return 1
+    fi
 }
 
 # Main installation function
@@ -96,12 +152,17 @@ main() {
     fi
     print_success "Downloaded .env.example"
 
+    print_info "Validating Desktop deployment configuration..."
+    validate_desktop_configuration
+    print_success "Desktop deployment configuration is valid"
+
     # Generate .env file with auto-generated secrets
     print_info "Generating secure secrets..."
     echo ""
 
     # Generate secrets
     JWT_SECRET=$(generate_secret)
+    DESKTOP_JWT_SECRET=$(generate_desktop_jwt_secret)
     TOTP_ENCRYPTION_KEY=$(generate_secret)
     POSTGRES_PASSWORD=$(generate_secret)
 
@@ -109,17 +170,10 @@ main() {
     cp .env.example .env
 
     # Update .env with generated secrets (cross-platform compatible)
-    if sed --version >/dev/null 2>&1; then
-        # GNU sed (Linux)
-        sed -i "s/^JWT_SECRET=.*/JWT_SECRET=${JWT_SECRET}/" .env
-        sed -i "s/^TOTP_ENCRYPTION_KEY=.*/TOTP_ENCRYPTION_KEY=${TOTP_ENCRYPTION_KEY}/" .env
-        sed -i "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=${POSTGRES_PASSWORD}/" .env
-    else
-        # BSD sed (macOS)
-        sed -i '' "s/^JWT_SECRET=.*/JWT_SECRET=${JWT_SECRET}/" .env
-        sed -i '' "s/^TOTP_ENCRYPTION_KEY=.*/TOTP_ENCRYPTION_KEY=${TOTP_ENCRYPTION_KEY}/" .env
-        sed -i '' "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=${POSTGRES_PASSWORD}/" .env
-    fi
+    replace_env_value JWT_SECRET "$JWT_SECRET"
+    replace_env_value DESKTOP_JWT_SECRET "$DESKTOP_JWT_SECRET"
+    replace_env_value TOTP_ENCRYPTION_KEY "$TOTP_ENCRYPTION_KEY"
+    replace_env_value POSTGRES_PASSWORD "$POSTGRES_PASSWORD"
 
     # Create data directories
     print_info "Creating data directories..."
@@ -138,6 +192,7 @@ main() {
     echo "Generated secure credentials:"
     echo "  POSTGRES_PASSWORD:     ${POSTGRES_PASSWORD}"
     echo "  JWT_SECRET:            ${JWT_SECRET}"
+    echo "  DESKTOP_JWT_SECRET:    generated and saved to .env"
     echo "  TOTP_ENCRYPTION_KEY:   ${TOTP_ENCRYPTION_KEY}"
     echo ""
     print_warning "These credentials have been saved to .env file."

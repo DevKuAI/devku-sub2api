@@ -100,6 +100,20 @@ services:
       - JWT_EXPIRE_HOUR=${JWT_EXPIRE_HOUR:-24}
 
       # =======================================================================
+      # Devku Desktop (disabled by default)
+      # =======================================================================
+      - DESKTOP_ENABLED=${DESKTOP_ENABLED:-false}
+      - DESKTOP_JWT_SECRET=${DESKTOP_JWT_SECRET:-}
+      - DESKTOP_PUBLIC_GATEWAY_BASE_URL=${DESKTOP_PUBLIC_GATEWAY_BASE_URL:-}
+      - DESKTOP_ACCESS_TOKEN_TTL_MINUTES=${DESKTOP_ACCESS_TOKEN_TTL_MINUTES:-15}
+      - DESKTOP_REFRESH_FAMILY_TTL_DAYS=${DESKTOP_REFRESH_FAMILY_TTL_DAYS:-30}
+      - DESKTOP_LOOKUP_IP_PER_MINUTE=${DESKTOP_LOOKUP_IP_PER_MINUTE:-10}
+      - DESKTOP_LOGIN_IP_PER_MINUTE=${DESKTOP_LOGIN_IP_PER_MINUTE:-10}
+      - DESKTOP_LOGIN_ORGANIZATION_PER_MINUTE=${DESKTOP_LOGIN_ORGANIZATION_PER_MINUTE:-30}
+      - DESKTOP_LOGIN_PHONE_FAILURE_LIMIT=${DESKTOP_LOGIN_PHONE_FAILURE_LIMIT:-5}
+      - DESKTOP_LOGIN_PHONE_FREEZE_MINUTES=${DESKTOP_LOGIN_PHONE_FREEZE_MINUTES:-15}
+
+      # =======================================================================
       # Setup Configuration
       # =======================================================================
       - SETUP_MIGRATION_TIMEOUT_SECONDS=${SETUP_MIGRATION_TIMEOUT_SECONDS:-0}
