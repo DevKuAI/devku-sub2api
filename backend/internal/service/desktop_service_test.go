@@ -127,9 +127,9 @@ func TestDesktopTargetConfigValidatesWireAPIByTarget(t *testing.T) {
 	}
 
 	require.NoError(t, newConfig(DesktopWireAPIResponses, DesktopWireAPIChatCompletions, false).Validate())
+	require.NoError(t, newConfig(DesktopWireAPIResponses, DesktopWireAPIChatCompletions, true).Validate())
 	require.ErrorIs(t, newConfig(DesktopWireAPIChatCompletions, DesktopWireAPIChatCompletions, false).Validate(), ErrDesktopValidation)
 	require.ErrorIs(t, newConfig(DesktopWireAPIResponses, DesktopWireAPIResponses, false).Validate(), ErrDesktopValidation)
-	require.ErrorIs(t, newConfig(DesktopWireAPIResponses, DesktopWireAPIChatCompletions, true).Validate(), ErrDesktopValidation)
 }
 
 func TestDesktopModelConfigurationETagIgnoresRawKeyAndUpdatedAt(t *testing.T) {

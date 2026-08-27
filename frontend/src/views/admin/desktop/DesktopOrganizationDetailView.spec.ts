@@ -201,7 +201,22 @@ describe('DesktopOrganizationDetailView', () => {
     wrapper.unmount()
   })
 
-	it('submits the target-specific Gateway protocol for each client', async () => {
+	it('allows Workbuddy to be enabled from the configuration form', async () => {
+		route.query.tab = 'configuration'
+		const wrapper = mountView()
+		await flushPromises()
+		const disabledLabel = wrapper.findAll('label').find((label) => label.text() === 'common.disabled')
+
+		expect(disabledLabel).toBeDefined()
+		const toggle = disabledLabel!.get('input[type="checkbox"]')
+		expect(toggle.attributes('disabled')).toBeUndefined()
+		await toggle.setValue(true)
+		expect((wrapper.vm as any).configForm.work.enabled).toBe(true)
+		expect((wrapper.vm as any).configForm.includeWorkbuddy).toBe(true)
+		wrapper.unmount()
+	})
+
+	it('submits the target-specific Gateway protocol and enabled state for each client', async () => {
 		const wrapper = mountView()
 		await flushPromises()
 		const vm = wrapper.vm as any
@@ -210,7 +225,7 @@ describe('DesktopOrganizationDetailView', () => {
 			provider_id: 'provider', display_name: 'Codex', requested_model: 'model-one',
 		})
 		Object.assign(vm.configForm.work, {
-			provider_id: 'provider', display_name: 'Workbuddy', requested_model: 'model-two',
+			enabled: true, provider_id: 'provider', display_name: 'Workbuddy', requested_model: 'model-two',
 		})
 		vm.configForm.includeWorkbuddy = true
 
@@ -224,7 +239,7 @@ describe('DesktopOrganizationDetailView', () => {
 					wire_api: 'responses', restart_required: false,
 				},
 				workbuddy: {
-					enabled: false, provider_id: 'provider', display_name: 'Workbuddy', requested_model: 'model-two',
+					enabled: true, provider_id: 'provider', display_name: 'Workbuddy', requested_model: 'model-two',
 					wire_api: 'chat_completions', restart_required: false,
 				},
 			},

@@ -70,8 +70,8 @@
             </div>
           </div>
           <div class="border-b border-gray-200 pb-6 dark:border-dark-700">
-            <div class="mb-4 flex flex-wrap items-center justify-between gap-3"><h2 class="text-base font-semibold text-gray-900 dark:text-white">Workbuddy</h2><label class="flex items-center gap-2 text-sm text-gray-500"><input :checked="false" class="h-4 w-4 rounded" type="checkbox" disabled />{{ t('common.disabled') }}</label></div>
-            <label class="mb-4 flex items-center gap-2 text-sm"><input v-model="configForm.includeWorkbuddy" class="h-4 w-4 rounded" type="checkbox" />{{ t('admin.desktop.configureWorkbuddy') }}</label>
+            <div class="mb-4 flex flex-wrap items-center justify-between gap-3"><h2 class="text-base font-semibold text-gray-900 dark:text-white">Workbuddy</h2><label class="flex items-center gap-2 text-sm"><input v-model="configForm.work.enabled" class="h-4 w-4 rounded" type="checkbox" @change="onWorkbuddyEnabledChange" />{{ configForm.work.enabled ? t('common.enabled') : t('common.disabled') }}</label></div>
+            <label class="mb-4 flex items-center gap-2 text-sm"><input v-model="configForm.includeWorkbuddy" class="h-4 w-4 rounded" type="checkbox" @change="onWorkbuddyIncludedChange" />{{ t('admin.desktop.configureWorkbuddy') }}</label>
             <div v-if="configForm.includeWorkbuddy" class="grid grid-cols-1 gap-4 md:grid-cols-2">
               <Input v-model="configForm.work.provider_id" :label="t('admin.desktop.providerId')" required />
               <Input v-model="configForm.work.display_name" :label="t('admin.desktop.displayName')" required />
@@ -289,9 +289,11 @@ function applyConfiguration(value?: DesktopTargetConfig | null) {
   configForm.includeWorkbuddy = Boolean(work)
 }
 function buildTarget(target: typeof configForm.chat, wireAPI: DesktopWireAPI, enabled = target.enabled) { return { enabled, provider_id: target.provider_id.trim(), display_name: target.display_name.trim(), requested_model: target.requested_model.trim(), wire_api: wireAPI, ...(target.minimum_app_version.trim() ? { minimum_app_version: target.minimum_app_version.trim() } : {}), restart_required: target.restart_required } }
+function onWorkbuddyEnabledChange() { if (configForm.work.enabled) configForm.includeWorkbuddy = true }
+function onWorkbuddyIncludedChange() { if (!configForm.includeWorkbuddy) configForm.work.enabled = false }
 async function saveConfiguration() {
   const chat = buildTarget(configForm.chat, 'responses')
-  const work = configForm.includeWorkbuddy ? buildTarget(configForm.work, 'chat_completions', false) : undefined
+  const work = configForm.includeWorkbuddy ? buildTarget(configForm.work, 'chat_completions') : undefined
   if (![chat, work].filter(Boolean).every((target) => target?.provider_id && target.display_name && target.requested_model)) { appStore.showError(t('admin.desktop.errors.VALIDATION_FAILED')); return }
   configSaving.value = true
   try { organization.value = await adminAPI.desktop.updateModelConfiguration(organizationID.value, { schema_version: 1, targets: { chatgpt_codex: chat, ...(work ? { workbuddy: work } : {}) } }); appStore.showSuccess(t('admin.desktop.configurationSaved')) }

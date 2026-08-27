@@ -121,9 +121,6 @@ func (c *DesktopTargetConfig) Validate() error {
 		}
 	}
 	if target := c.Targets.Workbuddy; target != nil {
-		if target.Enabled {
-			return ErrDesktopValidation.WithMetadata(map[string]string{"field": "target_config.targets.workbuddy.enabled"})
-		}
 		if err := validateDesktopTarget("workbuddy", target, DesktopWireAPIChatCompletions); err != nil {
 			return err
 		}

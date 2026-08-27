@@ -146,7 +146,7 @@ Desktop auth 写请求进入 Audit Middleware，但审计记录只保存脱敏�
       "restart_required": true
     },
     "workbuddy": {
-      "enabled": false,
+      "enabled": true,
       "provider_id": "devku_enterprise",
       "display_name": "东恒锦洋企业模型",
       "requested_model": "enterprise-model-1",
@@ -158,7 +158,7 @@ Desktop auth 写请求进入 Audit Middleware，但审计记录只保存脱敏�
 }
 ```
 
-`chatgpt_codex.wire_api` 固定为 `responses`，对应 Gateway `/responses`。`workbuddy.wire_api` 固定为 `chat_completions`，对应 Gateway `/chat/completions`。当前 Workbuddy 生产配置仍必须为 `enabled: false`。
+`chatgpt_codex.wire_api` 固定为 `responses`，对应 Gateway `/responses`。`workbuddy.wire_api` 固定为 `chat_completions`，对应 Gateway `/chat/completions`。Admin 可以独立启用或停用两个 target。
 
 ## Admin API
 
@@ -502,6 +502,6 @@ Authorization: Bearer <model_token>
 Content-Type: application/json
 ```
 
-当前 Workbuddy target 仍保持 `enabled: false`；正式启用后才会下发给 Desktop 客户端。
+Workbuddy target 仅在 `enabled: true` 时下发给 Desktop 客户端。
 
 成员、企业或承载 User 撤销后，Desktop API 与 Refresh 通过数据库状态立即拒绝；Model Token 通过 API Key 状态、即时缓存失效和 auth cache invalidation outbox 失效。
