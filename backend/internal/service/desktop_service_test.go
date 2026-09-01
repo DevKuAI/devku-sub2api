@@ -12,14 +12,15 @@ import (
 )
 
 type desktopRepositoryStub struct {
-	authorized                   *DesktopAuthorizedMember
-	members                      []DesktopMember
-	listMemberFilters            []DesktopMemberListFilters
-	keyIDs                       []int64
-	hasUserOrganization          bool
-	hasGroupOrganization         bool
-	userOrganizationGroupID      int64
-	userOrganizationGroupPresent bool
+	authorized                     *DesktopAuthorizedMember
+	members                        []DesktopMember
+	listMemberFilters              []DesktopMemberListFilters
+	keyIDs                         []int64
+	hasUserOrganization            bool
+	hasGroupOrganization           bool
+	userOrganizationGroupID        int64
+	userOrganizationGroupExclusive bool
+	userOrganizationGroupPresent   bool
 }
 
 func (s *desktopRepositoryStub) CreateOrganization(context.Context, DesktopCreateOrganizationInput) (*DesktopOrganization, error) {
@@ -81,8 +82,8 @@ func (s *desktopRepositoryStub) HasOrganizationForGroup(context.Context, int64) 
 func (s *desktopRepositoryStub) ListAvailableGatewayUsers(context.Context, pagination.PaginationParams, string) ([]User, *pagination.PaginationResult, error) {
 	return nil, nil, nil
 }
-func (s *desktopRepositoryStub) DesktopOrganizationGroupIDForUser(context.Context, int64) (int64, bool, error) {
-	return s.userOrganizationGroupID, s.userOrganizationGroupPresent, nil
+func (s *desktopRepositoryStub) DesktopOrganizationGroupForUser(context.Context, int64) (int64, bool, bool, error) {
+	return s.userOrganizationGroupID, s.userOrganizationGroupExclusive, s.userOrganizationGroupPresent, nil
 }
 
 type desktopUsageRepositoryStub struct {
@@ -227,11 +228,29 @@ func TestDesktopDependencyGuards(t *testing.T) {
 		require.ErrorIs(t, svc.EnsureGroupCanBeDeleted(context.Background(), 7), ErrDesktopDependency)
 	})
 
-	t.Run("assigned group removal", func(t *testing.T) {
-		svc := &DesktopService{repo: &desktopRepositoryStub{
-			userOrganizationGroupID: 7, userOrganizationGroupPresent: true,
-		}}
-		require.ErrorIs(t, svc.EnsureGatewayUserAllowedGroups(context.Background(), 9, []int64{8}), ErrDesktopDependency)
-		require.NoError(t, svc.EnsureGatewayUserAllowedGroups(context.Background(), 9, []int64{7, 8}))
-	})
+	tests := []struct {
+		name                 string
+		isExclusive          bool
+		restrictPublicGroups bool
+		allowedGroups        []int64
+		wantErr              bool
+	}{
+		{name: "unrestricted public group", allowedGroups: []int64{8}},
+		{name: "restricted public group removed", restrictPublicGroups: true, allowedGroups: []int64{8}, wantErr: true},
+		{name: "exclusive group removed", isExclusive: true, allowedGroups: []int64{8}, wantErr: true},
+		{name: "restricted group retained", isExclusive: true, restrictPublicGroups: true, allowedGroups: []int64{7, 8}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := &DesktopService{repo: &desktopRepositoryStub{
+				userOrganizationGroupID: 7, userOrganizationGroupExclusive: tt.isExclusive, userOrganizationGroupPresent: true,
+			}}
+			err := svc.EnsureGatewayUserGroupAccess(context.Background(), 9, tt.restrictPublicGroups, tt.allowedGroups)
+			if tt.wantErr {
+				require.ErrorIs(t, err, ErrDesktopDependency)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
 }

@@ -527,6 +527,67 @@ func TestRelay_MultipleUpstreamMessages(t *testing.T) {
 	require.Len(t, clientWrites, 3)
 }
 
+func TestRelay_MessageStartsTTFTOptionControlsMetric(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		events     [][]byte
+		startsTTFT func([]byte, string) bool
+		wantTTFT   bool
+	}{
+		{
+			name: "semantic output item",
+			events: [][]byte{
+				[]byte(`{"type":"response.output_item.added","response_id":"resp_semantic","item":{"type":"reasoning","summary":[]}}`),
+				[]byte(`{"type":"response.completed","response":{"id":"resp_semantic","usage":{"input_tokens":1,"output_tokens":1}}}`),
+			},
+			startsTTFT: func(_ []byte, eventType string) bool { return eventType == "response.output_item.added" },
+			wantTTFT:   true,
+		},
+		{
+			name: "visible empty delta",
+			events: [][]byte{
+				[]byte(`{"type":"response.output_text.delta","response_id":"resp_visible","delta":""}`),
+				[]byte(`{"type":"response.completed","response":{"id":"resp_visible","usage":{"input_tokens":1,"output_tokens":0}}}`),
+			},
+			startsTTFT: func([]byte, string) bool { return false },
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			frames := make([]passthroughTestFrame, 0, len(tt.events))
+			for _, event := range tt.events {
+				frames = append(frames, passthroughTestFrame{msgType: coderws.MessageText, payload: event})
+			}
+			clientConn := newPassthroughTestFrameConn(nil, false)
+			upstreamConn := newPassthroughTestFrameConn(frames, true)
+			var turn RelayTurnResult
+			result, relayExit := Relay(
+				context.Background(),
+				clientConn,
+				upstreamConn,
+				[]byte(`{"type":"response.create","model":"gpt-5.6-sol","input":[]}`),
+				RelayOptions{
+					MessageStartsTTFT: tt.startsTTFT,
+					OnTurnComplete:    func(current RelayTurnResult) { turn = current },
+				},
+			)
+
+			require.Nil(t, relayExit)
+			if tt.wantTTFT {
+				require.NotNil(t, result.FirstTokenMs)
+				require.NotNil(t, turn.FirstTokenMs)
+				return
+			}
+			require.Nil(t, result.FirstTokenMs)
+			require.Nil(t, turn.FirstTokenMs)
+		})
+	}
+}
+
 func TestRelay_OnTurnComplete_PerTerminalEvent(t *testing.T) {
 	t.Parallel()
 

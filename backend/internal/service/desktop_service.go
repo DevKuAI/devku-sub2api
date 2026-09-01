@@ -215,21 +215,20 @@ func (s *DesktopService) EnsureGroupCanBeDeleted(ctx context.Context, groupID in
 	return nil
 }
 
-func (s *DesktopService) EnsureGatewayUserAllowedGroups(ctx context.Context, userID int64, allowedGroupIDs []int64) error {
+func (s *DesktopService) EnsureGatewayUserGroupAccess(ctx context.Context, userID int64, restrictPublicGroups bool, allowedGroupIDs []int64) error {
 	reader, ok := s.repo.(interface {
-		DesktopOrganizationGroupIDForUser(context.Context, int64) (int64, bool, error)
+		DesktopOrganizationGroupForUser(context.Context, int64) (int64, bool, bool, error)
 	})
 	if !ok {
 		return s.EnsureGatewayUserCanBeDeleted(ctx, userID)
 	}
-	groupID, assigned, err := reader.DesktopOrganizationGroupIDForUser(ctx, userID)
+	groupID, isExclusive, assigned, err := reader.DesktopOrganizationGroupForUser(ctx, userID)
 	if err != nil || !assigned {
 		return err
 	}
-	for _, allowedGroupID := range allowedGroupIDs {
-		if allowedGroupID == groupID {
-			return nil
-		}
+	user := User{AllowedGroups: allowedGroupIDs, RestrictPublicGroups: restrictPublicGroups}
+	if user.CanBindGroup(groupID, isExclusive) {
+		return nil
 	}
 	return ErrDesktopDependency
 }

@@ -602,18 +602,21 @@ func (r *desktopRepository) HasOrganizationForGroup(ctx context.Context, groupID
 	return r.client.DesktopOrganization.Query().Where(desktoporganization.GroupIDEQ(groupID)).Exist(ctx)
 }
 
-func (r *desktopRepository) DesktopOrganizationGroupIDForUser(ctx context.Context, userID int64) (int64, bool, error) {
+func (r *desktopRepository) DesktopOrganizationGroupForUser(ctx context.Context, userID int64) (int64, bool, bool, error) {
 	row, err := r.client.DesktopOrganization.Query().
 		Where(desktoporganization.GatewayUserIDEQ(userID)).
-		Select(desktoporganization.FieldGroupID).
+		WithGroup().
 		Only(ctx)
 	if dbent.IsNotFound(err) {
-		return 0, false, nil
+		return 0, false, false, nil
 	}
 	if err != nil {
-		return 0, false, err
+		return 0, false, false, err
 	}
-	return row.GroupID, true, nil
+	if row.Edges.Group == nil {
+		return 0, false, false, errors.New("desktop organization group edge is missing")
+	}
+	return row.GroupID, row.Edges.Group.IsExclusive, true, nil
 }
 
 func (r *desktopRepository) ListAvailableGatewayUsers(ctx context.Context, params pagination.PaginationParams, search string) ([]service.User, *pagination.PaginationResult, error) {

@@ -26,6 +26,12 @@ type UserWithConcurrency struct {
 	CurrentConcurrency int `json:"current_concurrency"`
 }
 
+type desktopUserService interface {
+	ListAvailableGatewayUsers(context.Context, pagination.PaginationParams, string) ([]service.User, *pagination.PaginationResult, error)
+	EnsureGatewayUserGroupAccess(context.Context, int64, bool, []int64) error
+	EnsureGatewayUserCanBeDeleted(context.Context, int64) error
+}
+
 // UserHandler handles admin user management
 type UserHandler struct {
 	adminService          service.AdminService
@@ -35,7 +41,7 @@ type UserHandler struct {
 	totpService           *service.TotpService                // 角色提升为管理员的 step-up 门控
 	userService           *service.UserService
 	settingService        *service.SettingService // step-up 功能开关
-	desktopService        *service.DesktopService
+	desktopService        desktopUserService
 }
 
 func (h *UserHandler) SetDesktopService(desktopService *service.DesktopService) {
@@ -353,22 +359,35 @@ func (h *UserHandler) Update(c *gin.Context) {
 		return
 	}
 
-	// 把普通用户提升为管理员属权限敏感操作：需最近完成 step-up 2FA 验证。
-	// 目标已是管理员时（前端编辑表单总是携带 role）不触发，避免日常编辑被打断。
-	if req.Role == service.RoleAdmin {
-		target, err := h.adminService.GetUser(c.Request.Context(), userID)
+	groupAccessChanged := req.AllowedGroups != nil || req.RestrictPublicGroups != nil
+	var target *service.User
+	if req.Role == service.RoleAdmin || (groupAccessChanged && h.desktopService != nil) {
+		target, err = h.adminService.GetUser(c.Request.Context(), userID)
 		if err != nil {
 			response.ErrorFrom(c, err)
 			return
 		}
+	}
+
+	// 把普通用户提升为管理员属权限敏感操作：需最近完成 step-up 2FA 验证。
+	// 目标已是管理员时（前端编辑表单总是携带 role）不触发，避免日常编辑被打断。
+	if req.Role == service.RoleAdmin {
 		if target.Role != service.RoleAdmin {
 			if !middleware.EnforceStepUp(c, h.totpService, h.userService, h.settingService) {
 				return
 			}
 		}
 	}
-	if req.AllowedGroups != nil && h.desktopService != nil {
-		if err := h.desktopService.EnsureGatewayUserAllowedGroups(c.Request.Context(), userID, *req.AllowedGroups); err != nil {
+	if groupAccessChanged && h.desktopService != nil {
+		allowedGroups := target.AllowedGroups
+		if req.AllowedGroups != nil {
+			allowedGroups = *req.AllowedGroups
+		}
+		restrictPublicGroups := target.RestrictPublicGroups
+		if req.RestrictPublicGroups != nil {
+			restrictPublicGroups = *req.RestrictPublicGroups
+		}
+		if err := h.desktopService.EnsureGatewayUserGroupAccess(c.Request.Context(), userID, restrictPublicGroups, allowedGroups); err != nil {
 			response.ErrorFrom(c, err)
 			return
 		}

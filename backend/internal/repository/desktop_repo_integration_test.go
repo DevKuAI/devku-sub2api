@@ -45,6 +45,43 @@ func TestDesktopRepositoryRejectsRestrictedPublicGroupCarrier(t *testing.T) {
 	require.ErrorIs(t, err, service.ErrGroupNotAllowed)
 }
 
+func TestDesktopRepositoryLoadsAssignedExclusiveGroup(t *testing.T) {
+	ctx := context.Background()
+	suffix := time.Now().UnixNano()
+	group := mustCreateGroup(t, integrationEntClient, &service.Group{
+		Name: fmt.Sprintf("desktop-exclusive-group-%d", suffix), RateMultiplier: 1, IsExclusive: true,
+	})
+	user := mustCreateUser(t, integrationEntClient, &service.User{
+		Email: fmt.Sprintf("desktop-exclusive-%d@example.com", suffix), APIKeyLimit: 10, AllowedGroups: []int64{group.ID},
+	})
+	t.Cleanup(func() {
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM desktop_organizations WHERE gateway_user_id = $1", user.ID)
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM user_allowed_groups WHERE user_id = $1", user.ID)
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM users WHERE id = $1", user.ID)
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM groups WHERE id = $1", group.ID)
+	})
+
+	repo := NewDesktopRepository(integrationEntClient, NewAPIKeyRepository(integrationEntClient, integrationDB))
+	_, err := repo.CreateOrganization(ctx, service.DesktopCreateOrganizationInput{
+		PublicID:      fmt.Sprintf("org_exclusive_%d", suffix),
+		Code:          fmt.Sprintf("e%x", suffix%100000),
+		Name:          "Exclusive",
+		GatewayUserID: user.ID,
+		GroupID:       group.ID,
+	})
+	require.NoError(t, err)
+
+	reader, ok := repo.(interface {
+		DesktopOrganizationGroupForUser(context.Context, int64) (int64, bool, bool, error)
+	})
+	require.True(t, ok)
+	groupID, isExclusive, assigned, err := reader.DesktopOrganizationGroupForUser(ctx, user.ID)
+	require.NoError(t, err)
+	require.True(t, assigned)
+	require.True(t, isExclusive)
+	require.Equal(t, group.ID, groupID)
+}
+
 func TestDesktopRepositoryConcurrentGatewayUserAssignmentAllowsOneOrganization(t *testing.T) {
 	ctx := context.Background()
 	suffix := time.Now().UnixNano()

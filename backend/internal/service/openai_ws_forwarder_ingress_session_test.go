@@ -976,6 +976,10 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_DedicatedModeDoe
 
 func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_PassthroughModeRelaysByCaddyAdapter(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	gatewayForwardingCache.Store(&cachedGatewayForwardingSettings{openAITTFTMode: OpenAITTFTModeVisible, expiresAt: time.Now().Add(time.Minute).UnixNano()})
+	t.Cleanup(func() {
+		gatewayForwardingCache.Store(&cachedGatewayForwardingSettings{openAITTFTMode: OpenAITTFTModeSemantic, expiresAt: time.Now().Add(time.Minute).UnixNano()})
+	})
 
 	cfg := &config.Config{}
 	cfg.Security.URLAllowlist.Enabled = false
@@ -991,7 +995,11 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_PassthroughModeR
 	cfg.Gateway.OpenAIWS.WriteTimeoutSeconds = 3
 
 	upstreamConn := &openAIWSCaptureConn{
+		readDelays: []time.Duration{0, 0, 120 * time.Millisecond, 0},
 		events: [][]byte{
+			[]byte(`{"type":"response.output_item.added","response_id":"resp_passthrough_turn_1","item":{"type":"reasoning","summary":[]}}`),
+			[]byte(`{"type":"response.output_text.delta","response_id":"resp_passthrough_turn_1","delta":""}`),
+			[]byte(`{"type":"response.output_text.delta","response_id":"resp_passthrough_turn_1","delta":"visible"}`),
 			[]byte(`{"type":"response.completed","response":{"id":"resp_passthrough_turn_1","model":"gpt-5.1","output":[{"id":"ig_passthrough_1","type":"image_generation_call","status":"generating","result":"final-image"}],"usage":{"input_tokens":2,"output_tokens":3}}}`),
 		},
 	}
@@ -1079,10 +1087,17 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_PassthroughModeR
 	cancelWrite()
 	require.NoError(t, err)
 
-	readCtx, cancelRead := context.WithTimeout(context.Background(), 3*time.Second)
-	_, event, readErr := clientConn.Read(readCtx)
-	cancelRead()
-	require.NoError(t, readErr)
+	var event []byte
+	for {
+		readCtx, cancelRead := context.WithTimeout(context.Background(), 3*time.Second)
+		_, nextEvent, readErr := clientConn.Read(readCtx)
+		cancelRead()
+		require.NoError(t, readErr)
+		event = nextEvent
+		if gjson.GetBytes(event, "type").String() == "response.completed" {
+			break
+		}
+	}
 	require.Equal(t, "response.completed", gjson.GetBytes(event, "type").String())
 	require.Equal(t, "resp_passthrough_turn_1", gjson.GetBytes(event, "response.id").String())
 	require.Equal(t, "completed", gjson.GetBytes(event, "response.output.0.status").String())
@@ -1110,6 +1125,8 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_PassthroughModeR
 		require.Equal(t, "priority", *result.ServiceTier)
 		require.NotNil(t, result.ReasoningEffort)
 		require.Equal(t, "high", *result.ReasoningEffort)
+		require.NotNil(t, result.FirstTokenMs)
+		require.GreaterOrEqual(t, *result.FirstTokenMs, 100)
 	case <-time.After(2 * time.Second):
 		t.Fatal("未收到 passthrough turn 结果回调")
 	}

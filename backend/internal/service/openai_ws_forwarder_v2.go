@@ -357,6 +357,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	usage := &OpenAIUsage{}
 	imageCounter := newOpenAIImageOutputCounter()
 	var firstTokenMs *int
+	ttftMode := s.openAITTFTMode(ctx)
 	responseID := ""
 	var finalResponse []byte
 	wroteDownstream := false
@@ -551,7 +552,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 		if isTerminalEvent {
 			terminalEventCount++
 		}
-		if firstTokenMs == nil && isTokenEvent {
+		if firstTokenMs == nil && openAIWSMessageStartsTTFT(message, eventType, ttftMode) {
 			ms := int(time.Since(startTime).Milliseconds())
 			firstTokenMs = &ms
 		}

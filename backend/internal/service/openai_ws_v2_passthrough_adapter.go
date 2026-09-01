@@ -1161,6 +1161,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 	if hooks != nil {
 		firstTurnStartedAt = hooks.InitialTurnStartedAt
 	}
+	ttftMode := s.openAITTFTMode(ctx)
 	failureAccountSideEffectsApplied := false
 	relayResult, relayExit := openaiwsv2.RunEntry(openaiwsv2.EntryInput{
 		Ctx:                ctx,
@@ -1170,6 +1171,9 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 		Options: openaiwsv2.RelayOptions{
 			WriteTimeout:       s.openAIWSWriteTimeout(),
 			FirstTurnStartedAt: firstTurnStartedAt,
+			MessageStartsTTFT: func(message []byte, eventType string) bool {
+				return openAIWSMessageStartsTTFT(message, eventType, ttftMode)
+			},
 			TakeNextTurnStartedAt: func() time.Time {
 				startedAt := acceptedTurnStartedAt.Swap(nil)
 				if startedAt == nil {

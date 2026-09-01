@@ -86,6 +86,7 @@ type RelayOptions struct {
 	BeforeRelayCancel               func(exit RelayExit)
 	ReadClientFrame                 func(ctx context.Context, clientConn FrameConn) (coderws.MessageType, []byte, error)
 	OnTrace                         func(event RelayTraceEvent)
+	MessageStartsTTFT               func(message []byte, eventType string) bool
 	Now                             func() time.Time
 }
 
@@ -114,6 +115,7 @@ type relayState struct {
 	turnTimingByID          map[string]*relayTurnTiming
 	activeTurn              *relayTurnTiming
 	pendingBareError        *observedUpstreamEvent
+	messageStartsTTFT       func(message []byte, eventType string) bool
 }
 
 type relayExitSignal struct {
@@ -179,7 +181,7 @@ func Relay(
 		firstMessageType = coderws.MessageText
 	}
 	startAt := nowFn()
-	state := &relayState{requestModel: result.RequestModel}
+	state := &relayState{requestModel: result.RequestModel, messageStartsTTFT: options.MessageStartsTTFT}
 	if isClientResponseCreateFrame(firstMessageType, firstClientMessage) {
 		firstTurnStartedAt := options.FirstTurnStartedAt
 		if firstTurnStartedAt.IsZero() {
@@ -732,7 +734,8 @@ func observeUpstreamMessage(
 	}
 	now := nowFn()
 
-	if state.firstTokenMs == nil && isTokenEvent(eventType) {
+	startsTTFT := relayMessageStartsTTFT(state, message, eventType)
+	if state.firstTokenMs == nil && startsTTFT {
 		ms := int(now.Sub(startAt).Milliseconds())
 		if ms >= 0 {
 			state.firstTokenMs = &ms
@@ -753,7 +756,7 @@ func observeUpstreamMessage(
 	var turnTiming *relayTurnTiming
 	if responseID != "" {
 		turnTiming = openAIWSRelayGetOrInitTurnTiming(state, responseID, now)
-		if turnTiming != nil && turnTiming.firstTokenMs == nil && isTokenEvent(eventType) {
+		if turnTiming != nil && turnTiming.firstTokenMs == nil && startsTTFT {
 			ms := int(now.Sub(turnTiming.startAt).Milliseconds())
 			if ms >= 0 {
 				turnTiming.firstTokenMs = &ms
@@ -1272,6 +1275,13 @@ func isTokenEvent(eventType string) bool {
 	return strings.HasSuffix(eventType, ".delta") ||
 		eventType == "response.output_text.done" ||
 		eventType == "response.function_call_arguments.done"
+}
+
+func relayMessageStartsTTFT(state *relayState, message []byte, eventType string) bool {
+	if state != nil && state.messageStartsTTFT != nil {
+		return state.messageStartsTTFT(message, eventType)
+	}
+	return isTokenEvent(eventType)
 }
 
 func minDuration(a, b time.Duration) time.Duration {
