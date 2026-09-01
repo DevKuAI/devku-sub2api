@@ -922,6 +922,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			return nil, errors.New("upstream websocket lease is nil")
 		}
 		turnStart := time.Now()
+		ttftMode := s.openAITTFTMode(ctx)
 		wroteDownstream := false
 		if err := lease.WriteJSONWithContextTimeout(ctx, json.RawMessage(payload), s.openAIWSWriteTimeout()); err != nil {
 			return nil, wrapOpenAIWSIngressTurnError(
@@ -1094,7 +1095,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			if isTerminalEvent {
 				terminalEventCount++
 			}
-			if firstTokenMs == nil && isTokenEvent {
+			if firstTokenMs == nil && openAIWSMessageStartsTTFT(upstreamMessage, eventType, ttftMode) {
 				ms := int(time.Since(turnStart).Milliseconds())
 				firstTokenMs = &ms
 			}

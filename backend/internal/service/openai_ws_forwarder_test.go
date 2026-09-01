@@ -59,6 +59,51 @@ func TestIsOpenAIWSTokenEvent_TerminalEventsExcluded(t *testing.T) {
 	}
 }
 
+func TestOpenAIWSMessageStartsTTFTRespectsMode(t *testing.T) {
+	tests := []struct {
+		name      string
+		mode      string
+		eventType string
+		payload   string
+		want      bool
+	}{
+		{
+			name:      "semantic starts at output item",
+			mode:      OpenAITTFTModeSemantic,
+			eventType: "response.output_item.added",
+			payload:   `{"type":"response.output_item.added","item":{"type":"reasoning","summary":[]}}`,
+			want:      true,
+		},
+		{
+			name:      "visible ignores empty reasoning item",
+			mode:      OpenAITTFTModeVisible,
+			eventType: "response.output_item.added",
+			payload:   `{"type":"response.output_item.added","item":{"type":"reasoning","summary":[]}}`,
+			want:      false,
+		},
+		{
+			name:      "visible ignores empty delta",
+			mode:      OpenAITTFTModeVisible,
+			eventType: "response.output_text.delta",
+			payload:   `{"type":"response.output_text.delta","delta":""}`,
+			want:      false,
+		},
+		{
+			name:      "visible starts at text delta",
+			mode:      OpenAITTFTModeVisible,
+			eventType: "response.output_text.delta",
+			payload:   `{"type":"response.output_text.delta","delta":"hello"}`,
+			want:      true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, openAIWSMessageStartsTTFT([]byte(tt.payload), tt.eventType, tt.mode))
+		})
+	}
+}
+
 // TestOpenAIWSCyberPolicyMark_ResponseFailed 验证 WS 路径 response.failed cyber_policy 标记逻辑。
 //
 // 全量转发循环（forwardOpenAIWSV2 / sendAndRelay）依赖真实 WebSocket 连接，

@@ -535,6 +535,7 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurn(
 	}
 
 	turnStart := time.Now()
+	ttftMode := s.openAITTFTMode(ctx)
 	rejectedFieldRetryState := newOpenAIResponsesRejectedFieldRetryState(body)
 	var resp *http.Response
 	for {
@@ -759,10 +760,10 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurn(
 		}
 		if isOpenAIWSTokenEvent(eventType) {
 			tokenEventCount++
-			if firstTokenMs == nil {
-				ms := int(time.Since(turnStart).Milliseconds())
-				firstTokenMs = &ms
-			}
+		}
+		if firstTokenMs == nil && openAIWSMessageStartsTTFT(upstreamMessage, eventType, ttftMode) {
+			ms := int(time.Since(turnStart).Milliseconds())
+			firstTokenMs = &ms
 		}
 		if openAIWSMessageShouldParseUsage(eventType, upstreamMessage) {
 			parseOpenAIWSResponseUsageFromCompletedEvent(upstreamMessage, &usage)

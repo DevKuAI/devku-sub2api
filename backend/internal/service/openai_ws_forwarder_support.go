@@ -390,6 +390,10 @@ func isOpenAIWSTokenEvent(eventType string) bool {
 	return false
 }
 
+func openAIWSMessageStartsTTFT(message []byte, eventType, mode string) bool {
+	return openAIStreamDataStartsTTFT(string(message), eventType, false, mode)
+}
+
 func replaceOpenAIWSMessageModel(message []byte, fromModel, toModel string) []byte {
 	if len(message) == 0 {
 		return message

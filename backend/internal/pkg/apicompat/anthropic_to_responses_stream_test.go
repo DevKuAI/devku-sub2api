@@ -307,6 +307,44 @@ func TestAnthropicEventToResponses_MultipleTextBlocksAdvanceContentIndex(t *test
 	}
 }
 
+func TestAnthropicEventToResponses_UnsupportedBlockDoesNotCloseMessagePart(t *testing.T) {
+	state := NewAnthropicEventToResponsesState()
+	state.Model = "claude-sonnet-4-5"
+
+	var events []ResponsesStreamEvent
+	feed := func(evt *AnthropicStreamEvent) {
+		events = append(events, AnthropicEventToResponsesEvents(evt, state)...)
+	}
+
+	i0, i1, i2 := 0, 1, 2
+	feed(&AnthropicStreamEvent{Type: "message_start", Message: &AnthropicResponse{ID: "msg_1"}})
+	feed(&AnthropicStreamEvent{Type: "content_block_start", Index: &i0, ContentBlock: &AnthropicContentBlock{Type: "text"}})
+	feed(&AnthropicStreamEvent{Type: "content_block_delta", Index: &i0, Delta: &AnthropicDelta{Type: "text_delta", Text: "first"}})
+	feed(&AnthropicStreamEvent{Type: "content_block_stop", Index: &i0})
+	feed(&AnthropicStreamEvent{Type: "content_block_start", Index: &i1, ContentBlock: &AnthropicContentBlock{Type: "redacted_thinking"}})
+	feed(&AnthropicStreamEvent{Type: "content_block_stop", Index: &i1})
+	feed(&AnthropicStreamEvent{Type: "content_block_start", Index: &i2, ContentBlock: &AnthropicContentBlock{Type: "text"}})
+	feed(&AnthropicStreamEvent{Type: "content_block_delta", Index: &i2, Delta: &AnthropicDelta{Type: "text_delta", Text: "second"}})
+	feed(&AnthropicStreamEvent{Type: "content_block_stop", Index: &i2})
+	feed(&AnthropicStreamEvent{Type: "message_stop"})
+
+	var addedIndexes, doneIndexes []int
+	for _, event := range events {
+		switch event.Type {
+		case "response.content_part.added":
+			addedIndexes = append(addedIndexes, event.ContentIndex)
+		case "response.content_part.done":
+			doneIndexes = append(doneIndexes, event.ContentIndex)
+		}
+	}
+	if len(addedIndexes) != 2 || addedIndexes[0] != 0 || addedIndexes[1] != 1 {
+		t.Fatalf("content_part.added indexes = %v, want [0 1]", addedIndexes)
+	}
+	if len(doneIndexes) != 2 || doneIndexes[0] != 0 || doneIndexes[1] != 1 {
+		t.Fatalf("content_part.done indexes = %v, want [0 1]", doneIndexes)
+	}
+}
+
 // TestAnthropicEventToResponses_ItemLifecycleIsBalanced is the invariant behind
 // both regressions above: the converter must never leave an item that was
 // announced with response.output_item.added without a matching

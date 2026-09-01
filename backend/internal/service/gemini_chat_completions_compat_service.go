@@ -593,7 +593,8 @@ func (s *GeminiMessagesCompatService) handleChatCompletionsStreamingResponseFrom
 		if openBlockIndex < 0 {
 			return false
 		}
-		disconnected := emitAnthropicEvent(&apicompat.AnthropicStreamEvent{Type: "content_block_stop"})
+		idx := openBlockIndex
+		disconnected := emitAnthropicEvent(&apicompat.AnthropicStreamEvent{Type: "content_block_stop", Index: &idx})
 		openBlockIndex = -1
 		openBlockType = ""
 		return disconnected
@@ -602,7 +603,8 @@ func (s *GeminiMessagesCompatService) handleChatCompletionsStreamingResponseFrom
 		if openToolIndex < 0 {
 			return false
 		}
-		disconnected := emitAnthropicEvent(&apicompat.AnthropicStreamEvent{Type: "content_block_stop"})
+		idx := openToolIndex
+		disconnected := emitAnthropicEvent(&apicompat.AnthropicStreamEvent{Type: "content_block_stop", Index: &idx})
 		openToolIndex = -1
 		openToolName = ""
 		seenToolJSON = ""
@@ -670,7 +672,8 @@ func (s *GeminiMessagesCompatService) handleChatCompletionsStreamingResponseFrom
 									}
 								}
 								if emitAnthropicEvent(&apicompat.AnthropicStreamEvent{
-									Type: "content_block_delta",
+									Type:  "content_block_delta",
+									Index: &openBlockIndex,
 									Delta: &apicompat.AnthropicDelta{
 										Type: "text_delta",
 										Text: delta,
@@ -730,7 +733,8 @@ func (s *GeminiMessagesCompatService) handleChatCompletionsStreamingResponseFrom
 								seenToolJSON = newSeen
 								if delta != "" {
 									if emitAnthropicEvent(&apicompat.AnthropicStreamEvent{
-										Type: "content_block_delta",
+										Type:  "content_block_delta",
+										Index: &openToolIndex,
 										Delta: &apicompat.AnthropicDelta{
 											Type:        "input_json_delta",
 											PartialJSON: delta,

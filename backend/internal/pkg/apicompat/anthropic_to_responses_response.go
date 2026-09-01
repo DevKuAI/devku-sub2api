@@ -149,9 +149,12 @@ type AnthropicEventToResponsesState struct {
 	CompletedSent bool
 
 	// Current output tracking
-	OutputIndex     int
-	CurrentItemID   string
-	CurrentItemType string // "message" | "function_call" | "reasoning"
+	OutputIndex       int
+	CurrentItemID     string
+	CurrentItemType   string // "message" | "function_call" | "reasoning"
+	CurrentBlockIndex int
+	CurrentBlockType  string
+	CurrentBlockOpen  bool
 
 	// For message output: accumulate text parts
 	ContentIndex int
@@ -272,9 +275,12 @@ func anthToResHandleMessageStart(evt *AnthropicStreamEvent, state *AnthropicEven
 }
 
 func anthToResHandleContentBlockStart(evt *AnthropicStreamEvent, state *AnthropicEventToResponsesState) []ResponsesStreamEvent {
-	if evt.ContentBlock == nil {
+	if evt.ContentBlock == nil || evt.Index == nil {
 		return nil
 	}
+	state.CurrentBlockIndex = *evt.Index
+	state.CurrentBlockType = evt.ContentBlock.Type
+	state.CurrentBlockOpen = true
 
 	var events []ResponsesStreamEvent
 
@@ -366,13 +372,13 @@ func anthToResHandleContentBlockStart(evt *AnthropicStreamEvent, state *Anthropi
 }
 
 func anthToResHandleContentBlockDelta(evt *AnthropicStreamEvent, state *AnthropicEventToResponsesState) []ResponsesStreamEvent {
-	if evt.Delta == nil {
+	if evt.Delta == nil || evt.Index == nil || !state.CurrentBlockOpen || *evt.Index != state.CurrentBlockIndex {
 		return nil
 	}
 
 	switch evt.Delta.Type {
 	case "text_delta":
-		if evt.Delta.Text == "" {
+		if state.CurrentBlockType != "text" || state.CurrentItemType != "message" || evt.Delta.Text == "" {
 			return nil
 		}
 		state.TextAccum += evt.Delta.Text
@@ -384,7 +390,7 @@ func anthToResHandleContentBlockDelta(evt *AnthropicStreamEvent, state *Anthropi
 		})}
 
 	case "thinking_delta":
-		if evt.Delta.Thinking == "" {
+		if state.CurrentBlockType != "thinking" || state.CurrentItemType != "reasoning" || evt.Delta.Thinking == "" {
 			return nil
 		}
 		state.CurrentSummary += evt.Delta.Thinking
@@ -396,7 +402,7 @@ func anthToResHandleContentBlockDelta(evt *AnthropicStreamEvent, state *Anthropi
 		})}
 
 	case "input_json_delta":
-		if evt.Delta.PartialJSON == "" {
+		if state.CurrentBlockType != "tool_use" || state.CurrentItemType != "function_call" || evt.Delta.PartialJSON == "" {
 			return nil
 		}
 		state.CurrentArgs += evt.Delta.PartialJSON
@@ -417,8 +423,19 @@ func anthToResHandleContentBlockDelta(evt *AnthropicStreamEvent, state *Anthropi
 }
 
 func anthToResHandleContentBlockStop(evt *AnthropicStreamEvent, state *AnthropicEventToResponsesState) []ResponsesStreamEvent {
-	switch state.CurrentItemType {
-	case "reasoning":
+	if evt.Index == nil || !state.CurrentBlockOpen || *evt.Index != state.CurrentBlockIndex {
+		return nil
+	}
+	blockType := state.CurrentBlockType
+	state.CurrentBlockIndex = 0
+	state.CurrentBlockType = ""
+	state.CurrentBlockOpen = false
+
+	switch blockType {
+	case "thinking":
+		if state.CurrentItemType != "reasoning" {
+			return nil
+		}
 		// Emit reasoning summary done + output item done
 		events := []ResponsesStreamEvent{
 			makeResponsesEvent(state, "response.reasoning_summary_text.done", &ResponsesStreamEvent{
@@ -430,7 +447,10 @@ func anthToResHandleContentBlockStop(evt *AnthropicStreamEvent, state *Anthropic
 		events = append(events, closeCurrentResponsesItem(state)...)
 		return events
 
-	case "function_call":
+	case "tool_use":
+		if state.CurrentItemType != "function_call" {
+			return nil
+		}
 		// Emit function_call_arguments.done + output item done
 		events := []ResponsesStreamEvent{
 			makeResponsesEvent(state, "response.function_call_arguments.done", &ResponsesStreamEvent{
@@ -443,7 +463,10 @@ func anthToResHandleContentBlockStop(evt *AnthropicStreamEvent, state *Anthropic
 		events = append(events, closeCurrentResponsesItem(state)...)
 		return events
 
-	case "message":
+	case "text":
+		if state.CurrentItemType != "message" {
+			return nil
+		}
 		// Text block is done: emit output_text.done then content_part.done (the
 		// order OpenAI uses), both carrying the part's full text. The message
 		// item itself stays open since more blocks may follow.

@@ -17,6 +17,34 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestDesktopRepositoryRejectsRestrictedPublicGroupCarrier(t *testing.T) {
+	ctx := context.Background()
+	suffix := time.Now().UnixNano()
+	group := mustCreateGroup(t, integrationEntClient, &service.Group{
+		Name: fmt.Sprintf("desktop-restricted-group-%d", suffix), RateMultiplier: 1,
+	})
+	user := mustCreateUser(t, integrationEntClient, &service.User{
+		Email: fmt.Sprintf("desktop-restricted-%d@example.com", suffix), APIKeyLimit: 10,
+	})
+	_, err := integrationEntClient.User.UpdateOneID(user.ID).SetRestrictPublicGroups(true).Save(ctx)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM desktop_organizations WHERE gateway_user_id = $1", user.ID)
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM users WHERE id = $1", user.ID)
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM groups WHERE id = $1", group.ID)
+	})
+
+	repo := NewDesktopRepository(integrationEntClient, NewAPIKeyRepository(integrationEntClient, integrationDB))
+	_, err = repo.CreateOrganization(ctx, service.DesktopCreateOrganizationInput{
+		PublicID:      fmt.Sprintf("org_restricted_%d", suffix),
+		Code:          fmt.Sprintf("r%x", suffix%100000),
+		Name:          "Restricted",
+		GatewayUserID: user.ID,
+		GroupID:       group.ID,
+	})
+	require.ErrorIs(t, err, service.ErrGroupNotAllowed)
+}
+
 func TestDesktopRepositoryConcurrentGatewayUserAssignmentAllowsOneOrganization(t *testing.T) {
 	ctx := context.Background()
 	suffix := time.Now().UnixNano()

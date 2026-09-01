@@ -675,7 +675,12 @@ func validateDesktopCarrier(ctx context.Context, client *dbent.Client, gatewayUs
 	for _, allowed := range gatewayUser.Edges.AllowedGroups {
 		allowedGroups = append(allowedGroups, allowed.ID)
 	}
-	carrier := &service.User{ID: gatewayUser.ID, Status: gatewayUser.Status, AllowedGroups: allowedGroups}
+	carrier := &service.User{
+		ID:                   gatewayUser.ID,
+		Status:               gatewayUser.Status,
+		AllowedGroups:        allowedGroups,
+		RestrictPublicGroups: gatewayUser.RestrictPublicGroups,
+	}
 	if !carrier.CanBindGroup(groupEntity.ID, groupEntity.IsExclusive) {
 		return service.ErrGroupNotAllowed
 	}
