@@ -19,8 +19,8 @@ CREATE TABLE IF NOT EXISTS desktop_update_releases (
     CONSTRAINT desktop_update_releases_artifacts_object_check
         CHECK (jsonb_typeof(artifacts) = 'object'),
     CONSTRAINT desktop_update_releases_artifacts_platforms_check CHECK (
-        jsonb_object_length(artifacts) = 3
-        AND artifacts ?& ARRAY['darwin-aarch64', 'darwin-x86_64', 'windows-x86_64']
+        artifacts ?& ARRAY['darwin-aarch64', 'darwin-x86_64', 'windows-x86_64']
+        AND (artifacts - ARRAY['darwin-aarch64', 'darwin-x86_64', 'windows-x86_64']::text[]) = '{}'::jsonb
     ),
     CONSTRAINT desktop_update_releases_artifacts_shape_check CHECK (
         jsonb_typeof(artifacts #> '{darwin-aarch64}') = 'object'
