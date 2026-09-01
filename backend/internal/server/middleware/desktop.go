@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/desktopresponse"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
@@ -36,6 +37,14 @@ func DesktopAdminBodyLimit() gin.HandlerFunc {
 		}
 		c.Next()
 	}
+}
+
+func DesktopUpdateArtifactBodyLimit(cfg *config.Config) gin.HandlerFunc {
+	maxFileBytes := int64(200 << 20)
+	if cfg != nil && cfg.DesktopUpdateStorage.MaxUploadBytes > 0 {
+		maxFileBytes = cfg.DesktopUpdateStorage.MaxUploadBytes
+	}
+	return StrictBodyLimit(maxFileBytes + (1 << 20))
 }
 
 func IsBodyTooLarge(err error) bool {

@@ -69,26 +69,30 @@ replace_env_value() {
 }
 
 # Keep the downloaded Compose file and environment template in sync
-validate_desktop_configuration() {
+validate_application_configuration() {
     local variable
     local compose_count
     local template_count
     local has_errors=false
-    local desktop_variables=(
-        DESKTOP_ENABLED
-        DESKTOP_JWT_SECRET
-        DESKTOP_PUBLIC_GATEWAY_BASE_URL
-        DESKTOP_ACCESS_TOKEN_TTL_MINUTES
-        DESKTOP_REFRESH_FAMILY_TTL_DAYS
-        DESKTOP_LOOKUP_IP_PER_MINUTE
-        DESKTOP_LOGIN_IP_PER_MINUTE
-        DESKTOP_LOGIN_ORGANIZATION_PER_MINUTE
-        DESKTOP_LOGIN_PHONE_FAILURE_LIMIT
-        DESKTOP_LOGIN_PHONE_FREEZE_MINUTES
-    )
 
-    for variable in "${desktop_variables[@]}"; do
-        compose_count=$(grep -Ec "^[[:space:]]*-[[:space:]]*${variable}=" docker-compose.yml || true)
+    while IFS='=' read -r variable _; do
+        case "${variable}" in
+            BIND_HOST|APPLE_CONTAINER_*|POSTGRES_USER|POSTGRES_PASSWORD|POSTGRES_DB|POSTGRES_MAX_CONNECTIONS|POSTGRES_SHARED_BUFFERS|POSTGRES_EFFECTIVE_CACHE_SIZE|POSTGRES_MAINTENANCE_WORK_MEM|REDIS_MAXCLIENTS)
+                continue
+                ;;
+        esac
+
+        compose_count=$(awk -v expected="${variable}" '
+            /^  sub2api:/ { in_app = 1; next }
+            /^  [[:alnum:]_-]+:/ { in_app = 0 }
+            in_app && /^[[:space:]]*-[[:space:]]*[A-Z][A-Z0-9_]*=/ {
+                line = $0
+                sub(/^[[:space:]]*-[[:space:]]*/, "", line)
+                sub(/=.*/, "", line)
+                if (line == expected) { count++ }
+            }
+            END { print count + 0 }
+        ' docker-compose.yml)
         template_count=$(grep -Ec "^${variable}=" .env.example || true)
 
         if [ "$compose_count" -ne 1 ]; then
@@ -99,7 +103,7 @@ validate_desktop_configuration() {
             print_error ".env.example must define ${variable} exactly once."
             has_errors=true
         fi
-    done
+    done < <(grep -E '^[A-Z][A-Z0-9_]*=' .env.example)
 
     if [ "$has_errors" = true ]; then
         return 1
@@ -152,9 +156,9 @@ main() {
     fi
     print_success "Downloaded .env.example"
 
-    print_info "Validating Desktop deployment configuration..."
-    validate_desktop_configuration
-    print_success "Desktop deployment configuration is valid"
+    print_info "Validating application deployment configuration..."
+    validate_application_configuration
+    print_success "Application deployment configuration is valid"
 
     # Generate .env file with auto-generated secrets
     print_info "Generating secure secrets..."

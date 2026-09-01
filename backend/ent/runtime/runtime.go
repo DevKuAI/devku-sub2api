@@ -23,6 +23,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/desktopmember"
 	"github.com/Wei-Shaw/sub2api/ent/desktopmemberapikey"
 	"github.com/Wei-Shaw/sub2api/ent/desktoporganization"
+	"github.com/Wei-Shaw/sub2api/ent/desktopupdaterelease"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
@@ -1128,6 +1129,67 @@ func init() {
 	desktoporganization.DefaultAuthVersion = desktoporganizationDescAuthVersion.Default.(int64)
 	// desktoporganization.AuthVersionValidator is a validator for the "auth_version" field. It is called by the builders before save.
 	desktoporganization.AuthVersionValidator = desktoporganizationDescAuthVersion.Validators[0].(func(int64) error)
+	desktopupdatereleaseMixin := schema.DesktopUpdateRelease{}.Mixin()
+	desktopupdatereleaseMixinFields0 := desktopupdatereleaseMixin[0].Fields()
+	_ = desktopupdatereleaseMixinFields0
+	desktopupdatereleaseFields := schema.DesktopUpdateRelease{}.Fields()
+	_ = desktopupdatereleaseFields
+	// desktopupdatereleaseDescCreatedAt is the schema descriptor for created_at field.
+	desktopupdatereleaseDescCreatedAt := desktopupdatereleaseMixinFields0[0].Descriptor()
+	// desktopupdaterelease.DefaultCreatedAt holds the default value on creation for the created_at field.
+	desktopupdaterelease.DefaultCreatedAt = desktopupdatereleaseDescCreatedAt.Default.(func() time.Time)
+	// desktopupdatereleaseDescUpdatedAt is the schema descriptor for updated_at field.
+	desktopupdatereleaseDescUpdatedAt := desktopupdatereleaseMixinFields0[1].Descriptor()
+	// desktopupdaterelease.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	desktopupdaterelease.DefaultUpdatedAt = desktopupdatereleaseDescUpdatedAt.Default.(func() time.Time)
+	// desktopupdaterelease.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	desktopupdaterelease.UpdateDefaultUpdatedAt = desktopupdatereleaseDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// desktopupdatereleaseDescPublicID is the schema descriptor for public_id field.
+	desktopupdatereleaseDescPublicID := desktopupdatereleaseFields[0].Descriptor()
+	// desktopupdaterelease.PublicIDValidator is a validator for the "public_id" field. It is called by the builders before save.
+	desktopupdaterelease.PublicIDValidator = func() func(string) error {
+		validators := desktopupdatereleaseDescPublicID.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(public_id string) error {
+			for _, fn := range fns {
+				if err := fn(public_id); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// desktopupdatereleaseDescVersion is the schema descriptor for version field.
+	desktopupdatereleaseDescVersion := desktopupdatereleaseFields[1].Descriptor()
+	// desktopupdaterelease.VersionValidator is a validator for the "version" field. It is called by the builders before save.
+	desktopupdaterelease.VersionValidator = func() func(string) error {
+		validators := desktopupdatereleaseDescVersion.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(version string) error {
+			for _, fn := range fns {
+				if err := fn(version); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// desktopupdatereleaseDescNotes is the schema descriptor for notes field.
+	desktopupdatereleaseDescNotes := desktopupdatereleaseFields[2].Descriptor()
+	// desktopupdaterelease.DefaultNotes holds the default value on creation for the notes field.
+	desktopupdaterelease.DefaultNotes = desktopupdatereleaseDescNotes.Default.(string)
+	// desktopupdatereleaseDescStatus is the schema descriptor for status field.
+	desktopupdatereleaseDescStatus := desktopupdatereleaseFields[4].Descriptor()
+	// desktopupdaterelease.DefaultStatus holds the default value on creation for the status field.
+	desktopupdaterelease.DefaultStatus = desktopupdatereleaseDescStatus.Default.(string)
+	// desktopupdaterelease.StatusValidator is a validator for the "status" field. It is called by the builders before save.
+	desktopupdaterelease.StatusValidator = desktopupdatereleaseDescStatus.Validators[0].(func(string) error)
 	errorpassthroughruleMixin := schema.ErrorPassthroughRule{}.Mixin()
 	errorpassthroughruleMixinFields0 := errorpassthroughruleMixin[0].Fields()
 	_ = errorpassthroughruleMixinFields0

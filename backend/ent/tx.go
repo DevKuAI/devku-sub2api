@@ -50,6 +50,8 @@ type Tx struct {
 	DesktopMemberAPIKey *DesktopMemberAPIKeyClient
 	// DesktopOrganization is the client for interacting with the DesktopOrganization builders.
 	DesktopOrganization *DesktopOrganizationClient
+	// DesktopUpdateRelease is the client for interacting with the DesktopUpdateRelease builders.
+	DesktopUpdateRelease *DesktopUpdateReleaseClient
 	// ErrorPassthroughRule is the client for interacting with the ErrorPassthroughRule builders.
 	ErrorPassthroughRule *ErrorPassthroughRuleClient
 	// Group is the client for interacting with the Group builders.
@@ -247,6 +249,7 @@ func (tx *Tx) init() {
 	tx.DesktopMember = NewDesktopMemberClient(tx.config)
 	tx.DesktopMemberAPIKey = NewDesktopMemberAPIKeyClient(tx.config)
 	tx.DesktopOrganization = NewDesktopOrganizationClient(tx.config)
+	tx.DesktopUpdateRelease = NewDesktopUpdateReleaseClient(tx.config)
 	tx.ErrorPassthroughRule = NewErrorPassthroughRuleClient(tx.config)
 	tx.Group = NewGroupClient(tx.config)
 	tx.IdempotencyRecord = NewIdempotencyRecordClient(tx.config)

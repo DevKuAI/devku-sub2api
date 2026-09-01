@@ -204,4 +204,34 @@ describe('feature route guard', () => {
     expect(next).toHaveBeenCalledOnce()
     expect(next).toHaveBeenCalledWith()
   })
+
+  it('allows Desktop software updates when the organization feature is disabled', async () => {
+    authStore.isAdmin = true
+    appStore.publicSettingsLoaded = true
+    appStore.cachedPublicSettings = { desktop_enabled: false }
+
+    const { navigation, next } = runGuard(
+      { requiresAdmin: true },
+      '/admin/desktop/updates'
+    )
+    await navigation
+
+    expect(appStore.fetchPublicSettings).not.toHaveBeenCalled()
+    expect(next).toHaveBeenCalledOnce()
+    expect(next).toHaveBeenCalledWith()
+  })
+
+  it('allows Desktop software updates in simple mode', async () => {
+    authStore.isAdmin = true
+    authStore.isSimpleMode = true
+
+    const { navigation, next } = runGuard(
+      { requiresAdmin: true },
+      '/admin/desktop/updates'
+    )
+    await navigation
+
+    expect(next).toHaveBeenCalledOnce()
+    expect(next).toHaveBeenCalledWith()
+  })
 })

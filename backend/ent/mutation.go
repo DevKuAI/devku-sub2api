@@ -30,6 +30,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/desktopmember"
 	"github.com/Wei-Shaw/sub2api/ent/desktopmemberapikey"
 	"github.com/Wei-Shaw/sub2api/ent/desktoporganization"
+	"github.com/Wei-Shaw/sub2api/ent/desktopupdaterelease"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
@@ -85,6 +86,7 @@ const (
 	TypeDesktopMember                 = "DesktopMember"
 	TypeDesktopMemberAPIKey           = "DesktopMemberAPIKey"
 	TypeDesktopOrganization           = "DesktopOrganization"
+	TypeDesktopUpdateRelease          = "DesktopUpdateRelease"
 	TypeErrorPassthroughRule          = "ErrorPassthroughRule"
 	TypeGroup                         = "Group"
 	TypeIdempotencyRecord             = "IdempotencyRecord"
@@ -23639,6 +23641,1325 @@ func (m *DesktopOrganizationMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown DesktopOrganization edge %s", name)
+}
+
+// DesktopUpdateReleaseMutation represents an operation that mutates the DesktopUpdateRelease nodes in the graph.
+type DesktopUpdateReleaseMutation struct {
+	config
+	op                Op
+	typ               string
+	id                *int64
+	created_at        *time.Time
+	updated_at        *time.Time
+	public_id         *string
+	version           *string
+	notes             *string
+	artifacts         *jsontext.Value
+	appendartifacts   jsontext.Value
+	status            *string
+	created_by        *int64
+	addcreated_by     *int64
+	updated_by        *int64
+	addupdated_by     *int64
+	published_by      *int64
+	addpublished_by   *int64
+	withdrawn_by      *int64
+	addwithdrawn_by   *int64
+	published_at      *time.Time
+	withdrawn_at      *time.Time
+	withdrawal_reason *string
+	clearedFields     map[string]struct{}
+	done              bool
+	oldValue          func(context.Context) (*DesktopUpdateRelease, error)
+	predicates        []predicate.DesktopUpdateRelease
+}
+
+var _ ent.Mutation = (*DesktopUpdateReleaseMutation)(nil)
+
+// desktopupdatereleaseOption allows management of the mutation configuration using functional options.
+type desktopupdatereleaseOption func(*DesktopUpdateReleaseMutation)
+
+// newDesktopUpdateReleaseMutation creates new mutation for the DesktopUpdateRelease entity.
+func newDesktopUpdateReleaseMutation(c config, op Op, opts ...desktopupdatereleaseOption) *DesktopUpdateReleaseMutation {
+	m := &DesktopUpdateReleaseMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeDesktopUpdateRelease,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withDesktopUpdateReleaseID sets the ID field of the mutation.
+func withDesktopUpdateReleaseID(id int64) desktopupdatereleaseOption {
+	return func(m *DesktopUpdateReleaseMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *DesktopUpdateRelease
+		)
+		m.oldValue = func(ctx context.Context) (*DesktopUpdateRelease, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().DesktopUpdateRelease.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withDesktopUpdateRelease sets the old DesktopUpdateRelease of the mutation.
+func withDesktopUpdateRelease(node *DesktopUpdateRelease) desktopupdatereleaseOption {
+	return func(m *DesktopUpdateReleaseMutation) {
+		m.oldValue = func(context.Context) (*DesktopUpdateRelease, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m DesktopUpdateReleaseMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m DesktopUpdateReleaseMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *DesktopUpdateReleaseMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *DesktopUpdateReleaseMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().DesktopUpdateRelease.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *DesktopUpdateReleaseMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *DesktopUpdateReleaseMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the DesktopUpdateRelease entity.
+// If the DesktopUpdateRelease object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopUpdateReleaseMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *DesktopUpdateReleaseMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *DesktopUpdateReleaseMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *DesktopUpdateReleaseMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the DesktopUpdateRelease entity.
+// If the DesktopUpdateRelease object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopUpdateReleaseMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *DesktopUpdateReleaseMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetPublicID sets the "public_id" field.
+func (m *DesktopUpdateReleaseMutation) SetPublicID(s string) {
+	m.public_id = &s
+}
+
+// PublicID returns the value of the "public_id" field in the mutation.
+func (m *DesktopUpdateReleaseMutation) PublicID() (r string, exists bool) {
+	v := m.public_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPublicID returns the old "public_id" field's value of the DesktopUpdateRelease entity.
+// If the DesktopUpdateRelease object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopUpdateReleaseMutation) OldPublicID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPublicID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPublicID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPublicID: %w", err)
+	}
+	return oldValue.PublicID, nil
+}
+
+// ResetPublicID resets all changes to the "public_id" field.
+func (m *DesktopUpdateReleaseMutation) ResetPublicID() {
+	m.public_id = nil
+}
+
+// SetVersion sets the "version" field.
+func (m *DesktopUpdateReleaseMutation) SetVersion(s string) {
+	m.version = &s
+}
+
+// Version returns the value of the "version" field in the mutation.
+func (m *DesktopUpdateReleaseMutation) Version() (r string, exists bool) {
+	v := m.version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldVersion returns the old "version" field's value of the DesktopUpdateRelease entity.
+// If the DesktopUpdateRelease object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopUpdateReleaseMutation) OldVersion(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldVersion is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldVersion requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldVersion: %w", err)
+	}
+	return oldValue.Version, nil
+}
+
+// ResetVersion resets all changes to the "version" field.
+func (m *DesktopUpdateReleaseMutation) ResetVersion() {
+	m.version = nil
+}
+
+// SetNotes sets the "notes" field.
+func (m *DesktopUpdateReleaseMutation) SetNotes(s string) {
+	m.notes = &s
+}
+
+// Notes returns the value of the "notes" field in the mutation.
+func (m *DesktopUpdateReleaseMutation) Notes() (r string, exists bool) {
+	v := m.notes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldNotes returns the old "notes" field's value of the DesktopUpdateRelease entity.
+// If the DesktopUpdateRelease object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopUpdateReleaseMutation) OldNotes(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldNotes is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldNotes requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldNotes: %w", err)
+	}
+	return oldValue.Notes, nil
+}
+
+// ResetNotes resets all changes to the "notes" field.
+func (m *DesktopUpdateReleaseMutation) ResetNotes() {
+	m.notes = nil
+}
+
+// SetArtifacts sets the "artifacts" field.
+func (m *DesktopUpdateReleaseMutation) SetArtifacts(j jsontext.Value) {
+	m.artifacts = &j
+	m.appendartifacts = nil
+}
+
+// Artifacts returns the value of the "artifacts" field in the mutation.
+func (m *DesktopUpdateReleaseMutation) Artifacts() (r jsontext.Value, exists bool) {
+	v := m.artifacts
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldArtifacts returns the old "artifacts" field's value of the DesktopUpdateRelease entity.
+// If the DesktopUpdateRelease object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopUpdateReleaseMutation) OldArtifacts(ctx context.Context) (v jsontext.Value, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldArtifacts is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldArtifacts requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldArtifacts: %w", err)
+	}
+	return oldValue.Artifacts, nil
+}
+
+// AppendArtifacts adds j to the "artifacts" field.
+func (m *DesktopUpdateReleaseMutation) AppendArtifacts(j jsontext.Value) {
+	m.appendartifacts = append(m.appendartifacts, j...)
+}
+
+// AppendedArtifacts returns the list of values that were appended to the "artifacts" field in this mutation.
+func (m *DesktopUpdateReleaseMutation) AppendedArtifacts() (jsontext.Value, bool) {
+	if len(m.appendartifacts) == 0 {
+		return nil, false
+	}
+	return m.appendartifacts, true
+}
+
+// ResetArtifacts resets all changes to the "artifacts" field.
+func (m *DesktopUpdateReleaseMutation) ResetArtifacts() {
+	m.artifacts = nil
+	m.appendartifacts = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *DesktopUpdateReleaseMutation) SetStatus(s string) {
+	m.status = &s
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *DesktopUpdateReleaseMutation) Status() (r string, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the DesktopUpdateRelease entity.
+// If the DesktopUpdateRelease object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopUpdateReleaseMutation) OldStatus(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *DesktopUpdateReleaseMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetCreatedBy sets the "created_by" field.
+func (m *DesktopUpdateReleaseMutation) SetCreatedBy(i int64) {
+	m.created_by = &i
+	m.addcreated_by = nil
+}
+
+// CreatedBy returns the value of the "created_by" field in the mutation.
+func (m *DesktopUpdateReleaseMutation) CreatedBy() (r int64, exists bool) {
+	v := m.created_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedBy returns the old "created_by" field's value of the DesktopUpdateRelease entity.
+// If the DesktopUpdateRelease object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopUpdateReleaseMutation) OldCreatedBy(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedBy: %w", err)
+	}
+	return oldValue.CreatedBy, nil
+}
+
+// AddCreatedBy adds i to the "created_by" field.
+func (m *DesktopUpdateReleaseMutation) AddCreatedBy(i int64) {
+	if m.addcreated_by != nil {
+		*m.addcreated_by += i
+	} else {
+		m.addcreated_by = &i
+	}
+}
+
+// AddedCreatedBy returns the value that was added to the "created_by" field in this mutation.
+func (m *DesktopUpdateReleaseMutation) AddedCreatedBy() (r int64, exists bool) {
+	v := m.addcreated_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearCreatedBy clears the value of the "created_by" field.
+func (m *DesktopUpdateReleaseMutation) ClearCreatedBy() {
+	m.created_by = nil
+	m.addcreated_by = nil
+	m.clearedFields[desktopupdaterelease.FieldCreatedBy] = struct{}{}
+}
+
+// CreatedByCleared returns if the "created_by" field was cleared in this mutation.
+func (m *DesktopUpdateReleaseMutation) CreatedByCleared() bool {
+	_, ok := m.clearedFields[desktopupdaterelease.FieldCreatedBy]
+	return ok
+}
+
+// ResetCreatedBy resets all changes to the "created_by" field.
+func (m *DesktopUpdateReleaseMutation) ResetCreatedBy() {
+	m.created_by = nil
+	m.addcreated_by = nil
+	delete(m.clearedFields, desktopupdaterelease.FieldCreatedBy)
+}
+
+// SetUpdatedBy sets the "updated_by" field.
+func (m *DesktopUpdateReleaseMutation) SetUpdatedBy(i int64) {
+	m.updated_by = &i
+	m.addupdated_by = nil
+}
+
+// UpdatedBy returns the value of the "updated_by" field in the mutation.
+func (m *DesktopUpdateReleaseMutation) UpdatedBy() (r int64, exists bool) {
+	v := m.updated_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedBy returns the old "updated_by" field's value of the DesktopUpdateRelease entity.
+// If the DesktopUpdateRelease object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopUpdateReleaseMutation) OldUpdatedBy(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedBy: %w", err)
+	}
+	return oldValue.UpdatedBy, nil
+}
+
+// AddUpdatedBy adds i to the "updated_by" field.
+func (m *DesktopUpdateReleaseMutation) AddUpdatedBy(i int64) {
+	if m.addupdated_by != nil {
+		*m.addupdated_by += i
+	} else {
+		m.addupdated_by = &i
+	}
+}
+
+// AddedUpdatedBy returns the value that was added to the "updated_by" field in this mutation.
+func (m *DesktopUpdateReleaseMutation) AddedUpdatedBy() (r int64, exists bool) {
+	v := m.addupdated_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearUpdatedBy clears the value of the "updated_by" field.
+func (m *DesktopUpdateReleaseMutation) ClearUpdatedBy() {
+	m.updated_by = nil
+	m.addupdated_by = nil
+	m.clearedFields[desktopupdaterelease.FieldUpdatedBy] = struct{}{}
+}
+
+// UpdatedByCleared returns if the "updated_by" field was cleared in this mutation.
+func (m *DesktopUpdateReleaseMutation) UpdatedByCleared() bool {
+	_, ok := m.clearedFields[desktopupdaterelease.FieldUpdatedBy]
+	return ok
+}
+
+// ResetUpdatedBy resets all changes to the "updated_by" field.
+func (m *DesktopUpdateReleaseMutation) ResetUpdatedBy() {
+	m.updated_by = nil
+	m.addupdated_by = nil
+	delete(m.clearedFields, desktopupdaterelease.FieldUpdatedBy)
+}
+
+// SetPublishedBy sets the "published_by" field.
+func (m *DesktopUpdateReleaseMutation) SetPublishedBy(i int64) {
+	m.published_by = &i
+	m.addpublished_by = nil
+}
+
+// PublishedBy returns the value of the "published_by" field in the mutation.
+func (m *DesktopUpdateReleaseMutation) PublishedBy() (r int64, exists bool) {
+	v := m.published_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPublishedBy returns the old "published_by" field's value of the DesktopUpdateRelease entity.
+// If the DesktopUpdateRelease object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopUpdateReleaseMutation) OldPublishedBy(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPublishedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPublishedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPublishedBy: %w", err)
+	}
+	return oldValue.PublishedBy, nil
+}
+
+// AddPublishedBy adds i to the "published_by" field.
+func (m *DesktopUpdateReleaseMutation) AddPublishedBy(i int64) {
+	if m.addpublished_by != nil {
+		*m.addpublished_by += i
+	} else {
+		m.addpublished_by = &i
+	}
+}
+
+// AddedPublishedBy returns the value that was added to the "published_by" field in this mutation.
+func (m *DesktopUpdateReleaseMutation) AddedPublishedBy() (r int64, exists bool) {
+	v := m.addpublished_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearPublishedBy clears the value of the "published_by" field.
+func (m *DesktopUpdateReleaseMutation) ClearPublishedBy() {
+	m.published_by = nil
+	m.addpublished_by = nil
+	m.clearedFields[desktopupdaterelease.FieldPublishedBy] = struct{}{}
+}
+
+// PublishedByCleared returns if the "published_by" field was cleared in this mutation.
+func (m *DesktopUpdateReleaseMutation) PublishedByCleared() bool {
+	_, ok := m.clearedFields[desktopupdaterelease.FieldPublishedBy]
+	return ok
+}
+
+// ResetPublishedBy resets all changes to the "published_by" field.
+func (m *DesktopUpdateReleaseMutation) ResetPublishedBy() {
+	m.published_by = nil
+	m.addpublished_by = nil
+	delete(m.clearedFields, desktopupdaterelease.FieldPublishedBy)
+}
+
+// SetWithdrawnBy sets the "withdrawn_by" field.
+func (m *DesktopUpdateReleaseMutation) SetWithdrawnBy(i int64) {
+	m.withdrawn_by = &i
+	m.addwithdrawn_by = nil
+}
+
+// WithdrawnBy returns the value of the "withdrawn_by" field in the mutation.
+func (m *DesktopUpdateReleaseMutation) WithdrawnBy() (r int64, exists bool) {
+	v := m.withdrawn_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldWithdrawnBy returns the old "withdrawn_by" field's value of the DesktopUpdateRelease entity.
+// If the DesktopUpdateRelease object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopUpdateReleaseMutation) OldWithdrawnBy(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldWithdrawnBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldWithdrawnBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldWithdrawnBy: %w", err)
+	}
+	return oldValue.WithdrawnBy, nil
+}
+
+// AddWithdrawnBy adds i to the "withdrawn_by" field.
+func (m *DesktopUpdateReleaseMutation) AddWithdrawnBy(i int64) {
+	if m.addwithdrawn_by != nil {
+		*m.addwithdrawn_by += i
+	} else {
+		m.addwithdrawn_by = &i
+	}
+}
+
+// AddedWithdrawnBy returns the value that was added to the "withdrawn_by" field in this mutation.
+func (m *DesktopUpdateReleaseMutation) AddedWithdrawnBy() (r int64, exists bool) {
+	v := m.addwithdrawn_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearWithdrawnBy clears the value of the "withdrawn_by" field.
+func (m *DesktopUpdateReleaseMutation) ClearWithdrawnBy() {
+	m.withdrawn_by = nil
+	m.addwithdrawn_by = nil
+	m.clearedFields[desktopupdaterelease.FieldWithdrawnBy] = struct{}{}
+}
+
+// WithdrawnByCleared returns if the "withdrawn_by" field was cleared in this mutation.
+func (m *DesktopUpdateReleaseMutation) WithdrawnByCleared() bool {
+	_, ok := m.clearedFields[desktopupdaterelease.FieldWithdrawnBy]
+	return ok
+}
+
+// ResetWithdrawnBy resets all changes to the "withdrawn_by" field.
+func (m *DesktopUpdateReleaseMutation) ResetWithdrawnBy() {
+	m.withdrawn_by = nil
+	m.addwithdrawn_by = nil
+	delete(m.clearedFields, desktopupdaterelease.FieldWithdrawnBy)
+}
+
+// SetPublishedAt sets the "published_at" field.
+func (m *DesktopUpdateReleaseMutation) SetPublishedAt(t time.Time) {
+	m.published_at = &t
+}
+
+// PublishedAt returns the value of the "published_at" field in the mutation.
+func (m *DesktopUpdateReleaseMutation) PublishedAt() (r time.Time, exists bool) {
+	v := m.published_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPublishedAt returns the old "published_at" field's value of the DesktopUpdateRelease entity.
+// If the DesktopUpdateRelease object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopUpdateReleaseMutation) OldPublishedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPublishedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPublishedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPublishedAt: %w", err)
+	}
+	return oldValue.PublishedAt, nil
+}
+
+// ClearPublishedAt clears the value of the "published_at" field.
+func (m *DesktopUpdateReleaseMutation) ClearPublishedAt() {
+	m.published_at = nil
+	m.clearedFields[desktopupdaterelease.FieldPublishedAt] = struct{}{}
+}
+
+// PublishedAtCleared returns if the "published_at" field was cleared in this mutation.
+func (m *DesktopUpdateReleaseMutation) PublishedAtCleared() bool {
+	_, ok := m.clearedFields[desktopupdaterelease.FieldPublishedAt]
+	return ok
+}
+
+// ResetPublishedAt resets all changes to the "published_at" field.
+func (m *DesktopUpdateReleaseMutation) ResetPublishedAt() {
+	m.published_at = nil
+	delete(m.clearedFields, desktopupdaterelease.FieldPublishedAt)
+}
+
+// SetWithdrawnAt sets the "withdrawn_at" field.
+func (m *DesktopUpdateReleaseMutation) SetWithdrawnAt(t time.Time) {
+	m.withdrawn_at = &t
+}
+
+// WithdrawnAt returns the value of the "withdrawn_at" field in the mutation.
+func (m *DesktopUpdateReleaseMutation) WithdrawnAt() (r time.Time, exists bool) {
+	v := m.withdrawn_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldWithdrawnAt returns the old "withdrawn_at" field's value of the DesktopUpdateRelease entity.
+// If the DesktopUpdateRelease object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopUpdateReleaseMutation) OldWithdrawnAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldWithdrawnAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldWithdrawnAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldWithdrawnAt: %w", err)
+	}
+	return oldValue.WithdrawnAt, nil
+}
+
+// ClearWithdrawnAt clears the value of the "withdrawn_at" field.
+func (m *DesktopUpdateReleaseMutation) ClearWithdrawnAt() {
+	m.withdrawn_at = nil
+	m.clearedFields[desktopupdaterelease.FieldWithdrawnAt] = struct{}{}
+}
+
+// WithdrawnAtCleared returns if the "withdrawn_at" field was cleared in this mutation.
+func (m *DesktopUpdateReleaseMutation) WithdrawnAtCleared() bool {
+	_, ok := m.clearedFields[desktopupdaterelease.FieldWithdrawnAt]
+	return ok
+}
+
+// ResetWithdrawnAt resets all changes to the "withdrawn_at" field.
+func (m *DesktopUpdateReleaseMutation) ResetWithdrawnAt() {
+	m.withdrawn_at = nil
+	delete(m.clearedFields, desktopupdaterelease.FieldWithdrawnAt)
+}
+
+// SetWithdrawalReason sets the "withdrawal_reason" field.
+func (m *DesktopUpdateReleaseMutation) SetWithdrawalReason(s string) {
+	m.withdrawal_reason = &s
+}
+
+// WithdrawalReason returns the value of the "withdrawal_reason" field in the mutation.
+func (m *DesktopUpdateReleaseMutation) WithdrawalReason() (r string, exists bool) {
+	v := m.withdrawal_reason
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldWithdrawalReason returns the old "withdrawal_reason" field's value of the DesktopUpdateRelease entity.
+// If the DesktopUpdateRelease object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopUpdateReleaseMutation) OldWithdrawalReason(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldWithdrawalReason is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldWithdrawalReason requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldWithdrawalReason: %w", err)
+	}
+	return oldValue.WithdrawalReason, nil
+}
+
+// ClearWithdrawalReason clears the value of the "withdrawal_reason" field.
+func (m *DesktopUpdateReleaseMutation) ClearWithdrawalReason() {
+	m.withdrawal_reason = nil
+	m.clearedFields[desktopupdaterelease.FieldWithdrawalReason] = struct{}{}
+}
+
+// WithdrawalReasonCleared returns if the "withdrawal_reason" field was cleared in this mutation.
+func (m *DesktopUpdateReleaseMutation) WithdrawalReasonCleared() bool {
+	_, ok := m.clearedFields[desktopupdaterelease.FieldWithdrawalReason]
+	return ok
+}
+
+// ResetWithdrawalReason resets all changes to the "withdrawal_reason" field.
+func (m *DesktopUpdateReleaseMutation) ResetWithdrawalReason() {
+	m.withdrawal_reason = nil
+	delete(m.clearedFields, desktopupdaterelease.FieldWithdrawalReason)
+}
+
+// Where appends a list predicates to the DesktopUpdateReleaseMutation builder.
+func (m *DesktopUpdateReleaseMutation) Where(ps ...predicate.DesktopUpdateRelease) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the DesktopUpdateReleaseMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *DesktopUpdateReleaseMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.DesktopUpdateRelease, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *DesktopUpdateReleaseMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *DesktopUpdateReleaseMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (DesktopUpdateRelease).
+func (m *DesktopUpdateReleaseMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *DesktopUpdateReleaseMutation) Fields() []string {
+	fields := make([]string, 0, 14)
+	if m.created_at != nil {
+		fields = append(fields, desktopupdaterelease.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, desktopupdaterelease.FieldUpdatedAt)
+	}
+	if m.public_id != nil {
+		fields = append(fields, desktopupdaterelease.FieldPublicID)
+	}
+	if m.version != nil {
+		fields = append(fields, desktopupdaterelease.FieldVersion)
+	}
+	if m.notes != nil {
+		fields = append(fields, desktopupdaterelease.FieldNotes)
+	}
+	if m.artifacts != nil {
+		fields = append(fields, desktopupdaterelease.FieldArtifacts)
+	}
+	if m.status != nil {
+		fields = append(fields, desktopupdaterelease.FieldStatus)
+	}
+	if m.created_by != nil {
+		fields = append(fields, desktopupdaterelease.FieldCreatedBy)
+	}
+	if m.updated_by != nil {
+		fields = append(fields, desktopupdaterelease.FieldUpdatedBy)
+	}
+	if m.published_by != nil {
+		fields = append(fields, desktopupdaterelease.FieldPublishedBy)
+	}
+	if m.withdrawn_by != nil {
+		fields = append(fields, desktopupdaterelease.FieldWithdrawnBy)
+	}
+	if m.published_at != nil {
+		fields = append(fields, desktopupdaterelease.FieldPublishedAt)
+	}
+	if m.withdrawn_at != nil {
+		fields = append(fields, desktopupdaterelease.FieldWithdrawnAt)
+	}
+	if m.withdrawal_reason != nil {
+		fields = append(fields, desktopupdaterelease.FieldWithdrawalReason)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *DesktopUpdateReleaseMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case desktopupdaterelease.FieldCreatedAt:
+		return m.CreatedAt()
+	case desktopupdaterelease.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case desktopupdaterelease.FieldPublicID:
+		return m.PublicID()
+	case desktopupdaterelease.FieldVersion:
+		return m.Version()
+	case desktopupdaterelease.FieldNotes:
+		return m.Notes()
+	case desktopupdaterelease.FieldArtifacts:
+		return m.Artifacts()
+	case desktopupdaterelease.FieldStatus:
+		return m.Status()
+	case desktopupdaterelease.FieldCreatedBy:
+		return m.CreatedBy()
+	case desktopupdaterelease.FieldUpdatedBy:
+		return m.UpdatedBy()
+	case desktopupdaterelease.FieldPublishedBy:
+		return m.PublishedBy()
+	case desktopupdaterelease.FieldWithdrawnBy:
+		return m.WithdrawnBy()
+	case desktopupdaterelease.FieldPublishedAt:
+		return m.PublishedAt()
+	case desktopupdaterelease.FieldWithdrawnAt:
+		return m.WithdrawnAt()
+	case desktopupdaterelease.FieldWithdrawalReason:
+		return m.WithdrawalReason()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *DesktopUpdateReleaseMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case desktopupdaterelease.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case desktopupdaterelease.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case desktopupdaterelease.FieldPublicID:
+		return m.OldPublicID(ctx)
+	case desktopupdaterelease.FieldVersion:
+		return m.OldVersion(ctx)
+	case desktopupdaterelease.FieldNotes:
+		return m.OldNotes(ctx)
+	case desktopupdaterelease.FieldArtifacts:
+		return m.OldArtifacts(ctx)
+	case desktopupdaterelease.FieldStatus:
+		return m.OldStatus(ctx)
+	case desktopupdaterelease.FieldCreatedBy:
+		return m.OldCreatedBy(ctx)
+	case desktopupdaterelease.FieldUpdatedBy:
+		return m.OldUpdatedBy(ctx)
+	case desktopupdaterelease.FieldPublishedBy:
+		return m.OldPublishedBy(ctx)
+	case desktopupdaterelease.FieldWithdrawnBy:
+		return m.OldWithdrawnBy(ctx)
+	case desktopupdaterelease.FieldPublishedAt:
+		return m.OldPublishedAt(ctx)
+	case desktopupdaterelease.FieldWithdrawnAt:
+		return m.OldWithdrawnAt(ctx)
+	case desktopupdaterelease.FieldWithdrawalReason:
+		return m.OldWithdrawalReason(ctx)
+	}
+	return nil, fmt.Errorf("unknown DesktopUpdateRelease field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *DesktopUpdateReleaseMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case desktopupdaterelease.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case desktopupdaterelease.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case desktopupdaterelease.FieldPublicID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPublicID(v)
+		return nil
+	case desktopupdaterelease.FieldVersion:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetVersion(v)
+		return nil
+	case desktopupdaterelease.FieldNotes:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetNotes(v)
+		return nil
+	case desktopupdaterelease.FieldArtifacts:
+		v, ok := value.(jsontext.Value)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetArtifacts(v)
+		return nil
+	case desktopupdaterelease.FieldStatus:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case desktopupdaterelease.FieldCreatedBy:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedBy(v)
+		return nil
+	case desktopupdaterelease.FieldUpdatedBy:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedBy(v)
+		return nil
+	case desktopupdaterelease.FieldPublishedBy:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPublishedBy(v)
+		return nil
+	case desktopupdaterelease.FieldWithdrawnBy:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetWithdrawnBy(v)
+		return nil
+	case desktopupdaterelease.FieldPublishedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPublishedAt(v)
+		return nil
+	case desktopupdaterelease.FieldWithdrawnAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetWithdrawnAt(v)
+		return nil
+	case desktopupdaterelease.FieldWithdrawalReason:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetWithdrawalReason(v)
+		return nil
+	}
+	return fmt.Errorf("unknown DesktopUpdateRelease field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *DesktopUpdateReleaseMutation) AddedFields() []string {
+	var fields []string
+	if m.addcreated_by != nil {
+		fields = append(fields, desktopupdaterelease.FieldCreatedBy)
+	}
+	if m.addupdated_by != nil {
+		fields = append(fields, desktopupdaterelease.FieldUpdatedBy)
+	}
+	if m.addpublished_by != nil {
+		fields = append(fields, desktopupdaterelease.FieldPublishedBy)
+	}
+	if m.addwithdrawn_by != nil {
+		fields = append(fields, desktopupdaterelease.FieldWithdrawnBy)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *DesktopUpdateReleaseMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case desktopupdaterelease.FieldCreatedBy:
+		return m.AddedCreatedBy()
+	case desktopupdaterelease.FieldUpdatedBy:
+		return m.AddedUpdatedBy()
+	case desktopupdaterelease.FieldPublishedBy:
+		return m.AddedPublishedBy()
+	case desktopupdaterelease.FieldWithdrawnBy:
+		return m.AddedWithdrawnBy()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *DesktopUpdateReleaseMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case desktopupdaterelease.FieldCreatedBy:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddCreatedBy(v)
+		return nil
+	case desktopupdaterelease.FieldUpdatedBy:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddUpdatedBy(v)
+		return nil
+	case desktopupdaterelease.FieldPublishedBy:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPublishedBy(v)
+		return nil
+	case desktopupdaterelease.FieldWithdrawnBy:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddWithdrawnBy(v)
+		return nil
+	}
+	return fmt.Errorf("unknown DesktopUpdateRelease numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *DesktopUpdateReleaseMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(desktopupdaterelease.FieldCreatedBy) {
+		fields = append(fields, desktopupdaterelease.FieldCreatedBy)
+	}
+	if m.FieldCleared(desktopupdaterelease.FieldUpdatedBy) {
+		fields = append(fields, desktopupdaterelease.FieldUpdatedBy)
+	}
+	if m.FieldCleared(desktopupdaterelease.FieldPublishedBy) {
+		fields = append(fields, desktopupdaterelease.FieldPublishedBy)
+	}
+	if m.FieldCleared(desktopupdaterelease.FieldWithdrawnBy) {
+		fields = append(fields, desktopupdaterelease.FieldWithdrawnBy)
+	}
+	if m.FieldCleared(desktopupdaterelease.FieldPublishedAt) {
+		fields = append(fields, desktopupdaterelease.FieldPublishedAt)
+	}
+	if m.FieldCleared(desktopupdaterelease.FieldWithdrawnAt) {
+		fields = append(fields, desktopupdaterelease.FieldWithdrawnAt)
+	}
+	if m.FieldCleared(desktopupdaterelease.FieldWithdrawalReason) {
+		fields = append(fields, desktopupdaterelease.FieldWithdrawalReason)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *DesktopUpdateReleaseMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *DesktopUpdateReleaseMutation) ClearField(name string) error {
+	switch name {
+	case desktopupdaterelease.FieldCreatedBy:
+		m.ClearCreatedBy()
+		return nil
+	case desktopupdaterelease.FieldUpdatedBy:
+		m.ClearUpdatedBy()
+		return nil
+	case desktopupdaterelease.FieldPublishedBy:
+		m.ClearPublishedBy()
+		return nil
+	case desktopupdaterelease.FieldWithdrawnBy:
+		m.ClearWithdrawnBy()
+		return nil
+	case desktopupdaterelease.FieldPublishedAt:
+		m.ClearPublishedAt()
+		return nil
+	case desktopupdaterelease.FieldWithdrawnAt:
+		m.ClearWithdrawnAt()
+		return nil
+	case desktopupdaterelease.FieldWithdrawalReason:
+		m.ClearWithdrawalReason()
+		return nil
+	}
+	return fmt.Errorf("unknown DesktopUpdateRelease nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *DesktopUpdateReleaseMutation) ResetField(name string) error {
+	switch name {
+	case desktopupdaterelease.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case desktopupdaterelease.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case desktopupdaterelease.FieldPublicID:
+		m.ResetPublicID()
+		return nil
+	case desktopupdaterelease.FieldVersion:
+		m.ResetVersion()
+		return nil
+	case desktopupdaterelease.FieldNotes:
+		m.ResetNotes()
+		return nil
+	case desktopupdaterelease.FieldArtifacts:
+		m.ResetArtifacts()
+		return nil
+	case desktopupdaterelease.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case desktopupdaterelease.FieldCreatedBy:
+		m.ResetCreatedBy()
+		return nil
+	case desktopupdaterelease.FieldUpdatedBy:
+		m.ResetUpdatedBy()
+		return nil
+	case desktopupdaterelease.FieldPublishedBy:
+		m.ResetPublishedBy()
+		return nil
+	case desktopupdaterelease.FieldWithdrawnBy:
+		m.ResetWithdrawnBy()
+		return nil
+	case desktopupdaterelease.FieldPublishedAt:
+		m.ResetPublishedAt()
+		return nil
+	case desktopupdaterelease.FieldWithdrawnAt:
+		m.ResetWithdrawnAt()
+		return nil
+	case desktopupdaterelease.FieldWithdrawalReason:
+		m.ResetWithdrawalReason()
+		return nil
+	}
+	return fmt.Errorf("unknown DesktopUpdateRelease field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *DesktopUpdateReleaseMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *DesktopUpdateReleaseMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *DesktopUpdateReleaseMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *DesktopUpdateReleaseMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *DesktopUpdateReleaseMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *DesktopUpdateReleaseMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *DesktopUpdateReleaseMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown DesktopUpdateRelease unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *DesktopUpdateReleaseMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown DesktopUpdateRelease edge %s", name)
 }
 
 // ErrorPassthroughRuleMutation represents an operation that mutates the ErrorPassthroughRule nodes in the graph.

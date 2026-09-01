@@ -165,6 +165,19 @@ func TestDesktopAuthAuditUsesStableActionsAndOmitsBodies(t *testing.T) {
 	}
 }
 
+func TestDesktopUpdateMutationsUseStableAuditActions(t *testing.T) {
+	expected := map[string]string{
+		"POST /api/v1/admin/desktop/updates":                                 "admin.desktop.updates.create",
+		"POST /api/v1/admin/desktop/updates/:release_id/artifacts/:platform": "admin.desktop.updates.artifact.upload",
+		"POST /api/v1/admin/desktop/updates/:release_id/publish":             "admin.desktop.updates.publish",
+		"POST /api/v1/admin/desktop/updates/:release_id/withdraw":            "admin.desktop.updates.withdraw",
+	}
+	for route, action := range expected {
+		require.Equal(t, action, auditActionOverrides[route])
+	}
+	require.Contains(t, auditBinaryBodyOmittedRoutes, "POST /api/v1/admin/desktop/updates/:release_id/artifacts/:platform")
+}
+
 func TestAuditMiddlewarePreservesBodyLimitError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	repository := &auditCaptureRepository{}

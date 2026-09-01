@@ -175,6 +175,8 @@ export default {
     users: 'Users',
     groups: 'Groups',
     desktopManagement: 'Desktop Management',
+    desktopOrganizations: 'Organizations',
+    desktopUpdates: 'Software Updates',
     channels: 'Channels',
     availableChannels: 'Available Channels',
     modelPlaza: 'Model Plaza',

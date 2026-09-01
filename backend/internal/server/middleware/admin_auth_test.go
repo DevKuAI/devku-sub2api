@@ -123,8 +123,44 @@ func TestAdminAuthJWTValidatesTokenVersion(t *testing.T) {
 	})
 }
 
+func TestAdminAuthAcceptsConfiguredAdminAPIKey(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	const adminAPIKey = "admin-desktop-update-test-key"
+	admin := &service.User{
+		ID: 7, Email: "admin@example.com", Role: service.RoleAdmin,
+		Status: service.StatusActive, Concurrency: 1,
+	}
+	userService := service.NewUserService(&stubUserRepo{
+		getFirstAdmin: func(context.Context) (*service.User, error) {
+			clone := *admin
+			return &clone, nil
+		},
+	}, nil, nil, nil)
+	settingService := service.NewSettingService(&complianceGuardRepoStub{values: map[string]string{
+		service.SettingKeyAdminAPIKey: adminAPIKey,
+	}}, &config.Config{})
+
+	router := gin.New()
+	router.Use(gin.HandlerFunc(NewAdminAuthMiddleware(nil, userService, settingService, nil)))
+	router.POST("/api/v1/admin/desktop/updates/upd_one/publish", func(c *gin.Context) {
+		subject, ok := GetAuthSubjectFromContext(c)
+		require.True(t, ok)
+		c.JSON(http.StatusOK, gin.H{"actor_id": subject.UserID, "auth_method": c.GetString("auth_method")})
+	})
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/admin/desktop/updates/upd_one/publish", nil)
+	request.Header.Set("x-api-key", adminAPIKey)
+	router.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Contains(t, recorder.Body.String(), `"actor_id":7`)
+	require.Contains(t, recorder.Body.String(), `"auth_method":"admin_api_key"`)
+}
+
 type stubUserRepo struct {
-	getByID func(ctx context.Context, id int64) (*service.User, error)
+	getByID       func(ctx context.Context, id int64) (*service.User, error)
+	getFirstAdmin func(ctx context.Context) (*service.User, error)
 }
 
 func (s *stubUserRepo) Create(ctx context.Context, user *service.User) error {
@@ -147,7 +183,10 @@ func (s *stubUserRepo) GetByEmail(ctx context.Context, email string) (*service.U
 }
 
 func (s *stubUserRepo) GetFirstAdmin(ctx context.Context) (*service.User, error) {
-	panic("unexpected GetFirstAdmin call")
+	if s.getFirstAdmin == nil {
+		panic("GetFirstAdmin not stubbed")
+	}
+	return s.getFirstAdmin(ctx)
 }
 
 func (s *stubUserRepo) Update(ctx context.Context, user *service.User, fields service.UserUpdateFields) error {

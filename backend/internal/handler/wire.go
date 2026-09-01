@@ -48,6 +48,7 @@ func ProvideAdminHandlers(
 	complianceHandler *admin.ComplianceHandler,
 	auditLogHandler *admin.AuditLogHandler,
 	desktopHandler *admin.DesktopHandler,
+	desktopUpdateHandler *admin.DesktopUpdateHandler,
 	desktopService *service.DesktopService,
 	upstreamBillingProbe *service.UpstreamBillingProbeService,
 	ollamaCloudUsage *service.OllamaCloudUsageService,
@@ -94,6 +95,7 @@ func ProvideAdminHandlers(
 		Compliance:             complianceHandler,
 		AuditLog:               auditLogHandler,
 		Desktop:                desktopHandler,
+		DesktopUpdate:          desktopUpdateHandler,
 	}
 }
 
@@ -200,6 +202,7 @@ func ProvideHandlers(
 	asyncImageHandler *AsyncImageHandler,
 	batchImageHandler *BatchImageHandler,
 	desktopHandler *DesktopHandler,
+	desktopUpdateHandler *DesktopUpdateHandler,
 	_ *service.IdempotencyCoordinator,
 	_ *service.IdempotencyCleanupService,
 	_ *service.OpenAIQuotaAutoResetService,
@@ -227,6 +230,7 @@ func ProvideHandlers(
 		AsyncImage:       asyncImageHandler,
 		BatchImage:       batchImageHandler,
 		Desktop:          desktopHandler,
+		DesktopUpdate:    desktopUpdateHandler,
 	}
 }
 
@@ -254,6 +258,7 @@ var ProviderSet = wire.NewSet(
 	NewAsyncImageHandler,
 	ProvideBatchImageHandler,
 	NewDesktopHandler,
+	NewDesktopUpdateHandler,
 
 	// Admin handlers
 	admin.NewDashboardHandler,
@@ -292,6 +297,7 @@ var ProviderSet = wire.NewSet(
 	admin.NewComplianceHandler,
 	admin.NewAuditLogHandler,
 	admin.NewDesktopHandler,
+	admin.NewDesktopUpdateHandler,
 
 	// AdminHandlers and Handlers constructors
 	ProvideAdminHandlers,

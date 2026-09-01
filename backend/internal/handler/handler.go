@@ -44,6 +44,7 @@ type AdminHandlers struct {
 	Compliance             *admin.ComplianceHandler
 	AuditLog               *admin.AuditLogHandler
 	Desktop                *admin.DesktopHandler
+	DesktopUpdate          *admin.DesktopUpdateHandler
 }
 
 // Handlers contains all HTTP handlers
@@ -70,6 +71,7 @@ type Handlers struct {
 	AsyncImage       *AsyncImageHandler
 	BatchImage       *BatchImageHandler
 	Desktop          *DesktopHandler
+	DesktopUpdate    *DesktopUpdateHandler
 }
 
 // BuildInfo contains build-time information

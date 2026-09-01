@@ -235,6 +235,20 @@ function applyFeatureFlags(items: NavItem[]): NavItem[] {
   return out
 }
 
+function applySimpleMode(items: NavItem[]): NavItem[] {
+  const out: NavItem[] = []
+  for (const item of items) {
+    if (item.hideInSimpleMode) continue
+    if (item.children) {
+      const children = applySimpleMode(item.children)
+      if (children.length > 0) out.push({ ...item, children })
+    } else {
+      out.push(item)
+    }
+  }
+  return out
+}
+
 const { t } = useI18n()
 
 const route = useRoute()
@@ -763,7 +777,22 @@ const adminNavItems = computed((): NavItem[] => {
     { path: '/admin/ops', label: t('nav.ops'), icon: ChartIcon, featureFlag: flagOpsMonitoring },
     { path: '/admin/users', label: t('nav.users'), icon: UsersIcon, hideInSimpleMode: true },
     { path: '/admin/groups', label: t('nav.groups'), icon: FolderIcon, hideInSimpleMode: true },
-    { path: '/admin/desktop/organizations', label: t('nav.desktopManagement'), icon: ServerIcon, hideInSimpleMode: true, featureFlag: flagDesktop },
+    {
+      path: '/admin/desktop',
+      label: t('nav.desktopManagement'),
+      icon: ServerIcon,
+      expandOnly: true,
+      children: [
+        {
+          path: '/admin/desktop/organizations',
+          label: t('nav.desktopOrganizations'),
+          icon: UsersIcon,
+          hideInSimpleMode: true,
+          featureFlag: flagDesktop,
+        },
+        { path: '/admin/desktop/updates', label: t('nav.desktopUpdates'), icon: SignalIcon },
+      ],
+    },
     {
       path: '/admin/channels',
       label: t('nav.channelManagement'),
@@ -827,7 +856,7 @@ const adminNavItems = computed((): NavItem[] => {
 
   // 简单模式下，在系统设置前插入 API密钥
   if (authStore.isSimpleMode) {
-    const filtered = visible.filter(item => !item.hideInSimpleMode)
+    const filtered = applySimpleMode(visible)
     filtered.push({ path: '/keys', label: t('nav.apiKeys'), icon: KeyIcon })
     filtered.push({ path: '/admin/settings', label: t('nav.settings'), icon: CogIcon })
     for (const cm of customMenuItemsForAdmin.value) {

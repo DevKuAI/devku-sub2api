@@ -29,7 +29,12 @@ ACCESS_HOST=""
 POSTGRES_USER=""
 POSTGRES_PASSWORD=""
 POSTGRES_DB=""
+POSTGRES_MAX_CONNECTIONS=""
+POSTGRES_SHARED_BUFFERS=""
+POSTGRES_EFFECTIVE_CACHE_SIZE=""
+POSTGRES_MAINTENANCE_WORK_MEM=""
 REDIS_PASSWORD=""
+REDIS_MAXCLIENTS=""
 TZ_VALUE=""
 POSTGRES_ADDRESS=""
 REDIS_ADDRESS=""
@@ -371,6 +376,13 @@ validate_port() {
         die "SERVER_PORT must be between 1025 and 65535 for Apple container port forwarding."
 }
 
+validate_positive_integer() {
+    local name=$1
+    local value=$2
+
+    [[ "${value}" =~ ^[1-9][0-9]*$ ]] || die "${name} must be a positive integer: ${value}"
+}
+
 validate_ipv4_address() {
     local address=$1
     local first second third fourth extra octet
@@ -408,7 +420,12 @@ prepare_environment() {
     POSTGRES_USER="$(read_env_value POSTGRES_USER sub2api)"
     POSTGRES_PASSWORD="$(read_env_value POSTGRES_PASSWORD)"
     POSTGRES_DB="$(read_env_value POSTGRES_DB sub2api)"
+    POSTGRES_MAX_CONNECTIONS="$(read_env_value POSTGRES_MAX_CONNECTIONS 100)"
+    POSTGRES_SHARED_BUFFERS="$(read_env_value POSTGRES_SHARED_BUFFERS 128MB)"
+    POSTGRES_EFFECTIVE_CACHE_SIZE="$(read_env_value POSTGRES_EFFECTIVE_CACHE_SIZE 4GB)"
+    POSTGRES_MAINTENANCE_WORK_MEM="$(read_env_value POSTGRES_MAINTENANCE_WORK_MEM 64MB)"
     REDIS_PASSWORD="$(read_env_value REDIS_PASSWORD)"
+    REDIS_MAXCLIENTS="$(read_env_value REDIS_MAXCLIENTS 10000)"
     TZ_VALUE="$(read_env_value TZ Asia/Shanghai)"
 
     [[ -n "${BIND_HOST}" ]] || die "BIND_HOST must not be empty."
@@ -421,6 +438,11 @@ prepare_environment() {
     fi
     [[ -n "${POSTGRES_USER}" ]] || die "POSTGRES_USER must not be empty."
     [[ -n "${POSTGRES_DB}" ]] || die "POSTGRES_DB must not be empty."
+    validate_positive_integer POSTGRES_MAX_CONNECTIONS "${POSTGRES_MAX_CONNECTIONS}"
+    validate_positive_integer REDIS_MAXCLIENTS "${REDIS_MAXCLIENTS}"
+    [[ -n "${POSTGRES_SHARED_BUFFERS}" ]] || die "POSTGRES_SHARED_BUFFERS must not be empty."
+    [[ -n "${POSTGRES_EFFECTIVE_CACHE_SIZE}" ]] || die "POSTGRES_EFFECTIVE_CACHE_SIZE must not be empty."
+    [[ -n "${POSTGRES_MAINTENANCE_WORK_MEM}" ]] || die "POSTGRES_MAINTENANCE_WORK_MEM must not be empty."
     if [[ -z "${POSTGRES_PASSWORD}" || "${POSTGRES_PASSWORD}" == "change_this_secure_password" ]]; then
         die "Set a secure POSTGRES_PASSWORD in ${ENV_FILE}."
     fi
@@ -444,6 +466,7 @@ EOF
 
     cat >"${REDIS_ENV_FILE}" <<EOF
 REDIS_PASSWORD=${REDIS_PASSWORD}
+REDIS_MAXCLIENTS=${REDIS_MAXCLIENTS}
 TZ=${TZ_VALUE}
 EOF
     if [[ -n "${REDIS_PASSWORD}" ]]; then
@@ -487,7 +510,13 @@ create_postgres_container() {
         --ulimit nofile=100000:100000 \
         --env-file "${POSTGRES_ENV_FILE}" \
         --volume "${POSTGRES_VOLUME}:/var/lib/postgresql" \
-        "${POSTGRES_IMAGE}" >/dev/null
+        "${POSTGRES_IMAGE}" \
+        postgres \
+        -c "max_connections=${POSTGRES_MAX_CONNECTIONS}" \
+        -c "shared_buffers=${POSTGRES_SHARED_BUFFERS}" \
+        -c "effective_cache_size=${POSTGRES_EFFECTIVE_CACHE_SIZE}" \
+        -c "maintenance_work_mem=${POSTGRES_MAINTENANCE_WORK_MEM}" \
+        >/dev/null
 }
 
 create_redis_container() {
@@ -501,7 +530,7 @@ create_redis_container() {
         --env-file "${REDIS_ENV_FILE}" \
         --volume "${REDIS_VOLUME}:/var/lib/redis" \
         "${REDIS_IMAGE}" \
-        sh -c 'set -e; mkdir -p /var/lib/redis/data; chown redis:redis /var/lib/redis/data; exec /usr/local/bin/docker-entrypoint.sh redis-server --dir /var/lib/redis/data --save 60 1 --appendonly yes --appendfsync everysec ${REDIS_PASSWORD:+--requirepass "$REDIS_PASSWORD"}' \
+        sh -c 'set -e; mkdir -p /var/lib/redis/data; chown redis:redis /var/lib/redis/data; exec /usr/local/bin/docker-entrypoint.sh redis-server --dir /var/lib/redis/data --save 60 1 --appendonly yes --appendfsync everysec --maxclients "$REDIS_MAXCLIENTS" ${REDIS_PASSWORD:+--requirepass "$REDIS_PASSWORD"}' \
         >/dev/null
 }
 

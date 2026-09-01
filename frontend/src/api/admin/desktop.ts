@@ -4,6 +4,42 @@ import type { AdminGroup, AdminUser, PaginatedResponse } from '@/types'
 export type DesktopStatus = 'active' | 'disabled'
 export type DesktopModelTokenStatus = 'active' | 'disabled' | 'missing'
 export type DesktopWireAPI = 'responses' | 'chat_completions'
+export type DesktopUpdateStatus = 'draft' | 'published' | 'withdrawn'
+export type DesktopUpdatePlatform = 'darwin-aarch64' | 'darwin-x86_64' | 'windows-x86_64'
+
+export interface DesktopUpdateArtifact {
+  url: string
+  signature: string
+  object_key: string
+  file_name: string
+  size: number
+  sha256: string
+}
+
+export type DesktopUpdateArtifacts = Record<DesktopUpdatePlatform, DesktopUpdateArtifact>
+
+export interface DesktopUpdateRelease {
+  public_id: string
+  version: string
+  notes: string
+  artifacts: DesktopUpdateArtifacts
+  status: DesktopUpdateStatus
+  created_by?: number
+  updated_by?: number
+  published_by?: number
+  withdrawn_by?: number
+  published_at?: string
+  withdrawn_at?: string
+  withdrawal_reason?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface DesktopUpdateDraftRequest {
+  version: string
+  notes: string
+  artifacts: DesktopUpdateArtifacts
+}
 
 export interface DesktopGatewayUser {
   id: number
@@ -190,6 +226,77 @@ export async function listActiveGroups(): Promise<AdminGroup[]> {
   return data.filter((group) => group.status === 'active')
 }
 
+export async function listUpdateReleases(
+  page: number,
+  pageSize: number,
+  status: DesktopUpdateStatus | '',
+  signal?: AbortSignal,
+): Promise<PaginatedResponse<DesktopUpdateRelease>> {
+  const { data } = await apiClient.get<PaginatedResponse<DesktopUpdateRelease>>('/admin/desktop/updates', {
+    params: { page, page_size: pageSize, status },
+    signal,
+  })
+  return data
+}
+
+export async function getUpdateRelease(publicID: string): Promise<DesktopUpdateRelease> {
+  const { data } = await apiClient.get<DesktopUpdateRelease>(`/admin/desktop/updates/${encodeURIComponent(publicID)}`)
+  return data
+}
+
+export async function createUpdateRelease(input: DesktopUpdateDraftRequest): Promise<DesktopUpdateRelease> {
+  const { data } = await apiClient.post<DesktopUpdateRelease>('/admin/desktop/updates', input, {
+    headers: idempotencyHeaders('desktop-update-create'),
+  })
+  return data
+}
+
+export async function updateUpdateRelease(publicID: string, input: DesktopUpdateDraftRequest): Promise<DesktopUpdateRelease> {
+  const { data } = await apiClient.patch<DesktopUpdateRelease>(`/admin/desktop/updates/${encodeURIComponent(publicID)}`, input)
+  return data
+}
+
+export async function uploadUpdateArtifact(
+  publicID: string,
+  platform: DesktopUpdatePlatform,
+  file: File,
+  onProgress?: (percent: number) => void,
+): Promise<DesktopUpdateArtifact> {
+  const form = new FormData()
+  form.append('file', file)
+  const { data } = await apiClient.post<DesktopUpdateArtifact>(
+    `/admin/desktop/updates/${encodeURIComponent(publicID)}/artifacts/${encodeURIComponent(platform)}`,
+    form,
+    {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 10 * 60 * 1000,
+      onUploadProgress: (event) => {
+        if (!event.total || !onProgress) return
+        onProgress(Math.min(100, Math.round((event.loaded / event.total) * 100)))
+      },
+    },
+  )
+  return data
+}
+
+export async function publishUpdateRelease(publicID: string): Promise<DesktopUpdateRelease> {
+  const { data } = await apiClient.post<DesktopUpdateRelease>(
+    `/admin/desktop/updates/${encodeURIComponent(publicID)}/publish`,
+    undefined,
+    { headers: idempotencyHeaders('desktop-update-publish') },
+  )
+  return data
+}
+
+export async function withdrawUpdateRelease(publicID: string, reason: string): Promise<DesktopUpdateRelease> {
+  const { data } = await apiClient.post<DesktopUpdateRelease>(
+    `/admin/desktop/updates/${encodeURIComponent(publicID)}/withdraw`,
+    { reason },
+    { headers: idempotencyHeaders('desktop-update-withdraw') },
+  )
+  return data
+}
+
 export default {
   listOrganizations,
   getOrganization,
@@ -204,4 +311,11 @@ export default {
   listAvailableGatewayUsers,
   getGatewayUser,
   listActiveGroups,
+  listUpdateReleases,
+  getUpdateRelease,
+  createUpdateRelease,
+  updateUpdateRelease,
+  uploadUpdateArtifact,
+  publishUpdateRelease,
+  withdrawUpdateRelease,
 }

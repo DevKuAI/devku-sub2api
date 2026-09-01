@@ -137,4 +137,10 @@ export type {
   DesktopTarget,
   DesktopStatus,
   DesktopModelTokenStatus,
+  DesktopUpdateRelease,
+  DesktopUpdateStatus,
+  DesktopUpdatePlatform,
+  DesktopUpdateArtifacts,
+  DesktopUpdateArtifact,
+  DesktopUpdateDraftRequest,
 } from './desktop'

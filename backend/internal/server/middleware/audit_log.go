@@ -122,30 +122,34 @@ var auditSensitiveReads = map[string]string{
 
 // auditActionOverrides 变更类请求的动作名精确映射（未命中时自动推导）。
 var auditActionOverrides = map[string]string{
-	"POST /api/desktop/v1/auth/organization-lookup":           "desktop.auth.organization_lookup",
-	"POST /api/desktop/v1/auth/login":                         "desktop.auth.login",
-	"POST /api/desktop/v1/auth/refresh":                       "desktop.auth.refresh",
-	"POST /api/desktop/v1/auth/logout":                        "desktop.auth.logout",
-	"POST /api/v1/auth/login":                                 service.AuditActionLogin,
-	"POST /api/v1/auth/login/2fa":                             service.AuditActionLogin2FA,
-	"POST /api/v1/auth/passkey/login/finish":                  service.AuditActionLogin,
-	"POST /api/v1/auth/register":                              service.AuditActionRegister,
-	"POST /api/v1/auth/refresh":                               service.AuditActionTokenRefresh,
-	"POST /api/v1/user/totp/step-up":                          service.AuditActionStepUpVerify,
-	"POST /api/v1/admin/audit-logs/clear":                     service.AuditActionAuditLogClear,
-	"POST /api/v1/admin/accounts/data":                        "admin.accounts.import",
-	"POST /api/v1/admin/backups":                              "admin.backups.create",
-	"POST /api/v1/admin/backups/:id/restore":                  "admin.backups.restore",
-	"DELETE /api/v1/admin/backups/:id":                        "admin.backups.delete",
-	"PUT /api/v1/admin/backups/s3-config":                     "admin.backups.s3_config.update",
-	"POST /api/v1/admin/settings/admin-api-key/regenerate":    "admin.admin_api_key.regenerate",
-	"DELETE /api/v1/admin/settings/admin-api-key":             "admin.admin_api_key.delete",
-	"PUT /api/v1/admin/prompt-audit/config":                   "admin.prompt_audit.config.update",
-	"POST /api/v1/admin/prompt-audit/endpoints/probe":         "admin.prompt_audit.endpoint.probe",
-	"DELETE /api/v1/admin/prompt-audit/events/:id":            "admin.prompt_audit.event.delete",
-	"POST /api/v1/admin/prompt-audit/events/batch-delete":     "admin.prompt_audit.events.batch_delete",
-	"POST /api/v1/admin/prompt-audit/events/delete-preview":   "admin.prompt_audit.events.delete_preview",
-	"POST /api/v1/admin/prompt-audit/events/delete-by-filter": "admin.prompt_audit.events.filter_delete",
+	"POST /api/desktop/v1/auth/organization-lookup":                      "desktop.auth.organization_lookup",
+	"POST /api/desktop/v1/auth/login":                                    "desktop.auth.login",
+	"POST /api/desktop/v1/auth/refresh":                                  "desktop.auth.refresh",
+	"POST /api/desktop/v1/auth/logout":                                   "desktop.auth.logout",
+	"POST /api/v1/auth/login":                                            service.AuditActionLogin,
+	"POST /api/v1/auth/login/2fa":                                        service.AuditActionLogin2FA,
+	"POST /api/v1/auth/passkey/login/finish":                             service.AuditActionLogin,
+	"POST /api/v1/auth/register":                                         service.AuditActionRegister,
+	"POST /api/v1/auth/refresh":                                          service.AuditActionTokenRefresh,
+	"POST /api/v1/user/totp/step-up":                                     service.AuditActionStepUpVerify,
+	"POST /api/v1/admin/audit-logs/clear":                                service.AuditActionAuditLogClear,
+	"POST /api/v1/admin/accounts/data":                                   "admin.accounts.import",
+	"POST /api/v1/admin/backups":                                         "admin.backups.create",
+	"POST /api/v1/admin/backups/:id/restore":                             "admin.backups.restore",
+	"DELETE /api/v1/admin/backups/:id":                                   "admin.backups.delete",
+	"PUT /api/v1/admin/backups/s3-config":                                "admin.backups.s3_config.update",
+	"POST /api/v1/admin/settings/admin-api-key/regenerate":               "admin.admin_api_key.regenerate",
+	"DELETE /api/v1/admin/settings/admin-api-key":                        "admin.admin_api_key.delete",
+	"PUT /api/v1/admin/prompt-audit/config":                              "admin.prompt_audit.config.update",
+	"POST /api/v1/admin/prompt-audit/endpoints/probe":                    "admin.prompt_audit.endpoint.probe",
+	"DELETE /api/v1/admin/prompt-audit/events/:id":                       "admin.prompt_audit.event.delete",
+	"POST /api/v1/admin/prompt-audit/events/batch-delete":                "admin.prompt_audit.events.batch_delete",
+	"POST /api/v1/admin/prompt-audit/events/delete-preview":              "admin.prompt_audit.events.delete_preview",
+	"POST /api/v1/admin/prompt-audit/events/delete-by-filter":            "admin.prompt_audit.events.filter_delete",
+	"POST /api/v1/admin/desktop/updates":                                 "admin.desktop.updates.create",
+	"POST /api/v1/admin/desktop/updates/:release_id/artifacts/:platform": "admin.desktop.updates.artifact.upload",
+	"POST /api/v1/admin/desktop/updates/:release_id/publish":             "admin.desktop.updates.publish",
+	"POST /api/v1/admin/desktop/updates/:release_id/withdraw":            "admin.desktop.updates.withdraw",
 }
 
 // auditBodyOmittedRoutes 请求体几乎整体由凭证构成的路由（如整块粘贴 auth JSON 的导入接口）。
@@ -165,6 +169,10 @@ var auditBodyOmittedRoutes = map[string]struct{}{
 	"POST /api/v1/admin/prompt-audit/events/batch-delete":       {},
 	"POST /api/v1/admin/prompt-audit/events/delete-preview":     {},
 	"POST /api/v1/admin/prompt-audit/events/delete-by-filter":   {},
+}
+
+var auditBinaryBodyOmittedRoutes = map[string]struct{}{
+	"POST /api/v1/admin/desktop/updates/:release_id/artifacts/:platform": {},
 }
 
 // NewAuditLogMiddleware 创建审计中间件。
@@ -198,7 +206,9 @@ func NewAuditLogMiddleware(auditService *service.AuditLogService) AuditLogMiddle
 		// 只读取脱敏解析上限内的字节，超出部分与已读部分拼接回填，
 		// 避免大体积导入请求被完整复制进内存两次。
 		var bodyRedacted string
-		if _, omit := auditBodyOmittedRoutes[routeKey]; omit {
+		if _, omit := auditBinaryBodyOmittedRoutes[routeKey]; omit {
+			bodyRedacted = "<binary body omitted>"
+		} else if _, omit := auditBodyOmittedRoutes[routeKey]; omit {
 			bodyRedacted = "<credential-bearing body omitted>"
 		} else if c.Request.Body != nil && c.Request.Method != "GET" {
 			orig := c.Request.Body

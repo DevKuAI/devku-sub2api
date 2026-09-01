@@ -104,6 +104,7 @@ type Config struct {
 	Idempotency             IdempotencyConfig             `mapstructure:"idempotency"`
 	BatchImage              BatchImageConfig              `mapstructure:"batch_image"`
 	ImageStorage            ImageStorageConfig            `mapstructure:"image_storage"`
+	DesktopUpdateStorage    DesktopUpdateStorageConfig    `mapstructure:"desktop_update_storage"`
 	Plugins                 PluginConfig                  `mapstructure:"plugins"`
 	Desktop                 DesktopConfig                 `mapstructure:"desktop"`
 }
@@ -120,6 +121,24 @@ type DesktopConfig struct {
 	LoginOrganizationPerMinute int    `mapstructure:"login_organization_per_minute"`
 	LoginPhoneFailureLimit     int    `mapstructure:"login_phone_failure_limit"`
 	LoginPhoneFreezeMinutes    int    `mapstructure:"login_phone_freeze_minutes"`
+}
+
+// DesktopUpdateStorageConfig configures stable Desktop updater artifacts in S3-compatible storage.
+type DesktopUpdateStorageConfig struct {
+	Endpoint        string `mapstructure:"endpoint"`
+	Region          string `mapstructure:"region"`
+	Bucket          string `mapstructure:"bucket"`
+	AccessKeyID     string `mapstructure:"access_key_id"`
+	SecretAccessKey string `mapstructure:"secret_access_key"`
+	Prefix          string `mapstructure:"prefix"`
+	ForcePathStyle  bool   `mapstructure:"force_path_style"`
+	PublicBaseURL   string `mapstructure:"public_base_url"`
+	MaxUploadBytes  int64  `mapstructure:"max_upload_bytes"`
+}
+
+func (c *DesktopUpdateStorageConfig) IsConfigured() bool {
+	return c != nil && c.Endpoint != "" && c.Bucket != "" && c.AccessKeyID != "" &&
+		c.SecretAccessKey != "" && c.PublicBaseURL != ""
 }
 
 // PluginConfig 控制管理员手动上传的本地进程插件。
@@ -2270,6 +2289,17 @@ func setDefaults() {
 	viper.SetDefault("image_storage.access_key_id", "")
 	viper.SetDefault("image_storage.secret_access_key", "")
 	viper.SetDefault("image_storage.public_base_url", "")
+
+	// Desktop update artifacts (S3-compatible object storage, including Aliyun OSS)
+	viper.SetDefault("desktop_update_storage.endpoint", "")
+	viper.SetDefault("desktop_update_storage.region", "cn-hangzhou")
+	viper.SetDefault("desktop_update_storage.bucket", "")
+	viper.SetDefault("desktop_update_storage.access_key_id", "")
+	viper.SetDefault("desktop_update_storage.secret_access_key", "")
+	viper.SetDefault("desktop_update_storage.prefix", "desktop-updates/")
+	viper.SetDefault("desktop_update_storage.force_path_style", false)
+	viper.SetDefault("desktop_update_storage.public_base_url", "")
+	viper.SetDefault("desktop_update_storage.max_upload_bytes", 209715200)
 
 	// Ops (vNext)
 	viper.SetDefault("ops.enabled", true)

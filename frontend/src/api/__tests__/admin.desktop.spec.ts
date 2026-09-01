@@ -11,11 +11,15 @@ const apiClientMock = vi.hoisted(() => ({
 vi.mock('@/api/client', () => ({ apiClient: apiClientMock }))
 
 import {
+  createUpdateRelease,
   createOrganization,
   getGatewayUser,
   listAvailableGatewayUsers,
   listOrganizations,
+  publishUpdateRelease,
   rotateModelToken,
+  uploadUpdateArtifact,
+  withdrawUpdateRelease,
 } from '@/api/admin/desktop'
 
 describe('Desktop admin API', () => {
@@ -68,5 +72,40 @@ describe('Desktop admin API', () => {
     expect(rotateHeaders['Idempotency-Key']).toMatch(/^desktop-model-token-rotate-/)
     expect(createHeaders['Idempotency-Key']).not.toBe(rotateHeaders['Idempotency-Key'])
     expect(apiClientMock.post.mock.calls[1][0]).toContain('/org%20one/members/member%20one/')
+  })
+
+  it('adds independent idempotency keys to release lifecycle writes', async () => {
+    apiClientMock.post.mockResolvedValue({ data: {} })
+    const artifacts = {
+      'darwin-aarch64': { url: '', signature: '', object_key: '', file_name: '', size: 0, sha256: '' },
+      'darwin-x86_64': { url: '', signature: '', object_key: '', file_name: '', size: 0, sha256: '' },
+      'windows-x86_64': { url: '', signature: '', object_key: '', file_name: '', size: 0, sha256: '' },
+    }
+
+    await createUpdateRelease({ version: '1.2.3', notes: 'Notes', artifacts })
+    await publishUpdateRelease('upd one')
+    await withdrawUpdateRelease('upd one', 'Rollback')
+
+    const headers = apiClientMock.post.mock.calls.map((call) => call[2].headers['Idempotency-Key'])
+    expect(headers[0]).toMatch(/^desktop-update-create-/)
+    expect(headers[1]).toMatch(/^desktop-update-publish-/)
+    expect(headers[2]).toMatch(/^desktop-update-withdraw-/)
+    expect(new Set(headers).size).toBe(3)
+    expect(apiClientMock.post.mock.calls[1][0]).toBe('/admin/desktop/updates/upd%20one/publish')
+    expect(apiClientMock.post.mock.calls[2][1]).toEqual({ reason: 'Rollback' })
+  })
+
+  it('uploads updater bundles as multipart data with a long request timeout', async () => {
+    apiClientMock.post.mockResolvedValue({ data: {} })
+    const file = new File(['artifact'], 'DevKu.app.tar.gz', { type: 'application/gzip' })
+
+    await uploadUpdateArtifact('upd one', 'darwin-aarch64', file, vi.fn())
+
+    const [url, form, config] = apiClientMock.post.mock.calls[0]
+    expect(url).toBe('/admin/desktop/updates/upd%20one/artifacts/darwin-aarch64')
+    expect(form).toBeInstanceOf(FormData)
+    expect((form as FormData).get('file')).toBe(file)
+    expect(config.timeout).toBe(10 * 60 * 1000)
+    expect(config.onUploadProgress).toEqual(expect.any(Function))
   })
 })

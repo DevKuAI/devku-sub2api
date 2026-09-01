@@ -26,6 +26,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/desktopmember"
 	"github.com/Wei-Shaw/sub2api/ent/desktopmemberapikey"
 	"github.com/Wei-Shaw/sub2api/ent/desktoporganization"
+	"github.com/Wei-Shaw/sub2api/ent/desktopupdaterelease"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
@@ -593,6 +594,33 @@ func (f TraverseDesktopOrganization) Traverse(ctx context.Context, q ent.Query) 
 		return f(ctx, q)
 	}
 	return fmt.Errorf("unexpected query type %T. expect *ent.DesktopOrganizationQuery", q)
+}
+
+// The DesktopUpdateReleaseFunc type is an adapter to allow the use of ordinary function as a Querier.
+type DesktopUpdateReleaseFunc func(context.Context, *ent.DesktopUpdateReleaseQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f DesktopUpdateReleaseFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.DesktopUpdateReleaseQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.DesktopUpdateReleaseQuery", q)
+}
+
+// The TraverseDesktopUpdateRelease type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseDesktopUpdateRelease func(context.Context, *ent.DesktopUpdateReleaseQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseDesktopUpdateRelease) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseDesktopUpdateRelease) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.DesktopUpdateReleaseQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.DesktopUpdateReleaseQuery", q)
 }
 
 // The ErrorPassthroughRuleFunc type is an adapter to allow the use of ordinary function as a Querier.
@@ -1282,6 +1310,8 @@ func NewQuery(q ent.Query) (Query, error) {
 		return &query[*ent.DesktopMemberAPIKeyQuery, predicate.DesktopMemberAPIKey, desktopmemberapikey.OrderOption]{typ: ent.TypeDesktopMemberAPIKey, tq: q}, nil
 	case *ent.DesktopOrganizationQuery:
 		return &query[*ent.DesktopOrganizationQuery, predicate.DesktopOrganization, desktoporganization.OrderOption]{typ: ent.TypeDesktopOrganization, tq: q}, nil
+	case *ent.DesktopUpdateReleaseQuery:
+		return &query[*ent.DesktopUpdateReleaseQuery, predicate.DesktopUpdateRelease, desktopupdaterelease.OrderOption]{typ: ent.TypeDesktopUpdateRelease, tq: q}, nil
 	case *ent.ErrorPassthroughRuleQuery:
 		return &query[*ent.ErrorPassthroughRuleQuery, predicate.ErrorPassthroughRule, errorpassthroughrule.OrderOption]{typ: ent.TypeErrorPassthroughRule, tq: q}, nil
 	case *ent.GroupQuery:

@@ -1022,6 +1022,42 @@ var (
 			},
 		},
 	}
+	// DesktopUpdateReleasesColumns holds the columns for the "desktop_update_releases" table.
+	DesktopUpdateReleasesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "public_id", Type: field.TypeString, Unique: true, Size: 40},
+		{Name: "version", Type: field.TypeString, Unique: true, Size: 64},
+		{Name: "notes", Type: field.TypeString, Default: "", SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "artifacts", Type: field.TypeJSON, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "status", Type: field.TypeString, Size: 20, Default: "draft"},
+		{Name: "created_by", Type: field.TypeInt64, Nullable: true},
+		{Name: "updated_by", Type: field.TypeInt64, Nullable: true},
+		{Name: "published_by", Type: field.TypeInt64, Nullable: true},
+		{Name: "withdrawn_by", Type: field.TypeInt64, Nullable: true},
+		{Name: "published_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "withdrawn_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "withdrawal_reason", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
+	}
+	// DesktopUpdateReleasesTable holds the schema information for the "desktop_update_releases" table.
+	DesktopUpdateReleasesTable = &schema.Table{
+		Name:       "desktop_update_releases",
+		Columns:    DesktopUpdateReleasesColumns,
+		PrimaryKey: []*schema.Column{DesktopUpdateReleasesColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "desktopupdaterelease_status_published_at",
+				Unique:  false,
+				Columns: []*schema.Column{DesktopUpdateReleasesColumns[7], DesktopUpdateReleasesColumns[12]},
+			},
+			{
+				Name:    "desktopupdaterelease_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{DesktopUpdateReleasesColumns[1]},
+			},
+		},
+	}
 	// ErrorPassthroughRulesColumns holds the columns for the "error_passthrough_rules" table.
 	ErrorPassthroughRulesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -2262,6 +2298,7 @@ var (
 		DesktopMembersTable,
 		DesktopMemberAPIKeysTable,
 		DesktopOrganizationsTable,
+		DesktopUpdateReleasesTable,
 		ErrorPassthroughRulesTable,
 		GroupsTable,
 		IdempotencyRecordsTable,
@@ -2362,6 +2399,9 @@ func init() {
 	DesktopOrganizationsTable.ForeignKeys[1].RefTable = UsersTable
 	DesktopOrganizationsTable.Annotation = &entsql.Annotation{
 		Table: "desktop_organizations",
+	}
+	DesktopUpdateReleasesTable.Annotation = &entsql.Annotation{
+		Table: "desktop_update_releases",
 	}
 	ErrorPassthroughRulesTable.Annotation = &entsql.Annotation{
 		Table: "error_passthrough_rules",

@@ -225,6 +225,18 @@ func (f DesktopOrganizationFunc) Mutate(ctx context.Context, m ent.Mutation) (en
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.DesktopOrganizationMutation", m)
 }
 
+// The DesktopUpdateReleaseFunc type is an adapter to allow the use of ordinary
+// function as DesktopUpdateRelease mutator.
+type DesktopUpdateReleaseFunc func(context.Context, *ent.DesktopUpdateReleaseMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f DesktopUpdateReleaseFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.DesktopUpdateReleaseMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.DesktopUpdateReleaseMutation", m)
+}
+
 // The ErrorPassthroughRuleFunc type is an adapter to allow the use of ordinary
 // function as ErrorPassthroughRule mutator.
 type ErrorPassthroughRuleFunc func(context.Context, *ent.ErrorPassthroughRuleMutation) (ent.Value, error)

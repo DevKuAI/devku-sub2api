@@ -48,6 +48,12 @@ assert_exists "${STATE_DIR}/containers/sub2api-apple"
 assert_exists "${STATE_DIR}/containers/sub2api-apple-postgres"
 assert_exists "${STATE_DIR}/containers/sub2api-apple-redis"
 assert_exists "${STATE_DIR}/running/sub2api-apple"
+grep -Fxq 'max_connections=1024' "${STATE_DIR}/create-args/sub2api-apple-postgres" || fail "PostgreSQL max_connections tuning was not applied"
+grep -Fxq 'shared_buffers=1GB' "${STATE_DIR}/create-args/sub2api-apple-postgres" || fail "PostgreSQL shared_buffers tuning was not applied"
+grep -Fxq 'effective_cache_size=4GB' "${STATE_DIR}/create-args/sub2api-apple-postgres" || fail "PostgreSQL effective_cache_size tuning was not applied"
+grep -Fxq 'maintenance_work_mem=128MB' "${STATE_DIR}/create-args/sub2api-apple-postgres" || fail "PostgreSQL maintenance_work_mem tuning was not applied"
+grep -Fxq 'REDIS_MAXCLIENTS=50000' "${STATE_DIR}/env-files/sub2api-apple-redis" || fail "Redis maxclients tuning was not applied"
+grep -Fq -- '--maxclients "$REDIS_MAXCLIENTS"' "${STATE_DIR}/create-args/sub2api-apple-redis" || fail "Redis maxclients command was not applied"
 "${SCRIPT}" status >/dev/null
 
 "${SCRIPT}" up --recreate

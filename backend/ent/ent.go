@@ -30,6 +30,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/desktopmember"
 	"github.com/Wei-Shaw/sub2api/ent/desktopmemberapikey"
 	"github.com/Wei-Shaw/sub2api/ent/desktoporganization"
+	"github.com/Wei-Shaw/sub2api/ent/desktopupdaterelease"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
@@ -132,6 +133,7 @@ func checkColumn(t, c string) error {
 			desktopmember.Table:                 desktopmember.ValidColumn,
 			desktopmemberapikey.Table:           desktopmemberapikey.ValidColumn,
 			desktoporganization.Table:           desktoporganization.ValidColumn,
+			desktopupdaterelease.Table:          desktopupdaterelease.ValidColumn,
 			errorpassthroughrule.Table:          errorpassthroughrule.ValidColumn,
 			group.Table:                         group.ValidColumn,
 			idempotencyrecord.Table:             idempotencyrecord.ValidColumn,

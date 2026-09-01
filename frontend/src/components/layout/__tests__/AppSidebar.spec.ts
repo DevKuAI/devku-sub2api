@@ -55,9 +55,11 @@ describe('AppSidebar header styles', () => {
 })
 
 describe('AppSidebar Desktop navigation', () => {
-  it('keeps Desktop management opt-in and hidden in simple mode', () => {
+  it('keeps organizations gated while software updates remain available', () => {
     expect(componentSource).toContain("const flagDesktop = makeSidebarFlag(FeatureFlags.desktop)")
-    expect(componentSource).toContain("path: '/admin/desktop/organizations'")
-    expect(componentSource).toMatch(/path: '\/admin\/desktop\/organizations'.*hideInSimpleMode: true.*featureFlag: flagDesktop/)
+    expect(componentSource).toContain("path: '/admin/desktop'")
+    expect(componentSource).toMatch(/path: '\/admin\/desktop\/organizations'[\s\S]*?hideInSimpleMode: true[\s\S]*?featureFlag: flagDesktop/)
+    expect(componentSource).toMatch(/path: '\/admin\/desktop\/updates'.*label: t\('nav\.desktopUpdates'\)/)
+    expect(componentSource).toContain('const filtered = applySimpleMode(visible)')
   })
 })

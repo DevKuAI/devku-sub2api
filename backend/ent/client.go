@@ -33,6 +33,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/desktopmember"
 	"github.com/Wei-Shaw/sub2api/ent/desktopmemberapikey"
 	"github.com/Wei-Shaw/sub2api/ent/desktoporganization"
+	"github.com/Wei-Shaw/sub2api/ent/desktopupdaterelease"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
@@ -102,6 +103,8 @@ type Client struct {
 	DesktopMemberAPIKey *DesktopMemberAPIKeyClient
 	// DesktopOrganization is the client for interacting with the DesktopOrganization builders.
 	DesktopOrganization *DesktopOrganizationClient
+	// DesktopUpdateRelease is the client for interacting with the DesktopUpdateRelease builders.
+	DesktopUpdateRelease *DesktopUpdateReleaseClient
 	// ErrorPassthroughRule is the client for interacting with the ErrorPassthroughRule builders.
 	ErrorPassthroughRule *ErrorPassthroughRuleClient
 	// Group is the client for interacting with the Group builders.
@@ -179,6 +182,7 @@ func (c *Client) init() {
 	c.DesktopMember = NewDesktopMemberClient(c.config)
 	c.DesktopMemberAPIKey = NewDesktopMemberAPIKeyClient(c.config)
 	c.DesktopOrganization = NewDesktopOrganizationClient(c.config)
+	c.DesktopUpdateRelease = NewDesktopUpdateReleaseClient(c.config)
 	c.ErrorPassthroughRule = NewErrorPassthroughRuleClient(c.config)
 	c.Group = NewGroupClient(c.config)
 	c.IdempotencyRecord = NewIdempotencyRecordClient(c.config)
@@ -313,6 +317,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		DesktopMember:                 NewDesktopMemberClient(cfg),
 		DesktopMemberAPIKey:           NewDesktopMemberAPIKeyClient(cfg),
 		DesktopOrganization:           NewDesktopOrganizationClient(cfg),
+		DesktopUpdateRelease:          NewDesktopUpdateReleaseClient(cfg),
 		ErrorPassthroughRule:          NewErrorPassthroughRuleClient(cfg),
 		Group:                         NewGroupClient(cfg),
 		IdempotencyRecord:             NewIdempotencyRecordClient(cfg),
@@ -374,6 +379,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		DesktopMember:                 NewDesktopMemberClient(cfg),
 		DesktopMemberAPIKey:           NewDesktopMemberAPIKeyClient(cfg),
 		DesktopOrganization:           NewDesktopOrganizationClient(cfg),
+		DesktopUpdateRelease:          NewDesktopUpdateReleaseClient(cfg),
 		ErrorPassthroughRule:          NewErrorPassthroughRuleClient(cfg),
 		Group:                         NewGroupClient(cfg),
 		IdempotencyRecord:             NewIdempotencyRecordClient(cfg),
@@ -432,12 +438,12 @@ func (c *Client) Use(hooks ...Hook) {
 		c.BatchImageJob, c.ChannelMonitor, c.ChannelMonitorDailyRollup,
 		c.ChannelMonitorHistory, c.ChannelMonitorRequestTemplate,
 		c.CompositeModelRoute, c.DesktopMember, c.DesktopMemberAPIKey,
-		c.DesktopOrganization, c.ErrorPassthroughRule, c.Group, c.IdempotencyRecord,
-		c.IdentityAdoptionDecision, c.PaymentAuditLog, c.PaymentOrder,
-		c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage,
-		c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting, c.SubscriptionPlan,
-		c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog, c.User,
-		c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
+		c.DesktopOrganization, c.DesktopUpdateRelease, c.ErrorPassthroughRule, c.Group,
+		c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
+		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
+		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting,
+		c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog,
+		c.User, c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
 		c.UserPlatformQuota, c.UserSubscription,
 	} {
 		n.Use(hooks...)
@@ -453,12 +459,12 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.BatchImageJob, c.ChannelMonitor, c.ChannelMonitorDailyRollup,
 		c.ChannelMonitorHistory, c.ChannelMonitorRequestTemplate,
 		c.CompositeModelRoute, c.DesktopMember, c.DesktopMemberAPIKey,
-		c.DesktopOrganization, c.ErrorPassthroughRule, c.Group, c.IdempotencyRecord,
-		c.IdentityAdoptionDecision, c.PaymentAuditLog, c.PaymentOrder,
-		c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage,
-		c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting, c.SubscriptionPlan,
-		c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog, c.User,
-		c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
+		c.DesktopOrganization, c.DesktopUpdateRelease, c.ErrorPassthroughRule, c.Group,
+		c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
+		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
+		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting,
+		c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog,
+		c.User, c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
 		c.UserPlatformQuota, c.UserSubscription,
 	} {
 		n.Intercept(interceptors...)
@@ -504,6 +510,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.DesktopMemberAPIKey.mutate(ctx, m)
 	case *DesktopOrganizationMutation:
 		return c.DesktopOrganization.mutate(ctx, m)
+	case *DesktopUpdateReleaseMutation:
+		return c.DesktopUpdateRelease.mutate(ctx, m)
 	case *ErrorPassthroughRuleMutation:
 		return c.ErrorPassthroughRule.mutate(ctx, m)
 	case *GroupMutation:
@@ -3437,6 +3445,139 @@ func (c *DesktopOrganizationClient) mutate(ctx context.Context, m *DesktopOrgani
 		return (&DesktopOrganizationDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown DesktopOrganization mutation op: %q", m.Op())
+	}
+}
+
+// DesktopUpdateReleaseClient is a client for the DesktopUpdateRelease schema.
+type DesktopUpdateReleaseClient struct {
+	config
+}
+
+// NewDesktopUpdateReleaseClient returns a client for the DesktopUpdateRelease from the given config.
+func NewDesktopUpdateReleaseClient(c config) *DesktopUpdateReleaseClient {
+	return &DesktopUpdateReleaseClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `desktopupdaterelease.Hooks(f(g(h())))`.
+func (c *DesktopUpdateReleaseClient) Use(hooks ...Hook) {
+	c.hooks.DesktopUpdateRelease = append(c.hooks.DesktopUpdateRelease, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `desktopupdaterelease.Intercept(f(g(h())))`.
+func (c *DesktopUpdateReleaseClient) Intercept(interceptors ...Interceptor) {
+	c.inters.DesktopUpdateRelease = append(c.inters.DesktopUpdateRelease, interceptors...)
+}
+
+// Create returns a builder for creating a DesktopUpdateRelease entity.
+func (c *DesktopUpdateReleaseClient) Create() *DesktopUpdateReleaseCreate {
+	mutation := newDesktopUpdateReleaseMutation(c.config, OpCreate)
+	return &DesktopUpdateReleaseCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of DesktopUpdateRelease entities.
+func (c *DesktopUpdateReleaseClient) CreateBulk(builders ...*DesktopUpdateReleaseCreate) *DesktopUpdateReleaseCreateBulk {
+	return &DesktopUpdateReleaseCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *DesktopUpdateReleaseClient) MapCreateBulk(slice any, setFunc func(*DesktopUpdateReleaseCreate, int)) *DesktopUpdateReleaseCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &DesktopUpdateReleaseCreateBulk{err: fmt.Errorf("calling to DesktopUpdateReleaseClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*DesktopUpdateReleaseCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &DesktopUpdateReleaseCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for DesktopUpdateRelease.
+func (c *DesktopUpdateReleaseClient) Update() *DesktopUpdateReleaseUpdate {
+	mutation := newDesktopUpdateReleaseMutation(c.config, OpUpdate)
+	return &DesktopUpdateReleaseUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *DesktopUpdateReleaseClient) UpdateOne(_m *DesktopUpdateRelease) *DesktopUpdateReleaseUpdateOne {
+	mutation := newDesktopUpdateReleaseMutation(c.config, OpUpdateOne, withDesktopUpdateRelease(_m))
+	return &DesktopUpdateReleaseUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *DesktopUpdateReleaseClient) UpdateOneID(id int64) *DesktopUpdateReleaseUpdateOne {
+	mutation := newDesktopUpdateReleaseMutation(c.config, OpUpdateOne, withDesktopUpdateReleaseID(id))
+	return &DesktopUpdateReleaseUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for DesktopUpdateRelease.
+func (c *DesktopUpdateReleaseClient) Delete() *DesktopUpdateReleaseDelete {
+	mutation := newDesktopUpdateReleaseMutation(c.config, OpDelete)
+	return &DesktopUpdateReleaseDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *DesktopUpdateReleaseClient) DeleteOne(_m *DesktopUpdateRelease) *DesktopUpdateReleaseDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *DesktopUpdateReleaseClient) DeleteOneID(id int64) *DesktopUpdateReleaseDeleteOne {
+	builder := c.Delete().Where(desktopupdaterelease.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &DesktopUpdateReleaseDeleteOne{builder}
+}
+
+// Query returns a query builder for DesktopUpdateRelease.
+func (c *DesktopUpdateReleaseClient) Query() *DesktopUpdateReleaseQuery {
+	return &DesktopUpdateReleaseQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeDesktopUpdateRelease},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a DesktopUpdateRelease entity by its id.
+func (c *DesktopUpdateReleaseClient) Get(ctx context.Context, id int64) (*DesktopUpdateRelease, error) {
+	return c.Query().Where(desktopupdaterelease.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *DesktopUpdateReleaseClient) GetX(ctx context.Context, id int64) *DesktopUpdateRelease {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *DesktopUpdateReleaseClient) Hooks() []Hook {
+	return c.hooks.DesktopUpdateRelease
+}
+
+// Interceptors returns the client interceptors.
+func (c *DesktopUpdateReleaseClient) Interceptors() []Interceptor {
+	return c.inters.DesktopUpdateRelease
+}
+
+func (c *DesktopUpdateReleaseClient) mutate(ctx context.Context, m *DesktopUpdateReleaseMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&DesktopUpdateReleaseCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&DesktopUpdateReleaseUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&DesktopUpdateReleaseUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&DesktopUpdateReleaseDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown DesktopUpdateRelease mutation op: %q", m.Op())
 	}
 }
 
@@ -7418,24 +7559,26 @@ type (
 		AuthIdentityChannel, BatchImageEvent, BatchImageItem, BatchImageJob,
 		ChannelMonitor, ChannelMonitorDailyRollup, ChannelMonitorHistory,
 		ChannelMonitorRequestTemplate, CompositeModelRoute, DesktopMember,
-		DesktopMemberAPIKey, DesktopOrganization, ErrorPassthroughRule, Group,
-		IdempotencyRecord, IdentityAdoptionDecision, PaymentAuditLog, PaymentOrder,
-		PaymentProviderInstance, PendingAuthSession, PromoCode, PromoCodeUsage, Proxy,
-		RedeemCode, SecuritySecret, Setting, SubscriptionPlan, TLSFingerprintProfile,
-		UsageCleanupTask, UsageLog, User, UserAllowedGroup, UserAttributeDefinition,
-		UserAttributeValue, UserPlatformQuota, UserSubscription []ent.Hook
+		DesktopMemberAPIKey, DesktopOrganization, DesktopUpdateRelease,
+		ErrorPassthroughRule, Group, IdempotencyRecord, IdentityAdoptionDecision,
+		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
+		PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
+		SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
+		UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
+		UserPlatformQuota, UserSubscription []ent.Hook
 	}
 	inters struct {
 		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
 		AuthIdentityChannel, BatchImageEvent, BatchImageItem, BatchImageJob,
 		ChannelMonitor, ChannelMonitorDailyRollup, ChannelMonitorHistory,
 		ChannelMonitorRequestTemplate, CompositeModelRoute, DesktopMember,
-		DesktopMemberAPIKey, DesktopOrganization, ErrorPassthroughRule, Group,
-		IdempotencyRecord, IdentityAdoptionDecision, PaymentAuditLog, PaymentOrder,
-		PaymentProviderInstance, PendingAuthSession, PromoCode, PromoCodeUsage, Proxy,
-		RedeemCode, SecuritySecret, Setting, SubscriptionPlan, TLSFingerprintProfile,
-		UsageCleanupTask, UsageLog, User, UserAllowedGroup, UserAttributeDefinition,
-		UserAttributeValue, UserPlatformQuota, UserSubscription []ent.Interceptor
+		DesktopMemberAPIKey, DesktopOrganization, DesktopUpdateRelease,
+		ErrorPassthroughRule, Group, IdempotencyRecord, IdentityAdoptionDecision,
+		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
+		PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
+		SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
+		UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
+		UserPlatformQuota, UserSubscription []ent.Interceptor
 	}
 )
 

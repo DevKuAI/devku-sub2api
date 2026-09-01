@@ -99,6 +99,7 @@ var ProviderSet = wire.NewSet(
 	NewTLSFingerprintProfileRepository,
 	NewPluginRepository,
 	NewDesktopRepository,
+	NewDesktopUpdateRepository,
 	NewChannelRepository,
 	NewChannelMonitorRepository,
 	NewChannelMonitorV2Repository,
@@ -152,6 +153,7 @@ var ProviderSet = wire.NewSet(
 
 	// Image storage (async image task result offload)
 	ProvideImageStorageFactory,
+	ProvideDesktopUpdateArtifactStorageFactory,
 
 	// HTTP service ports (DI Strategy A: return interface directly)
 	NewTurnstileVerifier,
@@ -193,6 +195,12 @@ func ProvideEnt(cfg *config.Config) (*ent.Client, error) {
 func ProvideImageStorageFactory() service.ImageStorageFactory {
 	return func(ctx context.Context, cfg *config.ImageStorageConfig) (service.ImageStorage, error) {
 		return NewS3ImageStorage(ctx, cfg)
+	}
+}
+
+func ProvideDesktopUpdateArtifactStorageFactory() service.DesktopUpdateArtifactStorageFactory {
+	return func(ctx context.Context, cfg *config.DesktopUpdateStorageConfig) (service.DesktopUpdateArtifactStorage, error) {
+		return NewS3DesktopUpdateArtifactStorage(ctx, cfg)
 	}
 }
 

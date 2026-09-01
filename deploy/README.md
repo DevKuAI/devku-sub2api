@@ -65,7 +65,7 @@ chmod +x docker-deploy.sh
 ```
 
 **What the script does:**
-- Downloads `docker-compose.local.yml` and `.env.example`
+- Downloads the local-directory Compose variant as `docker-compose.yml` and downloads `.env.example`
 - Automatically generates secure secrets (JWT_SECRET, TOTP_ENCRYPTION_KEY, POSTGRES_PASSWORD)
 - Creates `.env` file with generated secrets
 - Creates necessary data directories (data/, postgres_data/, redis_data/)
@@ -74,13 +74,13 @@ chmod +x docker-deploy.sh
 **After running the script:**
 ```bash
 # Start services
-docker compose -f docker-compose.local.yml up -d
+docker compose up -d
 
 # View logs
-docker compose -f docker-compose.local.yml logs -f sub2api
+docker compose logs -f sub2api
 
 # If admin password was auto-generated, find it in logs:
-docker compose -f docker-compose.local.yml logs sub2api | grep "admin password"
+docker compose logs sub2api | grep "admin password"
 
 # Access Web UI
 # http://localhost:8080

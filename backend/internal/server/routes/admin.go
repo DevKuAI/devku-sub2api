@@ -36,6 +36,7 @@ func RegisterAdminRoutes(
 	registerDesktopAdminRoutesIfEnabled(admin, h, auditLog, settingService, cfg)
 	// 审计中间件挂在认证之后：所有管理面变更类操作 + 敏感读取入审计日志
 	admin.Use(gin.HandlerFunc(auditLog))
+	registerDesktopUpdateAdminRoutes(admin, h, cfg)
 	admin.Use(middleware.AdminComplianceGuard(settingService))
 	{
 		// 部署与运营合规确认
@@ -138,6 +139,17 @@ func RegisterAdminRoutes(
 		// 操作审计日志
 		registerAuditLogRoutes(admin, h, stepUpAuth)
 	}
+}
+
+func registerDesktopUpdateAdminRoutes(admin *gin.RouterGroup, h *handler.Handlers, cfg *config.Config) {
+	updates := admin.Group("/desktop/updates")
+	updates.GET("", h.Admin.DesktopUpdate.List)
+	updates.GET("/:release_id", h.Admin.DesktopUpdate.Get)
+	updates.POST("", middleware.DesktopAdminBodyLimit(), h.Admin.DesktopUpdate.Create)
+	updates.PATCH("/:release_id", middleware.DesktopAdminBodyLimit(), h.Admin.DesktopUpdate.Update)
+	updates.POST("/:release_id/artifacts/:platform", middleware.DesktopUpdateArtifactBodyLimit(cfg), h.Admin.DesktopUpdate.UploadArtifact)
+	updates.POST("/:release_id/publish", middleware.DesktopAdminBodyLimit(), h.Admin.DesktopUpdate.Publish)
+	updates.POST("/:release_id/withdraw", middleware.DesktopAdminBodyLimit(), h.Admin.DesktopUpdate.Withdraw)
 }
 
 func registerDesktopAdminRoutesIfEnabled(

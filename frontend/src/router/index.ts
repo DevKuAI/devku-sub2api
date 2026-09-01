@@ -487,6 +487,18 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/desktop/updates',
+    name: 'AdminDesktopUpdates',
+    component: () => import('@/views/admin/desktop/DesktopUpdatesView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Desktop Updates',
+      titleKey: 'admin.desktop.updates.title',
+      descriptionKey: 'admin.desktop.updates.description'
+    }
+  },
+  {
     path: '/admin/channels',
     redirect: '/admin/channels/pricing'
   },
@@ -970,7 +982,7 @@ router.beforeEach(async (to, _from, next) => {
     const restrictedPaths = [
       '/admin/groups',
       '/admin/subscriptions',
-      '/admin/desktop',
+      '/admin/desktop/organizations',
       '/admin/redeem',
       '/subscriptions',
       '/redeem'

@@ -49,6 +49,23 @@ func executeAdminIdempotent(
 	}, execute)
 }
 
+func executeAdminStrictIdempotent(
+	c *gin.Context,
+	scope string,
+	payload any,
+	ttl time.Duration,
+	execute func(context.Context) (any, error),
+) (*service.IdempotencyExecuteResult, error) {
+	key, err := service.NormalizeIdempotencyKey(c.GetHeader("Idempotency-Key"))
+	if err != nil {
+		return nil, err
+	}
+	if key == "" {
+		return nil, service.ErrIdempotencyKeyRequired
+	}
+	return executeAdminIdempotent(c, scope, payload, ttl, execute)
+}
+
 func adminActorScope(c *gin.Context) string {
 	actorScope := "admin:0"
 	if subject, ok := middleware2.GetAuthSubjectFromContext(c); ok {

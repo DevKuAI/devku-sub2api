@@ -60,6 +60,9 @@ type DesktopMemberAPIKey func(*sql.Selector)
 // DesktopOrganization is the predicate function for desktoporganization builders.
 type DesktopOrganization func(*sql.Selector)
 
+// DesktopUpdateRelease is the predicate function for desktopupdaterelease builders.
+type DesktopUpdateRelease func(*sql.Selector)
+
 // ErrorPassthroughRule is the predicate function for errorpassthroughrule builders.
 type ErrorPassthroughRule func(*sql.Selector)
 

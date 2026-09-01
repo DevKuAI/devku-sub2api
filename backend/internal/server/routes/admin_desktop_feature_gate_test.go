@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -42,4 +43,17 @@ func TestDesktopAdminRoutesFollowFeatureFlag(t *testing.T) {
 			require.Equal(t, test.want, registered)
 		})
 	}
+}
+
+func TestDesktopUpdateAdminRoutesOnlyUseAdminAuthAndAuditGuards(t *testing.T) {
+	content, err := os.ReadFile("admin.go")
+	require.NoError(t, err)
+	source := string(content)
+
+	updateRoutes := strings.Index(source, "registerDesktopUpdateAdminRoutes(admin, h, cfg)")
+	auditGuard := strings.Index(source, "admin.Use(gin.HandlerFunc(auditLog))")
+	complianceGuard := strings.Index(source, "admin.Use(middleware.AdminComplianceGuard(settingService))")
+	require.NotEqual(t, -1, updateRoutes)
+	require.Less(t, auditGuard, updateRoutes)
+	require.Less(t, updateRoutes, complianceGuard)
 }
