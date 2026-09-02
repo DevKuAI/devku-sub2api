@@ -241,11 +241,19 @@ func (r *groupRepository) GetByIDLite(ctx context.Context, id int64) (*service.G
 }
 
 func (r *groupRepository) Update(ctx context.Context, groupIn *service.Group) error {
+	if groupIn != nil && groupIn.IsExclusive {
+		return r.updateExclusiveGroup(ctx, groupIn)
+	}
+	return r.update(ctx, groupIn)
+}
+
+func (r *groupRepository) update(ctx context.Context, groupIn *service.Group) error {
 	modelPricing, err := json.Marshal(groupIn.ModelPricing)
 	if err != nil {
 		return fmt.Errorf("marshal group model pricing: %w", err)
 	}
-	builder := r.client.Group.UpdateOneID(groupIn.ID).
+	client := clientFromContext(ctx, r.client)
+	builder := client.Group.UpdateOneID(groupIn.ID).
 		SetName(groupIn.Name).
 		SetDescription(groupIn.Description).
 		SetPlatform(groupIn.Platform).
@@ -395,8 +403,58 @@ func (r *groupRepository) Update(ctx context.Context, groupIn *service.Group) er
 		return translatePersistenceError(err, service.ErrGroupNotFound, service.ErrGroupExists)
 	}
 	groupIn.UpdatedAt = updated.UpdatedAt
-	if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventGroupChanged, nil, &groupIn.ID, nil); err != nil {
+	outboxExec := r.sql
+	if tx := dbent.TxFromContext(ctx); tx != nil {
+		outboxExec = tx.Client()
+	}
+	if err := enqueueSchedulerOutbox(ctx, outboxExec, service.SchedulerOutboxEventGroupChanged, nil, &groupIn.ID, nil); err != nil {
 		logger.LegacyPrintf("repository.group", "[SchedulerOutbox] enqueue group update failed: group=%d err=%v", groupIn.ID, err)
+	}
+	return nil
+}
+
+// updateExclusiveGroup atomically persists an exclusive group and preserves
+// access for gateway users of existing Desktop organizations.
+func (r *groupRepository) updateExclusiveGroup(ctx context.Context, groupIn *service.Group) error {
+	if groupIn == nil || !groupIn.IsExclusive {
+		return errors.New("desktop gateway access grants require an exclusive group")
+	}
+	if existingTx := dbent.TxFromContext(ctx); existingTx != nil {
+		return r.persistExclusiveGroupAndGrantDesktopAccess(ctx, existingTx.Client(), groupIn)
+	}
+
+	tx, err := r.client.Tx(ctx)
+	if errors.Is(err, dbent.ErrTxStarted) {
+		return r.persistExclusiveGroupAndGrantDesktopAccess(ctx, r.client, groupIn)
+	}
+	if err != nil {
+		return fmt.Errorf("begin exclusive group update transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	txCtx := dbent.NewTxContext(ctx, tx)
+	if err := r.persistExclusiveGroupAndGrantDesktopAccess(txCtx, tx.Client(), groupIn); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit exclusive group update transaction: %w", err)
+	}
+	return nil
+}
+
+func (r *groupRepository) persistExclusiveGroupAndGrantDesktopAccess(ctx context.Context, client *dbent.Client, groupIn *service.Group) error {
+	if err := r.update(ctx, groupIn); err != nil {
+		return err
+	}
+	_, err := client.ExecContext(ctx, `
+		INSERT INTO user_allowed_groups (user_id, group_id)
+		SELECT DISTINCT gateway_user_id, group_id
+		FROM desktop_organizations
+		WHERE group_id = $1 AND deleted_at IS NULL
+		ON CONFLICT (user_id, group_id) DO NOTHING
+	`, groupIn.ID)
+	if err != nil {
+		return fmt.Errorf("grant exclusive group to Desktop gateway users: %w", err)
 	}
 	return nil
 }

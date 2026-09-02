@@ -6,12 +6,16 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	dbuser "github.com/Wei-Shaw/sub2api/ent/user"
+	"github.com/Wei-Shaw/sub2api/ent/userallowedgroup"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/service"
+	dbmigrations "github.com/Wei-Shaw/sub2api/migrations"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -197,6 +201,87 @@ func (s *GroupRepoSuite) TestUpdate() {
 	got, err := s.repo.GetByID(s.ctx, group.ID)
 	s.Require().NoError(err, "GetByID after update")
 	s.Require().Equal("updated", got.Name)
+}
+
+func (s *GroupRepoSuite) TestUpdateExclusiveGroupGrantsDesktopGatewayAccess() {
+	group := &service.Group{
+		Name:             "desktop-exclusive-transition",
+		Platform:         service.PlatformAnthropic,
+		RateMultiplier:   1,
+		Status:           service.StatusActive,
+		SubscriptionType: service.SubscriptionTypeStandard,
+	}
+	s.Require().NoError(s.repo.Create(s.ctx, group))
+	user := mustCreateUser(s.T(), s.tx.Client(), &service.User{})
+	_, err := s.tx.Client().DesktopOrganization.Create().
+		SetPublicID(fmt.Sprintf("org_group_transition_%d", group.ID)).
+		SetCode(fmt.Sprintf("gt%d", group.ID)).
+		SetName("Desktop group transition").
+		SetGatewayUserID(user.ID).
+		SetGroupID(group.ID).
+		Save(s.ctx)
+	s.Require().NoError(err)
+
+	group.IsExclusive = true
+	s.Require().NoError(s.repo.Update(s.ctx, group))
+	s.Require().NoError(s.repo.Update(s.ctx, group), "grant must be idempotent")
+
+	grantCount, err := s.tx.Client().UserAllowedGroup.Query().
+		Where(userallowedgroup.UserIDEQ(user.ID), userallowedgroup.GroupIDEQ(group.ID)).
+		Count(s.ctx)
+	s.Require().NoError(err)
+	s.Require().Equal(1, grantCount)
+
+	gatewayUser, err := s.tx.Client().User.Query().
+		Where(dbuser.IDEQ(user.ID)).
+		WithAllowedGroups().
+		Only(s.ctx)
+	s.Require().NoError(err)
+	groupEntity, err := s.tx.Client().Group.Get(s.ctx, group.ID)
+	s.Require().NoError(err)
+	s.Require().NoError(validateDesktopCarrier(s.ctx, s.tx.Client(), gatewayUser, groupEntity))
+}
+
+func (s *GroupRepoSuite) TestDesktopExclusiveGroupAccessMigrationBackfillsExistingOrganizations() {
+	group := &service.Group{
+		Name:             "desktop-exclusive-migration",
+		Platform:         service.PlatformAnthropic,
+		RateMultiplier:   1,
+		Status:           service.StatusActive,
+		SubscriptionType: service.SubscriptionTypeStandard,
+	}
+	s.Require().NoError(s.repo.Create(s.ctx, group))
+	user := mustCreateUser(s.T(), s.tx.Client(), &service.User{})
+	_, err := s.tx.Client().DesktopOrganization.Create().
+		SetPublicID(fmt.Sprintf("org_group_migration_%d", group.ID)).
+		SetCode(fmt.Sprintf("gm%d", group.ID)).
+		SetName("Desktop group migration").
+		SetGatewayUserID(user.ID).
+		SetGroupID(group.ID).
+		Save(s.ctx)
+	s.Require().NoError(err)
+
+	group.IsExclusive = true
+	_, err = s.tx.Client().Group.UpdateOneID(group.ID).SetIsExclusive(true).Save(s.ctx)
+	s.Require().NoError(err)
+	grantCount, err := s.tx.Client().UserAllowedGroup.Query().
+		Where(userallowedgroup.UserIDEQ(user.ID), userallowedgroup.GroupIDEQ(group.ID)).
+		Count(s.ctx)
+	s.Require().NoError(err)
+	s.Require().Zero(grantCount)
+
+	migrationSQL, err := dbmigrations.FS.ReadFile("233_desktop_exclusive_group_access.sql")
+	s.Require().NoError(err)
+	_, err = s.tx.Client().ExecContext(s.ctx, string(migrationSQL))
+	s.Require().NoError(err)
+	_, err = s.tx.Client().ExecContext(s.ctx, string(migrationSQL))
+	s.Require().NoError(err, "migration must be idempotent")
+
+	grantCount, err = s.tx.Client().UserAllowedGroup.Query().
+		Where(userallowedgroup.UserIDEQ(user.ID), userallowedgroup.GroupIDEQ(group.ID)).
+		Count(s.ctx)
+	s.Require().NoError(err)
+	s.Require().Equal(1, grantCount)
 }
 
 func (s *GroupRepoSuite) TestGetByID_PreservesMessagesDispatchModelConfig() {
