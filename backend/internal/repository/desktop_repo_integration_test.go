@@ -103,6 +103,8 @@ func TestDesktopRepositoryReassignsOrganizationGroupWithExistingMembers(t *testi
 		Name: fmt.Sprintf("desktop-group-reassign-target-%d", fixture.suffix), RateMultiplier: 1, IsExclusive: true,
 	})
 	t.Cleanup(func() {
+		_, _ = integrationDB.ExecContext(context.Background(), "UPDATE desktop_organizations SET group_id = $1 WHERE id = $2", fixture.group.ID, fixture.organization.ID)
+		_, _ = integrationDB.ExecContext(context.Background(), "UPDATE api_keys SET group_id = $1 WHERE user_id = $2 AND group_id = $3", fixture.group.ID, fixture.user.ID, targetGroup.ID)
 		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM user_allowed_groups WHERE user_id = $1 AND group_id = $2", fixture.user.ID, targetGroup.ID)
 		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM groups WHERE id = $1", targetGroup.ID)
 	})
