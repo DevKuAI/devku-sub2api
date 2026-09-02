@@ -97,7 +97,7 @@ describe('Desktop admin API', () => {
 
   it('uploads updater bundles as multipart data with a long request timeout', async () => {
     apiClientMock.post.mockResolvedValue({ data: {} })
-    const file = new File(['artifact'], 'DevKu.app.tar.gz', { type: 'application/gzip' })
+    const file = new File(['artifact'], 'DevKu.dmg', { type: 'application/x-apple-diskimage' })
 
     await uploadUpdateArtifact('upd one', 'darwin-aarch64', file, vi.fn())
 

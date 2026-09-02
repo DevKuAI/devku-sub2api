@@ -38,9 +38,9 @@ const release = {
   version: '1.2.3',
   notes: 'Release notes',
   artifacts: {
-    'darwin-aarch64': artifact('arm.app.tar.gz', 'arm-signature'),
-    'darwin-x86_64': artifact('x64.app.tar.gz', 'x64-signature'),
-    'windows-x86_64': artifact('app.nsis.zip', 'windows-signature'),
+    'darwin-aarch64': artifact('arm.dmg', 'arm-signature'),
+    'darwin-x86_64': artifact('x64.app', 'x64-signature'),
+    'windows-x86_64': artifact('app.exe', 'windows-signature'),
   },
   status: 'draft' as const,
   created_at: '2026-09-01T00:00:00Z',
@@ -72,7 +72,7 @@ describe('DesktopUpdatesView', () => {
     desktopAPI.listUpdateReleases.mockResolvedValue({ items: [{ ...release }], total: 1, page: 1, page_size: 20, pages: 1 })
     desktopAPI.createUpdateRelease.mockResolvedValue({ ...release })
     desktopAPI.updateUpdateRelease.mockResolvedValue({ ...release })
-    desktopAPI.uploadUpdateArtifact.mockResolvedValue(artifact('arm.app.tar.gz', ''))
+    desktopAPI.uploadUpdateArtifact.mockResolvedValue(artifact('arm.dmg', ''))
     desktopAPI.publishUpdateRelease.mockResolvedValue({ ...release, status: 'published' })
     desktopAPI.withdrawUpdateRelease.mockResolvedValue({ ...release, status: 'withdrawn' })
   })
@@ -110,14 +110,14 @@ describe('DesktopUpdatesView', () => {
     const vm = wrapper.vm as any
 
     vm.openEdit(release)
-    const file = new File(['artifact'], 'DevKu.app.tar.gz', { type: 'application/gzip' })
+    const file = new File(['artifact'], 'DevKu.dmg', { type: 'application/x-apple-diskimage' })
     vm.pendingFiles['darwin-aarch64'] = file
     await vm.saveDraft()
 
     expect(desktopAPI.uploadUpdateArtifact).toHaveBeenCalledWith('upd_one', 'darwin-aarch64', file, expect.any(Function))
     expect(desktopAPI.updateUpdateRelease).toHaveBeenCalledWith('upd_one', expect.objectContaining({
       artifacts: expect.objectContaining({
-        'darwin-aarch64': expect.objectContaining({ file_name: 'arm.app.tar.gz', signature: 'arm-signature' }),
+        'darwin-aarch64': expect.objectContaining({ file_name: 'arm.dmg', signature: 'arm-signature' }),
       }),
     }))
     wrapper.unmount()
@@ -147,7 +147,7 @@ describe('DesktopUpdatesView', () => {
     vm.openEdit(release)
     vm.form.version = '1.2.4'
     for (const platform of ['darwin-aarch64', 'darwin-x86_64', 'windows-x86_64']) {
-      const suffix = platform === 'windows-x86_64' ? '.nsis.zip' : '.app.tar.gz'
+      const suffix = platform === 'windows-x86_64' ? '.msi' : '.app'
       vm.pendingFiles[platform] = new File([platform], `${platform}${suffix}`)
     }
     await vm.saveDraft()
@@ -163,6 +163,23 @@ describe('DesktopUpdatesView', () => {
     })
     expect(desktopAPI.uploadUpdateArtifact).toHaveBeenCalledTimes(3)
     expect(desktopAPI.updateUpdateRelease).toHaveBeenCalledTimes(2)
+    wrapper.unmount()
+  })
+
+  it('does not restrict selected files by suffix', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as any
+    const file = new File(['artifact'], 'DevKu.custom')
+
+    vm.selectArtifactFile('darwin-aarch64', { target: { files: [file], value: 'DevKu.custom' } })
+
+    expect(vm.pendingFiles['darwin-aarch64']).toBe(file)
+    expect(vm.errors['darwin-aarch64.file']).toBeUndefined()
+    expect(wrapper.findAll('input[type="file"]')).toHaveLength(3)
+    expect(wrapper.findAll('input[type="file"]').every((input) => input.attributes('accept') === undefined)).toBe(true)
+    expect(wrapper.text()).toContain('.dmg / .app')
+    expect(wrapper.text()).toContain('.msi / .exe')
     wrapper.unmount()
   })
 

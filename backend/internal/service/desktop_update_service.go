@@ -155,7 +155,7 @@ func (s *DesktopUpdateService) UploadArtifact(
 	if !ok {
 		return nil, ErrDesktopUpdateUnsupported.WithMetadata(map[string]string{"platform": strings.TrimSpace(platform)})
 	}
-	fileName, err = normalizeDesktopUpdateArtifactFileName(platform, fileName)
+	fileName, err = normalizeDesktopUpdateArtifactFileName(fileName)
 	if err != nil {
 		return nil, err
 	}
@@ -357,10 +357,7 @@ func normalizeDesktopUpdateArtifact(platform string, artifact DesktopUpdateArtif
 		if len(artifact.ObjectKey) > desktopUpdateMaxObjectKey || strings.HasPrefix(artifact.ObjectKey, "/") || strings.Contains(artifact.ObjectKey, "\\") || path.Clean(artifact.ObjectKey) != artifact.ObjectKey || strings.Contains(artifact.ObjectKey, "../") {
 			return DesktopUpdateArtifact{}, ErrDesktopUpdateInvalidFields.WithMetadata(map[string]string{"field": field + ".object_key"})
 		}
-		if artifact.FileName == "" || len(artifact.FileName) > desktopUpdateMaxFileName || strings.ContainsAny(artifact.FileName, "/\\") || path.Base(artifact.FileName) != artifact.FileName {
-			return DesktopUpdateArtifact{}, ErrDesktopUpdateInvalidFields.WithMetadata(map[string]string{"field": field + ".file_name"})
-		}
-		if _, err := normalizeDesktopUpdateArtifactFileName(platform, artifact.FileName); err != nil {
+		if _, err := normalizeDesktopUpdateArtifactFileName(artifact.FileName); err != nil {
 			return DesktopUpdateArtifact{}, ErrDesktopUpdateInvalidFields.WithMetadata(map[string]string{"field": field + ".file_name"})
 		}
 		if artifact.Size <= 0 {
@@ -381,15 +378,9 @@ func normalizeDesktopUpdateArtifact(platform string, artifact DesktopUpdateArtif
 	return artifact, nil
 }
 
-func normalizeDesktopUpdateArtifactFileName(platform, fileName string) (string, error) {
+func normalizeDesktopUpdateArtifactFileName(fileName string) (string, error) {
 	fileName = strings.TrimSpace(fileName)
 	if fileName == "" || len(fileName) > desktopUpdateMaxFileName || strings.ContainsAny(fileName, "/\\") || path.Base(fileName) != fileName {
-		return "", ErrDesktopUpdateInvalidFields.WithMetadata(map[string]string{"field": "file_name"})
-	}
-	lowerName := strings.ToLower(fileName)
-	valid := (platform == DesktopUpdateDarwinARM64 || platform == DesktopUpdateDarwinX64) && strings.HasSuffix(lowerName, ".app.tar.gz")
-	valid = valid || platform == DesktopUpdateWindowsX64 && strings.HasSuffix(lowerName, ".nsis.zip")
-	if !valid {
 		return "", ErrDesktopUpdateInvalidFields.WithMetadata(map[string]string{"field": "file_name"})
 	}
 	return fileName, nil

@@ -65,7 +65,7 @@ func TestDesktopUpdateArtifactUploadAcceptsMultipartBundle(t *testing.T) {
 
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile("file", "DevKu.app.tar.gz")
+	part, err := writer.CreateFormFile("file", "DevKu.dmg")
 	require.NoError(t, err)
 	_, err = part.Write([]byte("artifact"))
 	require.NoError(t, err)
@@ -77,7 +77,7 @@ func TestDesktopUpdateArtifactUploadAcceptsMultipartBundle(t *testing.T) {
 	router.ServeHTTP(recorder, request)
 
 	require.Equal(t, http.StatusOK, recorder.Code)
-	require.Contains(t, recorder.Body.String(), `"file_name":"DevKu.app.tar.gz"`)
+	require.Contains(t, recorder.Body.String(), `"file_name":"DevKu.dmg"`)
 	require.Contains(t, recorder.Body.String(), `"sha256":`)
 	uploaded := request.MultipartForm.File["file"][0]
 	_, err = uploaded.Open()

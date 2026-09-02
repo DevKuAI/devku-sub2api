@@ -106,7 +106,7 @@
                     <p class="mt-0.5 text-xs text-gray-500 dark:text-dark-400">{{ artifactDisplayMeta(platform.key) }}</p>
                   </div>
                   <label class="btn btn-secondary btn-sm shrink-0 cursor-pointer" :class="{ 'pointer-events-none opacity-50': saving }">
-                    <input type="file" class="sr-only" :accept="platform.accept" :disabled="saving" @change="selectArtifactFile(platform.key, $event)" />
+                    <input type="file" class="sr-only" :disabled="saving" @change="selectArtifactFile(platform.key, $event)" />
                     <Icon name="upload" size="sm" class="mr-1.5" aria-hidden="true" />
                     {{ form.artifacts[platform.key].url || pendingFiles[platform.key] ? t('admin.desktop.updates.replaceFile') : t('admin.desktop.updates.selectFile') }}
                   </label>
@@ -218,10 +218,10 @@ const uploadProgress = reactive<Record<DesktopUpdatePlatform, number | null>>({
 })
 let listController: AbortController | undefined
 
-const platforms: Array<{ key: DesktopUpdatePlatform; label: string; shortLabel: string; bundle: string; accept: string }> = [
-  { key: 'darwin-aarch64', label: 'macOS Apple Silicon', shortLabel: 'macOS ARM64', bundle: '.app.tar.gz', accept: '.gz,.app.tar.gz' },
-  { key: 'darwin-x86_64', label: 'macOS Intel', shortLabel: 'macOS x64', bundle: '.app.tar.gz', accept: '.gz,.app.tar.gz' },
-  { key: 'windows-x86_64', label: 'Windows x64', shortLabel: 'Windows x64', bundle: '.nsis.zip', accept: '.zip,.nsis.zip' },
+const platforms: Array<{ key: DesktopUpdatePlatform; label: string; shortLabel: string; bundle: string }> = [
+  { key: 'darwin-aarch64', label: 'macOS Apple Silicon', shortLabel: 'macOS ARM64', bundle: '.dmg / .app' },
+  { key: 'darwin-x86_64', label: 'macOS Intel', shortLabel: 'macOS x64', bundle: '.dmg / .app' },
+  { key: 'windows-x86_64', label: 'Windows x64', shortLabel: 'Windows x64', bundle: '.msi / .exe' },
 ]
 
 function emptyArtifact(signature = ''): DesktopUpdateArtifact {
@@ -299,23 +299,12 @@ function resetPendingUploads() {
   }
 }
 
-function isExpectedBundle(platform: DesktopUpdatePlatform, fileName: string): boolean {
-  const lowerName = fileName.toLowerCase()
-  return platform === 'windows-x86_64' ? lowerName.endsWith('.nsis.zip') : lowerName.endsWith('.app.tar.gz')
-}
-
 function selectArtifactFile(platform: DesktopUpdatePlatform, event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
   input.value = ''
   delete errors[`${platform}.file`]
   if (!file) return
-  if (!isExpectedBundle(platform, file.name)) {
-    errors[`${platform}.file`] = t('admin.desktop.updates.validation.bundleType', {
-      type: platform === 'windows-x86_64' ? '.nsis.zip' : '.app.tar.gz',
-    })
-    return
-  }
   pendingFiles[platform] = file
   uploadProgress[platform] = null
 }
@@ -347,7 +336,7 @@ function artifactDisplayMeta(platform: DesktopUpdatePlatform): string {
   if (pending) return `${formatFileSize(pending.size)} / ${t('admin.desktop.updates.pendingUpload')}`
   const artifact = form.artifacts[platform]
   if (artifact.url) return `${formatFileSize(artifact.size)} / SHA-256 ${artifact.sha256.slice(0, 12)}`
-  return t('admin.desktop.updates.bundleHint', { type: platform === 'windows-x86_64' ? '.nsis.zip' : '.app.tar.gz' })
+  return t('admin.desktop.updates.bundleHint', { type: platform === 'windows-x86_64' ? '.msi / .exe' : '.dmg / .app' })
 }
 
 function validateDraft(): boolean {

@@ -115,9 +115,25 @@ func (r *desktopUpdateRepoStub) ListPublished(_ context.Context) ([]DesktopUpdat
 
 func desktopUpdateTestArtifacts(prefix string) DesktopUpdateArtifacts {
 	return DesktopUpdateArtifacts{
-		DesktopUpdateDarwinARM64: desktopUpdateTestArtifact(prefix, "darwin-arm64.app.tar.gz", "arm-signature"),
-		DesktopUpdateDarwinX64:   desktopUpdateTestArtifact(prefix, "darwin-x64.app.tar.gz", "x64-signature"),
-		DesktopUpdateWindowsX64:  desktopUpdateTestArtifact(prefix, "windows-x64.nsis.zip", "windows-signature"),
+		DesktopUpdateDarwinARM64: desktopUpdateTestArtifact(prefix, "darwin-arm64.dmg", "arm-signature"),
+		DesktopUpdateDarwinX64:   desktopUpdateTestArtifact(prefix, "darwin-x64.app", "x64-signature"),
+		DesktopUpdateWindowsX64:  desktopUpdateTestArtifact(prefix, "windows-x64.exe", "windows-signature"),
+	}
+}
+
+func TestNormalizeDesktopUpdateArtifactFileNameDoesNotRestrictSuffix(t *testing.T) {
+	for _, fileName := range []string{
+		"DevKu.dmg",
+		"DevKu.app",
+		"DevKu.msi",
+		"DevKu.exe",
+		"DevKu.custom",
+	} {
+		t.Run(fileName, func(t *testing.T) {
+			normalized, err := normalizeDesktopUpdateArtifactFileName(fileName)
+			require.NoError(t, err)
+			require.Equal(t, fileName, normalized)
+		})
 	}
 }
 
@@ -188,24 +204,20 @@ func TestDesktopUpdateUploadArtifactStreamsToConfiguredOSS(t *testing.T) {
 	}
 
 	payload := []byte("desktop artifact")
-	artifact, err := svc.UploadArtifact(context.Background(), "upd_one", DesktopUpdateDarwinARM64, "DevKu.app.tar.gz", "application/gzip", int64(len(payload)), bytes.NewReader(payload))
+	artifact, err := svc.UploadArtifact(context.Background(), "upd_one", DesktopUpdateDarwinARM64, "DevKu.app", "application/octet-stream", int64(len(payload)), bytes.NewReader(payload))
 	require.NoError(t, err)
 	require.Equal(t, payload, storage.body)
 	require.Contains(t, storage.key, "desktop-updates/1.2.3/darwin-aarch64/artifact_")
-	require.Equal(t, "DevKu.app.tar.gz", artifact.FileName)
+	require.Equal(t, "DevKu.app", artifact.FileName)
 	require.Equal(t, int64(len(payload)), artifact.Size)
 	require.Equal(t, HashDesktopOpaqueToken(string(payload)), artifact.SHA256)
 }
 
-func TestDesktopUpdateUploadArtifactRejectsWrongBundleAndPublishedRelease(t *testing.T) {
-	repo := &desktopUpdateRepoStub{releases: []DesktopUpdateRelease{{PublicID: "upd_one", Version: "1.2.3", Status: DesktopUpdateStatusDraft}}}
+func TestDesktopUpdateUploadArtifactRejectsPublishedRelease(t *testing.T) {
+	repo := &desktopUpdateRepoStub{releases: []DesktopUpdateRelease{{PublicID: "upd_one", Version: "1.2.3", Status: DesktopUpdateStatusPublished}}}
 	svc := NewDesktopUpdateService(repo)
 
-	_, err := svc.UploadArtifact(context.Background(), "upd_one", DesktopUpdateDarwinARM64, "DevKu.zip", "application/zip", 10, bytes.NewReader(make([]byte, 10)))
-	require.Equal(t, "DESKTOP_UPDATE_FIELDS_INVALID", infraerrors.Reason(err))
-
-	repo.releases[0].Status = DesktopUpdateStatusPublished
-	_, err = svc.UploadArtifact(context.Background(), "upd_one", DesktopUpdateDarwinARM64, "DevKu.app.tar.gz", "application/gzip", 10, bytes.NewReader(make([]byte, 10)))
+	_, err := svc.UploadArtifact(context.Background(), "upd_one", DesktopUpdateDarwinARM64, "DevKu.dmg", "application/x-apple-diskimage", 10, bytes.NewReader(make([]byte, 10)))
 	require.Equal(t, "DESKTOP_UPDATE_STATE_INVALID", infraerrors.Reason(err))
 }
 
@@ -248,9 +260,9 @@ func TestDesktopUpdateCheckSelectsLatestAndMapsPlatforms(t *testing.T) {
 		arch   string
 		path   string
 	}{
-		{target: "darwin", arch: "aarch64", path: "darwin-arm64.app.tar.gz"},
-		{target: "darwin", arch: "x86_64", path: "darwin-x64.app.tar.gz"},
-		{target: "windows", arch: "x86_64", path: "windows-x64.nsis.zip"},
+		{target: "darwin", arch: "aarch64", path: "darwin-arm64.dmg"},
+		{target: "darwin", arch: "x86_64", path: "darwin-x64.app"},
+		{target: "windows", arch: "x86_64", path: "windows-x64.exe"},
 	} {
 		result, available, err := svc.Check(context.Background(), test.target, test.arch, "1.0.0")
 		require.NoError(t, err)

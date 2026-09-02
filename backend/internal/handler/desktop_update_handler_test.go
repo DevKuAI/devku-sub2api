@@ -45,9 +45,9 @@ func (r *desktopUpdateCheckRepoStub) ListPublished(context.Context) ([]service.D
 
 func desktopUpdateHandlerArtifacts() service.DesktopUpdateArtifacts {
 	return service.DesktopUpdateArtifacts{
-		service.DesktopUpdateDarwinARM64: desktopUpdateHandlerArtifact("app-arm.app.tar.gz", "arm-sig"),
-		service.DesktopUpdateDarwinX64:   desktopUpdateHandlerArtifact("app-x64.app.tar.gz", "x64-sig"),
-		service.DesktopUpdateWindowsX64:  desktopUpdateHandlerArtifact("app-x64.nsis.zip", "windows-sig"),
+		service.DesktopUpdateDarwinARM64: desktopUpdateHandlerArtifact("app-arm.dmg", "arm-sig"),
+		service.DesktopUpdateDarwinX64:   desktopUpdateHandlerArtifact("app-x64.app", "x64-sig"),
+		service.DesktopUpdateWindowsX64:  desktopUpdateHandlerArtifact("app-x64.msi", "windows-sig"),
 	}
 }
 
