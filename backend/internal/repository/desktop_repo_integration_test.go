@@ -82,6 +82,49 @@ func TestDesktopRepositoryLoadsAssignedExclusiveGroup(t *testing.T) {
 	require.Equal(t, group.ID, groupID)
 }
 
+func TestDesktopRepositoryReassignsOrganizationGroupWithExistingMembers(t *testing.T) {
+	ctx := context.Background()
+	fixture := newDesktopRepositoryFixture(t, "group-reassign", 10)
+	member := fixture.createMember(t, "group-reassign", 1)
+	require.NotNil(t, member.CurrentAPIKeyID)
+
+	replacementUser := mustCreateUser(t, integrationEntClient, &service.User{
+		Email: fmt.Sprintf("desktop-group-reassign-user-%d@example.com", fixture.suffix), APIKeyLimit: 10,
+	})
+	t.Cleanup(func() {
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM users WHERE id = $1", replacementUser.ID)
+	})
+	_, _, err := fixture.repo.UpdateOrganization(ctx, fixture.organization.PublicID, service.DesktopUpdateOrganizationInput{
+		GatewayUserID: &replacementUser.ID,
+	})
+	require.ErrorIs(t, err, service.ErrDesktopProvisioningLocked)
+
+	targetGroup := mustCreateGroup(t, integrationEntClient, &service.Group{
+		Name: fmt.Sprintf("desktop-group-reassign-target-%d", fixture.suffix), RateMultiplier: 1, IsExclusive: true,
+	})
+	t.Cleanup(func() {
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM user_allowed_groups WHERE user_id = $1 AND group_id = $2", fixture.user.ID, targetGroup.ID)
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM groups WHERE id = $1", targetGroup.ID)
+	})
+
+	updated, invalidated, err := fixture.repo.UpdateOrganization(ctx, fixture.organization.PublicID, service.DesktopUpdateOrganizationInput{
+		GroupID: &targetGroup.ID,
+	})
+	require.NoError(t, err)
+	require.Equal(t, targetGroup.ID, updated.GroupID)
+	require.Equal(t, fixture.user.ID, updated.GatewayUserID)
+	require.Equal(t, []string{member.CurrentAPIKey}, invalidated)
+
+	var keyGroupID int64
+	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT group_id FROM api_keys WHERE id = $1", *member.CurrentAPIKeyID).Scan(&keyGroupID))
+	require.Equal(t, targetGroup.ID, keyGroupID)
+
+	var grantCount int
+	require.NoError(t, integrationDB.QueryRowContext(ctx,
+		"SELECT COUNT(*) FROM user_allowed_groups WHERE user_id = $1 AND group_id = $2", fixture.user.ID, targetGroup.ID).Scan(&grantCount))
+	require.Equal(t, 1, grantCount)
+}
+
 func TestDesktopRepositoryConcurrentGatewayUserAssignmentAllowsOneOrganization(t *testing.T) {
 	ctx := context.Background()
 	suffix := time.Now().UnixNano()

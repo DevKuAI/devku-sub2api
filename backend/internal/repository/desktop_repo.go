@@ -154,17 +154,22 @@ func (r *desktopRepository) UpdateOrganization(ctx context.Context, publicID str
 		if err != nil {
 			return translatePersistenceError(err, service.ErrDesktopOrganizationNotFound, nil)
 		}
-		carrierChanged := organization.GatewayUserID != newUserID || organization.GroupID != newGroupID
-		if carrierChanged {
+		if input.GatewayUserID == nil && organization.GatewayUserID != current.GatewayUserID {
+			return service.ErrDesktopRotationConflict
+		}
+		if input.GroupID == nil && organization.GroupID != current.GroupID {
+			return service.ErrDesktopRotationConflict
+		}
+		gatewayUserChanged := organization.GatewayUserID != newUserID
+		groupChanged := organization.GroupID != newGroupID
+		carrierChanged := gatewayUserChanged || groupChanged
+		if gatewayUserChanged {
 			memberCount, err := client.DesktopMember.Query().Where(desktopmember.OrganizationIDEQ(organization.ID)).Count(txCtx)
 			if err != nil {
 				return err
 			}
 			if memberCount > 0 {
 				return service.ErrDesktopProvisioningLocked
-			}
-			if err := validateDesktopCarrier(txCtx, client, gatewayUser, groupEntity); err != nil {
-				return err
 			}
 			assigned, err := client.DesktopOrganization.Query().Where(
 				desktoporganization.GatewayUserIDEQ(newUserID),
@@ -177,12 +182,30 @@ func (r *desktopRepository) UpdateOrganization(ctx context.Context, publicID str
 				return service.ErrDesktopGatewayUserAssigned
 			}
 		}
+		if groupChanged {
+			if err := ensureDesktopCarrierGroupAccess(txCtx, client, gatewayUser, groupEntity); err != nil {
+				return err
+			}
+		}
+		if carrierChanged {
+			if err := validateDesktopCarrier(txCtx, client, gatewayUser, groupEntity); err != nil {
+				return err
+			}
+		}
 		builder := client.DesktopOrganization.UpdateOne(organization)
 		if input.Name != nil {
 			builder.SetName(*input.Name)
 		}
-		if carrierChanged {
-			builder.SetGatewayUserID(newUserID).SetGroupID(newGroupID)
+		if gatewayUserChanged {
+			builder.SetGatewayUserID(newUserID)
+		}
+		if groupChanged {
+			keys, err := r.reassignOrganizationGroup(txCtx, client, organization.ID, newGroupID)
+			if err != nil {
+				return err
+			}
+			invalidated = append(invalidated, keys...)
+			builder.SetGroupID(newGroupID)
 		}
 		if input.Status != nil && *input.Status != organization.Status {
 			if *input.Status == service.DesktopStatusActive {
@@ -205,6 +228,69 @@ func (r *desktopRepository) UpdateOrganization(ctx context.Context, publicID str
 	}
 	updated, err := r.GetOrganization(ctx, publicID)
 	return updated, invalidated, err
+}
+
+func ensureDesktopCarrierGroupAccess(ctx context.Context, client *dbent.Client, gatewayUser *dbent.User, groupEntity *dbent.Group) error {
+	if !groupEntity.IsExclusive && !gatewayUser.RestrictPublicGroups {
+		return nil
+	}
+	for _, allowed := range gatewayUser.Edges.AllowedGroups {
+		if allowed.ID == groupEntity.ID {
+			return nil
+		}
+	}
+	_, err := client.ExecContext(ctx, `
+		INSERT INTO user_allowed_groups (user_id, group_id)
+		VALUES ($1, $2)
+		ON CONFLICT (user_id, group_id) DO NOTHING
+	`, gatewayUser.ID, groupEntity.ID)
+	if err == nil {
+		gatewayUser.Edges.AllowedGroups = append(gatewayUser.Edges.AllowedGroups, groupEntity)
+	}
+	return err
+}
+
+func (r *desktopRepository) reassignOrganizationGroup(ctx context.Context, client *dbent.Client, organizationID, groupID int64) ([]string, error) {
+	members, err := client.DesktopMember.Query().Where(desktopmember.OrganizationIDEQ(organizationID)).ForUpdate().All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	memberIDs := make([]int64, 0, len(members))
+	for _, member := range members {
+		memberIDs = append(memberIDs, member.ID)
+	}
+	if len(memberIDs) == 0 {
+		return nil, nil
+	}
+	assignments, err := client.DesktopMemberAPIKey.Query().Where(
+		desktopmemberapikey.MemberIDIn(memberIDs...),
+		desktopmemberapikey.RetiredAtIsNil(),
+	).All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	keyIDs := make([]int64, 0, len(assignments))
+	for _, assignment := range assignments {
+		keyIDs = append(keyIDs, assignment.APIKeyID)
+	}
+	if len(keyIDs) == 0 {
+		return nil, nil
+	}
+	keys, err := client.APIKey.Query().Where(apikey.IDIn(keyIDs...), apikey.DeletedAtIsNil()).ForUpdate().All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if len(keys) == 0 {
+		return nil, nil
+	}
+	invalidated := make([]string, 0, len(keys))
+	activeKeyIDs := make([]int64, 0, len(keys))
+	for _, key := range keys {
+		activeKeyIDs = append(activeKeyIDs, key.ID)
+		invalidated = append(invalidated, key.Key)
+	}
+	_, err = client.APIKey.Update().Where(apikey.IDIn(activeKeyIDs...)).SetGroupID(groupID).Save(ctx)
+	return invalidated, err
 }
 
 func (r *desktopRepository) applyOrganizationStatus(ctx context.Context, client *dbent.Client, organizationID int64, status string) ([]string, error) {

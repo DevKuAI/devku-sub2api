@@ -33,7 +33,7 @@ export default {
     noOrganizations: 'No Desktop organizations',
     noOrganizationsDescription: 'Create an organization to manage members and model targets.',
     detailTabs: 'Organization detail views',
-    provisioningLockedHint: 'Gateway User and Group are locked after the first member is created.',
+    provisioningLockedHint: 'The Gateway User is locked after the first member is created.',
     providerId: 'Provider ID',
     displayName: 'Display name',
     requestedModel: 'Requested model',
@@ -101,7 +101,7 @@ export default {
     },
     errors: {
       GATEWAY_USER_ALREADY_ASSIGNED: 'This User is already assigned to another Desktop organization.',
-      ORGANIZATION_PROVISIONING_LOCKED: 'Gateway User and Group cannot change after members are provisioned.',
+      ORGANIZATION_PROVISIONING_LOCKED: 'The Gateway User cannot change after members are provisioned.',
       ORGANIZATION_DISABLED: 'This organization is disabled.',
       MEMBER_DISABLED: 'This member is disabled.',
       DESKTOP_MANAGED_API_KEY: 'This API Key is managed by Desktop and cannot be changed here.',

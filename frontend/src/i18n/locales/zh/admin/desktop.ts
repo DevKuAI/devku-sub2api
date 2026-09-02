@@ -33,7 +33,7 @@ export default {
     noOrganizations: '暂无 Desktop 企业',
     noOrganizationsDescription: '创建企业后即可配置成员和模型目标。',
     detailTabs: '企业详情视图',
-    provisioningLockedHint: '企业已有成员，承载用户和分组已锁定。',
+    provisioningLockedHint: '企业已有成员，承载用户已锁定。',
     providerId: '提供方标识',
     displayName: '显示名称',
     requestedModel: '请求模型',
@@ -101,7 +101,7 @@ export default {
     },
     errors: {
       GATEWAY_USER_ALREADY_ASSIGNED: '该用户已被其他 Desktop 企业占用。',
-      ORGANIZATION_PROVISIONING_LOCKED: '企业已有成员，不能更换承载用户或分组。',
+      ORGANIZATION_PROVISIONING_LOCKED: '企业已有成员，不能更换承载用户。',
       ORGANIZATION_DISABLED: '企业已停用，不能执行该操作。',
       MEMBER_DISABLED: '成员已停用，不能执行该操作。',
       DESKTOP_MANAGED_API_KEY: '该 API 密钥由 Desktop 管理，不能从通用 API 密钥管理入口修改。',

@@ -90,9 +90,9 @@
       <form id="desktop-organization-edit" class="space-y-4" @submit.prevent="submitOrganizationEdit">
         <Input v-model="organizationForm.name" :label="t('admin.desktop.organizationName')" required />
         <div><label class="input-label mb-1.5 block">{{ t('common.status') }}</label><Select v-model="organizationForm.status" :options="editableStatusOptions" /></div>
-        <div><label class="input-label mb-1.5 block">{{ t('admin.desktop.gatewayUser') }}</label><Select v-model="organizationForm.gateway_user_id" :options="gatewayUserOptions" searchable remote :loading="gatewayUsersLoading" :disabled="provisioningLocked" @search="loadGatewayUsers" /></div>
-        <div><label class="input-label mb-1.5 block">{{ t('admin.desktop.group') }}</label><Select v-model="organizationForm.group_id" :options="groupOptions" searchable :loading="groupsLoading" :disabled="provisioningLocked" /></div>
-        <p v-if="provisioningLocked" class="text-sm text-gray-500 dark:text-dark-400">{{ t('admin.desktop.provisioningLockedHint') }}</p>
+        <div><label class="input-label mb-1.5 block">{{ t('admin.desktop.gatewayUser') }}</label><Select v-model="organizationForm.gateway_user_id" :options="gatewayUserOptions" searchable remote :loading="gatewayUsersLoading" :disabled="gatewayUserLocked" @search="loadGatewayUsers" /></div>
+        <div><label class="input-label mb-1.5 block">{{ t('admin.desktop.group') }}</label><Select v-model="organizationForm.group_id" :options="groupOptions" searchable :loading="groupsLoading" /></div>
+        <p v-if="gatewayUserLocked" class="text-sm text-gray-500 dark:text-dark-400">{{ t('admin.desktop.provisioningLockedHint') }}</p>
       </form>
       <template #footer><div class="flex justify-end gap-3"><button class="btn btn-secondary" type="button" @click="closeOrganizationEdit">{{ t('common.cancel') }}</button><button class="btn btn-primary" type="submit" form="desktop-organization-edit" :disabled="organizationSaving">{{ organizationSaving ? t('common.saving') : t('common.save') }}</button></div></template>
     </BaseDialog>
@@ -165,7 +165,7 @@ let memberTimer: ReturnType<typeof setTimeout> | undefined
 let memberController: AbortController | undefined
 let gatewayController: AbortController | undefined
 
-const provisioningLocked = computed(() => (organization.value?.member_count ?? 0) > 0)
+const gatewayUserLocked = computed(() => (organization.value?.member_count ?? 0) > 0)
 const statusOptions = computed(() => [{ value: '', label: t('common.all') }, { value: 'active', label: t('common.active') }, { value: 'disabled', label: t('common.disabled') }])
 const editableStatusOptions = computed(() => statusOptions.value.slice(1))
 const memberColumns = computed<Column[]>(() => [
@@ -249,7 +249,8 @@ async function saveOrganization() {
   organizationSaving.value = true
   try {
     const input = { name: organizationForm.name.trim(), status: organizationForm.status } as { name: string; status: DesktopStatus; gateway_user_id?: number; group_id?: number }
-    if (!provisioningLocked.value && organizationForm.gateway_user_id && organizationForm.group_id) { input.gateway_user_id = organizationForm.gateway_user_id; input.group_id = organizationForm.group_id }
+    if (!gatewayUserLocked.value && organizationForm.gateway_user_id && organizationForm.gateway_user_id !== organization.value.gateway_user.id) input.gateway_user_id = organizationForm.gateway_user_id
+    if (organizationForm.group_id && organizationForm.group_id !== organization.value.group.id) input.group_id = organizationForm.group_id
     organization.value = await adminAPI.desktop.updateOrganization(organizationID.value, input)
     appStore.showSuccess(t('admin.desktop.organizationUpdated')); showOrganizationEdit.value = false; closeConfirm(); await loadMembers()
   } catch (error) { appStore.showError(errorMessage(error)) } finally { organizationSaving.value = false }
