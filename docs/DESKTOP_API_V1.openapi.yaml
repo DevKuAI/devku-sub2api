@@ -1,0 +1,2018 @@
+openapi: 3.0.3
+info:
+  title: DevKu Sub2API Desktop API
+  version: 1.0.0
+  license:
+    name: LGPL-3.0
+    url: https://www.gnu.org/licenses/lgpl-3.0.html
+  description: |
+    Desktop 企业管理、客户端认证、Model Configuration、用量查询和软件更新接口。
+
+    - Desktop 企业和客户端接口仅在 `DESKTOP_ENABLED=true` 时注册。
+    - 软件更新检查和更新发布管理接口不受 `DESKTOP_ENABLED` 影响。
+    - Admin 接口使用面板 Admin Bearer Token。
+    - Desktop 受保护接口使用登录或刷新接口返回的 Desktop Access Token。
+    - Admin 成功响应使用 `{code, message, data}`，Desktop 成功响应使用 `{data}`。
+
+    本文件兼容 Postman 和 Apifox 的 OpenAPI 导入。
+servers:
+  - url: '{baseUrl}'
+    description: Sub2API server
+    variables:
+      baseUrl:
+        default: http://localhost:8080
+        description: Sub2API 服务地址，不包含尾部斜杠
+tags:
+  - name: Desktop Admin - Organizations
+    description: Desktop 企业、成员和 Model Configuration 管理
+  - name: Desktop Admin - Updates
+    description: Desktop 软件更新版本管理
+  - name: Desktop Admin - Supporting
+    description: Desktop 企业配置所需的现有 Admin 查询接口
+  - name: Desktop Client - Auth
+    description: Desktop 客户端认证
+  - name: Desktop Client
+    description: Desktop 客户端成员、配置和用量接口
+  - name: Desktop Updater
+    description: 无需认证的软件更新检查接口
+
+paths:
+  /api/v1/admin/desktop/organizations:
+    post:
+      tags: [Desktop Admin - Organizations]
+      operationId: createDesktopOrganization
+      summary: 创建 Desktop 企业
+      description: |
+        创建企业并绑定现有 active User 和 active Group。请求体上限为 16 KiB。
+        `Idempotency-Key` 在同一 Admin、路由和请求内容下可安全重放。
+      security:
+        - AdminBearer: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrganizationRequest'
+            example:
+              code: dhjy
+              name: 东恒锦洋房产开发有限公司
+              gateway_user_id: 1001
+              group_id: 2001
+      responses:
+        '201':
+          description: 企业已创建
+          headers:
+            X-Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOrganizationResponse'
+        '400':
+          $ref: '#/components/responses/AdminError'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '413':
+          $ref: '#/components/responses/AdminError'
+        '422':
+          $ref: '#/components/responses/AdminError'
+        '503':
+          $ref: '#/components/responses/AdminError'
+    get:
+      tags: [Desktop Admin - Organizations]
+      operationId: listDesktopOrganizations
+      summary: 查询 Desktop 企业列表
+      security:
+        - AdminBearer: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: search
+          in: query
+          description: 按企业名称或简码模糊查询
+          schema:
+            type: string
+          example: dhjy
+        - name: status
+          in: query
+          description: 企业状态；不传时查询全部状态
+          schema:
+            $ref: '#/components/schemas/DesktopStatus'
+      responses:
+        '200':
+          description: 企业分页列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOrganizationListResponse'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '422':
+          $ref: '#/components/responses/AdminError'
+
+  /api/v1/admin/desktop/organizations/{organization_id}:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+    get:
+      tags: [Desktop Admin - Organizations]
+      operationId: getDesktopOrganization
+      summary: 查询 Desktop 企业详情
+      security:
+        - AdminBearer: []
+      responses:
+        '200':
+          description: 企业详情，包含可空的 `target_config`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOrganizationResponse'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+    patch:
+      tags: [Desktop Admin - Organizations]
+      operationId: updateDesktopOrganization
+      summary: 修改 Desktop 企业
+      description: 请求体上限为 16 KiB。企业已有成员后，`gateway_user_id` 和 `group_id` 不可修改。
+      security:
+        - AdminBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOrganizationRequest'
+            example:
+              name: 东恒锦洋集团
+              status: active
+      responses:
+        '200':
+          description: 企业已修改
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOrganizationResponse'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '413':
+          $ref: '#/components/responses/AdminError'
+        '422':
+          $ref: '#/components/responses/AdminError'
+
+  /api/v1/admin/desktop/organizations/{organization_id}/model-configuration:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+    put:
+      tags: [Desktop Admin - Organizations]
+      operationId: updateDesktopModelConfiguration
+      summary: 更新企业 Model Configuration
+      description: 请求体上限为 64 KiB。`chatgpt_codex` 和 `workbuddy` 可以独立配置。
+      security:
+        - AdminBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTargetConfigRequest'
+            example:
+              target_config:
+                schema_version: 1
+                targets:
+                  chatgpt_codex:
+                    enabled: true
+                    provider_id: devku_enterprise
+                    display_name: 东恒锦洋企业模型
+                    requested_model: enterprise-model-1
+                    wire_api: responses
+                    minimum_app_version: null
+                    restart_required: true
+                  workbuddy:
+                    enabled: true
+                    provider_id: devku_enterprise
+                    display_name: 东恒锦洋企业模型
+                    requested_model: enterprise-model-1
+                    wire_api: chat_completions
+                    minimum_app_version: null
+                    restart_required: false
+      responses:
+        '200':
+          description: Model Configuration 已更新
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOrganizationResponse'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '413':
+          $ref: '#/components/responses/AdminError'
+        '422':
+          $ref: '#/components/responses/AdminError'
+
+  /api/v1/admin/desktop/organizations/{organization_id}/members:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+    post:
+      tags: [Desktop Admin - Organizations]
+      operationId: createDesktopMember
+      summary: 创建 Desktop 成员
+      description: 请求体上限为 16 KiB。手机号会规范化为 E.164 格式。
+      security:
+        - AdminBearer: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMemberRequest'
+            example:
+              name: 张明
+              phone: '13800000000'
+      responses:
+        '201':
+          description: 成员及其托管 Model Token 已创建；响应不返回 raw Model Token
+          headers:
+            X-Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminMemberResponse'
+        '400':
+          $ref: '#/components/responses/AdminError'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '413':
+          $ref: '#/components/responses/AdminError'
+        '422':
+          $ref: '#/components/responses/AdminError'
+        '503':
+          $ref: '#/components/responses/AdminError'
+    get:
+      tags: [Desktop Admin - Organizations]
+      operationId: listDesktopMembers
+      summary: 查询 Desktop 成员列表
+      security:
+        - AdminBearer: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: search
+          in: query
+          description: 普通文本按姓名查询；完整中国大陆手机号或 `+86` E.164 手机号按手机号精确查询
+          schema:
+            type: string
+          example: 张明
+        - name: status
+          in: query
+          description: 成员状态；不传时查询全部状态
+          schema:
+            $ref: '#/components/schemas/DesktopStatus'
+      responses:
+        '200':
+          description: 成员分页列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminMemberListResponse'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '422':
+          $ref: '#/components/responses/AdminError'
+
+  /api/v1/admin/desktop/organizations/{organization_id}/members/{member_id}:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - $ref: '#/components/parameters/MemberId'
+    patch:
+      tags: [Desktop Admin - Organizations]
+      operationId: updateDesktopMember
+      summary: 修改 Desktop 成员
+      description: 凭据或状态变化会撤销该成员的 Refresh family。请求体上限为 16 KiB。
+      security:
+        - AdminBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMemberRequest'
+            example:
+              name: 张明
+              phone: '+8613800000000'
+              status: disabled
+      responses:
+        '200':
+          description: 成员已修改
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminMemberResponse'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '413':
+          $ref: '#/components/responses/AdminError'
+        '422':
+          $ref: '#/components/responses/AdminError'
+    delete:
+      tags: [Desktop Admin - Organizations]
+      operationId: deleteDesktopMember
+      summary: 删除 Desktop 成员
+      description: 执行不可恢复的业务软删除，同时 tombstone 当前 Model Token。
+      security:
+        - AdminBearer: []
+      responses:
+        '200':
+          description: 成员已删除
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminDeleteMemberResponse'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+
+  /api/v1/admin/desktop/organizations/{organization_id}/members/{member_id}/model-token/rotate:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - $ref: '#/components/parameters/MemberId'
+    post:
+      tags: [Desktop Admin - Organizations]
+      operationId: rotateDesktopMemberModelToken
+      summary: 轮换成员 Model Token
+      description: 轮换成功后只返回 Member DTO，不向 Admin 返回 raw Model Token。
+      security:
+        - AdminBearer: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Model Token 已轮换
+          headers:
+            X-Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminMemberResponse'
+        '400':
+          $ref: '#/components/responses/AdminError'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '503':
+          $ref: '#/components/responses/AdminError'
+
+  /api/v1/admin/desktop/updates:
+    get:
+      tags: [Desktop Admin - Updates]
+      operationId: listDesktopUpdateReleases
+      summary: 查询 Desktop 更新版本列表
+      description: 此接口不受 `DESKTOP_ENABLED` 影响。
+      security:
+        - AdminBearer: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: status
+          in: query
+          description: 发布状态；不传时查询全部状态
+          schema:
+            $ref: '#/components/schemas/DesktopUpdateStatus'
+      responses:
+        '200':
+          description: 更新版本分页列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUpdateReleaseListResponse'
+        '400':
+          $ref: '#/components/responses/AdminError'
+        '401':
+          $ref: '#/components/responses/AdminError'
+    post:
+      tags: [Desktop Admin - Updates]
+      operationId: createDesktopUpdateRelease
+      summary: 创建 Desktop 更新草稿
+      description: |
+        此接口不受 `DESKTOP_ENABLED` 影响，请求体上限为 16 KiB。
+        `artifacts` 必须包含三个平台键；创建草稿时各产物元数据可以为空。
+      security:
+        - AdminBearer: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DesktopUpdateDraftRequest'
+            example:
+              version: 1.2.3
+              notes: Desktop 1.2.3 release notes
+              artifacts:
+                darwin-aarch64:
+                  url: ''
+                  signature: ''
+                  object_key: ''
+                  file_name: ''
+                  size: 0
+                  sha256: ''
+                darwin-x86_64:
+                  url: ''
+                  signature: ''
+                  object_key: ''
+                  file_name: ''
+                  size: 0
+                  sha256: ''
+                windows-x86_64:
+                  url: ''
+                  signature: ''
+                  object_key: ''
+                  file_name: ''
+                  size: 0
+                  sha256: ''
+      responses:
+        '201':
+          description: 更新草稿已创建
+          headers:
+            X-Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUpdateReleaseResponse'
+        '400':
+          $ref: '#/components/responses/AdminError'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '413':
+          $ref: '#/components/responses/AdminError'
+        '503':
+          $ref: '#/components/responses/AdminError'
+
+  /api/v1/admin/desktop/updates/{release_id}:
+    parameters:
+      - $ref: '#/components/parameters/ReleaseId'
+    get:
+      tags: [Desktop Admin - Updates]
+      operationId: getDesktopUpdateRelease
+      summary: 查询 Desktop 更新版本详情
+      security:
+        - AdminBearer: []
+      responses:
+        '200':
+          description: 更新版本详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUpdateReleaseResponse'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+    patch:
+      tags: [Desktop Admin - Updates]
+      operationId: updateDesktopUpdateDraft
+      summary: 修改 Desktop 更新草稿
+      description: 仅 `draft` 状态可修改。请求体上限为 16 KiB。
+      security:
+        - AdminBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DesktopUpdateDraftRequest'
+      responses:
+        '200':
+          description: 更新草稿已修改
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUpdateReleaseResponse'
+        '400':
+          $ref: '#/components/responses/AdminError'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '413':
+          $ref: '#/components/responses/AdminError'
+
+  /api/v1/admin/desktop/updates/{release_id}/artifacts/{platform}:
+    parameters:
+      - $ref: '#/components/parameters/ReleaseId'
+      - $ref: '#/components/parameters/UpdatePlatform'
+    post:
+      tags: [Desktop Admin - Updates]
+      operationId: uploadDesktopUpdateArtifact
+      summary: 上传 Desktop 更新产物
+      description: |
+        仅 `draft` 状态可上传。默认文件上限为 200 MiB，可由部署配置覆盖。
+        macOS 文件名必须以 `.app.tar.gz` 结尾，Windows 文件名必须以 `.nsis.zip` 结尾。
+        上传响应中的 `signature` 为空；签名后通过修改草稿接口写回完整 `artifacts`。
+      security:
+        - AdminBearer: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: 产物已上传
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUpdateArtifactResponse'
+        '400':
+          $ref: '#/components/responses/AdminError'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '413':
+          $ref: '#/components/responses/AdminError'
+        '502':
+          $ref: '#/components/responses/AdminError'
+        '503':
+          $ref: '#/components/responses/AdminError'
+
+  /api/v1/admin/desktop/updates/{release_id}/publish:
+    parameters:
+      - $ref: '#/components/parameters/ReleaseId'
+    post:
+      tags: [Desktop Admin - Updates]
+      operationId: publishDesktopUpdateRelease
+      summary: 发布 Desktop 更新版本
+      description: 三个平台产物的 URL、Signature、Object Key、文件信息和 SHA-256 必须完整。
+      security:
+        - AdminBearer: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: 更新版本已发布
+          headers:
+            X-Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUpdateReleaseResponse'
+        '400':
+          $ref: '#/components/responses/AdminError'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '503':
+          $ref: '#/components/responses/AdminError'
+
+  /api/v1/admin/desktop/updates/{release_id}/withdraw:
+    parameters:
+      - $ref: '#/components/parameters/ReleaseId'
+    post:
+      tags: [Desktop Admin - Updates]
+      operationId: withdrawDesktopUpdateRelease
+      summary: 撤回 Desktop 更新版本
+      description: 撤回原因必填，最多 500 个 Unicode 字符。
+      security:
+        - AdminBearer: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DesktopUpdateWithdrawRequest'
+            example:
+              reason: 发现阻断性安装问题
+      responses:
+        '200':
+          description: 更新版本已撤回
+          headers:
+            X-Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUpdateReleaseResponse'
+        '400':
+          $ref: '#/components/responses/AdminError'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '503':
+          $ref: '#/components/responses/AdminError'
+
+  /api/v1/admin/users:
+    get:
+      tags: [Desktop Admin - Supporting]
+      operationId: listAvailableDesktopGatewayUsers
+      summary: 查询可绑定 Desktop 企业的 User
+      description: 只返回 active 且未承载其他未删除 Desktop 企业的 User。
+      security:
+        - AdminBearer: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: search
+          in: query
+          description: 按邮箱或用户名查询，最多读取前 100 个 Unicode 字符
+          schema:
+            type: string
+          example: carrier
+        - name: available_for_desktop
+          in: query
+          required: true
+          description: 必须为 `true` 才会启用 Desktop 可用 User 过滤
+          schema:
+            type: boolean
+            enum: [true]
+            default: true
+      responses:
+        '200':
+          description: 可用 User 分页列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserListResponse'
+        '401':
+          $ref: '#/components/responses/AdminError'
+
+  /api/v1/admin/users/{user_id}:
+    get:
+      tags: [Desktop Admin - Supporting]
+      operationId: getDesktopGatewayUser
+      summary: 查询已绑定的承载 User
+      security:
+        - AdminBearer: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: User 数字 ID
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+          example: 1001
+      responses:
+        '200':
+          description: User 详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserResponse'
+        '400':
+          $ref: '#/components/responses/AdminError'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+
+  /api/v1/admin/groups/all:
+    get:
+      tags: [Desktop Admin - Supporting]
+      operationId: listActiveDesktopGroups
+      summary: 查询可供 Desktop 企业绑定的 active Group
+      description: 默认只返回 active Group；Desktop Admin 前端使用该接口选择 Group。
+      security:
+        - AdminBearer: []
+      responses:
+        '200':
+          description: active Group 列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminGroupListResponse'
+        '401':
+          $ref: '#/components/responses/AdminError'
+
+  /api/desktop/v1/auth/organization-lookup:
+    post:
+      tags: [Desktop Client - Auth]
+      operationId: lookupDesktopOrganization
+      summary: 查询 active Desktop 企业
+      description: 请求体上限为 8 KiB。企业不存在或已停用时统一返回 `ORGANIZATION_NOT_FOUND`。
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/InstallationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganizationLookupRequest'
+            example:
+              organization_code: dhjy
+      responses:
+        '200':
+          description: 企业可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DesktopOrganizationLookupResponse'
+        '404':
+          $ref: '#/components/responses/DesktopError'
+        '413':
+          $ref: '#/components/responses/DesktopError'
+        '422':
+          $ref: '#/components/responses/DesktopError'
+        '429':
+          $ref: '#/components/responses/DesktopRateLimitedError'
+        '503':
+          $ref: '#/components/responses/DesktopError'
+
+  /api/desktop/v1/auth/login:
+    post:
+      tags: [Desktop Client - Auth]
+      operationId: loginDesktopMember
+      summary: Desktop 成员登录
+      description: 请求体上限为 8 KiB。姓名、手机号、企业或成员状态不匹配时统一返回 `MEMBER_INFORMATION_MISMATCH`。
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/InstallationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DesktopLoginRequest'
+            example:
+              organization_code: dhjy
+              name: 张明
+              phone: '13800000000'
+      responses:
+        '200':
+          description: 登录成功
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DesktopTokenPairResponse'
+        '401':
+          $ref: '#/components/responses/DesktopError'
+        '413':
+          $ref: '#/components/responses/DesktopError'
+        '422':
+          $ref: '#/components/responses/DesktopError'
+        '429':
+          $ref: '#/components/responses/DesktopRateLimitedError'
+        '503':
+          $ref: '#/components/responses/DesktopError'
+
+  /api/desktop/v1/auth/refresh:
+    post:
+      tags: [Desktop Client - Auth]
+      operationId: refreshDesktopSession
+      summary: 刷新 Desktop 会话
+      description: 每次成功都会原子消费旧 Refresh Token 并返回新的 Token pair。请求体上限为 8 KiB。
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DesktopRefreshRequest'
+            example:
+              refresh_token: desktop-refresh-token
+      responses:
+        '200':
+          description: 会话已刷新
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DesktopTokenPairResponse'
+        '401':
+          $ref: '#/components/responses/DesktopError'
+        '403':
+          $ref: '#/components/responses/DesktopError'
+        '413':
+          $ref: '#/components/responses/DesktopError'
+        '422':
+          $ref: '#/components/responses/DesktopError'
+        '503':
+          $ref: '#/components/responses/DesktopError'
+
+  /api/desktop/v1/auth/logout:
+    post:
+      tags: [Desktop Client - Auth]
+      operationId: logoutDesktopSession
+      summary: 退出 Desktop 会话
+      description: 撤销当前 Refresh family；客户端仍须立即删除本地 Access Token 和 Refresh Token。
+      security:
+        - DesktopBearer: []
+      responses:
+        '200':
+          description: 已退出
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DesktopLogoutResponse'
+        '401':
+          $ref: '#/components/responses/DesktopError'
+        '403':
+          $ref: '#/components/responses/DesktopError'
+
+  /api/desktop/v1/me:
+    get:
+      tags: [Desktop Client]
+      operationId: getCurrentDesktopMember
+      summary: 查询当前 Desktop 成员
+      security:
+        - DesktopBearer: []
+      responses:
+        '200':
+          description: 当前成员和所属企业
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DesktopMeResponse'
+        '401':
+          $ref: '#/components/responses/DesktopError'
+        '403':
+          $ref: '#/components/responses/DesktopError'
+
+  /api/desktop/v1/model-configuration:
+    get:
+      tags: [Desktop Client]
+      operationId: getDesktopModelConfiguration
+      summary: 获取 Desktop Model Configuration
+      description: |
+        返回 Gateway Base URL、raw Model Token 和目标配置。响应包含 `ETag` 和 `Cache-Control: no-store`。
+        首次部署、本机配置丢失或凭证恢复时不要发送 `If-None-Match`。
+      security:
+        - DesktopBearer: []
+      parameters:
+        - name: targets
+          in: query
+          description: 逗号分隔的目标名称；不传时返回全部已配置目标
+          schema:
+            type: string
+          example: chatgpt_codex,workbuddy
+        - name: If-None-Match
+          in: header
+          required: false
+          description: 上次响应的 ETag，仅用于常规更新检查
+          schema:
+            type: string
+          example: '"cfg_5bd012371b9db10a0e8c"'
+      responses:
+        '200':
+          description: Model Configuration
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            ETag:
+              description: 当前配置版本的 quoted ETag
+              schema:
+                type: string
+              example: '"cfg_5bd012371b9db10a0e8c"'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DesktopModelConfigurationResponse'
+        '304':
+          description: 配置未变化，无响应体
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            ETag:
+              description: 当前配置版本的 quoted ETag
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/DesktopError'
+        '403':
+          $ref: '#/components/responses/DesktopError'
+        '404':
+          $ref: '#/components/responses/DesktopError'
+
+  /api/desktop/v1/usage/summary:
+    get:
+      tags: [Desktop Client]
+      operationId: getDesktopUsageSummary
+      summary: 查询 Desktop 成员用量摘要
+      description: 汇总当前及历史 Model Token 的 Token 数；`limit` 和 `remaining` 固定为 `null`。
+      security:
+        - DesktopBearer: []
+      parameters:
+        - name: timezone
+          in: query
+          required: true
+          description: IANA 时区名称，不能使用 `Local`
+          schema:
+            type: string
+          example: Asia/Shanghai
+      responses:
+        '200':
+          description: 今日和本月用量
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DesktopUsageSummaryResponse'
+        '401':
+          $ref: '#/components/responses/DesktopError'
+        '403':
+          $ref: '#/components/responses/DesktopError'
+        '422':
+          $ref: '#/components/responses/DesktopError'
+        '503':
+          $ref: '#/components/responses/DesktopError'
+
+  /api/desktop/v1/update/{target}/{arch}/{current_version}:
+    get:
+      tags: [Desktop Updater]
+      operationId: checkDesktopUpdate
+      summary: 检查 Desktop 软件更新
+      description: |
+        无需认证，不受 `DESKTOP_ENABLED` 影响。返回全局最新 published 版本在目标平台上的更新信息。
+        当前版本已是最新版本或更高版本时返回 `204`。
+      security: []
+      parameters:
+        - name: target
+          in: path
+          required: true
+          description: 操作系统目标
+          schema:
+            type: string
+            enum: [darwin, windows]
+          example: darwin
+        - name: arch
+          in: path
+          required: true
+          description: CPU 架构；`darwin` 支持 `aarch64`、`x86_64`，`windows` 仅支持 `x86_64`
+          schema:
+            type: string
+            enum: [aarch64, x86_64]
+          example: aarch64
+        - name: current_version
+          in: path
+          required: true
+          description: 当前版本，格式为 `MAJOR.MINOR.PATCH`，不能带 `v` 前缀
+          schema:
+            $ref: '#/components/schemas/DesktopUpdateVersion'
+          example: 1.0.0
+      responses:
+        '200':
+          description: 有可用更新。此响应不是 `{data}` envelope。
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DesktopUpdateCheckResult'
+              example:
+                version: 1.2.3
+                notes: Desktop 1.2.3 release notes
+                pub_date: '2026-09-01T08:00:00Z'
+                url: https://downloads.example.com/desktop-updates/1.2.3/app-arm.app.tar.gz
+                signature: updater-signature
+        '204':
+          description: 没有可用更新，无响应体
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+        '400':
+          $ref: '#/components/responses/DesktopError'
+        '500':
+          $ref: '#/components/responses/DesktopError'
+
+components:
+  securitySchemes:
+    AdminBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 面板 Admin Bearer Token
+    DesktopBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Desktop 登录或刷新接口返回的 `access_token`
+
+  headers:
+    IdempotencyReplayed:
+      description: '`true` 表示服务端返回了相同幂等请求的既有结果'
+      schema:
+        type: boolean
+    NoStore:
+      description: 敏感响应禁止缓存
+      schema:
+        type: string
+        enum: [no-store]
+
+  parameters:
+    Page:
+      name: page
+      in: query
+      required: false
+      description: 页码，从 1 开始
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      name: page_size
+      in: query
+      required: false
+      description: 每页数量
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 1000
+        default: 20
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: 每个逻辑写操作使用一个唯一值；相同值不能用于不同请求体
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+      example: desktop-operation-550e8400-e29b-41d4-a716-446655440000
+    OrganizationId:
+      name: organization_id
+      in: path
+      required: true
+      description: Organization `public_id`
+      schema:
+        type: string
+      example: org_e8YpYvP3lQ8z4WkTWYx9Rw
+    MemberId:
+      name: member_id
+      in: path
+      required: true
+      description: Member `public_id`
+      schema:
+        type: string
+      example: mem_cH5ro6X8y9xPkQpNZmPrBw
+    ReleaseId:
+      name: release_id
+      in: path
+      required: true
+      description: Desktop update release `public_id`
+      schema:
+        type: string
+      example: upd_e8YpYvP3lQ8z4WkTWYx9Rw
+    UpdatePlatform:
+      name: platform
+      in: path
+      required: true
+      description: 产物平台键
+      schema:
+        $ref: '#/components/schemas/DesktopUpdatePlatform'
+      example: darwin-aarch64
+    InstallationId:
+      name: X-Installation-ID
+      in: header
+      required: true
+      description: 小写 canonical UUID，标识 Desktop 安装实例
+      schema:
+        type: string
+        format: uuid
+      example: 550e8400-e29b-41d4-a716-446655440000
+
+  responses:
+    AdminError:
+      description: Admin 请求失败；HTTP 状态码反映错误类型，`reason` 是稳定的业务错误标识
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AdminErrorResponse'
+          example:
+            code: 409
+            message: gateway user is already assigned
+            reason: GATEWAY_USER_ALREADY_ASSIGNED
+            metadata: {}
+    DesktopError:
+      description: Desktop 请求失败；客户端应根据 `error.code` 分支，不应解析 `message`
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/DesktopErrorResponse'
+          example:
+            error:
+              code: VALIDATION_FAILED
+              message: validation failed
+              request_id: req_xxx
+              retryable: false
+              details: {}
+    DesktopRateLimitedError:
+      description: 登录保护限流；按 `Retry-After` 等待后重试
+      headers:
+        Retry-After:
+          description: 建议等待秒数
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/DesktopErrorResponse'
+          example:
+            error:
+              code: RATE_LIMITED
+              message: too many requests
+              request_id: req_xxx
+              retryable: true
+              details:
+                retry_after: '60'
+
+  schemas:
+    DesktopStatus:
+      type: string
+      enum: [active, disabled]
+
+    DesktopModelTokenStatus:
+      type: string
+      enum: [active, disabled, missing]
+
+    DesktopUpdateStatus:
+      type: string
+      enum: [draft, published, withdrawn]
+
+    DesktopUpdatePlatform:
+      type: string
+      enum: [darwin-aarch64, darwin-x86_64, windows-x86_64]
+
+    DesktopUpdateVersion:
+      type: string
+      maxLength: 64
+      pattern: '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+      example: 1.2.3
+
+    DesktopTarget:
+      type: object
+      additionalProperties: false
+      required:
+        - enabled
+        - provider_id
+        - display_name
+        - requested_model
+        - wire_api
+        - restart_required
+      properties:
+        enabled:
+          type: boolean
+        provider_id:
+          type: string
+          minLength: 1
+        display_name:
+          type: string
+          minLength: 1
+        requested_model:
+          type: string
+          minLength: 1
+        wire_api:
+          type: string
+          enum: [responses, chat_completions]
+          description: '`chatgpt_codex` 必须使用 `responses`；`workbuddy` 必须使用 `chat_completions`'
+        minimum_app_version:
+          type: string
+          nullable: true
+        restart_required:
+          type: boolean
+
+    DesktopTargetConfig:
+      type: object
+      additionalProperties: false
+      required: [schema_version, targets]
+      properties:
+        schema_version:
+          type: integer
+          enum: [1]
+        targets:
+          type: object
+          additionalProperties: false
+          minProperties: 1
+          properties:
+            chatgpt_codex:
+              allOf:
+                - $ref: '#/components/schemas/DesktopTarget'
+              description: '`wire_api` 必须为 `responses`'
+            workbuddy:
+              allOf:
+                - $ref: '#/components/schemas/DesktopTarget'
+              description: '`wire_api` 必须为 `chat_completions`'
+
+    DesktopGatewayUser:
+      type: object
+      required: [id, email, username]
+      properties:
+        id:
+          type: integer
+          format: int64
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+
+    DesktopGroup:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+
+    DesktopOrganization:
+      type: object
+      required:
+        - public_id
+        - code
+        - name
+        - status
+        - gateway_user
+        - group
+        - member_count
+        - target_config_assigned
+        - created_at
+        - updated_at
+      properties:
+        public_id:
+          type: string
+          example: org_e8YpYvP3lQ8z4WkTWYx9Rw
+        code:
+          type: string
+          pattern: '^[a-z0-9]{2,16}$'
+          example: dhjy
+        name:
+          type: string
+          example: 东恒锦洋房产开发有限公司
+        status:
+          $ref: '#/components/schemas/DesktopStatus'
+        gateway_user:
+          $ref: '#/components/schemas/DesktopGatewayUser'
+        group:
+          $ref: '#/components/schemas/DesktopGroup'
+        member_count:
+          type: integer
+          minimum: 0
+        target_config_assigned:
+          type: boolean
+        target_config:
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/DesktopTargetConfig'
+          nullable: true
+          description: 详情和写接口返回；列表不返回
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    DesktopMember:
+      type: object
+      required: [public_id, name, phone, status, model_token_status, created_at, updated_at]
+      properties:
+        public_id:
+          type: string
+          example: mem_cH5ro6X8y9xPkQpNZmPrBw
+        name:
+          type: string
+          example: 张明
+        phone:
+          type: string
+          description: 规范化后的 E.164 完整手机号
+          example: '+8613800000000'
+        status:
+          $ref: '#/components/schemas/DesktopStatus'
+        model_token_status:
+          $ref: '#/components/schemas/DesktopModelTokenStatus'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateOrganizationRequest:
+      type: object
+      additionalProperties: false
+      required: [code, name, gateway_user_id, group_id]
+      properties:
+        code:
+          type: string
+          pattern: '^[a-z0-9]{2,16}$'
+        name:
+          type: string
+          minLength: 1
+        gateway_user_id:
+          type: integer
+          format: int64
+          minimum: 1
+        group_id:
+          type: integer
+          format: int64
+          minimum: 1
+
+    UpdateOrganizationRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+        status:
+          $ref: '#/components/schemas/DesktopStatus'
+        gateway_user_id:
+          type: integer
+          format: int64
+          minimum: 1
+        group_id:
+          type: integer
+          format: int64
+          minimum: 1
+
+    UpdateTargetConfigRequest:
+      type: object
+      additionalProperties: false
+      required: [target_config]
+      properties:
+        target_config:
+          $ref: '#/components/schemas/DesktopTargetConfig'
+
+    CreateMemberRequest:
+      type: object
+      additionalProperties: false
+      required: [name, phone]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        phone:
+          type: string
+          description: 中国大陆 11 位手机号或 `+86` E.164 格式
+
+    UpdateMemberRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+        phone:
+          type: string
+          description: 中国大陆 11 位手机号或 `+86` E.164 格式
+        status:
+          $ref: '#/components/schemas/DesktopStatus'
+
+    DesktopUpdateArtifact:
+      type: object
+      additionalProperties: false
+      required: [url, signature, object_key, file_name, size, sha256]
+      properties:
+        url:
+          type: string
+          description: 已上传产物的 HTTPS 公开 URL；草稿未上传时为空字符串
+          maxLength: 2048
+        signature:
+          type: string
+          description: Updater 签名；草稿签名前为空字符串
+          maxLength: 8192
+        object_key:
+          type: string
+          description: 对象存储 Key；草稿未上传时为空字符串
+          maxLength: 1024
+        file_name:
+          type: string
+          description: 产物文件名；草稿未上传时为空字符串
+          maxLength: 255
+        size:
+          type: integer
+          format: int64
+          description: 文件字节数；草稿未上传时为 `0`
+          minimum: 0
+        sha256:
+          type: string
+          description: 64 位小写十六进制 SHA-256；草稿未上传时为空字符串
+
+    DesktopUpdateArtifacts:
+      type: object
+      additionalProperties: false
+      required: [darwin-aarch64, darwin-x86_64, windows-x86_64]
+      properties:
+        darwin-aarch64:
+          $ref: '#/components/schemas/DesktopUpdateArtifact'
+        darwin-x86_64:
+          $ref: '#/components/schemas/DesktopUpdateArtifact'
+        windows-x86_64:
+          $ref: '#/components/schemas/DesktopUpdateArtifact'
+
+    DesktopUpdateRelease:
+      type: object
+      required: [public_id, version, notes, artifacts, status, created_at, updated_at]
+      properties:
+        public_id:
+          type: string
+          example: upd_e8YpYvP3lQ8z4WkTWYx9Rw
+        version:
+          $ref: '#/components/schemas/DesktopUpdateVersion'
+        notes:
+          type: string
+          maxLength: 20000
+        artifacts:
+          $ref: '#/components/schemas/DesktopUpdateArtifacts'
+        status:
+          $ref: '#/components/schemas/DesktopUpdateStatus'
+        created_by:
+          type: integer
+          format: int64
+        updated_by:
+          type: integer
+          format: int64
+        published_by:
+          type: integer
+          format: int64
+        withdrawn_by:
+          type: integer
+          format: int64
+        published_at:
+          type: string
+          format: date-time
+        withdrawn_at:
+          type: string
+          format: date-time
+        withdrawal_reason:
+          type: string
+          maxLength: 500
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    DesktopUpdateDraftRequest:
+      type: object
+      additionalProperties: false
+      required: [version, notes, artifacts]
+      properties:
+        version:
+          $ref: '#/components/schemas/DesktopUpdateVersion'
+        notes:
+          type: string
+          maxLength: 20000
+        artifacts:
+          $ref: '#/components/schemas/DesktopUpdateArtifacts'
+
+    DesktopUpdateWithdrawRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+
+    DesktopUpdateCheckResult:
+      type: object
+      required: [version, notes, pub_date, url, signature]
+      properties:
+        version:
+          $ref: '#/components/schemas/DesktopUpdateVersion'
+        notes:
+          type: string
+        pub_date:
+          type: string
+          format: date-time
+        url:
+          type: string
+          format: uri
+        signature:
+          type: string
+
+    OrganizationLookupRequest:
+      type: object
+      additionalProperties: false
+      required: [organization_code]
+      properties:
+        organization_code:
+          type: string
+          example: dhjy
+
+    DesktopLoginRequest:
+      type: object
+      additionalProperties: false
+      required: [organization_code, name, phone]
+      properties:
+        organization_code:
+          type: string
+        name:
+          type: string
+        phone:
+          type: string
+          description: 中国大陆 11 位手机号或 `+86` E.164 格式
+
+    DesktopRefreshRequest:
+      type: object
+      additionalProperties: false
+      required: [refresh_token]
+      properties:
+        refresh_token:
+          type: string
+          minLength: 1
+
+    DesktopOrganizationLookup:
+      type: object
+      required: [public_id, code, name]
+      properties:
+        public_id:
+          type: string
+        code:
+          type: string
+        name:
+          type: string
+
+    DesktopTokenPair:
+      type: object
+      required: [access_token, refresh_token, token_type, expires_in]
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        token_type:
+          type: string
+          enum: [Bearer]
+        expires_in:
+          type: integer
+          description: Access Token 有效秒数
+          minimum: 1
+          example: 900
+
+    DesktopMe:
+      type: object
+      required: [public_id, name, phone, organization_id, organization_code, organization_name]
+      properties:
+        public_id:
+          type: string
+        name:
+          type: string
+        phone:
+          type: string
+        organization_id:
+          type: string
+        organization_code:
+          type: string
+        organization_name:
+          type: string
+
+    DesktopModelConfiguration:
+      type: object
+      required: [configuration_version, base_url, model_token, targets]
+      properties:
+        configuration_version:
+          type: string
+          example: cfg_5bd012371b9db10a0e8c
+        base_url:
+          type: string
+          format: uri
+          description: 以 `/v1` 结尾的 HTTPS Gateway Base URL
+        model_token:
+          type: string
+          description: raw Model Token，只返回给已认证 Desktop 客户端
+        targets:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/DesktopTarget'
+
+    DesktopUsagePeriod:
+      type: object
+      required: [used, limit, remaining]
+      properties:
+        used:
+          type: integer
+          format: int64
+          minimum: 0
+        limit:
+          type: integer
+          format: int64
+          nullable: true
+          description: 当前固定为 `null`
+        remaining:
+          type: integer
+          format: int64
+          nullable: true
+          description: 当前固定为 `null`
+
+    DesktopUsageSummary:
+      type: object
+      required: [timezone, today, month]
+      properties:
+        timezone:
+          type: string
+        today:
+          $ref: '#/components/schemas/DesktopUsagePeriod'
+        month:
+          $ref: '#/components/schemas/DesktopUsagePeriod'
+
+    AdminUserSummary:
+      type: object
+      required: [id, email, username, role, status]
+      additionalProperties: true
+      description: 现有 Admin User DTO；此处列出 Desktop 选择器依赖的主要字段
+      properties:
+        id:
+          type: integer
+          format: int64
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+        role:
+          type: string
+        status:
+          type: string
+        allowed_groups:
+          type: array
+          items:
+            type: integer
+            format: int64
+
+    AdminGroupSummary:
+      type: object
+      required: [id, name, status]
+      additionalProperties: true
+      description: 现有 Admin Group DTO；此处列出 Desktop 选择器依赖的主要字段
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        status:
+          type: string
+        platform:
+          type: string
+
+    AdminErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        reason:
+          type: string
+          description: 稳定的业务错误标识
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+
+    DesktopErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, request_id, retryable, details]
+          properties:
+            code:
+              type: string
+              description: 稳定的 Desktop 业务错误标识
+            message:
+              type: string
+            request_id:
+              type: string
+            retryable:
+              type: boolean
+            details:
+              type: object
+              additionalProperties:
+                type: string
+
+    AdminOrganizationResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code:
+          type: integer
+          enum: [0]
+        message:
+          type: string
+          enum: [success]
+        data:
+          $ref: '#/components/schemas/DesktopOrganization'
+
+    AdminOrganizationListResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code:
+          type: integer
+          enum: [0]
+        message:
+          type: string
+          enum: [success]
+        data:
+          type: object
+          required: [items, total, page, page_size, pages]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/DesktopOrganization'
+            total:
+              type: integer
+              format: int64
+            page:
+              type: integer
+            page_size:
+              type: integer
+            pages:
+              type: integer
+
+    AdminMemberResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code:
+          type: integer
+          enum: [0]
+        message:
+          type: string
+          enum: [success]
+        data:
+          $ref: '#/components/schemas/DesktopMember'
+
+    AdminMemberListResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code:
+          type: integer
+          enum: [0]
+        message:
+          type: string
+          enum: [success]
+        data:
+          type: object
+          required: [items, total, page, page_size, pages]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/DesktopMember'
+            total:
+              type: integer
+              format: int64
+            page:
+              type: integer
+            page_size:
+              type: integer
+            pages:
+              type: integer
+
+    AdminDeleteMemberResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code:
+          type: integer
+          enum: [0]
+        message:
+          type: string
+          enum: [success]
+        data:
+          type: object
+          required: [deleted]
+          properties:
+            deleted:
+              type: boolean
+              enum: [true]
+
+    AdminUpdateReleaseResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code:
+          type: integer
+          enum: [0]
+        message:
+          type: string
+          enum: [success]
+        data:
+          $ref: '#/components/schemas/DesktopUpdateRelease'
+
+    AdminUpdateReleaseListResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code:
+          type: integer
+          enum: [0]
+        message:
+          type: string
+          enum: [success]
+        data:
+          type: object
+          required: [items, total, page, page_size, pages]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/DesktopUpdateRelease'
+            total:
+              type: integer
+              format: int64
+            page:
+              type: integer
+            page_size:
+              type: integer
+            pages:
+              type: integer
+
+    AdminUpdateArtifactResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code:
+          type: integer
+          enum: [0]
+        message:
+          type: string
+          enum: [success]
+        data:
+          $ref: '#/components/schemas/DesktopUpdateArtifact'
+
+    AdminUserResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code:
+          type: integer
+          enum: [0]
+        message:
+          type: string
+          enum: [success]
+        data:
+          $ref: '#/components/schemas/AdminUserSummary'
+
+    AdminUserListResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code:
+          type: integer
+          enum: [0]
+        message:
+          type: string
+          enum: [success]
+        data:
+          type: object
+          required: [items, total, page, page_size, pages]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdminUserSummary'
+            total:
+              type: integer
+              format: int64
+            page:
+              type: integer
+            page_size:
+              type: integer
+            pages:
+              type: integer
+
+    AdminGroupListResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code:
+          type: integer
+          enum: [0]
+        message:
+          type: string
+          enum: [success]
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminGroupSummary'
+
+    DesktopOrganizationLookupResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/DesktopOrganizationLookup'
+
+    DesktopTokenPairResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/DesktopTokenPair'
+
+    DesktopLogoutResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [logged_out]
+          properties:
+            logged_out:
+              type: boolean
+              enum: [true]
+
+    DesktopMeResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/DesktopMe'
+
+    DesktopModelConfigurationResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/DesktopModelConfiguration'
+
+    DesktopUsageSummaryResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/DesktopUsageSummary'
