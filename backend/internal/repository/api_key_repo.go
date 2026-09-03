@@ -13,6 +13,8 @@ import (
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
+	"github.com/Wei-Shaw/sub2api/ent/desktopmember"
+	"github.com/Wei-Shaw/sub2api/ent/desktopmemberapikey"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/schema/mixins"
 	"github.com/Wei-Shaw/sub2api/ent/user"
@@ -41,6 +43,10 @@ func newAPIKeyRepositoryWithSQL(client *dbent.Client, sqlq sqlExecutor) *apiKeyR
 func (r *apiKeyRepository) activeQuery() *dbent.APIKeyQuery {
 	// 默认过滤已软删除记录，避免删除后仍被查询到。
 	return r.client.APIKey.Query().Where(apikey.DeletedAtIsNil())
+}
+
+func withDesktopMember(q *dbent.DesktopMemberAPIKeyQuery) {
+	q.WithMember()
 }
 
 func (r *apiKeyRepository) Create(ctx context.Context, key *service.APIKey) error {
@@ -129,7 +135,7 @@ func (r *apiKeyRepository) GetByID(ctx context.Context, id int64) (*service.APIK
 		Where(apikey.IDEQ(id)).
 		WithUser().
 		WithGroup().
-		WithDesktopMemberAssignment().
+		WithDesktopMemberAssignment(withDesktopMember).
 		Only(ctx)
 	if err != nil {
 		if dbent.IsNotFound(err) {
@@ -489,6 +495,9 @@ func (r *apiKeyRepository) apiKeyListByUserIDQuery(userID int64, filters service
 		q = q.Where(apikey.Or(
 			apikey.NameContainsFold(filters.Search),
 			apikey.KeyContainsFold(filters.Search),
+			apikey.HasDesktopMemberAssignmentWith(
+				desktopmemberapikey.HasMemberWith(desktopmember.NameContainsFold(filters.Search)),
+			),
 		))
 	}
 	if filters.Status != "" {
@@ -515,7 +524,7 @@ func (r *apiKeyRepository) ListByUserID(ctx context.Context, userID int64, param
 
 	keysQuery := q.
 		WithGroup().
-		WithDesktopMemberAssignment().
+		WithDesktopMemberAssignment(withDesktopMember).
 		Offset(params.Offset()).
 		Limit(params.Limit())
 	for _, order := range apiKeyListOrder(params) {
@@ -541,7 +550,7 @@ func (r *apiKeyRepository) ListByUserID(ctx context.Context, userID int64, param
 func (r *apiKeyRepository) ListAllByUserID(ctx context.Context, userID int64, filters service.APIKeyListFilters) ([]service.APIKey, error) {
 	keys, err := r.apiKeyListByUserIDQuery(userID, filters).
 		WithGroup().
-		WithDesktopMemberAssignment().
+		WithDesktopMemberAssignment(withDesktopMember).
 		Order(dbent.Asc(apikey.FieldID)).
 		All(ctx)
 	if err != nil {
@@ -681,7 +690,7 @@ func (r *apiKeyRepository) ListByGroupID(ctx context.Context, groupID int64, par
 
 	keysQuery := q.
 		WithUser().
-		WithDesktopMemberAssignment().
+		WithDesktopMemberAssignment(withDesktopMember).
 		Offset(params.Offset()).
 		Limit(params.Limit())
 	for _, order := range apiKeyListOrder(params) {
@@ -704,6 +713,9 @@ func (r *apiKeyRepository) ListByGroupID(ctx context.Context, groupID int64, par
 func apiKeyListOrder(params pagination.PaginationParams) []func(*entsql.Selector) {
 	sortBy := strings.ToLower(strings.TrimSpace(params.SortBy))
 	sortOrder := params.NormalizedSortOrder(pagination.SortOrderDesc)
+	if sortBy == "display_name" {
+		return apiKeyDisplayNameOrder(sortOrder)
+	}
 
 	var field string
 	switch sortBy {
@@ -737,6 +749,28 @@ func apiKeyListOrder(params pagination.PaginationParams) []func(*entsql.Selector
 	return orders
 }
 
+func apiKeyDisplayNameOrder(sortOrder string) []func(*entsql.Selector) {
+	direction := "DESC"
+	idOrder := dbent.Desc(apikey.FieldID)
+	if sortOrder == pagination.SortOrderAsc {
+		direction = "ASC"
+		idOrder = dbent.Asc(apikey.FieldID)
+	}
+
+	displayNameOrder := func(s *entsql.Selector) {
+		expression := fmt.Sprintf(
+			"COALESCE((SELECT NULLIF(dm.name, '') FROM %s AS dmak JOIN %s AS dm ON dm.id = dmak.member_id WHERE dmak.api_key_id = %s AND dm.deleted_at IS NULL LIMIT 1), %s) %s",
+			desktopmemberapikey.Table,
+			desktopmember.Table,
+			s.C(apikey.FieldID),
+			s.C(apikey.FieldName),
+			direction,
+		)
+		s.OrderExpr(entsql.Expr(expression))
+	}
+	return []func(*entsql.Selector){displayNameOrder, idOrder}
+}
+
 // SearchAPIKeys searches API keys by user ID and/or keyword (name)
 func (r *apiKeyRepository) SearchAPIKeys(ctx context.Context, userID int64, keyword string, limit int) ([]service.APIKey, error) {
 	q := r.activeQuery()
@@ -745,10 +779,15 @@ func (r *apiKeyRepository) SearchAPIKeys(ctx context.Context, userID int64, keyw
 	}
 
 	if keyword != "" {
-		q = q.Where(apikey.NameContainsFold(keyword))
+		q = q.Where(apikey.Or(
+			apikey.NameContainsFold(keyword),
+			apikey.HasDesktopMemberAssignmentWith(
+				desktopmemberapikey.HasMemberWith(desktopmember.NameContainsFold(keyword)),
+			),
+		))
 	}
 
-	keys, err := q.WithDesktopMemberAssignment().Limit(limit).Order(dbent.Desc(apikey.FieldID)).All(ctx)
+	keys, err := q.WithDesktopMemberAssignment(withDesktopMember).Limit(limit).Order(dbent.Desc(apikey.FieldID)).All(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -967,6 +1006,9 @@ func apiKeyEntityToService(m *dbent.APIKey) *service.APIKey {
 	if m.Edges.DesktopMemberAssignment != nil {
 		out.Key = "***"
 		out.ManagedBy = "desktop"
+		if member := m.Edges.DesktopMemberAssignment.Edges.Member; member != nil && member.Name != "" {
+			out.DisplayName = member.Name
+		}
 	}
 	return out
 }

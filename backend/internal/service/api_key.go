@@ -32,6 +32,7 @@ type APIKey struct {
 	UserID      int64
 	Key         string
 	Name        string
+	DisplayName string
 	GroupID     *int64
 	Status      string
 	IPWhitelist []string
@@ -67,6 +68,16 @@ type APIKey struct {
 
 func (k *APIKey) IsActive() bool {
 	return k.Status == StatusActive
+}
+
+func (k *APIKey) EffectiveDisplayName() string {
+	if k == nil {
+		return ""
+	}
+	if k.DisplayName != "" {
+		return k.DisplayName
+	}
+	return k.Name
 }
 
 // HasRateLimits returns true if any rate limit window is configured

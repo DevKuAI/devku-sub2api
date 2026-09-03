@@ -239,6 +239,7 @@ import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { formatReasoningEffort } from '@/utils/format'
 import { getBillingModeLabel, getDisplayBillingMode as resolveDisplayBillingMode } from '@/utils/billingMode'
 import { resolveUsageRequestType, requestTypeToLegacyStream } from '@/utils/usageRequestType'
+import { getApiKeyDisplayName } from '@/utils/apiKey'
 import type {
   ApiKey,
   EndpointStat,
@@ -290,7 +291,7 @@ const errorFilter = ref<{ model: string | null; category: string; api_key_id: nu
 
 const errorKeyOptions = computed<SelectOption[]>(() => [
   { value: null, label: t('usage.errors.allKeys') },
-  ...apiKeys.value.map((k) => ({ value: k.id, label: k.name })),
+  ...apiKeys.value.map((k) => ({ value: k.id, label: getApiKeyDisplayName(k) })),
 ])
 
 // 模型候选取自当前已加载错误中出现过的模型；creatable 允许输入任意片段做后端模糊。
@@ -410,7 +411,7 @@ const modelOptionValues = ref<string[]>([])
 
 const apiKeyOptions = computed<SelectOption[]>(() => [
   { value: null, label: t('usage.allApiKeys') },
-  ...apiKeys.value.map((key) => ({ value: key.id, label: key.name })),
+  ...apiKeys.value.map((key) => ({ value: key.id, label: getApiKeyDisplayName(key) })),
 ])
 const groupOptions = computed<SelectOption[]>(() => [
   { value: null, label: t('admin.usage.allGroups') },
@@ -668,7 +669,7 @@ const exportToCSV = async () => {
     ]
     const rows = allLogs.map((log) => [
       log.created_at,
-      log.api_key?.name || '',
+      getApiKeyDisplayName(log.api_key),
       log.model,
       formatReasoningEffort(log.reasoning_effort),
       log.inbound_endpoint || '',

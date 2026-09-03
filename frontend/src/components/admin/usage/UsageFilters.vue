@@ -72,7 +72,7 @@
               @click="selectApiKey(k)"
               class="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-dark-700"
             >
-              <span class="truncate">{{ k.name || `#${k.id}` }}</span>
+              <span class="truncate">{{ getApiKeyDisplayName(k) || `#${k.id}` }}</span>
               <span class="ml-2 text-xs text-gray-400">#{{ k.id }}</span>
             </button>
           </div>
@@ -205,6 +205,7 @@ import { adminAPI } from '@/api/admin'
 import Select, { type SelectOption } from '@/components/common/Select.vue'
 import { COMMON_ERROR_STATUS_CODES } from '@/utils/errorBadges'
 import type { SimpleApiKey, SimpleUser } from '@/api/admin/usage'
+import { getApiKeyDisplayName } from '@/utils/apiKey'
 
 type ModelValue = Record<string, any>
 
@@ -405,7 +406,7 @@ const clearUser = () => {
 }
 
 const selectApiKey = (k: SimpleApiKey) => {
-  apiKeyKeyword.value = k.name || String(k.id)
+  apiKeyKeyword.value = getApiKeyDisplayName(k) || String(k.id)
   showApiKeyDropdown.value = false
   filters.value.api_key_id = k.id
   emitChange()

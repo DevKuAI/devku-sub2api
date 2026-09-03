@@ -556,7 +556,7 @@
             <select v-model.number="form.apiKeyId" class="input" :disabled="loadingKeys">
               <option :value="0">{{ loadingKeys ? t('batchImage.create.loadingKeys') : t('batchImage.create.selectKeyPlaceholder') }}</option>
               <option v-for="key in geminiApiKeys" :key="key.id" :value="key.id">
-                {{ key.name }} · {{ key.group?.name || 'Gemini' }}
+                {{ getApiKeyDisplayName(key) }} · {{ key.group?.name || 'Gemini' }}
               </option>
             </select>
             <p v-if="!loadingKeys && geminiApiKeys.length === 0" class="input-hint text-amber-600 dark:text-amber-400">
@@ -785,6 +785,7 @@ import {
 } from '@/api/batchImage'
 import type { ApiKey } from '@/types'
 import type { Column } from '@/components/common/types'
+import { getApiKeyDisplayName } from '@/utils/apiKey'
 
 type BatchImageJobRow = Pick<BatchImageJob, 'id' | 'task_name' | 'parent_batch_id' | 'status' | 'model' | 'provider' | 'item_count' | 'success_count' | 'fail_count' | 'estimated_cost' | 'hold_amount' | 'actual_cost' | 'created_at' | 'downloaded_at'> & {
   api_key_id: number
@@ -959,7 +960,7 @@ const apiKeyFilterOptions = computed<SelectOption[]>(() => [
   { value: '', label: t('batchImage.filters.allApiKeys') },
   ...geminiApiKeys.value.map(key => ({
     value: String(key.id),
-    label: key.name || `API Key #${key.id}`,
+    label: getApiKeyDisplayName(key) || `API Key #${key.id}`,
   })),
 ])
 
@@ -1339,7 +1340,7 @@ function toJobRow(job: BatchImageJob, key = selectedApiKey.value): BatchImageJob
     created_at: job.created_at,
     downloaded_at: job.downloaded_at,
     api_key_id: key?.id || 0,
-    api_key_name: key?.name || '',
+    api_key_name: getApiKeyDisplayName(key),
     child_count: 0,
   }
 }

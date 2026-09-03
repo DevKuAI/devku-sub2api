@@ -385,7 +385,7 @@ func (r *usageLogRepository) loadAPIKeys(ctx context.Context, ids []int64) (map[
 	}
 	models, err := r.client.APIKey.Query().
 		Where(dbapikey.IDIn(ids...)).
-		WithDesktopMemberAssignment().
+		WithDesktopMemberAssignment(withDesktopMember).
 		All(mixins.SkipSoftDelete(ctx))
 	if err != nil {
 		return nil, err

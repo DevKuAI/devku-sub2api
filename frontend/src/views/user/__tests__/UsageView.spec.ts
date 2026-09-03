@@ -124,7 +124,10 @@ const usageLog = {
   model: 'gpt-5.4',
   reasoning_effort: null,
   ip_address: '203.0.113.10',
-  api_key: { name: 'demo-key' },
+  api_key: {
+    name: 'desktop:org_display_name:mem_display_name',
+    display_name: 'Alice',
+  },
   billing_mode: 'token',
   request_type: 'sync',
   stream: false,
@@ -290,7 +293,7 @@ describe('user UsageView', () => {
     expect(csvContent.startsWith('\uFEFF')).toBe(true)
     expect(csvContent.slice(1)).toBe([
       'Time,API Key Name,Model,Reasoning Effort,Inbound Endpoint,IP Address,Type,Billing Mode,Input Tokens,Output Tokens,Cache Read Tokens,Cache Creation Tokens,Rate Multiplier,Billed Cost,Original Cost,First Token (ms),Duration (ms)',
-      '2026-03-08T00:00:00Z,demo-key,gpt-5.4,"\'-",,203.0.113.10,Sync,Token,4057,101,278272,4,1,0.09288300,0.09288300,12,345',
+      '2026-03-08T00:00:00Z,Alice,gpt-5.4,"\'-",,203.0.113.10,Sync,Token,4057,101,278272,4,1,0.09288300,0.09288300,12,345',
     ].join('\n'))
     expect(csvContent).toContain('IP Address')
     expect(csvContent).toContain('203.0.113.10')

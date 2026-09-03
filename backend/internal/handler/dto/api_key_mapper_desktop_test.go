@@ -8,11 +8,19 @@ import (
 )
 
 func TestAPIKeyFromServiceMasksDesktopManagedCredential(t *testing.T) {
-	source := &service.APIKey{ID: 7, Key: "sk-desktop-secret", ManagedBy: "desktop"}
+	source := &service.APIKey{
+		ID:          7,
+		Key:         "sk-desktop-secret",
+		Name:        "desktop:org_test:mem_test",
+		DisplayName: "Alice",
+		ManagedBy:   "desktop",
+	}
 
 	result := APIKeyFromService(source)
 
 	require.Equal(t, "***", result.Key)
+	require.Equal(t, "desktop:org_test:mem_test", result.Name)
+	require.Equal(t, "Alice", result.DisplayName)
 	require.Equal(t, "desktop", result.ManagedBy)
 }
 

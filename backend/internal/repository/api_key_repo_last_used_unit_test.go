@@ -126,6 +126,99 @@ func TestAPIKeyRepositoryListByUserIDAttachesLastUsedIP(t *testing.T) {
 	require.Nil(t, byID[noLogs.ID].LastUsedIP)
 }
 
+func TestAPIKeyRepositoryListByUserIDUsesDesktopMemberDisplayName(t *testing.T) {
+	repo, client := newAPIKeyRepoSQLite(t)
+	ctx := context.Background()
+	user := mustCreateAPIKeyRepoUser(t, ctx, client, "desktop-display-name@test.com")
+	group, err := client.Group.Create().
+		SetName("Desktop Display Name").
+		SetStatus(service.StatusActive).
+		Save(ctx)
+	require.NoError(t, err)
+	organization, err := client.DesktopOrganization.Create().
+		SetPublicID("org_display_name").
+		SetCode("DISPLAY01").
+		SetName("Display Name Organization").
+		SetGatewayUserID(user.ID).
+		SetGroupID(group.ID).
+		Save(ctx)
+	require.NoError(t, err)
+	member, err := client.DesktopMember.Create().
+		SetPublicID("mem_display_name").
+		SetOrganizationID(organization.ID).
+		SetName("Alice").
+		SetNameNormalized("Alice").
+		SetPhone("+8613800000000").
+		Save(ctx)
+	require.NoError(t, err)
+
+	internalName := "desktop:org_display_name:mem_display_name"
+	key := &service.APIKey{
+		UserID:  user.ID,
+		Key:     "sk-desktop-display-name",
+		Name:    internalName,
+		GroupID: &group.ID,
+		Status:  service.StatusActive,
+	}
+	require.NoError(t, repo.Create(ctx, key))
+	_, err = client.DesktopMemberAPIKey.Create().
+		SetMemberID(member.ID).
+		SetAPIKeyID(key.ID).
+		Save(ctx)
+	require.NoError(t, err)
+
+	keys, _, err := repo.ListByUserID(
+		ctx,
+		user.ID,
+		pagination.PaginationParams{Page: 1, PageSize: 10},
+		service.APIKeyListFilters{},
+	)
+	require.NoError(t, err)
+	require.Len(t, keys, 1)
+	require.Equal(t, internalName, keys[0].Name)
+	require.Equal(t, "Alice", keys[0].DisplayName)
+	require.Equal(t, "desktop", keys[0].ManagedBy)
+
+	keys, _, err = repo.ListByUserID(
+		ctx,
+		user.ID,
+		pagination.PaginationParams{Page: 1, PageSize: 10},
+		service.APIKeyListFilters{Search: "Alice"},
+	)
+	require.NoError(t, err)
+	require.Len(t, keys, 1)
+
+	searchResults, err := repo.SearchAPIKeys(ctx, user.ID, "Alice", 30)
+	require.NoError(t, err)
+	require.Len(t, searchResults, 1)
+	require.Equal(t, "Alice", searchResults[0].DisplayName)
+
+	directKey := &service.APIKey{
+		UserID: user.ID,
+		Key:    "sk-direct-display-name",
+		Name:   "Bob",
+		Status: service.StatusActive,
+	}
+	require.NoError(t, repo.Create(ctx, directKey))
+
+	keys, _, err = repo.ListByUserID(
+		ctx,
+		user.ID,
+		pagination.PaginationParams{
+			Page:      1,
+			PageSize:  10,
+			SortBy:    "display_name",
+			SortOrder: pagination.SortOrderAsc,
+		},
+		service.APIKeyListFilters{},
+	)
+	require.NoError(t, err)
+	require.Len(t, keys, 2)
+	require.Equal(t, "Alice", keys[0].EffectiveDisplayName())
+	require.Empty(t, keys[1].DisplayName)
+	require.Equal(t, "Bob", keys[1].EffectiveDisplayName())
+}
+
 func TestLatestUsageLogIPsQueryPostgresUsesPerKeyLateralLookup(t *testing.T) {
 	query, args := latestUsageLogIPsQuery([]int64{11, 22}, dialect.Postgres)
 	normalizedQuery := strings.Join(strings.Fields(query), " ")

@@ -117,7 +117,7 @@ vi.mock('vue-i18n', async () => {
   }
 })
 
-const createApiKey = (): ApiKey => ({
+const createApiKey = (overrides: Partial<ApiKey> = {}): ApiKey => ({
   id: 1,
   user_id: 1,
   key: 'sk-test-key',
@@ -146,6 +146,7 @@ const createApiKey = (): ApiKey => ({
   reset_5h_at: null,
   reset_1d_at: null,
   reset_7d_at: null,
+  ...overrides,
 })
 
 const AppLayoutStub = {
@@ -173,6 +174,9 @@ const DataTableStub = {
       <div data-test="columns-meta">{{ JSON.stringify(columns.map((col) => ({ key: col.key, sortable: !!col.sortable }))) }}</div>
       <button data-test="sort-current-concurrency" @click="$emit('sort', 'current_concurrency', 'asc')">
         Sort Current Concurrency
+      </button>
+      <button data-test="sort-name" @click="$emit('sort', 'name', 'asc')">
+        Sort
       </button>
       <div v-for="row in data" :key="row.id">
         <div
@@ -437,6 +441,29 @@ describe('user KeysView column settings', () => {
     expect(wrapper.get('[data-test="current-concurrency"]').text()).toBe('3')
   })
 
+  it('shows desktop member names and preserves direct key names', async () => {
+    const internalName = 'desktop:org_display_name:mem_display_name'
+    const key = createApiKey({ name: internalName, display_name: 'Alice' })
+    const directKeyName = 'Backend-created key'
+    const directKey = createApiKey({ id: 2, name: directKeyName, display_name: undefined })
+    listKeys.mockResolvedValueOnce({
+      items: [key, directKey],
+      total: 2,
+      page: 1,
+      page_size: 20,
+      pages: 1,
+    })
+
+    const wrapper = await mountView()
+
+    expect(wrapper.text()).toContain('Alice')
+    expect(wrapper.text()).toContain(directKeyName)
+    expect(wrapper.text()).not.toContain(internalName)
+
+    ;(wrapper.vm as any).editKey(key)
+    expect((wrapper.vm as any).formData.name).toBe(internalName)
+  })
+
   it('marks current concurrency as sortable', async () => {
     const wrapper = await mountView()
 
@@ -444,6 +471,24 @@ describe('user KeysView column settings', () => {
       (column) => column.key === 'current_concurrency'
     )
     expect(currentConcurrencyColumn?.sortable).toBe(true)
+  })
+
+  it('sorts the visible name column by effective display name', async () => {
+    const wrapper = await mountView()
+    listKeys.mockClear()
+
+    await wrapper.get('[data-test="sort-name"]').trigger('click')
+    await flushPromises()
+
+    expect(listKeys).toHaveBeenLastCalledWith(
+      1,
+      20,
+      {
+        sort_by: 'display_name',
+        sort_order: 'asc',
+      },
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    )
   })
 
   it('keeps filters and selected page size when sorting by current concurrency', async () => {

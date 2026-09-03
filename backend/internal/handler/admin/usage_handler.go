@@ -445,19 +445,21 @@ func (h *UsageHandler) SearchAPIKeys(c *gin.Context) {
 		return
 	}
 
-	// Return simplified API key list (only id and name)
+	// Return the identifiers and names needed by the admin usage filter.
 	type SimpleAPIKey struct {
-		ID     int64  `json:"id"`
-		Name   string `json:"name"`
-		UserID int64  `json:"user_id"`
+		ID          int64  `json:"id"`
+		Name        string `json:"name"`
+		DisplayName string `json:"display_name"`
+		UserID      int64  `json:"user_id"`
 	}
 
 	result := make([]SimpleAPIKey, len(keys))
 	for i, k := range keys {
 		result[i] = SimpleAPIKey{
-			ID:     k.ID,
-			Name:   k.Name,
-			UserID: k.UserID,
+			ID:          k.ID,
+			Name:        k.Name,
+			DisplayName: k.EffectiveDisplayName(),
+			UserID:      k.UserID,
 		}
 	}
 

@@ -264,6 +264,45 @@ describe('UsageFilters — model options come from prop (no dup request)', () =>
   })
 })
 
+describe('UsageFilters API key display names', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    mockSearchApiKeys.mockReset().mockResolvedValue([
+      {
+        id: 7,
+        name: 'desktop:org_display_name:mem_display_name',
+        display_name: 'Alice',
+        user_id: 1,
+      },
+    ])
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('renders and selects the member display name', async () => {
+    const wrapper = mountFilters()
+    const apiKeyFilter = wrapper.findAll('.usage-filter-dropdown')[1]
+    const input = apiKeyFilter.get('input')
+
+    await input.trigger('focus')
+    await input.setValue('Alice')
+    vi.advanceTimersByTime(300)
+    await flushPromises()
+
+    expect(apiKeyFilter.text()).toContain('Alice')
+    expect(apiKeyFilter.text()).not.toContain('desktop:org_display_name:mem_display_name')
+
+    const result = apiKeyFilter.findAll('button').find((button) => button.text().includes('Alice'))
+    expect(result).toBeDefined()
+    await result!.trigger('click')
+
+    expect((input.element as HTMLInputElement).value).toBe('Alice')
+    expect(wrapper.props('modelValue').api_key_id).toBe(7)
+  })
+})
+
 describe('UsageFilters — native compaction filter', () => {
   it('offers only All/Compaction and emits the independent boolean filter', async () => {
     const SelectStub = {

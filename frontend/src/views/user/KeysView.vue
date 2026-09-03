@@ -132,9 +132,9 @@
             </div>
           </template>
 
-          <template #cell-name="{ value, row }">
+          <template #cell-name="{ row }">
             <div class="flex items-center gap-1.5">
-              <span class="font-medium text-gray-900 dark:text-white">{{ value }}</span>
+              <span class="font-medium text-gray-900 dark:text-white">{{ getApiKeyDisplayName(row) }}</span>
               <Icon
                 v-if="row.ip_whitelist?.length > 0 || row.ip_blacklist?.length > 0"
                 name="shield"
@@ -968,7 +968,7 @@
     <ConfirmDialog
       :show="showDeleteDialog"
       :title="t('keys.deleteKey')"
-      :message="t('keys.deleteConfirmMessage', { name: selectedKey?.name })"
+      :message="t('keys.deleteConfirmMessage', { name: getApiKeyDisplayName(selectedKey) })"
       :confirm-text="t('common.delete')"
       :cancel-text="t('common.cancel')"
       :danger="true"
@@ -980,7 +980,7 @@
     <ConfirmDialog
       :show="showResetQuotaDialog"
       :title="t('keys.resetQuotaTitle')"
-      :message="t('keys.resetQuotaConfirmMessage', { name: selectedKey?.name, used: selectedKey?.quota_used?.toFixed(4) })"
+      :message="t('keys.resetQuotaConfirmMessage', { name: getApiKeyDisplayName(selectedKey), used: selectedKey?.quota_used?.toFixed(4) })"
       :confirm-text="t('keys.reset')"
       :cancel-text="t('common.cancel')"
       :danger="true"
@@ -992,7 +992,7 @@
     <ConfirmDialog
       :show="showResetRateLimitDialog"
       :title="t('keys.resetRateLimitTitle')"
-      :message="t('keys.resetRateLimitConfirmMessage', { name: selectedKey?.name })"
+      :message="t('keys.resetRateLimitConfirmMessage', { name: getApiKeyDisplayName(selectedKey) })"
       :confirm-text="t('keys.reset')"
       :cancel-text="t('common.cancel')"
       :danger="true"
@@ -1157,6 +1157,7 @@ import type { Column } from '@/components/common/types'
 import type { BatchApiKeyUsageStats } from '@/api/usage'
 import { formatDateTime } from '@/utils/format'
 import { maskApiKey } from '@/utils/maskApiKey'
+import { getApiKeyDisplayName } from '@/utils/apiKey'
 import {
   buildCcSwitchImportDeeplink,
   type CcSwitchClientType
@@ -1496,7 +1497,7 @@ const loadApiKeys = async () => {
     if (filterSearch.value) filters.search = filterSearch.value
     if (filterStatus.value) filters.status = filterStatus.value
     if (filterGroupId.value !== '') filters.group_id = filterGroupId.value
-    filters.sort_by = sortState.value.sort_by
+    filters.sort_by = sortState.value.sort_by === 'name' ? 'display_name' : sortState.value.sort_by
     filters.sort_order = sortState.value.sort_order
 
     const response = await keysAPI.list(pagination.value.page, pagination.value.page_size, filters, {

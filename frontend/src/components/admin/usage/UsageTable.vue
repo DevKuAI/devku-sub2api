@@ -45,7 +45,7 @@
         </template>
 
         <template #cell-api_key="{ row }">
-          <span class="text-sm text-gray-900 dark:text-white">{{ row.api_key?.name || '-' }}</span>
+          <span class="text-sm text-gray-900 dark:text-white">{{ getApiKeyDisplayName(row.api_key) || '-' }}</span>
         </template>
 
         <template #cell-account="{ row }">
@@ -522,6 +522,7 @@ import { formatCacheTokens, formatMultiplier } from '@/utils/formatters'
 import { formatTokenPricePerMillion } from '@/utils/usagePricing'
 import { getUsageServiceTierLabel } from '@/utils/usageServiceTier'
 import { resolveUsageRequestType } from '@/utils/usageRequestType'
+import { getApiKeyDisplayName } from '@/utils/apiKey'
 import {
   LATENCY_BAR_CLASSES,
   LATENCY_BAR_FROM_CLASSES,

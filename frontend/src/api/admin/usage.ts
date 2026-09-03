@@ -35,6 +35,7 @@ export interface SimpleUser {
 export interface SimpleApiKey {
   id: number
   name: string
+  display_name?: string
   user_id: number
 }
 
