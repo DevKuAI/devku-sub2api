@@ -13,14 +13,22 @@ import (
 
 type desktopRepositoryStub struct {
 	authorized                     *DesktopAuthorizedMember
+	organization                   *DesktopOrganization
 	members                        []DesktopMember
 	listMemberFilters              []DesktopMemberListFilters
+	scopedUserIDs                  []int64
+	updateOrganizationInputs       []DesktopUpdateOrganizationInput
 	keyIDs                         []int64
 	hasUserOrganization            bool
 	hasGroupOrganization           bool
 	userOrganizationGroupID        int64
 	userOrganizationGroupExclusive bool
 	userOrganizationGroupPresent   bool
+}
+
+func (s *desktopRepositoryStub) ScopedToGatewayUser(userID int64) DesktopRepository {
+	s.scopedUserIDs = append(s.scopedUserIDs, userID)
+	return s
 }
 
 func (s *desktopRepositoryStub) CreateOrganization(context.Context, DesktopCreateOrganizationInput) (*DesktopOrganization, error) {
@@ -30,10 +38,17 @@ func (s *desktopRepositoryStub) ListOrganizations(context.Context, pagination.Pa
 	return nil, nil, nil
 }
 func (s *desktopRepositoryStub) GetOrganization(context.Context, string) (*DesktopOrganization, error) {
-	return nil, nil
+	return s.organization, nil
 }
-func (s *desktopRepositoryStub) UpdateOrganization(context.Context, string, DesktopUpdateOrganizationInput) (*DesktopOrganization, []string, error) {
-	return nil, nil, nil
+func (s *desktopRepositoryStub) GetOrganizationForGatewayUser(context.Context, int64) (*DesktopOrganization, error) {
+	if s.organization == nil {
+		return nil, ErrDesktopOrganizationNotFound
+	}
+	return s.organization, nil
+}
+func (s *desktopRepositoryStub) UpdateOrganization(_ context.Context, _ string, input DesktopUpdateOrganizationInput) (*DesktopOrganization, []string, error) {
+	s.updateOrganizationInputs = append(s.updateOrganizationInputs, input)
+	return s.organization, nil, nil
 }
 func (s *desktopRepositoryStub) UpdateTargetConfig(context.Context, string, *DesktopTargetConfig) (*DesktopOrganization, error) {
 	return nil, nil
@@ -220,6 +235,33 @@ func TestDesktopListMembersWithUsageAggregatesCurrentPage(t *testing.T) {
 	require.Equal(t, memberUsage, members[0].Usage)
 	require.NotNil(t, members[1].Usage)
 	require.Zero(t, members[1].Usage.TotalTokens)
+}
+
+func TestDesktopManagedOrganizationUsesGatewayUserScope(t *testing.T) {
+	organization := &DesktopOrganization{PublicID: "org_one", GatewayUserID: 9}
+	repo := &desktopRepositoryStub{organization: organization}
+	svc := &DesktopService{repo: repo}
+	gatewayUserID := int64(11)
+	groupID := int64(12)
+	name := "Managed"
+	status := DesktopStatusActive
+
+	updated, err := svc.UpdateManagedOrganization(context.Background(), 9, DesktopUpdateOrganizationInput{
+		Name: &name, Status: &status, GatewayUserID: &gatewayUserID, GroupID: &groupID,
+	})
+
+	require.NoError(t, err)
+	require.Same(t, organization, updated)
+	require.Equal(t, []int64{9}, repo.scopedUserIDs)
+	require.Len(t, repo.updateOrganizationInputs, 1)
+	require.Nil(t, repo.updateOrganizationInputs[0].GatewayUserID)
+	require.Nil(t, repo.updateOrganizationInputs[0].GroupID)
+}
+
+func TestDesktopManagedOrganizationRejectsMissingIdentity(t *testing.T) {
+	svc := &DesktopService{repo: &desktopRepositoryStub{}}
+	_, err := svc.GetManagedOrganization(context.Background(), 0)
+	require.ErrorIs(t, err, ErrDesktopUnauthenticated)
 }
 
 func TestDesktopUsageSummaryAggregatesAllHistoricalKeys(t *testing.T) {

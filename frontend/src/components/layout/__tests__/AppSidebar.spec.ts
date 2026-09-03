@@ -62,4 +62,10 @@ describe('AppSidebar Desktop navigation', () => {
     expect(componentSource).toMatch(/path: '\/admin\/desktop\/updates'.*label: t\('nav\.desktopUpdates'\)/)
     expect(componentSource).toContain('const filtered = applySimpleMode(visible)')
   })
+
+  it('adds the managed organization only when the current user has one', () => {
+    expect(componentSource).toContain('useDesktopOrganizationAccess')
+    expect(componentSource).toContain('canManageDesktopOrganization.value')
+    expect(componentSource).toMatch(/if \(flagDesktop\(\) && canManageDesktopOrganization\.value\)[\s\S]*?path: '\/desktop\/organization'/)
+  })
 })

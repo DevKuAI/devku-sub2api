@@ -11,6 +11,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/desktopmemberapikey"
 	"github.com/Wei-Shaw/sub2api/ent/desktoporganization"
 	"github.com/Wei-Shaw/sub2api/ent/group"
+	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/schema/mixins"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
@@ -20,8 +21,9 @@ import (
 )
 
 type desktopRepository struct {
-	client  *dbent.Client
-	apiKeys service.APIKeyRepository
+	client        *dbent.Client
+	apiKeys       service.APIKeyRepository
+	gatewayUserID *int64
 }
 
 func (r *desktopRepository) createAPIKeyWithinLimit(ctx context.Context, key *service.APIKey) error {
@@ -34,6 +36,26 @@ func (r *desktopRepository) createAPIKeyWithinLimit(ctx context.Context, key *se
 
 func NewDesktopRepository(client *dbent.Client, apiKeys service.APIKeyRepository) service.DesktopRepository {
 	return &desktopRepository{client: client, apiKeys: apiKeys}
+}
+
+func (r *desktopRepository) ScopedToGatewayUser(userID int64) service.DesktopRepository {
+	scoped := *r
+	scoped.gatewayUserID = &userID
+	return &scoped
+}
+
+func (r *desktopRepository) organizationPredicates(predicates ...predicate.DesktopOrganization) []predicate.DesktopOrganization {
+	if r.gatewayUserID != nil {
+		predicates = append(predicates, desktoporganization.GatewayUserIDEQ(*r.gatewayUserID))
+	}
+	return predicates
+}
+
+func (r *desktopRepository) ensureOrganizationInScope(organization *dbent.DesktopOrganization) error {
+	if r.gatewayUserID != nil && organization.GatewayUserID != *r.gatewayUserID {
+		return service.ErrDesktopOrganizationNotFound
+	}
+	return nil
 }
 
 func (r *desktopRepository) withTx(ctx context.Context, fn func(context.Context, *dbent.Client) error) error {
@@ -120,7 +142,17 @@ func (r *desktopRepository) ListOrganizations(ctx context.Context, params pagina
 
 func (r *desktopRepository) GetOrganization(ctx context.Context, publicID string) (*service.DesktopOrganization, error) {
 	row, err := r.client.DesktopOrganization.Query().
-		Where(desktoporganization.PublicIDEQ(publicID)).
+		Where(r.organizationPredicates(desktoporganization.PublicIDEQ(publicID))...).
+		WithGatewayUser().WithGroup().WithMembers().Only(ctx)
+	if err != nil {
+		return nil, translatePersistenceError(err, service.ErrDesktopOrganizationNotFound, nil)
+	}
+	return desktopOrganizationEntityToService(row)
+}
+
+func (r *desktopRepository) GetOrganizationForGatewayUser(ctx context.Context, userID int64) (*service.DesktopOrganization, error) {
+	row, err := r.client.DesktopOrganization.Query().
+		Where(r.organizationPredicates(desktoporganization.GatewayUserIDEQ(userID))...).
 		WithGatewayUser().WithGroup().WithMembers().Only(ctx)
 	if err != nil {
 		return nil, translatePersistenceError(err, service.ErrDesktopOrganizationNotFound, nil)
@@ -129,7 +161,10 @@ func (r *desktopRepository) GetOrganization(ctx context.Context, publicID string
 }
 
 func (r *desktopRepository) UpdateOrganization(ctx context.Context, publicID string, input service.DesktopUpdateOrganizationInput) (*service.DesktopOrganization, []string, error) {
-	current, err := r.client.DesktopOrganization.Query().Where(desktoporganization.PublicIDEQ(publicID)).Only(ctx)
+	if r.gatewayUserID != nil && (input.GatewayUserID != nil || input.GroupID != nil) {
+		return nil, nil, service.ErrDesktopValidation
+	}
+	current, err := r.client.DesktopOrganization.Query().Where(r.organizationPredicates(desktoporganization.PublicIDEQ(publicID))...).Only(ctx)
 	if err != nil {
 		return nil, nil, translatePersistenceError(err, service.ErrDesktopOrganizationNotFound, nil)
 	}
@@ -150,7 +185,7 @@ func (r *desktopRepository) UpdateOrganization(ctx context.Context, publicID str
 		if err != nil {
 			return translatePersistenceError(err, service.ErrGroupNotFound, nil)
 		}
-		organization, err := client.DesktopOrganization.Query().Where(desktoporganization.PublicIDEQ(publicID)).ForUpdate().Only(txCtx)
+		organization, err := client.DesktopOrganization.Query().Where(r.organizationPredicates(desktoporganization.PublicIDEQ(publicID))...).ForUpdate().Only(txCtx)
 		if err != nil {
 			return translatePersistenceError(err, service.ErrDesktopOrganizationNotFound, nil)
 		}
@@ -360,7 +395,7 @@ func (r *desktopRepository) UpdateTargetConfig(ctx context.Context, publicID str
 	if err != nil {
 		return nil, err
 	}
-	_, err = r.client.DesktopOrganization.Update().Where(desktoporganization.PublicIDEQ(publicID)).SetTargetConfig(raw).Save(ctx)
+	_, err = r.client.DesktopOrganization.Update().Where(r.organizationPredicates(desktoporganization.PublicIDEQ(publicID))...).SetTargetConfig(raw).Save(ctx)
 	if err != nil {
 		return nil, translatePersistenceError(err, service.ErrDesktopOrganizationNotFound, nil)
 	}
@@ -368,7 +403,7 @@ func (r *desktopRepository) UpdateTargetConfig(ctx context.Context, publicID str
 }
 
 func (r *desktopRepository) CreateMember(ctx context.Context, organizationPublicID string, input service.DesktopCreateMemberInput) (*service.DesktopMember, error) {
-	organization, err := r.client.DesktopOrganization.Query().Where(desktoporganization.PublicIDEQ(organizationPublicID)).Only(ctx)
+	organization, err := r.client.DesktopOrganization.Query().Where(r.organizationPredicates(desktoporganization.PublicIDEQ(organizationPublicID))...).Only(ctx)
 	if err != nil {
 		return nil, translatePersistenceError(err, service.ErrDesktopOrganizationNotFound, nil)
 	}
@@ -379,6 +414,9 @@ func (r *desktopRepository) CreateMember(ctx context.Context, organizationPublic
 		}
 		if lockedOrganization.GatewayUserID != organization.GatewayUserID || lockedOrganization.GroupID != organization.GroupID {
 			return service.ErrDesktopRotationConflict
+		}
+		if err := r.ensureOrganizationInScope(lockedOrganization); err != nil {
+			return err
 		}
 		if lockedOrganization.Status != service.DesktopStatusActive {
 			return service.ErrDesktopOrganizationDisabled
@@ -411,11 +449,14 @@ func (r *desktopRepository) CreateMember(ctx context.Context, organizationPublic
 }
 
 func (r *desktopRepository) ListMembers(ctx context.Context, organizationPublicID string, params pagination.PaginationParams, filters service.DesktopMemberListFilters) ([]service.DesktopMember, *pagination.PaginationResult, error) {
-	organization, err := r.client.DesktopOrganization.Query().Where(desktoporganization.PublicIDEQ(organizationPublicID)).Only(ctx)
+	organization, err := r.client.DesktopOrganization.Query().Where(r.organizationPredicates(desktoporganization.PublicIDEQ(organizationPublicID))...).Only(ctx)
 	if err != nil {
 		return nil, nil, translatePersistenceError(err, service.ErrDesktopOrganizationNotFound, nil)
 	}
-	q := r.client.DesktopMember.Query().Where(desktopmember.OrganizationIDEQ(organization.ID))
+	q := r.client.DesktopMember.Query().Where(
+		desktopmember.OrganizationIDEQ(organization.ID),
+		desktopmember.HasOrganizationWith(r.organizationPredicates(desktoporganization.IDEQ(organization.ID))...),
+	)
 	if filters.Phone != "" {
 		q = q.Where(desktopmember.PhoneEQ(filters.Phone))
 	} else if filters.Search != "" {
@@ -444,7 +485,7 @@ func (r *desktopRepository) ListMembers(ctx context.Context, organizationPublicI
 func (r *desktopRepository) GetMember(ctx context.Context, organizationPublicID, memberPublicID string) (*service.DesktopMember, error) {
 	row, err := r.client.DesktopMember.Query().Where(
 		desktopmember.PublicIDEQ(memberPublicID),
-		desktopmember.HasOrganizationWith(desktoporganization.PublicIDEQ(organizationPublicID)),
+		desktopmember.HasOrganizationWith(r.organizationPredicates(desktoporganization.PublicIDEQ(organizationPublicID))...),
 	).WithAPIKeyAssignments(func(q *dbent.DesktopMemberAPIKeyQuery) {
 		q.Where(desktopmemberapikey.RetiredAtIsNil()).WithAPIKey()
 	}).Only(ctx)
@@ -463,6 +504,9 @@ func (r *desktopRepository) UpdateMember(ctx context.Context, organizationPublic
 	err = r.withTx(ctx, func(txCtx context.Context, client *dbent.Client) error {
 		gatewayUser, groupEntity, lockedOrganization, err := lockDesktopCarrier(txCtx, client, organization.GatewayUserID, organization.GroupID, organization.ID)
 		if err != nil {
+			return err
+		}
+		if err := r.ensureOrganizationInScope(lockedOrganization); err != nil {
 			return err
 		}
 		lockedMember, err := client.DesktopMember.Query().Where(desktopmember.IDEQ(member.ID)).ForUpdate().Only(txCtx)
@@ -527,8 +571,11 @@ func (r *desktopRepository) DeleteMember(ctx context.Context, organizationPublic
 	}
 	var invalidated []string
 	err = r.withTx(ctx, func(txCtx context.Context, client *dbent.Client) error {
-		_, _, _, err := lockDesktopCarrier(txCtx, client, organization.GatewayUserID, organization.GroupID, organization.ID)
+		_, _, lockedOrganization, err := lockDesktopCarrier(txCtx, client, organization.GatewayUserID, organization.GroupID, organization.ID)
 		if err != nil {
+			return err
+		}
+		if err := r.ensureOrganizationInScope(lockedOrganization); err != nil {
 			return err
 		}
 		lockedMember, err := client.DesktopMember.Query().Where(desktopmember.IDEQ(member.ID)).ForUpdate().Only(txCtx)
@@ -571,6 +618,9 @@ func (r *desktopRepository) RotateMemberAPIKey(ctx context.Context, organization
 	err = r.withTx(ctx, func(txCtx context.Context, client *dbent.Client) error {
 		gatewayUser, groupEntity, lockedOrganization, err := lockDesktopCarrier(txCtx, client, organization.GatewayUserID, organization.GroupID, organization.ID)
 		if err != nil {
+			return err
+		}
+		if err := r.ensureOrganizationInScope(lockedOrganization); err != nil {
 			return err
 		}
 		if lockedOrganization.Status != service.DesktopStatusActive {
@@ -726,11 +776,15 @@ func (r *desktopRepository) ListAvailableGatewayUsers(ctx context.Context, param
 }
 
 func (r *desktopRepository) loadOrganizationAndMember(ctx context.Context, organizationPublicID, memberPublicID string) (*dbent.DesktopOrganization, *dbent.DesktopMember, error) {
-	organization, err := r.client.DesktopOrganization.Query().Where(desktoporganization.PublicIDEQ(organizationPublicID)).Only(ctx)
+	organization, err := r.client.DesktopOrganization.Query().Where(r.organizationPredicates(desktoporganization.PublicIDEQ(organizationPublicID))...).Only(ctx)
 	if err != nil {
 		return nil, nil, translatePersistenceError(err, service.ErrDesktopOrganizationNotFound, nil)
 	}
-	member, err := r.client.DesktopMember.Query().Where(desktopmember.PublicIDEQ(memberPublicID), desktopmember.OrganizationIDEQ(organization.ID)).Only(ctx)
+	member, err := r.client.DesktopMember.Query().Where(
+		desktopmember.PublicIDEQ(memberPublicID),
+		desktopmember.OrganizationIDEQ(organization.ID),
+		desktopmember.HasOrganizationWith(r.organizationPredicates(desktoporganization.IDEQ(organization.ID))...),
+	).Only(ctx)
 	if err != nil {
 		return nil, nil, translatePersistenceError(err, service.ErrDesktopMemberNotFound, nil)
 	}

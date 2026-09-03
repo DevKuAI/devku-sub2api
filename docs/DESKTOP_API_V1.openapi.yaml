@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: DevKu Sub2API Desktop API
-  version: 1.0.0
+  version: 1.1.0
   license:
     name: LGPL-3.0
     url: https://www.gnu.org/licenses/lgpl-3.0.html
@@ -11,6 +11,7 @@ info:
     - Desktop 企业和客户端接口仅在 `DESKTOP_ENABLED=true` 时注册。
     - 软件更新检查和更新发布管理接口不受 `DESKTOP_ENABLED` 影响。
     - Admin 接口使用面板 Admin Bearer Token。
+    - 企业承载用户接口使用普通面板 User Bearer Token，并且只作用于当前账号关联的企业。
     - Desktop 受保护接口使用登录或刷新接口返回的 Desktop Access Token。
     - Admin 成功响应使用 `{code, message, data}`，Desktop 成功响应使用 `{data}`。
 
@@ -25,6 +26,8 @@ servers:
 tags:
   - name: Desktop Admin - Organizations
     description: Desktop 企业、成员和 Model Configuration 管理
+  - name: Desktop User - Organization
+    description: 企业承载用户管理当前账号关联的 Desktop 企业
   - name: Desktop Admin - Updates
     description: Desktop 软件更新版本管理
   - name: Desktop Admin - Supporting
@@ -391,6 +394,265 @@ paths:
           $ref: '#/components/responses/AdminError'
         '503':
           $ref: '#/components/responses/AdminError'
+
+  /api/v1/desktop/organization:
+    get:
+      tags: [Desktop User - Organization]
+      operationId: getManagedDesktopOrganization
+      summary: 查询当前账号关联的 Desktop 企业
+      description: 企业由当前登录账号确定，请求不接受企业 ID。
+      security:
+        - UserBearer: []
+      responses:
+        '200':
+          description: 当前账号关联的企业详情
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOrganizationResponse'
+        '204':
+          description: 当前账号没有关联企业，无响应体
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+        '401':
+          $ref: '#/components/responses/PanelError'
+    patch:
+      tags: [Desktop User - Organization]
+      operationId: updateManagedDesktopOrganization
+      summary: 修改当前账号关联的 Desktop 企业
+      description: 只能修改企业名称和状态，不能修改承载用户或分组。请求体上限为 16 KiB。
+      security:
+        - UserBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateManagedOrganizationRequest'
+            example:
+              name: 东恒锦洋集团
+              status: active
+      responses:
+        '200':
+          description: 企业已修改
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOrganizationResponse'
+        '401':
+          $ref: '#/components/responses/PanelError'
+        '404':
+          $ref: '#/components/responses/PanelError'
+        '409':
+          $ref: '#/components/responses/PanelError'
+        '413':
+          $ref: '#/components/responses/PanelError'
+        '422':
+          $ref: '#/components/responses/PanelError'
+
+  /api/v1/desktop/organization/model-configuration:
+    put:
+      tags: [Desktop User - Organization]
+      operationId: updateManagedDesktopModelConfiguration
+      summary: 更新当前账号关联企业的 Model Configuration
+      description: 企业由当前登录账号确定。请求体上限为 64 KiB。
+      security:
+        - UserBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTargetConfigRequest'
+      responses:
+        '200':
+          description: Model Configuration 已更新
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOrganizationResponse'
+        '401':
+          $ref: '#/components/responses/PanelError'
+        '404':
+          $ref: '#/components/responses/PanelError'
+        '413':
+          $ref: '#/components/responses/PanelError'
+        '422':
+          $ref: '#/components/responses/PanelError'
+
+  /api/v1/desktop/organization/members:
+    get:
+      tags: [Desktop User - Organization]
+      operationId: listManagedDesktopMembers
+      summary: 查询当前账号关联企业的成员列表
+      description: 返回今日、近 30 天和累计的费用及 Token 用量。
+      security:
+        - UserBearer: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: search
+          in: query
+          description: 普通文本按姓名查询；完整中国大陆手机号或 `+86` E.164 手机号按手机号精确查询
+          schema:
+            type: string
+          example: 张明
+        - name: status
+          in: query
+          description: 成员状态；不传时查询全部状态
+          schema:
+            $ref: '#/components/schemas/DesktopStatus'
+      responses:
+        '200':
+          description: 当前账号关联企业的成员分页列表
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminMemberListResponse'
+        '401':
+          $ref: '#/components/responses/PanelError'
+        '404':
+          $ref: '#/components/responses/PanelError'
+        '422':
+          $ref: '#/components/responses/PanelError'
+        '503':
+          $ref: '#/components/responses/PanelError'
+    post:
+      tags: [Desktop User - Organization]
+      operationId: createManagedDesktopMember
+      summary: 在当前账号关联企业中创建成员
+      description: 企业由当前登录账号确定。请求体上限为 16 KiB，手机号会规范化为 E.164 格式。
+      security:
+        - UserBearer: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMemberRequest'
+            example:
+              name: 张明
+              phone: '13800000000'
+      responses:
+        '200':
+          description: 成员及其托管 Model Token 已创建；响应不返回 raw Model Token
+          headers:
+            X-Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminMemberResponse'
+        '400':
+          $ref: '#/components/responses/PanelError'
+        '401':
+          $ref: '#/components/responses/PanelError'
+        '404':
+          $ref: '#/components/responses/PanelError'
+        '409':
+          $ref: '#/components/responses/PanelError'
+        '413':
+          $ref: '#/components/responses/PanelError'
+        '422':
+          $ref: '#/components/responses/PanelError'
+        '503':
+          $ref: '#/components/responses/PanelError'
+
+  /api/v1/desktop/organization/members/{member_id}:
+    parameters:
+      - $ref: '#/components/parameters/MemberId'
+    patch:
+      tags: [Desktop User - Organization]
+      operationId: updateManagedDesktopMember
+      summary: 修改当前账号关联企业的成员
+      description: 凭据或状态变化会撤销该成员的 Refresh family。请求体上限为 16 KiB。
+      security:
+        - UserBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMemberRequest'
+      responses:
+        '200':
+          description: 成员已修改
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminMemberResponse'
+        '401':
+          $ref: '#/components/responses/PanelError'
+        '404':
+          $ref: '#/components/responses/PanelError'
+        '409':
+          $ref: '#/components/responses/PanelError'
+        '413':
+          $ref: '#/components/responses/PanelError'
+        '422':
+          $ref: '#/components/responses/PanelError'
+    delete:
+      tags: [Desktop User - Organization]
+      operationId: deleteManagedDesktopMember
+      summary: 删除当前账号关联企业的成员
+      description: 执行业务软删除，同时 tombstone 当前 Model Token。
+      security:
+        - UserBearer: []
+      responses:
+        '200':
+          description: 成员已删除
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminDeleteMemberResponse'
+        '401':
+          $ref: '#/components/responses/PanelError'
+        '404':
+          $ref: '#/components/responses/PanelError'
+        '409':
+          $ref: '#/components/responses/PanelError'
+
+  /api/v1/desktop/organization/members/{member_id}/model-token/rotate:
+    parameters:
+      - $ref: '#/components/parameters/MemberId'
+    post:
+      tags: [Desktop User - Organization]
+      operationId: rotateManagedDesktopMemberModelToken
+      summary: 轮换当前账号关联企业成员的 Model Token
+      description: 轮换成功后只返回 Member DTO，不返回 raw Model Token。
+      security:
+        - UserBearer: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Model Token 已轮换
+          headers:
+            X-Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminMemberResponse'
+        '400':
+          $ref: '#/components/responses/PanelError'
+        '401':
+          $ref: '#/components/responses/PanelError'
+        '404':
+          $ref: '#/components/responses/PanelError'
+        '409':
+          $ref: '#/components/responses/PanelError'
+        '503':
+          $ref: '#/components/responses/PanelError'
 
   /api/v1/admin/desktop/updates:
     get:
@@ -1050,6 +1312,11 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: 面板 Admin Bearer Token
+    UserBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 普通面板账号登录或刷新接口返回的 Bearer Token
     DesktopBearer:
       type: http
       scheme: bearer
@@ -1150,6 +1417,17 @@ components:
             code: 409
             message: gateway user is already assigned
             reason: GATEWAY_USER_ALREADY_ASSIGNED
+            metadata: {}
+    PanelError:
+      description: 面板用户请求失败；HTTP 状态码反映错误类型，`reason` 是稳定的业务错误标识
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AdminErrorResponse'
+          example:
+            code: 404
+            message: desktop organization not found
+            reason: DESKTOP_ORGANIZATION_NOT_FOUND
             metadata: {}
     DesktopError:
       description: Desktop 请求失败；客户端应根据 `error.code` 分支，不应解析 `message`
@@ -1351,12 +1629,49 @@ components:
           $ref: '#/components/schemas/DesktopStatus'
         model_token_status:
           $ref: '#/components/schemas/DesktopModelTokenStatus'
+        usage:
+          $ref: '#/components/schemas/DesktopMemberUsage'
         created_at:
           type: string
           format: date-time
         updated_at:
           type: string
           format: date-time
+
+    DesktopMemberUsage:
+      type: object
+      required:
+        - today_tokens
+        - last_30_days_tokens
+        - total_tokens
+        - today_actual_cost
+        - last_30_days_actual_cost
+        - total_actual_cost
+      properties:
+        today_tokens:
+          type: integer
+          format: int64
+          minimum: 0
+        last_30_days_tokens:
+          type: integer
+          format: int64
+          minimum: 0
+        total_tokens:
+          type: integer
+          format: int64
+          minimum: 0
+        today_actual_cost:
+          type: number
+          format: double
+          minimum: 0
+        last_30_days_actual_cost:
+          type: number
+          format: double
+          minimum: 0
+        total_actual_cost:
+          type: number
+          format: double
+          minimum: 0
 
     CreateOrganizationRequest:
       type: object
@@ -1396,6 +1711,17 @@ components:
           type: integer
           format: int64
           minimum: 1
+
+    UpdateManagedOrganizationRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+        status:
+          $ref: '#/components/schemas/DesktopStatus'
 
     UpdateTargetConfigRequest:
       type: object

@@ -205,6 +205,21 @@ describe('feature route guard', () => {
     expect(next).toHaveBeenCalledWith()
   })
 
+  it('redirects a user Desktop route to the user dashboard when Desktop is disabled', async () => {
+    authStore.isAdmin = false
+    appStore.publicSettingsLoaded = true
+    appStore.cachedPublicSettings = { desktop_enabled: false }
+
+    const { navigation, next } = runGuard(
+      { requiresDesktop: true },
+      '/desktop/organization'
+    )
+    await navigation
+
+    expect(next).toHaveBeenCalledOnce()
+    expect(next).toHaveBeenCalledWith('/dashboard')
+  })
+
   it('allows Desktop software updates when the organization feature is disabled', async () => {
     authStore.isAdmin = true
     appStore.publicSettingsLoaded = true

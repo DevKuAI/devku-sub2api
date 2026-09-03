@@ -222,9 +222,11 @@ type DesktopUsageRepository interface {
 }
 
 type DesktopRepository interface {
+	ScopedToGatewayUser(userID int64) DesktopRepository
 	CreateOrganization(ctx context.Context, input DesktopCreateOrganizationInput) (*DesktopOrganization, error)
 	ListOrganizations(ctx context.Context, params pagination.PaginationParams, filters DesktopOrganizationListFilters) ([]DesktopOrganization, *pagination.PaginationResult, error)
 	GetOrganization(ctx context.Context, publicID string) (*DesktopOrganization, error)
+	GetOrganizationForGatewayUser(ctx context.Context, userID int64) (*DesktopOrganization, error)
 	UpdateOrganization(ctx context.Context, publicID string, input DesktopUpdateOrganizationInput) (*DesktopOrganization, []string, error)
 	UpdateTargetConfig(ctx context.Context, publicID string, config *DesktopTargetConfig) (*DesktopOrganization, error)
 	CreateMember(ctx context.Context, organizationPublicID string, input DesktopCreateMemberInput) (*DesktopMember, error)

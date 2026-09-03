@@ -175,6 +175,7 @@ export default {
     users: '用户管理',
     groups: '分组管理',
     desktopManagement: 'Desktop 管理',
+    desktopOrganization: '企业管理',
     desktopOrganizations: '组织管理',
     desktopUpdates: '软件更新',
     channels: '渠道管理',

@@ -289,6 +289,19 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/desktop/organization',
+    name: 'DesktopOrganization',
+    component: () => import('@/views/admin/desktop/DesktopOrganizationDetailView.vue'),
+    props: { selfManaged: true },
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      requiresDesktop: true,
+      title: 'Organization',
+      titleKey: 'admin.desktop.myOrganizationTitle'
+    }
+  },
+  {
     path: '/subscriptions',
     name: 'Subscriptions',
     component: () => import('@/views/user/SubscriptionsView.vue'),
@@ -973,7 +986,7 @@ router.beforeEach(async (to, _from, next) => {
   }
 
   if (to.meta.requiresDesktop && appStore.cachedPublicSettings?.desktop_enabled !== true) {
-    next('/admin/dashboard')
+    next(authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
     return
   }
 

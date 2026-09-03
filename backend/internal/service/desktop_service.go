@@ -71,6 +71,85 @@ func (s *DesktopService) GetOrganization(ctx context.Context, publicID string) (
 	return s.repo.GetOrganization(ctx, publicID)
 }
 
+func (s *DesktopService) GetManagedOrganization(ctx context.Context, userID int64) (*DesktopOrganization, error) {
+	_, organization, err := s.managedService(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	return organization, nil
+}
+
+func (s *DesktopService) UpdateManagedOrganization(ctx context.Context, userID int64, input DesktopUpdateOrganizationInput) (*DesktopOrganization, error) {
+	managed, organization, err := s.managedService(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	input.GatewayUserID = nil
+	input.GroupID = nil
+	return managed.UpdateOrganization(ctx, organization.PublicID, input)
+}
+
+func (s *DesktopService) UpdateManagedTargetConfig(ctx context.Context, userID int64, target *DesktopTargetConfig) (*DesktopOrganization, error) {
+	managed, organization, err := s.managedService(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	return managed.UpdateTargetConfig(ctx, organization.PublicID, target)
+}
+
+func (s *DesktopService) CreateManagedMember(ctx context.Context, userID int64, name, phone string) (*DesktopMember, error) {
+	managed, organization, err := s.managedService(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	return managed.CreateMember(ctx, organization.PublicID, name, phone)
+}
+
+func (s *DesktopService) ListManagedMembersWithUsage(ctx context.Context, userID int64, params pagination.PaginationParams, filters DesktopMemberListFilters) ([]DesktopMember, *pagination.PaginationResult, error) {
+	managed, organization, err := s.managedService(ctx, userID)
+	if err != nil {
+		return nil, nil, err
+	}
+	return managed.ListMembersWithUsage(ctx, organization.PublicID, params, filters)
+}
+
+func (s *DesktopService) UpdateManagedMember(ctx context.Context, userID int64, memberPublicID string, input DesktopUpdateMemberInput, phone *string) (*DesktopMember, error) {
+	managed, organization, err := s.managedService(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	return managed.UpdateMember(ctx, organization.PublicID, memberPublicID, input, phone)
+}
+
+func (s *DesktopService) DeleteManagedMember(ctx context.Context, userID int64, memberPublicID string) error {
+	managed, organization, err := s.managedService(ctx, userID)
+	if err != nil {
+		return err
+	}
+	return managed.DeleteMember(ctx, organization.PublicID, memberPublicID)
+}
+
+func (s *DesktopService) RotateManagedMemberAPIKey(ctx context.Context, userID int64, memberPublicID string) (*DesktopMember, error) {
+	managed, organization, err := s.managedService(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	return managed.RotateMemberAPIKey(ctx, organization.PublicID, memberPublicID)
+}
+
+func (s *DesktopService) managedService(ctx context.Context, userID int64) (*DesktopService, *DesktopOrganization, error) {
+	if userID <= 0 {
+		return nil, nil, ErrDesktopUnauthenticated
+	}
+	managed := *s
+	managed.repo = s.repo.ScopedToGatewayUser(userID)
+	organization, err := managed.repo.GetOrganizationForGatewayUser(ctx, userID)
+	if err != nil {
+		return nil, nil, err
+	}
+	return &managed, organization, nil
+}
+
 func (s *DesktopService) UpdateOrganization(ctx context.Context, publicID string, input DesktopUpdateOrganizationInput) (*DesktopOrganization, error) {
 	if input.Name != nil {
 		name := strings.TrimSpace(*input.Name)

@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/handler"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -16,6 +17,7 @@ func RegisterUserRoutes(
 	auditLog middleware.AuditLogMiddleware,
 	settingService *service.SettingService,
 	panelRateLimiter *middleware.PanelRateLimiter,
+	cfg *config.Config,
 ) {
 	authenticated := v1.Group("")
 	authenticated.Use(gin.HandlerFunc(jwtAuth))
@@ -25,6 +27,8 @@ func RegisterUserRoutes(
 	// 用户管理面变更类操作入审计（含 TOTP 启用/禁用、step-up 验证、密码修改等安全事件）
 	authenticated.Use(gin.HandlerFunc(auditLog))
 	{
+		registerDesktopUserRoutesIfEnabled(authenticated, h, cfg)
+
 		// 用户接口
 		user := authenticated.Group("/user")
 		{
@@ -155,5 +159,23 @@ func RegisterUserRoutes(
 			monitorV2.GET("/errors", h.ChannelMonitorV2.Errors)
 			monitorV2.GET("/users", h.ChannelMonitorV2.Users)
 		}
+	}
+}
+
+func registerDesktopUserRoutesIfEnabled(authenticated *gin.RouterGroup, h *handler.Handlers, cfg *config.Config) {
+	if cfg == nil || !cfg.Desktop.Enabled {
+		return
+	}
+	desktop := authenticated.Group("/desktop/organization")
+	desktop.Use(middleware.DesktopAdminBodyLimit())
+	{
+		desktop.GET("", h.Desktop.GetManagedOrganization)
+		desktop.PATCH("", h.Desktop.UpdateManagedOrganization)
+		desktop.PUT("/model-configuration", h.Desktop.UpdateManagedModelConfiguration)
+		desktop.POST("/members", h.Desktop.CreateManagedMember)
+		desktop.GET("/members", h.Desktop.ListManagedMembers)
+		desktop.PATCH("/members/:member_id", h.Desktop.UpdateManagedMember)
+		desktop.DELETE("/members/:member_id", h.Desktop.DeleteManagedMember)
+		desktop.POST("/members/:member_id/model-token/rotate", h.Desktop.RotateManagedModelToken)
 	}
 }

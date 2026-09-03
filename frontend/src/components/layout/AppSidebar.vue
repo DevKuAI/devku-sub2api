@@ -198,6 +198,7 @@ import { sanitizeSvg } from '@/utils/sanitize'
 import { sanitizeUrl } from '@/utils/url'
 import { FeatureFlags, makeSidebarFlag } from '@/utils/featureFlags'
 import { useBatchImageAccess } from '@/composables/useBatchImageAccess'
+import { useDesktopOrganizationAccess } from '@/composables/useDesktopOrganizationAccess'
 
 interface NavItem {
   path: string
@@ -258,6 +259,11 @@ const authStore = useAuthStore()
 const onboardingStore = useOnboardingStore()
 const adminSettingsStore = useAdminSettingsStore()
 const { canUseBatchImage, refreshBatchImageAccess } = useBatchImageAccess()
+const {
+  canManageDesktopOrganization,
+  refreshDesktopOrganizationAccess,
+  resetDesktopOrganizationAccess,
+} = useDesktopOrganizationAccess()
 
 const sidebarCollapsed = computed(() => appStore.sidebarCollapsed)
 const mobileOpen = computed(() => appStore.mobileOpen)
@@ -720,6 +726,9 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
   if (withDashboard) {
     items.push({ path: '/dashboard', label: t('nav.dashboard'), icon: DashboardIcon })
   }
+  if (flagDesktop() && canManageDesktopOrganization.value) {
+    items.push({ path: '/desktop/organization', label: t('nav.desktopOrganization'), icon: ServerIcon })
+  }
   items.push(
     { path: '/keys', label: t('nav.apiKeys'), icon: KeyIcon },
     { path: '/batch-image', label: t('nav.batchImage'), icon: BatchImageIcon, hideInSimpleMode: true, featureFlag: flagBatchImageAccess },
@@ -966,6 +975,18 @@ watch(
     if (v) {
       adminSettingsStore.fetch()
     }
+  },
+  { immediate: true }
+)
+
+watch(
+  [() => authStore.user?.id, flagDesktop],
+  ([userID, desktopEnabled]) => {
+    if (userID && desktopEnabled) {
+      void refreshDesktopOrganizationAccess(true)
+      return
+    }
+    resetDesktopOrganizationAccess()
   },
   { immediate: true }
 )

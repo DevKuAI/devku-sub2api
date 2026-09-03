@@ -2,7 +2,7 @@
   <AppLayout>
     <div class="mx-auto min-w-0 max-w-7xl space-y-6">
       <div class="flex flex-wrap items-start gap-3">
-        <button class="btn btn-secondary px-3" type="button" :title="t('common.back')" :aria-label="t('common.back')" @click="router.push('/admin/desktop/organizations')">
+        <button v-if="!selfManaged" class="btn btn-secondary px-3" type="button" :title="t('common.back')" :aria-label="t('common.back')" @click="router.push('/admin/desktop/organizations')">
           <Icon name="arrowLeft" size="md" />
         </button>
         <div class="min-w-0 flex-1">
@@ -122,9 +122,11 @@
       <form id="desktop-organization-edit" class="space-y-4" @submit.prevent="submitOrganizationEdit">
         <Input v-model="organizationForm.name" :label="t('admin.desktop.organizationName')" required />
         <div><label class="input-label mb-1.5 block">{{ t('common.status') }}</label><Select v-model="organizationForm.status" :options="editableStatusOptions" /></div>
-        <div><label class="input-label mb-1.5 block">{{ t('admin.desktop.gatewayUser') }}</label><Select v-model="organizationForm.gateway_user_id" :options="gatewayUserOptions" searchable remote :loading="gatewayUsersLoading" :disabled="gatewayUserLocked" @search="loadGatewayUsers" /></div>
-        <div><label class="input-label mb-1.5 block">{{ t('admin.desktop.group') }}</label><Select v-model="organizationForm.group_id" :options="groupOptions" searchable :loading="groupsLoading" /></div>
-        <p v-if="gatewayUserLocked" class="text-sm text-gray-500 dark:text-dark-400">{{ t('admin.desktop.provisioningLockedHint') }}</p>
+        <template v-if="!selfManaged">
+          <div><label class="input-label mb-1.5 block">{{ t('admin.desktop.gatewayUser') }}</label><Select v-model="organizationForm.gateway_user_id" :options="gatewayUserOptions" searchable remote :loading="gatewayUsersLoading" :disabled="gatewayUserLocked" @search="loadGatewayUsers" /></div>
+          <div><label class="input-label mb-1.5 block">{{ t('admin.desktop.group') }}</label><Select v-model="organizationForm.group_id" :options="groupOptions" searchable :loading="groupsLoading" /></div>
+          <p v-if="gatewayUserLocked" class="text-sm text-gray-500 dark:text-dark-400">{{ t('admin.desktop.provisioningLockedHint') }}</p>
+        </template>
       </form>
       <template #footer><div class="flex justify-end gap-3"><button class="btn btn-secondary" type="button" @click="closeOrganizationEdit">{{ t('common.cancel') }}</button><button class="btn btn-primary" type="submit" form="desktop-organization-edit" :disabled="organizationSaving">{{ organizationSaving ? t('common.saving') : t('common.save') }}</button></div></template>
     </BaseDialog>
@@ -146,10 +148,12 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
+import desktopOrganizationAPI from '@/api/desktopOrganization'
 import type { DesktopMember, DesktopModelTokenStatus, DesktopOrganization, DesktopStatus, DesktopTargetConfig, DesktopWireAPI } from '@/api/admin/desktop'
 import type { AdminGroup, AdminUser } from '@/types'
 import type { Column } from '@/components/common/types'
 import { useAppStore } from '@/stores/app'
+import { useAuthStore } from '@/stores/auth'
 import { formatCompactNumber, formatDateTime } from '@/utils/format'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import AppLayout from '@/components/layout/AppLayout.vue'
@@ -163,12 +167,16 @@ import Input from '@/components/common/Input.vue'
 import Icon from '@/components/icons/Icon.vue'
 
 type DetailTab = 'members' | 'configuration'
+const { selfManaged = false } = defineProps<{ selfManaged?: boolean }>()
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const appStore = useAppStore()
-const organizationID = computed(() => String(route.params.organizationId || ''))
+const authStore = useAuthStore()
 const organization = ref<DesktopOrganization | null>(null)
+const organizationID = computed(() => selfManaged ? (organization.value?.public_id || '') : String(route.params.organizationId || ''))
+const organizationAPI = computed(() => selfManaged ? desktopOrganizationAPI : adminAPI.desktop)
+const dashboardPath = computed(() => authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
 const activeTab = computed<DetailTab>(() => route.query.tab === 'configuration' ? 'configuration' : 'members')
 const tabs = computed(() => [{ value: 'members' as const, label: t('admin.desktop.members') }, { value: 'configuration' as const, label: t('admin.desktop.configuration') }])
 const members = ref<DesktopMember[]>([])
@@ -240,18 +248,27 @@ function handleTabKeydown(event: KeyboardEvent, index: number) {
   void nextTick(() => document.getElementById(tabId(nextTab))?.focus())
 }
 
-async function loadOrganization() {
+async function loadOrganization(): Promise<boolean> {
   try {
-    const result = await adminAPI.desktop.getOrganization(organizationID.value)
+    const result = await organizationAPI.value.getOrganization(organizationID.value)
+    if (!result) {
+      organization.value = null
+      if (selfManaged) void router.replace(dashboardPath.value)
+      return false
+    }
     organization.value = result
-    currentGatewayUser.value = await adminAPI.desktop.getGatewayUser(result.gateway_user.id)
+    currentGatewayUser.value = selfManaged ? null : await adminAPI.desktop.getGatewayUser(result.gateway_user.id)
     applyConfiguration(result.target_config)
-  } catch (error) { appStore.showError(errorMessage(error)) }
+    return true
+  } catch (error) {
+    appStore.showError(errorMessage(error))
+    return false
+  }
 }
 async function loadMembers() {
   memberController?.abort(); memberController = new AbortController(); membersLoading.value = true
   try {
-    const result = await adminAPI.desktop.listMembers(organizationID.value, memberPagination.page, memberPagination.page_size, { search: memberSearch.value.trim(), status: memberStatus.value }, memberController.signal)
+    const result = await organizationAPI.value.listMembers(organizationID.value, memberPagination.page, memberPagination.page_size, { search: memberSearch.value.trim(), status: memberStatus.value }, memberController.signal)
     members.value = result.items; memberPagination.total = result.total
   } catch (error) { if ((error as { code?: string })?.code !== 'ERR_CANCELED') appStore.showError(errorMessage(error)) }
   finally { membersLoading.value = false }
@@ -270,7 +287,9 @@ async function loadGatewayUsers(query = '') {
 async function openEditOrganization() {
   if (!organization.value) return
   Object.assign(organizationForm, { name: organization.value.name, status: organization.value.status, gateway_user_id: organization.value.gateway_user.id, group_id: organization.value.group.id })
-  showOrganizationEdit.value = true; groupsLoading.value = true
+  showOrganizationEdit.value = true
+  if (selfManaged) return
+  groupsLoading.value = true
   void loadGatewayUsers()
   try { groups.value = await adminAPI.desktop.listActiveGroups() } catch (error) { appStore.showError(errorMessage(error)) } finally { groupsLoading.value = false }
 }
@@ -288,9 +307,9 @@ async function saveOrganization() {
   organizationSaving.value = true
   try {
     const input = { name: organizationForm.name.trim(), status: organizationForm.status } as { name: string; status: DesktopStatus; gateway_user_id?: number; group_id?: number }
-    if (!gatewayUserLocked.value && organizationForm.gateway_user_id && organizationForm.gateway_user_id !== organization.value.gateway_user.id) input.gateway_user_id = organizationForm.gateway_user_id
-    if (organizationForm.group_id && organizationForm.group_id !== organization.value.group.id) input.group_id = organizationForm.group_id
-    organization.value = await adminAPI.desktop.updateOrganization(organizationID.value, input)
+    if (!selfManaged && !gatewayUserLocked.value && organizationForm.gateway_user_id && organizationForm.gateway_user_id !== organization.value.gateway_user.id) input.gateway_user_id = organizationForm.gateway_user_id
+    if (!selfManaged && organizationForm.group_id && organizationForm.group_id !== organization.value.group.id) input.group_id = organizationForm.group_id
+    organization.value = await organizationAPI.value.updateOrganization(organizationID.value, input)
     appStore.showSuccess(t('admin.desktop.organizationUpdated')); showOrganizationEdit.value = false; closeConfirm(); await loadMembers()
   } catch (error) { appStore.showError(errorMessage(error)) } finally { organizationSaving.value = false }
 }
@@ -302,18 +321,18 @@ async function saveMember() {
 	if (!memberForm.name.trim() || !memberForm.phone.trim()) { appStore.showError(t('admin.desktop.errors.VALIDATION_FAILED')); return }
 	memberSaving.value = true
 	try {
-		if (editingMember.value) await adminAPI.desktop.updateMember(organizationID.value, editingMember.value.public_id, { name: memberForm.name.trim(), ...(memberForm.phone.trim() !== editingMember.value.phone ? { phone: memberForm.phone.trim() } : {}) })
-    else await adminAPI.desktop.createMember(organizationID.value, { name: memberForm.name.trim(), phone: memberForm.phone.trim() })
+		if (editingMember.value) await organizationAPI.value.updateMember(organizationID.value, editingMember.value.public_id, { name: memberForm.name.trim(), ...(memberForm.phone.trim() !== editingMember.value.phone ? { phone: memberForm.phone.trim() } : {}) })
+    else await organizationAPI.value.createMember(organizationID.value, { name: memberForm.name.trim(), phone: memberForm.phone.trim() })
     appStore.showSuccess(t(editingMember.value ? 'admin.desktop.memberUpdated' : 'admin.desktop.memberCreated')); showMemberDialog.value = false; await Promise.all([loadMembers(), loadOrganization()])
   } catch (error) { appStore.showError(errorMessage(error)) } finally { memberSaving.value = false }
 }
 function toggleMember(member: DesktopMember) {
-  const action = async () => { try { await adminAPI.desktop.updateMember(organizationID.value, member.public_id, { status: member.status === 'active' ? 'disabled' : 'active' }); appStore.showSuccess(t('admin.desktop.memberUpdated')); closeConfirm(); await loadMembers() } catch (error) { appStore.showError(errorMessage(error)) } }
+  const action = async () => { try { await organizationAPI.value.updateMember(organizationID.value, member.public_id, { status: member.status === 'active' ? 'disabled' : 'active' }); appStore.showSuccess(t('admin.desktop.memberUpdated')); closeConfirm(); await loadMembers() } catch (error) { appStore.showError(errorMessage(error)) } }
   if (member.status === 'active') openConfirm(t('admin.desktop.disableMember'), t('admin.desktop.disableMemberImpact', { name: member.name }), t('common.disable'), action)
   else void action()
 }
-function confirmRotate(member: DesktopMember) { openConfirm(t('admin.desktop.rotateModelToken'), t('admin.desktop.rotateModelTokenImpact', { name: member.name }), t('admin.desktop.rotate'), async () => { try { await adminAPI.desktop.rotateModelToken(organizationID.value, member.public_id); appStore.showSuccess(t('admin.desktop.modelTokenRotated')); closeConfirm(); await loadMembers() } catch (error) { appStore.showError(errorMessage(error)) } }) }
-function confirmDeleteMember(member: DesktopMember) { openConfirm(t('admin.desktop.deleteMember'), t('admin.desktop.deleteMemberImpact', { name: member.name }), t('common.delete'), async () => { try { await adminAPI.desktop.deleteMember(organizationID.value, member.public_id); appStore.showSuccess(t('admin.desktop.memberDeleted')); closeConfirm(); await Promise.all([loadMembers(), loadOrganization()]) } catch (error) { appStore.showError(errorMessage(error)) } }) }
+function confirmRotate(member: DesktopMember) { openConfirm(t('admin.desktop.rotateModelToken'), t('admin.desktop.rotateModelTokenImpact', { name: member.name }), t('admin.desktop.rotate'), async () => { try { await organizationAPI.value.rotateModelToken(organizationID.value, member.public_id); appStore.showSuccess(t('admin.desktop.modelTokenRotated')); closeConfirm(); await loadMembers() } catch (error) { appStore.showError(errorMessage(error)) } }) }
+function confirmDeleteMember(member: DesktopMember) { openConfirm(t('admin.desktop.deleteMember'), t('admin.desktop.deleteMemberImpact', { name: member.name }), t('common.delete'), async () => { try { await organizationAPI.value.deleteMember(organizationID.value, member.public_id); appStore.showSuccess(t('admin.desktop.memberDeleted')); closeConfirm(); await Promise.all([loadMembers(), loadOrganization()]) } catch (error) { appStore.showError(errorMessage(error)) } }) }
 function openConfirm(title: string, message: string, confirmText: string, action: () => Promise<void>) { Object.assign(confirmState, { show: true, title, message, confirmText, action }) }
 function closeConfirm() { confirmState.show = false; confirmState.action = null }
 async function runConfirmedAction() {
@@ -336,12 +355,22 @@ async function saveConfiguration() {
   const work = configForm.includeWorkbuddy ? buildTarget(configForm.work, 'chat_completions') : undefined
   if (![chat, work].filter(Boolean).every((target) => target?.provider_id && target.display_name && target.requested_model)) { appStore.showError(t('admin.desktop.errors.VALIDATION_FAILED')); return }
   configSaving.value = true
-  try { organization.value = await adminAPI.desktop.updateModelConfiguration(organizationID.value, { schema_version: 1, targets: { chatgpt_codex: chat, ...(work ? { workbuddy: work } : {}) } }); appStore.showSuccess(t('admin.desktop.configurationSaved')) }
+  try { organization.value = await organizationAPI.value.updateModelConfiguration(organizationID.value, { schema_version: 1, targets: { chatgpt_codex: chat, ...(work ? { workbuddy: work } : {}) } }); appStore.showSuccess(t('admin.desktop.configurationSaved')) }
   catch (error) { appStore.showError(errorMessage(error)) } finally { configSaving.value = false }
 }
 
-watch(organizationID, async () => { await Promise.all([loadOrganization(), loadMembers()]) })
-onMounted(() => { void Promise.all([loadOrganization(), loadMembers()]) })
+watch(() => route.params.organizationId, async () => {
+  if (!selfManaged) await Promise.all([loadOrganization(), loadMembers()])
+})
+onMounted(() => {
+  if (selfManaged) {
+    void loadOrganization().then(async (loaded) => {
+      if (loaded) await loadMembers()
+    })
+    return
+  }
+  void Promise.all([loadOrganization(), loadMembers()])
+})
 onBeforeUnmount(() => { clearTimeout(memberTimer); memberController?.abort(); gatewayController?.abort() })
 </script>
 

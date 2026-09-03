@@ -175,6 +175,7 @@ export default {
     users: 'Users',
     groups: 'Groups',
     desktopManagement: 'Desktop Management',
+    desktopOrganization: 'Organization',
     desktopOrganizations: 'Organizations',
     desktopUpdates: 'Software Updates',
     channels: 'Channels',

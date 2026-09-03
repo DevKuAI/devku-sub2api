@@ -14,6 +14,16 @@ const desktopAPI = vi.hoisted(() => ({
   rotateModelToken: vi.fn(),
   updateModelConfiguration: vi.fn(),
 }))
+const managedDesktopAPI = vi.hoisted(() => ({
+  getOrganization: vi.fn(),
+  listMembers: vi.fn(),
+  updateOrganization: vi.fn(),
+  updateMember: vi.fn(),
+  createMember: vi.fn(),
+  deleteMember: vi.fn(),
+  rotateModelToken: vi.fn(),
+  updateModelConfiguration: vi.fn(),
+}))
 
 const router = vi.hoisted(() => ({ replace: vi.fn(), push: vi.fn() }))
 const route = vi.hoisted(() => ({
@@ -21,8 +31,10 @@ const route = vi.hoisted(() => ({
   query: { tab: 'members' },
 }))
 const appStore = vi.hoisted(() => ({ showError: vi.fn(), showSuccess: vi.fn() }))
+const authStore = vi.hoisted(() => ({ isAdmin: false }))
 
 vi.mock('@/api/admin', () => ({ adminAPI: { desktop: desktopAPI } }))
+vi.mock('@/api/desktopOrganization', () => ({ default: managedDesktopAPI }))
 vi.mock('vue-router', () => ({ useRoute: () => route, useRouter: () => router }))
 vi.mock('vue-i18n', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-i18n')>()
@@ -32,6 +44,7 @@ vi.mock('vue-i18n', async (importOriginal) => {
   }
 })
 vi.mock('@/stores/app', () => ({ useAppStore: () => appStore }))
+vi.mock('@/stores/auth', () => ({ useAuthStore: () => authStore }))
 vi.mock('@/composables/usePersistedPageSize', () => ({ getPersistedPageSize: () => 20 }))
 
 import DesktopOrganizationDetailView from './DesktopOrganizationDetailView.vue'
@@ -86,6 +99,25 @@ function mountView() {
   })
 }
 
+function mountManagedView() {
+  return mount(DesktopOrganizationDetailView, {
+    props: { selfManaged: true },
+    global: {
+      stubs: {
+        AppLayout: { template: '<main><slot /></main>' },
+        DataTable: true,
+        Pagination: true,
+        BaseDialog: true,
+        ConfirmDialog: true,
+        StatusBadge: true,
+        Select: true,
+        Input: true,
+        Icon: true,
+      },
+    },
+  })
+}
+
 function mountViewWithRealMemberForm() {
 	return mount(DesktopOrganizationDetailView, {
 		global: {
@@ -112,7 +144,10 @@ describe('DesktopOrganizationDetailView', () => {
 	desktopAPI.listAvailableGatewayUsers.mockResolvedValue({ items: [], total: 0, page: 1, page_size: 30, pages: 0 })
 	desktopAPI.listActiveGroups.mockResolvedValue([])
 	desktopAPI.updateMember.mockResolvedValue({ ...member })
-	desktopAPI.updateModelConfiguration.mockResolvedValue({ ...organization })
+    desktopAPI.updateModelConfiguration.mockResolvedValue({ ...organization })
+    managedDesktopAPI.getOrganization.mockResolvedValue({ ...organization })
+    managedDesktopAPI.listMembers.mockResolvedValue({ items: [{ ...member }], total: 1, page: 1, page_size: 20, pages: 1 })
+    managedDesktopAPI.updateOrganization.mockResolvedValue({ ...organization })
     route.query.tab = 'members'
   })
 
@@ -221,6 +256,38 @@ describe('DesktopOrganizationDetailView', () => {
 
     expect(desktopAPI.updateModelConfiguration).not.toHaveBeenCalled()
     expect(appStore.showError).toHaveBeenCalledWith('admin.desktop.errors.VALIDATION_FAILED')
+    wrapper.unmount()
+  })
+
+  it('uses the managed API without exposing carrier or group reassignment', async () => {
+    const wrapper = mountManagedView()
+    await flushPromises()
+    const vm = wrapper.vm as any
+
+    expect(managedDesktopAPI.getOrganization).toHaveBeenCalled()
+    expect(managedDesktopAPI.listMembers).toHaveBeenCalled()
+    expect(desktopAPI.getGatewayUser).not.toHaveBeenCalled()
+    expect(desktopAPI.listAvailableGatewayUsers).not.toHaveBeenCalled()
+    expect(desktopAPI.listActiveGroups).not.toHaveBeenCalled()
+
+    await vm.openEditOrganization()
+    vm.organizationForm.name = 'Managed Organization'
+    await vm.saveOrganization()
+
+    expect(managedDesktopAPI.updateOrganization).toHaveBeenCalledWith('org_one', {
+      name: 'Managed Organization',
+      status: 'active',
+    })
+    wrapper.unmount()
+  })
+
+  it('redirects direct managed access when the user has no organization', async () => {
+    managedDesktopAPI.getOrganization.mockResolvedValue(null)
+    const wrapper = mountManagedView()
+    await flushPromises()
+
+    expect(router.replace).toHaveBeenCalledWith('/dashboard')
+    expect(managedDesktopAPI.listMembers).not.toHaveBeenCalled()
     wrapper.unmount()
   })
 

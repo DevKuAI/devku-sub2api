@@ -2,6 +2,7 @@ export default {
   desktop: {
     title: 'Desktop 管理',
     detailTitle: 'Desktop 企业详情',
+    myOrganizationTitle: '企业管理',
     description: '管理 Desktop 企业、成员和模型配置',
     organization: '企业',
     organizations: '企业',

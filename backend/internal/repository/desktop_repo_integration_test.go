@@ -82,6 +82,47 @@ func TestDesktopRepositoryLoadsAssignedExclusiveGroup(t *testing.T) {
 	require.Equal(t, group.ID, groupID)
 }
 
+func TestDesktopRepositoryGatewayUserScopeRejectsCrossOrganizationAccess(t *testing.T) {
+	ctx := context.Background()
+	owner := newDesktopRepositoryFixture(t, "owner-scope", 10)
+	other := newDesktopRepositoryFixture(t, "other-scope", 10)
+	otherMember := other.createMember(t, "other-scope", 1)
+	scoped := owner.repo.ScopedToGatewayUser(owner.user.ID)
+
+	organization, err := scoped.GetOrganizationForGatewayUser(ctx, owner.user.ID)
+	require.NoError(t, err)
+	require.Equal(t, owner.organization.PublicID, organization.PublicID)
+
+	_, err = scoped.GetOrganization(ctx, other.organization.PublicID)
+	require.ErrorIs(t, err, service.ErrDesktopOrganizationNotFound)
+	_, _, err = scoped.ListMembers(ctx, other.organization.PublicID, pagination.PaginationParams{Page: 1, PageSize: 20}, service.DesktopMemberListFilters{})
+	require.ErrorIs(t, err, service.ErrDesktopOrganizationNotFound)
+	_, _, err = scoped.UpdateOrganization(ctx, other.organization.PublicID, service.DesktopUpdateOrganizationInput{})
+	require.ErrorIs(t, err, service.ErrDesktopOrganizationNotFound)
+	_, err = scoped.UpdateTargetConfig(ctx, other.organization.PublicID, &service.DesktopTargetConfig{
+		SchemaVersion: 1,
+		Targets: service.DesktopTargets{ChatGPTCodex: &service.DesktopTarget{
+			Enabled: true, ProviderID: "provider", DisplayName: "Codex", RequestedModel: "model", WireAPI: service.DesktopWireAPIResponses,
+		}},
+	})
+	require.ErrorIs(t, err, service.ErrDesktopOrganizationNotFound)
+	_, err = scoped.CreateMember(ctx, other.organization.PublicID, service.DesktopCreateMemberInput{
+		Member: &service.DesktopMember{PublicID: "mem_cross_scope", Name: "Cross", NameNormalized: "Cross", Phone: "+8613800000011"},
+		APIKey: &service.APIKey{Key: "sk-cross-scope", Name: "Cross", Status: service.StatusAPIKeyActive},
+	})
+	require.ErrorIs(t, err, service.ErrDesktopOrganizationNotFound)
+	_, _, err = scoped.UpdateMember(ctx, other.organization.PublicID, otherMember.PublicID, service.DesktopUpdateMemberInput{})
+	require.ErrorIs(t, err, service.ErrDesktopOrganizationNotFound)
+	_, err = scoped.DeleteMember(ctx, other.organization.PublicID, otherMember.PublicID)
+	require.ErrorIs(t, err, service.ErrDesktopOrganizationNotFound)
+	_, _, err = scoped.RotateMemberAPIKey(ctx, other.organization.PublicID, otherMember.PublicID, &service.APIKey{})
+	require.ErrorIs(t, err, service.ErrDesktopOrganizationNotFound)
+
+	stillPresent, err := other.repo.GetMember(ctx, other.organization.PublicID, otherMember.PublicID)
+	require.NoError(t, err)
+	require.Equal(t, otherMember.PublicID, stillPresent.PublicID)
+}
+
 func TestDesktopRepositoryReassignsOrganizationGroupWithExistingMembers(t *testing.T) {
 	ctx := context.Background()
 	fixture := newDesktopRepositoryFixture(t, "group-reassign", 10)

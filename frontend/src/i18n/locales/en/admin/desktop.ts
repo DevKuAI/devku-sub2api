@@ -2,6 +2,7 @@ export default {
   desktop: {
     title: 'Desktop Management',
     detailTitle: 'Desktop Organization',
+    myOrganizationTitle: 'Organization Management',
     description: 'Manage Desktop organizations, members, and model configuration',
     organization: 'Organization',
     organizations: 'Organizations',
