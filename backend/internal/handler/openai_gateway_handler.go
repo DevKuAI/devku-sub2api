@@ -226,6 +226,9 @@ func usageRecordContext(parent context.Context, base context.Context) context.Co
 	if requestID, _ := parent.Value(ctxkey.RequestID).(string); strings.TrimSpace(requestID) != "" {
 		base = context.WithValue(base, ctxkey.RequestID, strings.TrimSpace(requestID))
 	}
+	if requestBody := service.UsageRequestBodyFromContext(parent); requestBody != nil {
+		base = service.WithUsageRequestBodySnapshot(base, requestBody)
+	}
 	return base
 }
 
@@ -2752,6 +2755,10 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 			},
 			AfterTurn: func(turn int, result *service.OpenAIForwardResult, turnErr error) {
 				turnStart := getTurnStart(turn)
+				turnRequestBody := service.UsageRequestBodyFromContext(c.Request.Context())
+				defer func() {
+					service.WithUsageRequestBodySnapshot(c.Request.Context(), nil)
+				}()
 				cyberBlockBody := takeCyberTurnBody(turn)
 				// F1: cyber 标记按 turn 生命周期清理——defer 保证任意早返回路径都执行；
 				// CyberBlocked 必须在 submit 前同步预捕获（task 闭包由 worker 池异步执行，
@@ -2837,6 +2844,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 						APIKeyService:      h.apiKeyService,
 						QuotaPlatform:      quotaPlatform,
 						SessionID:          sessionID,
+						RequestBody:        turnRequestBody,
 						ChannelUsageFields: turnUsageFields,
 						PricingAt:          turnRecordPricingAt,
 						CyberBlocked:       cyberBlocked,
@@ -4010,6 +4018,7 @@ func (h *OpenAIGatewayHandler) recordCyberPolicyIfMarked(c *gin.Context, apiKey 
 	}
 	// 提前拍成标量，避免在下方 goroutine 内访问 gin.Context。
 	sessionID := service.ExtractClientSessionID(c)
+	requestBody := service.UsageRequestBodyFromContext(requestCtx)
 	nativeCompactionV2 := service.IsOpenAINativeCompactionV2(c)
 	apiKeyPrefix := ""
 	if apiKey != nil {
@@ -4076,6 +4085,7 @@ func (h *OpenAIGatewayHandler) recordCyberPolicyIfMarked(c *gin.Context, apiKey 
 				UserAgent:          userAgent,
 				IPAddress:          clientIPStr,
 				SessionID:          sessionID,
+				RequestBody:        requestBody,
 				RequestPayloadHash: requestPayloadHash,
 				APIKeyService:      apiKeySvc,
 				NativeCompactionV2: nativeCompactionV2,

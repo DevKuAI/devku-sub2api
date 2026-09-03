@@ -220,6 +220,24 @@ func (h *UsageHandler) List(c *gin.Context) {
 	response.Paginated(c, out, result.Total, page, pageSize)
 }
 
+// RequestBody returns a single redacted request body without including it in
+// usage list responses.
+// GET /api/v1/admin/usage/:id/request-body
+func (h *UsageHandler) RequestBody(c *gin.Context) {
+	c.Header("Cache-Control", "private, no-store")
+	id, err := strconv.ParseInt(strings.TrimSpace(c.Param("id")), 10, 64)
+	if err != nil || id <= 0 {
+		response.BadRequest(c, "Invalid usage log id")
+		return
+	}
+	body, err := h.usageService.GetRequestBody(c.Request.Context(), id)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, dto.AdminUsageRequestBody{RequestBody: body})
+}
+
 // Stats handles getting usage statistics with filters
 // GET /api/v1/admin/usage/stats
 func (h *UsageHandler) Stats(c *gin.Context) {

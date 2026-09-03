@@ -1530,6 +1530,18 @@ func (s *ContentModerationService) loadRuntimeSnapshot(ctx context.Context) (*co
 	return s.refreshRuntimeSnapshot(ctx)
 }
 
+// InvalidateRuntimeSnapshot makes risk-control setting changes visible to the
+// next request immediately instead of waiting for the runtime cache TTL.
+func (s *ContentModerationService) InvalidateRuntimeSnapshot() {
+	if s == nil {
+		return
+	}
+	s.runtimeRefreshMu.Lock()
+	s.runtimeSnapshot.Store(nil)
+	s.runtimeRefreshRetryAt.Store(0)
+	s.runtimeRefreshMu.Unlock()
+}
+
 func (s *ContentModerationService) runtimeSnapshotTTL() time.Duration {
 	if s != nil && s.runtimeCacheTTL > 0 {
 		return s.runtimeCacheTTL

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -85,6 +86,29 @@ func (s *AuditLogService) Record(entry *AuditLog) {
 	default:
 		atomic.AddUint64(&s.droppedCount, 1)
 	}
+}
+
+// RecordSync persists a security-sensitive audit entry before the protected
+// response is released to the client.
+func (s *AuditLogService) RecordSync(ctx context.Context, entry *AuditLog) error {
+	if s == nil || s.repo == nil {
+		return errors.New("audit log service unavailable")
+	}
+	if entry == nil {
+		return errors.New("audit log entry is nil")
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if entry.CreatedAt.IsZero() {
+		entry.CreatedAt = time.Now().UTC()
+	}
+	if err := s.repo.Insert(ctx, entry); err != nil {
+		atomic.AddUint64(&s.writeFailed, 1)
+		return fmt.Errorf("persist audit log: %w", err)
+	}
+	atomic.AddUint64(&s.writtenCount, 1)
+	return nil
 }
 
 // List 分页查询审计日志。

@@ -186,6 +186,12 @@ type UsageLog struct {
 	// (e.g. the session_id / X-Session-Id headers). Nil when the client sent no
 	// valid session header. It is never derived from prompt_cache_key or content.
 	SessionID *string
+	// RequestBody is the redacted request payload captured only while risk
+	// control is enabled. Nil means the payload was not captured.
+	RequestBody *string
+	// RequestBodyAvailable is populated by list queries without loading the
+	// potentially large request body itself.
+	RequestBodyAvailable bool
 
 	// Cache TTL Override 标记（管理员强制替换了缓存 TTL 计费）
 	CacheTTLOverridden bool

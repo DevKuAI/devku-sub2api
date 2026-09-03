@@ -63,7 +63,7 @@ export default {
           description: '启用内容审计菜单和全端点请求审核入口。默认关闭。',
           configureLink: '前往 风控中心 配置内容审计',
           enabled: '启用风控中心',
-          enabledHint: '关闭后管理员侧边栏入口隐藏，网关内容审计不会执行。',
+          enabledHint: '开启后执行网关内容审计，并记录脱敏后的请求内容；关闭后不记录请求内容，管理员侧边栏入口同时隐藏。',
           cyberSessionBlock: 'cyber 会话自动屏蔽',
           cyberSessionBlockHint: '开启后,被上游网络安全策略(cyber_policy)拦截的会话将在 TTL 内被本地屏蔽,不再发往上游。仅屏蔽该会话,不影响同 Key 其他会话。',
           cyberSessionBlockTTL: '屏蔽时长(秒)',

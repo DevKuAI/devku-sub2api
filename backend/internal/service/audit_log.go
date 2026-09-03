@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -174,8 +175,23 @@ func isAuditSensitiveBodyKey(key string) bool {
 
 const auditRedactedPlaceholder = "***"
 
+var auditCredentialValuePatterns = []*regexp.Regexp{
+	regexp.MustCompile(`(?i)\bBearer\s+[A-Za-z0-9._~+/=-]{8,}`),
+	regexp.MustCompile(`\b(?:sk|rk)[-_][A-Za-z0-9][A-Za-z0-9_-]{7,}\b`),
+	regexp.MustCompile(`\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b`),
+	regexp.MustCompile(`\b(?:AKIA|ASIA)[A-Z0-9]{16}\b`),
+	regexp.MustCompile(`\bgh[pousr]_[A-Za-z0-9]{20,}\b`),
+	regexp.MustCompile(`\bxox[baprs]-[A-Za-z0-9-]{10,}\b`),
+	regexp.MustCompile(`\bGOCSPX-[0-9A-Za-z_-]{12,}\b`),
+	regexp.MustCompile(`\bAIza[0-9A-Za-z_-]{35}\b`),
+}
+
+var auditInlineSecretAssignmentPattern = regexp.MustCompile(
+	`(?i)\b(authorization|api[_-]?key|x-api-key|access[_-]?token|refresh[_-]?token|id[_-]?token|client[_-]?secret|password|passwd|private[_-]?key|secret|token|credential)\b(\s*[:=]\s*)(["']?)([^"'\s,;&]+)(["']?)`,
+)
+
 // RedactAuditBody 对请求体做审计入库前的脱敏：
-//   - JSON：递归擦除敏感键的值（保留结构，base_url 等非敏感字段可见以便追责）
+//   - JSON：按实际内容识别，递归擦除敏感键、字符串化 JSON 和常见凭证值
 //   - 非 JSON：返回占位说明
 //   - 超长：截断并附截断标记
 func RedactAuditBody(raw []byte, contentType string) string {
@@ -186,8 +202,7 @@ func RedactAuditBody(raw []byte, contentType string) string {
 		// raw 可能已被中间件按上限截断，实际请求体只会更大，不报具体字节数。
 		return "<body omitted: exceeds " + strconv.Itoa(AuditRequestBodyCaptureLimit) + " bytes>"
 	}
-	ct := strings.ToLower(contentType)
-	if !strings.Contains(ct, "json") || !json.Valid(raw) {
+	if !json.Valid(raw) {
 		// 表单等非 JSON 内容走文本兜底脱敏后仍可能含敏感信息，直接不入库。
 		return "<non-json body omitted: " + strconv.Itoa(len(raw)) + " bytes, content-type=" + strings.TrimSpace(contentType) + ">"
 	}
@@ -201,9 +216,9 @@ func RedactAuditBody(raw []byte, contentType string) string {
 	if err != nil {
 		return "<redacted>"
 	}
-	out := string(encoded)
+	out := strings.ToValidUTF8(string(encoded), "")
 	if len(out) > auditRequestBodyMaxBytes {
-		out = out[:auditRequestBodyMaxBytes] + "...<truncated>"
+		out = truncateUTF8(out, auditRequestBodyMaxBytes) + "...<truncated>"
 	}
 	return out
 }
@@ -231,9 +246,29 @@ func redactAuditValue(value any, depth int) any {
 			out[i] = redactAuditValue(item, depth+1)
 		}
 		return out
+	case string:
+		return redactAuditString(v, depth)
 	default:
 		return value
 	}
+}
+
+func redactAuditString(value string, depth int) string {
+	trimmed := strings.TrimSpace(value)
+	if len(trimmed) >= 2 && (trimmed[0] == '{' || trimmed[0] == '[') && json.Valid([]byte(trimmed)) {
+		var nested any
+		if err := json.Unmarshal([]byte(trimmed), &nested); err == nil {
+			if encoded, err := json.Marshal(redactAuditValue(nested, depth+1)); err == nil {
+				return string(encoded)
+			}
+		}
+	}
+
+	redacted := value
+	for _, pattern := range auditCredentialValuePatterns {
+		redacted = pattern.ReplaceAllString(redacted, auditRedactedPlaceholder)
+	}
+	return auditInlineSecretAssignmentPattern.ReplaceAllString(redacted, `${1}${2}${3}***${5}`)
 }
 
 // MaskAuditCredential 对请求头中的凭证做首尾保留掩码：

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -19,7 +20,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/service"
 )
 
-const usageLogSelectColumns = "id, user_id, api_key_id, account_id, request_id, model, requested_model, upstream_model, upstream_response_model, upstream_model_mismatch, group_id, subscription_id, input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens, cache_creation_5m_tokens, cache_creation_1h_tokens, image_output_tokens, image_output_cost, image_input_tokens, image_input_cost, input_cost, output_cost, cache_creation_cost, cache_read_cost, total_cost, actual_cost, rate_multiplier, account_rate_multiplier, billing_type, request_type, stream, openai_ws_mode, duration_ms, first_token_ms, user_agent, ip_address, image_count, image_size, image_input_size, image_output_size, image_size_source, image_size_breakdown, video_count, video_resolution, video_duration_seconds, service_tier, reasoning_effort, requested_reasoning_effort, inbound_endpoint, upstream_endpoint, cache_ttl_overridden, long_context_billing_applied, channel_id, model_mapping_chain, billing_tier, billing_mode, account_stats_cost, session_id, native_compaction_v2, created_at"
+const usageLogSelectColumns = "id, user_id, api_key_id, account_id, request_id, model, requested_model, upstream_model, upstream_response_model, upstream_model_mismatch, group_id, subscription_id, input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens, cache_creation_5m_tokens, cache_creation_1h_tokens, image_output_tokens, image_output_cost, image_input_tokens, image_input_cost, input_cost, output_cost, cache_creation_cost, cache_read_cost, total_cost, actual_cost, rate_multiplier, account_rate_multiplier, billing_type, request_type, stream, openai_ws_mode, duration_ms, first_token_ms, user_agent, ip_address, image_count, image_size, image_input_size, image_output_size, image_size_source, image_size_breakdown, video_count, video_resolution, video_duration_seconds, service_tier, reasoning_effort, requested_reasoning_effort, inbound_endpoint, upstream_endpoint, cache_ttl_overridden, long_context_billing_applied, channel_id, model_mapping_chain, billing_tier, billing_mode, account_stats_cost, session_id, native_compaction_v2, request_body IS NOT NULL AS request_body_available, created_at"
 
 func (r *usageLogRepository) GetByID(ctx context.Context, id int64) (log *service.UsageLog, err error) {
 	query := "SELECT " + usageLogSelectColumns + " FROM usage_logs WHERE id = $1"
@@ -49,6 +50,21 @@ func (r *usageLogRepository) GetByID(ctx context.Context, id int64) (log *servic
 		return nil, err
 	}
 	return log, nil
+}
+
+func (r *usageLogRepository) GetRequestBody(ctx context.Context, id int64) (string, error) {
+	var body sql.NullString
+	err := scanSingleRow(ctx, r.sql, "SELECT request_body FROM usage_logs WHERE id = $1", []any{id}, &body)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", service.ErrUsageLogRequestBodyNotFound
+		}
+		return "", err
+	}
+	if !body.Valid {
+		return "", service.ErrUsageLogRequestBodyNotFound
+	}
+	return body.String, nil
 }
 
 func (r *usageLogRepository) ListByUser(ctx context.Context, userID int64, params pagination.PaginationParams) ([]service.UsageLog, *pagination.PaginationResult, error) {
@@ -504,6 +520,7 @@ func scanUsageLog(scanner interface{ Scan(...any) error }) (*service.UsageLog, e
 		accountStatsCost          sql.NullFloat64
 		sessionID                 sql.NullString
 		nativeCompactionV2        bool
+		requestBodyAvailable      bool
 		createdAt                 time.Time
 	)
 
@@ -569,6 +586,7 @@ func scanUsageLog(scanner interface{ Scan(...any) error }) (*service.UsageLog, e
 		&accountStatsCost,
 		&sessionID,
 		&nativeCompactionV2,
+		&requestBodyAvailable,
 		&createdAt,
 	); err != nil {
 		return nil, err
@@ -602,6 +620,7 @@ func scanUsageLog(scanner interface{ Scan(...any) error }) (*service.UsageLog, e
 		BillingType:               int8(billingType),
 		RequestType:               service.RequestTypeFromInt16(requestTypeRaw),
 		NativeCompactionV2:        nativeCompactionV2,
+		RequestBodyAvailable:      requestBodyAvailable,
 		ImageCount:                imageCount,
 		VideoCount:                videoCount,
 		CacheTTLOverridden:        cacheTTLOverridden,

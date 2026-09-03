@@ -151,8 +151,8 @@ type SettingService struct {
 	openAIQuotaAutoPauseSettingsSF    singleflight.Group
 	openAIAPIKeyHealthBreakerCache    atomic.Value // *cachedOpenAIAPIKeyHealthBreakerSettings
 
-	channelMonitorRuntimeListenersMu sync.Mutex
-	channelMonitorRuntimeListeners   []func()
+	runtimeSettingsListenersMu sync.Mutex
+	runtimeSettingsListeners   []func()
 }
 
 // DefaultPlatformQuotaSetting 单 platform 三档限额（nil = 沿用上层；0 = 显式禁用；>0 = 上限）
@@ -377,40 +377,44 @@ func (s *SettingService) SetOnUpdateCallback(callback func()) {
 	s.onUpdate = callback
 }
 
-// SubscribeChannelMonitorRuntime registers a listener that is invoked after
-// settings are successfully persisted (and process caches refreshed).
-// Used by ChannelMonitorRunner / ChannelMonitorV2Aggregator for immediate
-// mode flips without waiting for poll intervals.
-func (s *SettingService) SubscribeChannelMonitorRuntime(listener func()) (unsubscribe func()) {
+// SubscribeRuntimeSettings registers a listener that is invoked after settings
+// are successfully persisted and process caches are refreshed.
+func (s *SettingService) SubscribeRuntimeSettings(listener func()) (unsubscribe func()) {
 	if s == nil || listener == nil {
 		return func() {}
 	}
-	s.channelMonitorRuntimeListenersMu.Lock()
-	s.channelMonitorRuntimeListeners = append(s.channelMonitorRuntimeListeners, listener)
-	idx := len(s.channelMonitorRuntimeListeners) - 1
-	s.channelMonitorRuntimeListenersMu.Unlock()
+	s.runtimeSettingsListenersMu.Lock()
+	s.runtimeSettingsListeners = append(s.runtimeSettingsListeners, listener)
+	idx := len(s.runtimeSettingsListeners) - 1
+	s.runtimeSettingsListenersMu.Unlock()
 	return func() {
-		s.channelMonitorRuntimeListenersMu.Lock()
-		defer s.channelMonitorRuntimeListenersMu.Unlock()
-		if idx < 0 || idx >= len(s.channelMonitorRuntimeListeners) {
+		s.runtimeSettingsListenersMu.Lock()
+		defer s.runtimeSettingsListenersMu.Unlock()
+		if idx < 0 || idx >= len(s.runtimeSettingsListeners) {
 			return
 		}
-		s.channelMonitorRuntimeListeners[idx] = nil
+		s.runtimeSettingsListeners[idx] = nil
 	}
 }
 
-func (s *SettingService) notifyChannelMonitorRuntimeListeners() {
+// SubscribeChannelMonitorRuntime keeps the existing channel-monitor contract
+// while sharing the generic settings notification path.
+func (s *SettingService) SubscribeChannelMonitorRuntime(listener func()) (unsubscribe func()) {
+	return s.SubscribeRuntimeSettings(listener)
+}
+
+func (s *SettingService) notifyRuntimeSettingsListeners() {
 	if s == nil {
 		return
 	}
-	s.channelMonitorRuntimeListenersMu.Lock()
-	listeners := make([]func(), 0, len(s.channelMonitorRuntimeListeners))
-	for _, l := range s.channelMonitorRuntimeListeners {
+	s.runtimeSettingsListenersMu.Lock()
+	listeners := make([]func(), 0, len(s.runtimeSettingsListeners))
+	for _, l := range s.runtimeSettingsListeners {
 		if l != nil {
 			listeners = append(listeners, l)
 		}
 	}
-	s.channelMonitorRuntimeListenersMu.Unlock()
+	s.runtimeSettingsListenersMu.Unlock()
 	for _, l := range listeners {
 		func(fn func()) {
 			defer func() {

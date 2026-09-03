@@ -273,6 +273,21 @@
           <span v-else class="text-sm text-gray-400 dark:text-gray-500">-</span>
         </template>
 
+        <template #cell-request_body="{ row }">
+          <button
+            v-if="row.request_body_available"
+            type="button"
+            data-testid="view-request-body"
+            class="inline-flex h-8 w-8 items-center justify-center rounded text-primary-600 transition-colors hover:bg-primary-50 hover:text-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 dark:text-primary-400 dark:hover:bg-primary-900/30 dark:hover:text-primary-300"
+            :title="t('admin.usage.viewRequestBody')"
+            :aria-label="t('admin.usage.viewRequestBody')"
+            @click="openRequestBody(row)"
+          >
+            <Icon name="eye" size="sm" />
+          </button>
+          <span v-else class="text-sm text-gray-400 dark:text-gray-500">-</span>
+        </template>
+
         <template #cell-user_agent="{ row }">
           <span v-if="row.user_agent" class="text-sm text-gray-600 dark:text-gray-400 block max-w-[320px] truncate" :title="row.user_agent">{{ formatUserAgent(row.user_agent) }}</span>
           <span v-else class="text-sm text-gray-400 dark:text-gray-500">-</span>
@@ -290,6 +305,30 @@
       </DataTable>
     </div>
   </div>
+
+  <BaseDialog
+    :show="requestBodyDialogVisible"
+    :title="t('admin.usage.requestBodyDialogTitle', { id: selectedUsageLog?.id ?? '' })"
+    width="wide"
+    @close="closeRequestBody"
+  >
+    <div v-if="requestBodyLoading" class="py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+      {{ t('admin.usage.loadingRequestBody') }}
+    </div>
+    <div v-else-if="requestBodyError" class="py-8 text-center text-sm text-rose-600 dark:text-rose-400">
+      {{ t('admin.usage.failedToLoadRequestBody') }}
+    </div>
+    <pre
+      v-else
+      data-testid="request-body-content"
+      class="max-h-[60vh] overflow-auto whitespace-pre-wrap break-words rounded border border-gray-200 bg-gray-50 p-4 text-xs leading-5 text-gray-800 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-200"
+    >{{ requestBody }}</pre>
+    <template #footer>
+      <button type="button" class="btn btn-secondary" @click="closeRequestBody">
+        {{ t('common.close') }}
+      </button>
+    </template>
+  </BaseDialog>
 
   <!-- Token Tooltip Portal -->
   <Teleport to="body">
@@ -562,9 +601,11 @@ function accountBilled(row: { total_cost?: number | null; account_stats_cost?: n
 
 
 import DataTable from '@/components/common/DataTable.vue'
+import BaseDialog from '@/components/common/BaseDialog.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import IpGeoCell from '@/components/common/IpGeoCell.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { adminUsageAPI } from '@/api/admin/usage'
 import { fetchBatch, getEntry } from '@/utils/ipGeoLookup'
 import type { AdminUsageLog } from '@/types'
 import type { Column } from '@/components/common/types'
@@ -599,6 +640,12 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const appStore = useAppStore()
 const copiedRequestId = ref<string | null>(null)
+const requestBodyDialogVisible = ref(false)
+const requestBodyLoading = ref(false)
+const requestBodyError = ref(false)
+const requestBody = ref('')
+const selectedUsageLog = ref<AdminUsageLog | null>(null)
+let requestBodyLoadSequence = 0
 const showAccountBilling = props.showAccountBilling
 const showUpstreamEndpoint = props.showUpstreamEndpoint
 const ipGeoBatchLoading = ref(false)
@@ -665,6 +712,35 @@ const copyRequestId = async (requestId: string) => {
   } catch {
     appStore.showError(t('common.copyFailed'))
   }
+}
+
+const openRequestBody = async (row: AdminUsageLog) => {
+  const sequence = ++requestBodyLoadSequence
+  selectedUsageLog.value = row
+  requestBody.value = ''
+  requestBodyError.value = false
+  requestBodyLoading.value = true
+  requestBodyDialogVisible.value = true
+  try {
+    const response = await adminUsageAPI.getRequestBody(row.id)
+    if (sequence !== requestBodyLoadSequence) return
+    requestBody.value = response.request_body
+  } catch {
+    if (sequence !== requestBodyLoadSequence) return
+    requestBodyError.value = true
+    appStore.showError(t('admin.usage.failedToLoadRequestBody'))
+  } finally {
+    if (sequence === requestBodyLoadSequence) requestBodyLoading.value = false
+  }
+}
+
+const closeRequestBody = () => {
+  requestBodyLoadSequence += 1
+  requestBodyDialogVisible.value = false
+  selectedUsageLog.value = null
+  requestBody.value = ''
+  requestBodyError.value = false
+  requestBodyLoading.value = false
 }
 
 // Tooltip state - cost

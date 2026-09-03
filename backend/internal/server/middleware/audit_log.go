@@ -3,10 +3,12 @@ package middleware
 import (
 	"bytes"
 	"io"
+	"net/http"
 	"strings"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -116,9 +118,12 @@ var auditSensitiveReads = map[string]string{
 	"GET /api/v1/admin/settings/admin-api-key":    "admin.admin_api_key.read",
 	"GET /api/v1/admin/users/:id/api-keys":        "admin.users.api_keys.read",
 	"GET /api/v1/admin/groups/:id/api-keys":       "admin.groups.api_keys.read",
+	"GET /api/v1/admin/usage/:id/request-body":    "admin.usage.request_body.read",
 	"GET /api/v1/admin/backups/s3-config":         "admin.backups.s3_config.read",
 	"GET /api/v1/admin/data-management/s3/config": "admin.data_management.s3_config.read",
 }
+
+const auditDurableRequestBodyReadRoute = "GET /api/v1/admin/usage/:id/request-body"
 
 // auditActionOverrides 变更类请求的动作名精确映射（未命中时自动推导）。
 var auditActionOverrides = map[string]string{
@@ -228,9 +233,20 @@ func NewAuditLogMiddleware(auditService *service.AuditLogService) AuditLogMiddle
 		}
 
 		start := time.Now()
+		var bufferedWriter *auditBufferedResponseWriter
+		if routeKey == auditDurableRequestBodyReadRoute {
+			bufferedWriter = newAuditBufferedResponseWriter(c.Writer)
+			c.Writer = bufferedWriter
+			defer func() {
+				c.Writer = bufferedWriter.ResponseWriter
+			}()
+		}
 		c.Next()
 
 		if c.GetBool(auditCtxKeySkip) {
+			if bufferedWriter != nil {
+				bufferedWriter.commit()
+			}
 			return
 		}
 
@@ -315,8 +331,78 @@ func NewAuditLogMiddleware(auditService *service.AuditLogService) AuditLogMiddle
 			entry.Extra = extra
 		}
 
+		if bufferedWriter != nil {
+			if err := auditService.RecordSync(c.Request.Context(), entry); err != nil {
+				c.Writer = bufferedWriter.ResponseWriter
+				c.Header("Content-Length", "")
+				response.InternalError(c, "Unable to complete audited request")
+				c.Abort()
+				return
+			}
+			bufferedWriter.commit()
+			return
+		}
+
 		auditService.Record(entry)
 	})
+}
+
+type auditBufferedResponseWriter struct {
+	gin.ResponseWriter
+	body          bytes.Buffer
+	status        int
+	size          int
+	headerWritten bool
+}
+
+func newAuditBufferedResponseWriter(writer gin.ResponseWriter) *auditBufferedResponseWriter {
+	return &auditBufferedResponseWriter{
+		ResponseWriter: writer,
+		status:         http.StatusOK,
+		size:           -1,
+	}
+}
+
+func (w *auditBufferedResponseWriter) WriteHeader(code int) {
+	if w.headerWritten {
+		return
+	}
+	w.status = code
+	w.headerWritten = true
+	w.size = 0
+}
+
+func (w *auditBufferedResponseWriter) WriteHeaderNow() {
+	if !w.headerWritten {
+		w.WriteHeader(w.status)
+	}
+}
+
+func (w *auditBufferedResponseWriter) Write(data []byte) (int, error) {
+	w.WriteHeaderNow()
+	n, err := w.body.Write(data)
+	w.size += n
+	return n, err
+}
+
+func (w *auditBufferedResponseWriter) WriteString(data string) (int, error) {
+	return w.Write([]byte(data))
+}
+
+func (w *auditBufferedResponseWriter) Status() int { return w.status }
+
+func (w *auditBufferedResponseWriter) Size() int { return w.size }
+
+func (w *auditBufferedResponseWriter) Written() bool { return w.headerWritten }
+
+func (w *auditBufferedResponseWriter) Flush() { w.WriteHeaderNow() }
+
+func (w *auditBufferedResponseWriter) commit() {
+	w.WriteHeaderNow()
+	w.ResponseWriter.WriteHeader(w.status)
+	if w.body.Len() > 0 {
+		_, _ = w.ResponseWriter.Write(w.body.Bytes())
+	}
 }
 
 // restoredBody 把审计中间件按上限读出的前缀与未读完的原始 body 拼接回填，

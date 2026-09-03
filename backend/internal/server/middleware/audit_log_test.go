@@ -3,6 +3,7 @@ package middleware
 import (
 	"bytes"
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -24,6 +25,7 @@ func TestDeriveAuditAction(t *testing.T) {
 		{"POST", "/api/v1/admin/accounts", "admin.accounts.create"},
 		{"DELETE", "/api/v1/admin/backups/:id", "admin.backups.delete"},
 		{"GET", "/api/v1/admin/users/:id/api-keys", "admin.users.api_keys.read"},
+		{"GET", "/api/v1/admin/usage/:id/request-body", "admin.usage.request_body.read"},
 		{"POST", "/api/v1/admin/redeem-codes/batch", "admin.redeem_codes.batch.create"},
 	}
 	for _, tc := range cases {
@@ -34,8 +36,9 @@ func TestDeriveAuditAction(t *testing.T) {
 }
 
 type auditCaptureRepository struct {
-	mu   sync.Mutex
-	logs []*service.AuditLog
+	mu        sync.Mutex
+	logs      []*service.AuditLog
+	insertErr error
 }
 
 func (r *auditCaptureRepository) BatchInsert(_ context.Context, logs []*service.AuditLog) (int64, error) {
@@ -47,6 +50,9 @@ func (r *auditCaptureRepository) BatchInsert(_ context.Context, logs []*service.
 func (r *auditCaptureRepository) Insert(_ context.Context, log *service.AuditLog) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if r.insertErr != nil {
+		return r.insertErr
+	}
 	r.logs = append(r.logs, log)
 	return nil
 }
@@ -60,6 +66,46 @@ func (r *auditCaptureRepository) Count(context.Context) (int64, error) { return 
 func (r *auditCaptureRepository) TruncateAll(context.Context) error    { return nil }
 func (r *auditCaptureRepository) DeleteBefore(context.Context, time.Time, int) (int64, error) {
 	return 0, nil
+}
+
+func TestUsageRequestBodyReadRequiresDurableAudit(t *testing.T) {
+	newRouter := func(repository *auditCaptureRepository) *gin.Engine {
+		gin.SetMode(gin.TestMode)
+		router := gin.New()
+		router.Use(func(c *gin.Context) {
+			c.Set(string(ContextKeyUser), AuthSubject{UserID: 77})
+			c.Set(string(ContextKeyUserRole), "admin")
+			c.Next()
+		})
+		router.Use(gin.HandlerFunc(NewAuditLogMiddleware(service.NewAuditLogService(repository, nil))))
+		router.GET("/api/v1/admin/usage/:id/request-body", func(c *gin.Context) {
+			c.JSON(http.StatusOK, gin.H{"request_body": "redacted"})
+		})
+		return router
+	}
+
+	t.Run("persists before returning body", func(t *testing.T) {
+		repository := &auditCaptureRepository{}
+		recorder := httptest.NewRecorder()
+		newRouter(repository).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/admin/usage/42/request-body", nil))
+
+		require.Equal(t, http.StatusOK, recorder.Code)
+		require.Contains(t, recorder.Body.String(), "redacted")
+		repository.mu.Lock()
+		defer repository.mu.Unlock()
+		require.Len(t, repository.logs, 1)
+		require.Equal(t, "admin.usage.request_body.read", repository.logs[0].Action)
+		require.Equal(t, http.StatusOK, repository.logs[0].StatusCode)
+	})
+
+	t.Run("withholds body when audit persistence fails", func(t *testing.T) {
+		repository := &auditCaptureRepository{insertErr: errors.New("database unavailable")}
+		recorder := httptest.NewRecorder()
+		newRouter(repository).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/admin/usage/42/request-body", nil))
+
+		require.Equal(t, http.StatusInternalServerError, recorder.Code)
+		require.NotContains(t, recorder.Body.String(), "redacted")
+	})
 }
 
 func TestPromptAuditAdminOperationsUseOmittedBodiesAndAllowlistedDetails(t *testing.T) {

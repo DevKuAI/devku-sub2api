@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/stretchr/testify/require"
 )
@@ -157,6 +158,35 @@ func TestRedactAuditBody_NonJSONOmitted(t *testing.T) {
 	if !strings.Contains(out, "omitted") {
 		t.Fatalf("expected omission marker, got: %s", out)
 	}
+}
+
+func TestRedactAuditBody_JSONContentDoesNotDependOnContentType(t *testing.T) {
+	out := RedactAuditBody([]byte(`{"prompt":"draw a lighthouse"}`), "multipart/form-data; boundary=test")
+	require.JSONEq(t, `{"prompt":"draw a lighthouse"}`, out)
+}
+
+func TestRedactAuditBody_RedactsCredentialPatternsInStringValues(t *testing.T) {
+	raw := []byte(`{
+		"input":"use sk-live-secret-value and Authorization: Bearer abcdefghijklmnop",
+		"tool_output":"{\"api_key\":\"nested-secret\",\"result\":\"ok\"}",
+		"notes":"access_token=plain-secret"
+	}`)
+	out := RedactAuditBody(raw, "application/json")
+
+	for _, secret := range []string{"sk-live-secret-value", "abcdefghijklmnop", "nested-secret", "plain-secret"} {
+		require.NotContains(t, out, secret)
+	}
+	require.Contains(t, out, `\"api_key\":\"***\"`)
+	require.Contains(t, out, `\"result\":\"ok\"`)
+}
+
+func TestRedactAuditBody_TruncatesAtUTF8Boundary(t *testing.T) {
+	prefix := `{"input":"`
+	raw := []byte(prefix + strings.Repeat("a", auditRequestBodyMaxBytes-len(prefix)-1) + "界\"}")
+	out := RedactAuditBody(raw, "application/json")
+
+	require.True(t, utf8.ValidString(out))
+	require.Contains(t, out, "<truncated>")
 }
 
 func TestRedactAuditBody_Empty(t *testing.T) {

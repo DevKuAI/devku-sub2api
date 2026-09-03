@@ -101,6 +101,7 @@ func TestUsageLogRepositoryCreateSyncRequestTypeAndLegacyFields(t *testing.T) {
 			sqlmock.AnyArg(), // account_stats_cost
 			sqlmock.AnyArg(), // session_id
 			log.NativeCompactionV2,
+			sqlmock.AnyArg(), // request_body
 			createdAt,
 		).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "created_at"}).AddRow(int64(99), createdAt))
@@ -195,6 +196,7 @@ func TestUsageLogRepositoryCreate_PersistsServiceTier(t *testing.T) {
 			sqlmock.AnyArg(), // account_stats_cost
 			sqlmock.AnyArg(), // session_id
 			log.NativeCompactionV2,
+			sqlmock.AnyArg(), // request_body
 			createdAt,
 		).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "created_at"}).AddRow(int64(100), createdAt))
@@ -276,8 +278,8 @@ func TestPrepareUsageLogInsert_PersistsNativeCompactionV2WithoutChangingRequestT
 	prepared := prepareUsageLogInsert(log)
 
 	require.Len(t, prepared.args, len(usageLogInsertArgTypes))
-	require.Equal(t, "boolean", usageLogInsertArgTypes[len(usageLogInsertArgTypes)-2])
-	require.Equal(t, true, prepared.args[len(prepared.args)-2])
+	require.Equal(t, "boolean", usageLogInsertArgTypes[len(usageLogInsertArgTypes)-3])
+	require.Equal(t, true, prepared.args[len(prepared.args)-3])
 	require.Equal(t, int16(service.RequestTypeStream), prepared.args[30])
 	require.Equal(t, service.RequestTypeStream, log.RequestType)
 	require.True(t, log.Stream)
@@ -957,6 +959,7 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullFloat64{},
 			sql.NullString{},
 			false, // native_compaction_v2
+			false, // request_body_available
 			now,
 		}})
 		require.NoError(t, err)
@@ -1036,6 +1039,7 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullFloat64{}, // account_stats_cost
 			sql.NullString{},  // session_id
 			false,             // native_compaction_v2
+			true,              // request_body_available
 			now,
 		}})
 		require.NoError(t, err)
@@ -1044,6 +1048,7 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 		require.Equal(t, service.RequestTypeWSV2, log.RequestType)
 		require.True(t, log.Stream)
 		require.True(t, log.OpenAIWSMode)
+		require.True(t, log.RequestBodyAvailable)
 	})
 
 	t.Run("request_type_unknown_falls_back_to_legacy", func(t *testing.T) {
@@ -1098,6 +1103,7 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullFloat64{}, // account_stats_cost
 			sql.NullString{},  // session_id
 			true,              // native_compaction_v2
+			false,             // request_body_available
 			now,
 		}})
 		require.NoError(t, err)
@@ -1161,6 +1167,7 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullFloat64{}, // account_stats_cost
 			sql.NullString{},  // session_id
 			false,             // native_compaction_v2
+			false,             // request_body_available
 			now,
 		}})
 		require.NoError(t, err)

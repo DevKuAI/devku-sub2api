@@ -16,6 +16,7 @@ type contentModerationRuntimeSettingRepo struct {
 	values           map[string]string
 	getValueCalls    int
 	getMultipleCalls int
+	getValueErr      error
 	getMultipleErr   error
 	getMultipleStart chan<- struct{}
 	getMultipleWait  <-chan struct{}
@@ -35,6 +36,9 @@ func (r *contentModerationRuntimeSettingRepo) GetValue(_ context.Context, key st
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.getValueCalls++
+	if r.getValueErr != nil {
+		return "", r.getValueErr
+	}
 	value, ok := r.values[key]
 	if !ok {
 		return "", ErrSettingNotFound
@@ -118,6 +122,12 @@ func (r *contentModerationRuntimeSettingRepo) failMultiple(err error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.getMultipleErr = err
+}
+
+func (r *contentModerationRuntimeSettingRepo) failValue(err error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.getValueErr = err
 }
 
 func (r *contentModerationRuntimeSettingRepo) blockNextMultiple(start chan<- struct{}, wait <-chan struct{}) {

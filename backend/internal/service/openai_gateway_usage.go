@@ -30,6 +30,7 @@ type OpenAIRecordUsageInput struct {
 	UserAgent          string // 请求的 User-Agent
 	IPAddress          string // 请求的客户端 IP 地址
 	SessionID          string // 客户端显式会话标识（session_id / X-Session-Id 等请求头），仅用于用量行会话关联
+	RequestBody        *string
 	RequestPayloadHash string
 	APIKeyService      APIKeyQuotaUpdater
 	QuotaPlatform      string // user×platform quota platform resolved by the handler before async billing.
@@ -65,6 +66,7 @@ type CyberPolicyUsageInput struct {
 	UserAgent          string
 	IPAddress          string
 	SessionID          string
+	RequestBody        *string
 	RequestPayloadHash string
 	APIKeyService      APIKeyQuotaUpdater
 	NativeCompactionV2 bool
@@ -101,6 +103,7 @@ func (s *OpenAIGatewayService) RecordCyberPolicyUsageLog(ctx context.Context, in
 		UserAgent:          in.UserAgent,
 		IPAddress:          in.IPAddress,
 		SessionID:          in.SessionID,
+		RequestBody:        in.RequestBody,
 		RequestPayloadHash: in.RequestPayloadHash,
 		APIKeyService:      in.APIKeyService,
 		ChannelUsageFields: in.ChannelUsageFields,
@@ -394,6 +397,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		ImageSizeSource:          optionalTrimmedStringPtr(result.ImageSizeSource),
 		ImageSizeBreakdown:       result.ImageSizeBreakdown,
 		NativeCompactionV2:       input.NativeCompactionV2,
+		RequestBody:              ResolveUsageRequestBody(ctx, input.RequestBody),
 	}
 	isVideoUsage := isGrokVideoUsageResult(result, billingModels)
 	if isVideoUsage {

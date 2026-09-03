@@ -29,8 +29,7 @@ func newSessionIDUsageLog(sessionID *string) *service.UsageLog {
 }
 
 // TestPrepareUsageLogInsert_SessionIDArgWiring pins the session_id column to the
-// arg slice / arg-type table so the five INSERT column lists stay in sync. session_id
-// is immediately before native_compaction_v2; created_at is always last.
+// arg slice / arg-type table so the INSERT column lists stay in sync.
 func TestPrepareUsageLogInsert_SessionIDArgWiring(t *testing.T) {
 	sessionID := "sess-persisted-123"
 	prepared := prepareUsageLogInsert(newSessionIDUsageLog(&sessionID))
@@ -38,31 +37,33 @@ func TestPrepareUsageLogInsert_SessionIDArgWiring(t *testing.T) {
 	require.Len(t, prepared.args, len(usageLogInsertArgTypes),
 		"prepared args must match the arg-type table length")
 
-	// created_at is last; native_compaction_v2 is penultimate; session_id precedes it.
-	sessionArg := prepared.args[len(prepared.args)-3]
+	// The tail is session_id, native_compaction_v2, request_body, created_at.
+	sessionArg := prepared.args[len(prepared.args)-4]
 	ns, ok := sessionArg.(sql.NullString)
 	require.True(t, ok, "session_id arg should be a sql.NullString, got %T", sessionArg)
 	require.True(t, ns.Valid)
 	require.Equal(t, sessionID, ns.String)
 
-	require.Equal(t, "text", usageLogInsertArgTypes[len(usageLogInsertArgTypes)-3],
+	require.Equal(t, "text", usageLogInsertArgTypes[len(usageLogInsertArgTypes)-4],
 		"session_id arg type must be text")
-	require.Equal(t, "boolean", usageLogInsertArgTypes[len(usageLogInsertArgTypes)-2],
+	require.Equal(t, "boolean", usageLogInsertArgTypes[len(usageLogInsertArgTypes)-3],
 		"native_compaction_v2 arg type must be boolean")
+	require.Equal(t, "text", usageLogInsertArgTypes[len(usageLogInsertArgTypes)-2],
+		"request_body arg type must be text")
 }
 
 // TestPrepareUsageLogInsert_SessionIDNullWhenAbsent proves an absent session id is
 // persisted as SQL NULL rather than an empty string.
 func TestPrepareUsageLogInsert_SessionIDNullWhenAbsent(t *testing.T) {
 	prepared := prepareUsageLogInsert(newSessionIDUsageLog(nil))
-	sessionArg := prepared.args[len(prepared.args)-3]
+	sessionArg := prepared.args[len(prepared.args)-4]
 	ns, ok := sessionArg.(sql.NullString)
 	require.True(t, ok, "session_id arg should be a sql.NullString, got %T", sessionArg)
 	require.False(t, ns.Valid, "absent session id must be NULL, not empty string")
 
 	empty := ""
 	preparedEmpty := prepareUsageLogInsert(newSessionIDUsageLog(&empty))
-	nsEmpty := preparedEmpty.args[len(preparedEmpty.args)-3].(sql.NullString)
+	nsEmpty := preparedEmpty.args[len(preparedEmpty.args)-4].(sql.NullString)
 	require.False(t, nsEmpty.Valid, "empty session id must also be NULL")
 }
 
@@ -102,6 +103,8 @@ func TestUsageLogInsertQueries_IncludeSessionID(t *testing.T) {
 		"SELECT column list must include requested_reasoning_effort")
 	require.Contains(t, usageLogSelectColumns, "session_id",
 		"SELECT column list must include session_id")
+	require.Contains(t, usageLogSelectColumns, "request_body IS NOT NULL",
+		"SELECT column list must expose availability without loading request_body")
 
 	sessionID := "sess-in-query"
 	log := newSessionIDUsageLog(&sessionID)
@@ -111,6 +114,7 @@ func TestUsageLogInsertQueries_IncludeSessionID(t *testing.T) {
 	batchQuery, batchArgs := buildUsageLogBatchInsertQuery([]string{key},
 		map[string]usageLogInsertPrepared{key: prepared})
 	require.Contains(t, batchQuery, "session_id")
+	require.Contains(t, batchQuery, "request_body")
 	require.Contains(t, batchQuery, "requested_reasoning_effort")
 	// Two column references (INSERT column list + SELECT ... FROM input) plus the CTE def.
 	require.GreaterOrEqual(t, strings.Count(batchQuery, "session_id"), 3)

@@ -13,7 +13,8 @@ import (
 )
 
 var (
-	ErrUsageLogNotFound = infraerrors.NotFound("USAGE_LOG_NOT_FOUND", "usage log not found")
+	ErrUsageLogNotFound            = infraerrors.NotFound("USAGE_LOG_NOT_FOUND", "usage log not found")
+	ErrUsageLogRequestBodyNotFound = infraerrors.NotFound("USAGE_LOG_REQUEST_BODY_NOT_FOUND", "usage log request body not found")
 )
 
 // CreateUsageLogRequest 创建使用日志请求
@@ -155,6 +156,19 @@ func (s *UsageService) GetByID(ctx context.Context, id int64) (*UsageLog, error)
 		return nil, fmt.Errorf("get usage log: %w", err)
 	}
 	return log, nil
+}
+
+// GetRequestBody returns the separately stored, redacted request body for an
+// administrator. List queries expose availability only and never load it.
+func (s *UsageService) GetRequestBody(ctx context.Context, id int64) (string, error) {
+	if s == nil || s.usageRepo == nil {
+		return "", ErrUsageLogRequestBodyNotFound
+	}
+	body, err := s.usageRepo.GetRequestBody(ctx, id)
+	if err != nil {
+		return "", fmt.Errorf("get usage log request body: %w", err)
+	}
+	return body, nil
 }
 
 // ListByUser 获取用户的使用日志列表

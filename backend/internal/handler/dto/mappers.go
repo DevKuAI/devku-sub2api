@@ -736,6 +736,7 @@ func UsageLogFromServiceAdmin(l *service.UsageLog) *AdminUsageLog {
 	usageLog.UpstreamEndpoint = l.UpstreamEndpoint
 	return &AdminUsageLog{
 		UsageLog:                usageLog,
+		RequestBodyAvailable:    l.RequestBodyAvailable,
 		UpstreamModel:           l.UpstreamModel,
 		UpstreamReasoningEffort: adminUpstreamReasoningEffort(l),
 		UpstreamResponseModel:   l.UpstreamResponseModel,

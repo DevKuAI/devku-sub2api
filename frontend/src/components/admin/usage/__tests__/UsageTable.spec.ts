@@ -9,11 +9,16 @@ const appStoreMocks = vi.hoisted(() => ({
   showError: vi.fn(),
 }))
 
+const usageApiMocks = vi.hoisted(() => ({
+  getRequestBody: vi.fn(),
+}))
+
 vi.mock('@/utils/ipGeoLookup', () => ipGeoMocks)
 vi.mock('@/stores/app', () => ({ useAppStore: () => appStoreMocks }))
+vi.mock('@/api/admin/usage', () => ({ adminUsageAPI: usageApiMocks }))
 
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 
 import UsageTable from '../UsageTable.vue'
@@ -60,15 +65,20 @@ const messages: Record<string, string> = {
   'admin.usage.billingModeToken': 'Token',
   'admin.usage.billingModePerRequest': 'Per request',
   'admin.usage.billingModeImage': 'Image',
-	'admin.usage.requestIdCopied': 'Request ID copied',
-	'keys.copied': 'Copied',
-	'keys.copyToClipboard': 'Copy to clipboard',
-	'common.copyFailed': 'Copy failed',
-	'usage.requestedModel': 'Requested',
-	'usage.sentUpstreamModel': 'Sent upstream',
-	'usage.upstreamResponseModel': 'Upstream response',
-	'usage.modelVariant': 'Possible version variant',
-	'usage.modelMismatch': 'Different model',
+  'admin.usage.requestIdCopied': 'Request ID copied',
+  'admin.usage.viewRequestBody': 'View request body',
+  'admin.usage.requestBodyDialogTitle': 'Request Body',
+  'admin.usage.loadingRequestBody': 'Loading request body...',
+  'admin.usage.failedToLoadRequestBody': 'Failed to load request body',
+  'keys.copied': 'Copied',
+  'keys.copyToClipboard': 'Copy to clipboard',
+  'common.copyFailed': 'Copy failed',
+  'common.close': 'Close',
+  'usage.requestedModel': 'Requested',
+  'usage.sentUpstreamModel': 'Sent upstream',
+  'usage.upstreamResponseModel': 'Upstream response',
+  'usage.modelVariant': 'Possible version variant',
+  'usage.modelMismatch': 'Different model',
 }
 
 vi.mock('vue-i18n', async () => {
@@ -93,6 +103,7 @@ const DataTableStub = {
         <slot name="cell-tokens" :row="row" />
         <slot name="cell-cost" :row="row" />
         <slot name="cell-request_id" :row="row" />
+        <slot name="cell-request_body" :row="row" />
       </div>
     </div>
   `,
@@ -128,6 +139,8 @@ const baseImageRow = {
 
 describe('admin UsageTable tooltip', () => {
   beforeEach(() => {
+    usageApiMocks.getRequestBody.mockReset()
+    appStoreMocks.showError.mockReset()
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
       x: 0,
       y: 0,
@@ -139,6 +152,60 @@ describe('admin UsageTable tooltip', () => {
       height: 20,
       toJSON: () => ({}),
     } as DOMRect)
+  })
+
+  it('loads an available request body only after the admin opens it', async () => {
+    usageApiMocks.getRequestBody.mockResolvedValue({
+      request_body: '{"messages":[{"role":"user","content":"hello"}]}',
+    })
+    const wrapper = mount(UsageTable, {
+      props: {
+        data: [{ ...baseImageRow, id: 42, request_body_available: true }],
+        loading: false,
+        columns: [],
+      },
+      global: {
+        stubs: {
+          DataTable: DataTableStub,
+          BaseDialog: {
+            props: ['show', 'title'],
+            template: '<div v-if="show"><slot /><slot name="footer" /></div>',
+          },
+          EmptyState: true,
+          Icon: true,
+          Teleport: true,
+        },
+      },
+    })
+
+    expect(usageApiMocks.getRequestBody).not.toHaveBeenCalled()
+    await wrapper.get('[data-testid="view-request-body"]').trigger('click')
+    await flushPromises()
+
+    expect(usageApiMocks.getRequestBody).toHaveBeenCalledWith(42)
+    expect(wrapper.get('[data-testid="request-body-content"]').text()).toContain('hello')
+  })
+
+  it('does not offer request-body access for rows captured while risk control was off', () => {
+    const wrapper = mount(UsageTable, {
+      props: {
+        data: [{ ...baseImageRow, id: 43, request_body_available: false }],
+        loading: false,
+        columns: [],
+      },
+      global: {
+        stubs: {
+          DataTable: DataTableStub,
+          BaseDialog: true,
+          EmptyState: true,
+          Icon: true,
+          Teleport: true,
+        },
+      },
+    })
+
+    expect(wrapper.find('[data-testid="view-request-body"]').exists()).toBe(false)
+    expect(usageApiMocks.getRequestBody).not.toHaveBeenCalled()
   })
 
   it('shows the current API key display name', () => {

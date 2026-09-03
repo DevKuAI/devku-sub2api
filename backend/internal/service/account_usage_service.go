@@ -29,6 +29,7 @@ type UsageLogRepository interface {
 	// inserted is false when the insert was skipped due to conflict (idempotent retries).
 	Create(ctx context.Context, log *UsageLog) (inserted bool, err error)
 	GetByID(ctx context.Context, id int64) (*UsageLog, error)
+	GetRequestBody(ctx context.Context, id int64) (string, error)
 	Delete(ctx context.Context, id int64) error
 
 	ListByUser(ctx context.Context, userID int64, params pagination.PaginationParams) ([]UsageLog, *pagination.PaginationResult, error)

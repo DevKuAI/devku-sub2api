@@ -69,6 +69,8 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 	if c == nil || c.Request == nil {
 		return nil
 	}
+	requestBody := legacy.CaptureUsageRequestBody(c.Request.Context(), body, c.GetHeader("Content-Type"))
+	c.Request = c.Request.WithContext(service.WithUsageRequestBodySnapshot(c.Request.Context(), requestBody))
 	cacheCompletion := cachesSecurityAuditCompletion(stage)
 	if cacheCompletion {
 		if completed, exists := c.Get(securityAuditCompletedContextKey); exists && completed == true {

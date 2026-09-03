@@ -5,23 +5,29 @@ import (
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
+	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/stretchr/testify/require"
 )
 
 func TestSubmitUsageRecordTaskCopiesRequestContext(t *testing.T) {
 	parent := context.WithValue(context.Background(), ctxkey.ClientRequestID, "client-request-123")
 	parent = context.WithValue(parent, ctxkey.RequestID, "request-456")
+	requestBody := `{"input":"hello"}`
+	parent = service.WithUsageRequestBodySnapshot(parent, &requestBody)
 
 	var gotClientRequestID string
 	var gotRequestID string
+	var gotRequestBody *string
 	h := &GatewayHandler{}
 	h.submitUsageRecordTask(parent, func(ctx context.Context) {
 		gotClientRequestID, _ = ctx.Value(ctxkey.ClientRequestID).(string)
 		gotRequestID, _ = ctx.Value(ctxkey.RequestID).(string)
+		gotRequestBody = service.UsageRequestBodyFromContext(ctx)
 	})
 
 	require.Equal(t, "client-request-123", gotClientRequestID)
 	require.Equal(t, "request-456", gotRequestID)
+	require.Equal(t, requestBody, *gotRequestBody)
 }
 
 func TestOpenAISubmitUsageRecordTaskCopiesRequestContext(t *testing.T) {

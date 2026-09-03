@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -18,6 +19,9 @@ type adminUsageRepoCapture struct {
 	listParams   pagination.PaginationParams
 	listFilters  usagestats.UsageLogFilters
 	statsFilters usagestats.UsageLogFilters
+	requestBody  string
+	requestErr   error
+	requestID    int64
 }
 
 func (s *adminUsageRepoCapture) ListWithFilters(ctx context.Context, params pagination.PaginationParams, filters usagestats.UsageLogFilters) ([]service.UsageLog, *pagination.PaginationResult, error) {
@@ -36,14 +40,64 @@ func (s *adminUsageRepoCapture) GetStatsWithFilters(ctx context.Context, filters
 	return &usagestats.UsageStats{}, nil
 }
 
+func (s *adminUsageRepoCapture) GetRequestBody(_ context.Context, id int64) (string, error) {
+	s.requestID = id
+	return s.requestBody, s.requestErr
+}
+
 func newAdminUsageRequestTypeTestRouter(repo *adminUsageRepoCapture) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	usageSvc := service.NewUsageService(repo, nil, nil, nil)
 	handler := NewUsageHandler(usageSvc, nil, nil, nil)
 	router := gin.New()
 	router.GET("/admin/usage", handler.List)
+	router.GET("/admin/usage/:id/request-body", handler.RequestBody)
 	router.GET("/admin/usage/stats", handler.Stats)
 	return router
+}
+
+func TestAdminUsageRequestBody(t *testing.T) {
+	repo := &adminUsageRepoCapture{requestBody: `{"input":"hello"}`}
+	router := newAdminUsageRequestTypeTestRouter(repo)
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/usage/42/request-body", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, "private, no-store", rec.Header().Get("Cache-Control"))
+	require.Equal(t, int64(42), repo.requestID)
+	var payload struct {
+		Data struct {
+			RequestBody string `json:"request_body"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &payload))
+	require.JSONEq(t, repo.requestBody, payload.Data.RequestBody)
+}
+
+func TestAdminUsageRequestBodyInvalidID(t *testing.T) {
+	repo := &adminUsageRepoCapture{}
+	router := newAdminUsageRequestTypeTestRouter(repo)
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/usage/not-an-id/request-body", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.Zero(t, repo.requestID)
+}
+
+func TestAdminUsageRequestBodyUnavailable(t *testing.T) {
+	repo := &adminUsageRepoCapture{requestErr: service.ErrUsageLogRequestBodyNotFound}
+	router := newAdminUsageRequestTypeTestRouter(repo)
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/usage/43/request-body", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusNotFound, rec.Code)
+	require.Equal(t, int64(43), repo.requestID)
 }
 
 func TestAdminUsageListRequestTypePriority(t *testing.T) {

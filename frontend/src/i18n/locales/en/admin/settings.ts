@@ -63,7 +63,7 @@ export default {
           description: 'Enable the content moderation menu and gateway audit entry point. Disabled by default.',
           configureLink: 'Configure content moderation in Risk Control',
           enabled: 'Enable Risk Control',
-          enabledHint: 'When off, the admin sidebar entry is hidden and gateway moderation is skipped.',
+          enabledHint: 'When enabled, gateway moderation runs and redacted request bodies are recorded. When disabled, request bodies are not recorded and the admin sidebar entry is hidden.',
           cyberSessionBlock: 'Cyber session auto-block',
           cyberSessionBlockHint: 'When enabled, sessions hit by upstream cyber_policy are blocked locally for the TTL and no longer forwarded. Only the offending session is blocked; other sessions on the same key are unaffected.',
           cyberSessionBlockTTL: 'Block TTL (seconds)',

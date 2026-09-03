@@ -26,6 +26,10 @@ export interface AdminUsageStatsResponse {
   endpoint_paths?: EndpointStat[]
 }
 
+export interface AdminUsageRequestBodyResponse {
+  request_body: string
+}
+
 export interface SimpleUser {
   id: number
   email: string
@@ -109,6 +113,13 @@ export async function list(
     params,
     signal: options?.signal
   })
+  return data
+}
+
+export async function getRequestBody(usageLogId: number): Promise<AdminUsageRequestBodyResponse> {
+  const { data } = await apiClient.get<AdminUsageRequestBodyResponse>(
+    `/admin/usage/${usageLogId}/request-body`
+  )
   return data
 }
 
@@ -210,6 +221,7 @@ export async function cancelCleanupTask(taskId: number): Promise<{ id: number; s
 
 export const adminUsageAPI = {
   list,
+  getRequestBody,
   getStats,
   searchUsers,
   searchApiKeys,

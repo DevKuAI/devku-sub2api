@@ -2563,6 +2563,10 @@ func (r *stubUsageLogRepo) GetByID(ctx context.Context, id int64) (*service.Usag
 	return nil, errors.New("not implemented")
 }
 
+func (r *stubUsageLogRepo) GetRequestBody(ctx context.Context, id int64) (string, error) {
+	return "", service.ErrUsageLogRequestBodyNotFound
+}
+
 func (r *stubUsageLogRepo) Delete(ctx context.Context, id int64) error {
 	return errors.New("not implemented")
 }
