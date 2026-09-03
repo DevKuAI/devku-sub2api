@@ -13,6 +13,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 )
 
 type DesktopService struct {
@@ -129,6 +130,36 @@ func (s *DesktopService) ListMembers(ctx context.Context, organizationPublicID s
 		}
 	}
 	return s.repo.ListMembers(ctx, organizationPublicID, params, filters)
+}
+
+func (s *DesktopService) ListMembersWithUsage(ctx context.Context, organizationPublicID string, params pagination.PaginationParams, filters DesktopMemberListFilters) ([]DesktopMember, *pagination.PaginationResult, error) {
+	members, result, err := s.ListMembers(ctx, organizationPublicID, params, filters)
+	if err != nil || len(members) == 0 {
+		return members, result, err
+	}
+
+	now := s.now()
+	memberIDs := make([]int64, len(members))
+	for i := range members {
+		memberIDs[i] = members[i].ID
+	}
+	usage, err := s.usage.GetDesktopMembersUsage(
+		ctx,
+		memberIDs,
+		timezone.StartOfDay(now).UTC(),
+		now.AddDate(0, 0, -30).UTC(),
+		now.UTC(),
+	)
+	if err != nil {
+		return nil, nil, ErrDesktopUsageUnavailable.WithCause(err)
+	}
+	for i := range members {
+		members[i].Usage = usage[members[i].ID]
+		if members[i].Usage == nil {
+			members[i].Usage = &DesktopMemberUsage{}
+		}
+	}
+	return members, result, nil
 }
 
 func (s *DesktopService) UpdateMember(ctx context.Context, organizationPublicID, memberPublicID string, input DesktopUpdateMemberInput, phone *string) (*DesktopMember, error) {

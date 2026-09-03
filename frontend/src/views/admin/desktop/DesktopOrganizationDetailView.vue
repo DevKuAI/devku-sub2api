@@ -42,9 +42,41 @@
             <template #cell-name="{ row }"><div class="min-w-0 max-w-64"><div class="truncate font-medium text-gray-900 dark:text-white">{{ row.name }}</div><div class="mt-1 font-mono text-xs text-gray-500">{{ row.public_id }}</div></div></template>
             <template #cell-status="{ row }"><StatusBadge :status="row.status" :label="statusLabel(row.status)" /></template>
             <template #cell-model_token_status="{ row }"><span :class="['badge', tokenBadge(row.model_token_status)]">{{ tokenStatusLabel(row.model_token_status) }}</span></template>
+            <template #cell-usage_cost="{ row }">
+              <div class="min-w-36 space-y-1 text-sm tabular-nums">
+                <div class="grid grid-cols-[max-content_1fr] items-baseline gap-x-2">
+                  <span class="text-gray-500 dark:text-dark-400">{{ t('admin.desktop.usageToday') }}:</span>
+                  <span class="text-right font-medium text-gray-900 dark:text-white">{{ formatUsageCost(row.usage?.today_actual_cost) }}</span>
+                </div>
+                <div class="grid grid-cols-[max-content_1fr] items-baseline gap-x-2">
+                  <span class="text-gray-500 dark:text-dark-400">{{ t('admin.desktop.usageLast30Days') }}:</span>
+                  <span class="text-right font-medium text-gray-900 dark:text-white">{{ formatUsageCost(row.usage?.last_30_days_actual_cost) }}</span>
+                </div>
+                <div class="grid grid-cols-[max-content_1fr] items-baseline gap-x-2">
+                  <span class="text-gray-500 dark:text-dark-400">{{ t('admin.desktop.usageTotal') }}:</span>
+                  <span class="text-right font-medium text-gray-900 dark:text-white">{{ formatUsageCost(row.usage?.total_actual_cost) }}</span>
+                </div>
+              </div>
+            </template>
+            <template #cell-usage_tokens="{ row }">
+              <div class="min-w-36 space-y-1 text-sm tabular-nums">
+                <div class="grid grid-cols-[max-content_1fr] items-baseline gap-x-2">
+                  <span class="text-gray-500 dark:text-dark-400">{{ t('admin.desktop.usageToday') }}:</span>
+                  <span class="text-right" :title="formatUsageTokensFull(row.usage?.today_tokens)">{{ formatUsageTokens(row.usage?.today_tokens) }}</span>
+                </div>
+                <div class="grid grid-cols-[max-content_1fr] items-baseline gap-x-2">
+                  <span class="text-gray-500 dark:text-dark-400">{{ t('admin.desktop.usageLast30Days') }}:</span>
+                  <span class="text-right" :title="formatUsageTokensFull(row.usage?.last_30_days_tokens)">{{ formatUsageTokens(row.usage?.last_30_days_tokens) }}</span>
+                </div>
+                <div class="grid grid-cols-[max-content_1fr] items-baseline gap-x-2">
+                  <span class="text-gray-500 dark:text-dark-400">{{ t('admin.desktop.usageTotal') }}:</span>
+                  <span class="text-right" :title="formatUsageTokensFull(row.usage?.total_tokens)">{{ formatUsageTokens(row.usage?.total_tokens) }}</span>
+                </div>
+              </div>
+            </template>
             <template #cell-updated_at="{ value }"><span class="whitespace-nowrap text-sm text-gray-500">{{ formatDateTime(value) }}</span></template>
             <template #cell-actions="{ row }">
-              <div class="flex flex-wrap items-center gap-1">
+              <div class="flex flex-wrap items-center gap-1 md:grid md:w-20 md:grid-cols-2">
                 <button class="action-button" type="button" :title="t('common.edit')" :aria-label="t('common.edit')" @click="openEditMember(row)"><Icon name="edit" size="sm" /></button>
                 <button class="action-button" type="button" :title="row.status === 'active' ? t('common.disable') : t('common.enable')" :aria-label="row.status === 'active' ? t('common.disable') : t('common.enable')" @click="toggleMember(row)"><Icon :name="row.status === 'active' ? 'ban' : 'checkCircle'" size="sm" /></button>
                 <button class="action-button" type="button" :title="t('admin.desktop.rotateModelToken')" :aria-label="t('admin.desktop.rotateModelToken')" @click="confirmRotate(row)"><Icon name="refresh" size="sm" /></button>
@@ -118,7 +150,7 @@ import type { DesktopMember, DesktopModelTokenStatus, DesktopOrganization, Deskt
 import type { AdminGroup, AdminUser } from '@/types'
 import type { Column } from '@/components/common/types'
 import { useAppStore } from '@/stores/app'
-import { formatDateTime } from '@/utils/format'
+import { formatCompactNumber, formatDateTime } from '@/utils/format'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import DataTable from '@/components/common/DataTable.vue'
@@ -171,7 +203,10 @@ const editableStatusOptions = computed(() => statusOptions.value.slice(1))
 const memberColumns = computed<Column[]>(() => [
 	{ key: 'name', label: t('admin.desktop.member') }, { key: 'phone', label: t('admin.desktop.phone') },
   { key: 'status', label: t('common.status') }, { key: 'model_token_status', label: t('admin.desktop.modelToken') },
-  { key: 'updated_at', label: t('admin.desktop.updatedAt') }, { key: 'actions', label: t('common.actions') },
+  { key: 'usage_cost', label: t('admin.desktop.usageCost') },
+  { key: 'usage_tokens', label: t('admin.desktop.usageTokens') },
+  { key: 'updated_at', label: t('admin.desktop.updatedAt') },
+  { key: 'actions', label: t('common.actions'), class: 'w-28 min-w-28' },
 ])
 const gatewayUserOptions = computed(() => {
   const all = [...gatewayUsers.value]
@@ -184,6 +219,10 @@ function errorMessage(error: unknown): string { const reason = (error as { reaso
 function statusLabel(value: DesktopStatus): string { return value === 'active' ? t('common.active') : t('common.disabled') }
 function tokenStatusLabel(value: DesktopModelTokenStatus): string { return t(`admin.desktop.tokenStatus.${value}`) }
 function tokenBadge(value: DesktopModelTokenStatus): string { return value === 'active' ? 'badge-success' : value === 'disabled' ? 'badge-warning' : 'badge-gray' }
+function normalizeUsageNumber(value: number | undefined): number { return Number.isFinite(value) ? Number(value) : 0 }
+function formatUsageCost(value: number | undefined): string { return `$${normalizeUsageNumber(value).toFixed(4)}` }
+function formatUsageTokens(value: number | undefined): string { return formatCompactNumber(normalizeUsageNumber(value)) }
+function formatUsageTokensFull(value: number | undefined): string { return normalizeUsageNumber(value).toLocaleString() }
 function setTab(tab: DetailTab) { void router.replace({ query: { ...route.query, tab } }) }
 function tabId(tab: DetailTab) { return `desktop-organization-tab-${tab}` }
 function panelId(tab: DetailTab) { return `desktop-organization-panel-${tab}` }

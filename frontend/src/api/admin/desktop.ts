@@ -90,8 +90,18 @@ export interface DesktopMember {
 	phone: string
   status: DesktopStatus
   model_token_status: DesktopModelTokenStatus
+  usage?: DesktopMemberUsage
   created_at: string
   updated_at: string
+}
+
+export interface DesktopMemberUsage {
+  today_tokens: number
+  last_30_days_tokens: number
+  total_tokens: number
+  today_actual_cost: number
+  last_30_days_actual_cost: number
+  total_actual_cost: number
 }
 
 export interface CreateDesktopOrganizationRequest {

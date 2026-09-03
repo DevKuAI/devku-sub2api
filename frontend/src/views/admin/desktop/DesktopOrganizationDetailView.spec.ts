@@ -56,6 +56,14 @@ const member = {
 	phone: '+8613800000000',
   status: 'active',
   model_token_status: 'active',
+  usage: {
+    today_tokens: 1250,
+    last_30_days_tokens: 2_500_000,
+    total_tokens: 4_000_000_000,
+    today_actual_cost: 0.125,
+    last_30_days_actual_cost: 2.5,
+    total_actual_cost: 4,
+  },
   created_at: '2026-08-26T00:00:00Z',
   updated_at: '2026-08-26T00:00:00Z',
 }
@@ -172,6 +180,21 @@ describe('DesktopOrganizationDetailView', () => {
 			name: 'Member',
 			phone: '13800000000',
 		})
+		wrapper.unmount()
+	})
+
+	it('shows member cost and token usage in separate columns', async () => {
+		const wrapper = mountView()
+		await flushPromises()
+		const vm = wrapper.vm as any
+
+		expect(vm.memberColumns.map((column: { key: string }) => column.key)).toContain('usage_cost')
+		expect(vm.memberColumns.map((column: { key: string }) => column.key)).toContain('usage_tokens')
+		expect(vm.formatUsageCost(member.usage.today_actual_cost)).toBe('$0.1250')
+		expect(vm.formatUsageTokens(member.usage.today_tokens)).toBe('1.3K')
+		expect(vm.formatUsageTokens(member.usage.last_30_days_tokens)).toBe('2.5M')
+		expect(vm.formatUsageTokens(member.usage.total_tokens)).toBe('4.0B')
+		expect(vm.formatUsageTokensFull(member.usage.today_tokens)).toContain('1,250')
 		wrapper.unmount()
 	})
 

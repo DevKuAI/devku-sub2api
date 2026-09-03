@@ -87,8 +87,17 @@ func (s *desktopRepositoryStub) DesktopOrganizationGroupForUser(context.Context,
 }
 
 type desktopUsageRepositoryStub struct {
-	calls [][]int64
-	next  []*usagestats.UsageStats
+	calls       [][]int64
+	next        []*usagestats.UsageStats
+	memberCalls []desktopMemberUsageCall
+	memberUsage map[int64]*DesktopMemberUsage
+}
+
+type desktopMemberUsageCall struct {
+	memberIDs       []int64
+	todayStart      time.Time
+	last30DaysStart time.Time
+	endTime         time.Time
 }
 
 func (s *desktopUsageRepositoryStub) GetAPIKeysStatsAggregated(_ context.Context, ids []int64, _, _ time.Time) (*usagestats.UsageStats, error) {
@@ -96,6 +105,14 @@ func (s *desktopUsageRepositoryStub) GetAPIKeysStatsAggregated(_ context.Context
 	result := s.next[0]
 	s.next = s.next[1:]
 	return result, nil
+}
+
+func (s *desktopUsageRepositoryStub) GetDesktopMembersUsage(_ context.Context, ids []int64, todayStart, last30DaysStart, endTime time.Time) (map[int64]*DesktopMemberUsage, error) {
+	s.memberCalls = append(s.memberCalls, desktopMemberUsageCall{
+		memberIDs: append([]int64(nil), ids...), todayStart: todayStart,
+		last30DaysStart: last30DaysStart, endTime: endTime,
+	})
+	return s.memberUsage, nil
 }
 
 func activeDesktopAuthorization() *DesktopAuthorizedMember {
@@ -173,6 +190,36 @@ func TestDesktopListMembersReturnsFullPhoneAndNormalizesExactSearch(t *testing.T
 	require.Empty(t, repo.listMemberFilters[0].Search)
 	require.Equal(t, "+8613800000000", repo.listMemberFilters[0].Phone)
 	require.Equal(t, repo.listMemberFilters[0].Phone, repo.listMemberFilters[1].Phone)
+}
+
+func TestDesktopListMembersWithUsageAggregatesCurrentPage(t *testing.T) {
+	repo := &desktopRepositoryStub{members: []DesktopMember{
+		{ID: 7, PublicID: "mem_one", Name: "One", Phone: "+8613800000000", Status: DesktopStatusActive},
+		{ID: 8, PublicID: "mem_two", Name: "Two", Phone: "+8613800000001", Status: DesktopStatusActive},
+	}}
+	memberUsage := &DesktopMemberUsage{
+		TodayTokens: 100, Last30DaysTokens: 900, TotalTokens: 1200,
+		TodayActualCost: 0.1, Last30DaysActualCost: 0.9, TotalActualCost: 1.2,
+	}
+	usage := &desktopUsageRepositoryStub{memberUsage: map[int64]*DesktopMemberUsage{7: memberUsage}}
+	now := time.Date(2026, 9, 3, 6, 30, 0, 0, time.UTC)
+	svc := &DesktopService{repo: repo, usage: usage, now: func() time.Time { return now }}
+
+	members, _, err := svc.ListMembersWithUsage(
+		context.Background(),
+		"org_one",
+		pagination.PaginationParams{Page: 1, PageSize: 20},
+		DesktopMemberListFilters{},
+	)
+
+	require.NoError(t, err)
+	require.Len(t, usage.memberCalls, 1)
+	require.Equal(t, []int64{7, 8}, usage.memberCalls[0].memberIDs)
+	require.Equal(t, now.AddDate(0, 0, -30), usage.memberCalls[0].last30DaysStart)
+	require.Equal(t, now, usage.memberCalls[0].endTime)
+	require.Equal(t, memberUsage, members[0].Usage)
+	require.NotNil(t, members[1].Usage)
+	require.Zero(t, members[1].Usage.TotalTokens)
 }
 
 func TestDesktopUsageSummaryAggregatesAllHistoricalKeys(t *testing.T) {

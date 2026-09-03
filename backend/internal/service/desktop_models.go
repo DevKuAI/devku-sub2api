@@ -74,8 +74,18 @@ type DesktopMember struct {
 	CurrentAPIKey                 string
 	CurrentAPIKeyStatus           string
 	CurrentAPIKeyDeleted          bool
+	Usage                         *DesktopMemberUsage
 	CreatedAt                     time.Time
 	UpdatedAt                     time.Time
+}
+
+type DesktopMemberUsage struct {
+	TodayTokens          int64   `json:"today_tokens"`
+	Last30DaysTokens     int64   `json:"last_30_days_tokens"`
+	TotalTokens          int64   `json:"total_tokens"`
+	TodayActualCost      float64 `json:"today_actual_cost"`
+	Last30DaysActualCost float64 `json:"last_30_days_actual_cost"`
+	TotalActualCost      float64 `json:"total_actual_cost"`
 }
 
 func (m *DesktopMember) ModelTokenStatus() string {
@@ -208,6 +218,7 @@ type DesktopAuthorizedMember struct {
 
 type DesktopUsageRepository interface {
 	GetAPIKeysStatsAggregated(ctx context.Context, apiKeyIDs []int64, startTime, endTime time.Time) (*usagestats.UsageStats, error)
+	GetDesktopMembersUsage(ctx context.Context, memberIDs []int64, todayStart, last30DaysStart, endTime time.Time) (map[int64]*DesktopMemberUsage, error)
 }
 
 type DesktopRepository interface {

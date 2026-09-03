@@ -105,3 +105,17 @@ func TestDesktopAdminMemberDTOExposesFullPhone(t *testing.T) {
 	}`, string(payload))
 	require.NotContains(t, string(payload), "masked_phone")
 }
+
+func TestDesktopAdminMemberDTOExposesUsage(t *testing.T) {
+	usage := &service.DesktopMemberUsage{
+		TodayTokens: 100, Last30DaysTokens: 900, TotalTokens: 1200,
+		TodayActualCost: 0.1, Last30DaysActualCost: 0.9, TotalActualCost: 1.2,
+	}
+	dto := desktopMemberFromService(&service.DesktopMember{Usage: usage})
+
+	require.Same(t, usage, dto.Usage)
+	payload, err := json.Marshal(dto)
+	require.NoError(t, err)
+	require.Contains(t, string(payload), `"last_30_days_tokens":900`)
+	require.Contains(t, string(payload), `"total_actual_cost":1.2`)
+}

@@ -135,6 +135,64 @@ func (r *usageLogRepository) GetAPIKeysStatsAggregated(ctx context.Context, apiK
 	return stats, nil
 }
 
+// GetDesktopMembersUsage aggregates current and historical Desktop API keys by member.
+func (r *usageLogRepository) GetDesktopMembersUsage(ctx context.Context, memberIDs []int64, todayStart, last30DaysStart, endTime time.Time) (map[int64]*service.DesktopMemberUsage, error) {
+	result := make(map[int64]*service.DesktopMemberUsage)
+	normalizedMemberIDs := normalizePositiveInt64IDs(memberIDs)
+	for _, id := range normalizedMemberIDs {
+		result[id] = &service.DesktopMemberUsage{}
+	}
+	if len(normalizedMemberIDs) == 0 {
+		return result, nil
+	}
+
+	query := `
+		SELECT
+			assignment.member_id,
+			COALESCE(SUM(ul.input_tokens + ul.output_tokens + ul.cache_creation_tokens + ul.cache_read_tokens)
+				FILTER (WHERE ul.created_at >= $2 AND ul.created_at < $4), 0) AS today_tokens,
+			COALESCE(SUM(ul.input_tokens + ul.output_tokens + ul.cache_creation_tokens + ul.cache_read_tokens)
+				FILTER (WHERE ul.created_at >= $3 AND ul.created_at < $4), 0) AS last_30_days_tokens,
+			COALESCE(SUM(ul.input_tokens + ul.output_tokens + ul.cache_creation_tokens + ul.cache_read_tokens)
+				FILTER (WHERE ul.created_at < $4), 0) AS total_tokens,
+			COALESCE(SUM(ul.actual_cost) FILTER (WHERE ul.created_at >= $2 AND ul.created_at < $4), 0) AS today_actual_cost,
+			COALESCE(SUM(ul.actual_cost) FILTER (WHERE ul.created_at >= $3 AND ul.created_at < $4), 0) AS last_30_days_actual_cost,
+			COALESCE(SUM(ul.actual_cost) FILTER (WHERE ul.created_at < $4), 0) AS total_actual_cost
+		FROM desktop_member_api_keys assignment
+		LEFT JOIN usage_logs ul ON ul.api_key_id = assignment.api_key_id
+		WHERE assignment.member_id = ANY($1)
+		GROUP BY assignment.member_id
+	`
+	rows, err := r.sql.QueryContext(ctx, query, pq.Array(normalizedMemberIDs), todayStart, last30DaysStart, endTime)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	for rows.Next() {
+		usage := &service.DesktopMemberUsage{}
+		var memberID int64
+		if err := rows.Scan(
+			&memberID,
+			&usage.TodayTokens,
+			&usage.Last30DaysTokens,
+			&usage.TotalTokens,
+			&usage.TodayActualCost,
+			&usage.Last30DaysActualCost,
+			&usage.TotalActualCost,
+		); err != nil {
+			return nil, err
+		}
+		if _, ok := result[memberID]; ok {
+			result[memberID] = usage
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 // GetAccountStatsAggregated 使用 SQL 聚合统计账号使用数据
 //
 // 性能优化说明：

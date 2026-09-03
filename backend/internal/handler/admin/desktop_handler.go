@@ -84,13 +84,14 @@ type desktopGroupDTO struct {
 }
 
 type desktopMemberDTO struct {
-	PublicID         string    `json:"public_id"`
-	Name             string    `json:"name"`
-	Phone            string    `json:"phone"`
-	Status           string    `json:"status"`
-	ModelTokenStatus string    `json:"model_token_status"`
-	CreatedAt        time.Time `json:"created_at"`
-	UpdatedAt        time.Time `json:"updated_at"`
+	PublicID         string                      `json:"public_id"`
+	Name             string                      `json:"name"`
+	Phone            string                      `json:"phone"`
+	Status           string                      `json:"status"`
+	ModelTokenStatus string                      `json:"model_token_status"`
+	Usage            *service.DesktopMemberUsage `json:"usage,omitempty"`
+	CreatedAt        time.Time                   `json:"created_at"`
+	UpdatedAt        time.Time                   `json:"updated_at"`
 }
 
 func (h *DesktopHandler) CreateOrganization(c *gin.Context) {
@@ -191,7 +192,7 @@ func (h *DesktopHandler) CreateMember(c *gin.Context) {
 
 func (h *DesktopHandler) ListMembers(c *gin.Context) {
 	page, pageSize := response.ParsePagination(c)
-	items, result, err := h.desktop.ListMembers(c.Request.Context(), c.Param("organization_id"), pagination.PaginationParams{Page: page, PageSize: pageSize}, service.DesktopMemberListFilters{
+	items, result, err := h.desktop.ListMembersWithUsage(c.Request.Context(), c.Param("organization_id"), pagination.PaginationParams{Page: page, PageSize: pageSize}, service.DesktopMemberListFilters{
 		Search: c.Query("search"), Status: c.Query("status"),
 	})
 	if response.ErrorFrom(c, err) {
@@ -282,7 +283,7 @@ func desktopOrganizationFromService(value *service.DesktopOrganization, includeC
 func desktopMemberFromService(value *service.DesktopMember) desktopMemberDTO {
 	return desktopMemberDTO{
 		PublicID: value.PublicID, Name: value.Name, Phone: value.Phone, Status: value.Status,
-		ModelTokenStatus: value.ModelTokenStatus(), CreatedAt: value.CreatedAt, UpdatedAt: value.UpdatedAt,
+		ModelTokenStatus: value.ModelTokenStatus(), Usage: value.Usage, CreatedAt: value.CreatedAt, UpdatedAt: value.UpdatedAt,
 	}
 }
 
