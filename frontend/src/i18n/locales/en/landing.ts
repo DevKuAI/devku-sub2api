@@ -14,6 +14,10 @@ export default {
     login: 'Login',
     getStarted: 'Get Started',
     goToDashboard: 'Go to Dashboard',
+    downloadDesktop: 'Download Latest App',
+    downloadMacAppleSilicon: 'macOS (Apple Silicon)',
+    downloadMacIntel: 'macOS (Intel)',
+    downloadWindowsX64: 'Windows x64',
     // User-focused value proposition
     heroSubtitle: 'One Key, All AI Models',
     heroDescription: 'No need to manage multiple subscriptions. Access Claude, GPT, Gemini and more with a single API key',

@@ -68,7 +68,7 @@
     </header>
 
     <main class="flex min-w-0 flex-1 items-center justify-center px-4 py-16 sm:px-6">
-      <div class="min-w-0 max-w-2xl text-center">
+      <div class="min-w-0 w-full max-w-2xl text-center">
         <img
           :src="siteLogo || '/logo.svg'"
           alt="Logo"
@@ -76,12 +76,37 @@
         />
         <h1 class="[overflow-wrap:anywhere] text-3xl font-bold md:text-4xl">{{ siteName }}</h1>
         <p class="mt-4 whitespace-pre-wrap [overflow-wrap:anywhere] text-base text-gray-600 dark:text-dark-300">{{ siteSubtitle }}</p>
-        <router-link
-          :to="isAuthenticated ? dashboardPath : '/login'"
-          class="mt-8 inline-flex min-h-10 items-center justify-center rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-700"
-        >
-          {{ isAuthenticated ? t('home.goToDashboard') : t('home.login') }}
-        </router-link>
+        <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <router-link
+            :to="isAuthenticated ? dashboardPath : '/login'"
+            class="inline-flex min-h-10 items-center justify-center rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-700"
+          >
+            {{ isAuthenticated ? t('home.goToDashboard') : t('home.login') }}
+          </router-link>
+          <details v-if="desktopDownloads.length" data-testid="desktop-download-menu" class="group relative">
+            <summary
+              class="desktop-download-summary inline-flex min-h-10 cursor-pointer list-none items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:border-gray-400 hover:bg-gray-100 dark:border-dark-700 dark:bg-dark-900 dark:text-dark-200 dark:hover:border-dark-600 dark:hover:bg-dark-800"
+            >
+              <Icon name="download" size="sm" :stroke-width="2" />
+              {{ t('home.downloadDesktop') }}
+              <Icon name="chevronDown" size="xs" class="transition-transform group-open:rotate-180" :stroke-width="2" />
+            </summary>
+            <div
+              class="absolute left-1/2 z-30 mt-2 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 overflow-hidden rounded-lg border border-gray-200 bg-white p-1 shadow-lg dark:border-dark-700 dark:bg-dark-900"
+            >
+              <a
+                v-for="download in desktopDownloads"
+                :key="download.platform"
+                data-testid="desktop-download-link"
+                :href="download.url"
+                class="flex min-h-10 items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-dark-200 dark:hover:bg-dark-800"
+              >
+                <Icon name="download" size="sm" :stroke-width="2" />
+                {{ t(download.labelKey) }}
+              </a>
+            </div>
+          </details>
+        </div>
       </div>
     </main>
 
@@ -216,7 +241,7 @@
             </p>
 
             <!-- CTA Button -->
-            <div>
+            <div class="flex flex-wrap items-center justify-center gap-3 lg:justify-start">
               <router-link
                 :to="isAuthenticated ? dashboardPath : '/login'"
                 class="btn btn-primary px-8 py-3 text-base shadow-lg shadow-primary-500/30"
@@ -224,6 +249,29 @@
                 {{ isAuthenticated ? t('home.goToDashboard') : t('home.getStarted') }}
                 <Icon name="arrowRight" size="md" class="ml-2" :stroke-width="2" />
               </router-link>
+              <details v-if="desktopDownloads.length" data-testid="desktop-download-menu" class="group relative">
+                <summary
+                  class="desktop-download-summary btn cursor-pointer list-none border border-gray-300 bg-white px-8 py-3 text-base text-gray-700 hover:border-gray-400 hover:bg-gray-100 dark:border-dark-700 dark:bg-dark-900 dark:text-dark-200 dark:hover:border-dark-600 dark:hover:bg-dark-800"
+                >
+                  <Icon name="download" size="md" class="mr-2" :stroke-width="2" />
+                  {{ t('home.downloadDesktop') }}
+                  <Icon name="chevronDown" size="xs" class="ml-2 transition-transform group-open:rotate-180" :stroke-width="2" />
+                </summary>
+                <div
+                  class="absolute left-1/2 z-30 mt-2 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 overflow-hidden rounded-lg border border-gray-200 bg-white p-1 shadow-lg dark:border-dark-700 dark:bg-dark-900"
+                >
+                  <a
+                    v-for="download in desktopDownloads"
+                    :key="download.platform"
+                    data-testid="desktop-download-link"
+                    :href="download.url"
+                    class="flex min-h-10 items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-dark-200 dark:hover:bg-dark-800"
+                  >
+                    <Icon name="download" size="sm" :stroke-width="2" />
+                    {{ t(download.labelKey) }}
+                  </a>
+                </div>
+              </details>
             </div>
           </div>
 
@@ -528,6 +576,27 @@ const isDark = ref(document.documentElement.classList.contains('dark'))
 
 // GitHub URL
 const githubUrl = 'https://github.com/DevKuAI/devku-sub2api'
+const desktopPlatforms = [
+  {
+    platform: 'darwin-aarch64',
+    target: 'darwin',
+    arch: 'aarch64',
+    labelKey: 'home.downloadMacAppleSilicon',
+  },
+  {
+    platform: 'darwin-x86_64',
+    target: 'darwin',
+    arch: 'x86_64',
+    labelKey: 'home.downloadMacIntel',
+  },
+  {
+    platform: 'windows-x86_64',
+    target: 'windows',
+    arch: 'x86_64',
+    labelKey: 'home.downloadWindowsX64',
+  },
+]
+const desktopDownloads = ref<Array<(typeof desktopPlatforms)[number] & { url: string }>>([])
 
 // Auth state
 const isAuthenticated = computed(() => authStore.isAuthenticated)
@@ -567,6 +636,28 @@ function initTheme() {
   }
 }
 
+async function loadDesktopDownloads() {
+  const results = await Promise.allSettled(
+    desktopPlatforms.map(async (platform) => {
+      const response = await fetch(
+        `/api/desktop/v1/update/${platform.target}/${platform.arch}/0.0.0`,
+        { headers: { Accept: 'application/json' } },
+      )
+      if (response.status === 204 || !response.ok) return null
+
+      const result = await response.json() as { url?: unknown }
+      if (typeof result.url !== 'string') return null
+
+      const url = sanitizeUrl(result.url)
+      return url ? { ...platform, url } : null
+    }),
+  )
+
+  desktopDownloads.value = results.flatMap((result) =>
+    result.status === 'fulfilled' && result.value ? [result.value] : [],
+  )
+}
+
 onMounted(() => {
   initTheme()
 
@@ -577,10 +668,18 @@ onMounted(() => {
   if (!appStore.publicSettingsLoaded) {
     appStore.fetchPublicSettings()
   }
+
+  if (!hasHomeContent.value) {
+    void loadDesktopDownloads()
+  }
 })
 </script>
 
 <style scoped>
+.desktop-download-summary::-webkit-details-marker {
+  display: none;
+}
+
 /* Terminal Container */
 .terminal-container {
   position: relative;

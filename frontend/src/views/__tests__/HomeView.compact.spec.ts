@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { mount, RouterLinkStub } from '@vue/test-utils'
+import { flushPromises, mount, RouterLinkStub } from '@vue/test-utils'
 
 import HomeView from '../HomeView.vue'
 
@@ -19,6 +19,8 @@ const { appStore, authStore } = vi.hoisted(() => ({
     checkAuth: vi.fn(),
   },
 }))
+
+const fetchMock = vi.fn()
 
 vi.mock('@/stores', () => ({
   useAppStore: () => appStore,
@@ -66,6 +68,10 @@ function modelPlazaDestination(wrapper: ReturnType<typeof mountHome>) {
     ?.props('to')
 }
 
+function desktopDownloadLinks(wrapper: ReturnType<typeof mountHome>) {
+  return wrapper.findAll('[data-testid="desktop-download-link"]')
+}
+
 describe('HomeView compact mode', () => {
   beforeEach(() => {
     authStore.isAuthenticated = false
@@ -73,6 +79,13 @@ describe('HomeView compact mode', () => {
     authStore.user = null
     authStore.checkAuth.mockClear()
     appStore.fetchPublicSettings.mockClear()
+    fetchMock.mockReset()
+    fetchMock.mockImplementation(async (input: string | URL | Request) => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ url: `https://downloads.example.com/${String(input).split('/').slice(-3, -1).join('-')}` }),
+    }))
+    vi.stubGlobal('fetch', fetchMock)
     localStorage.clear()
     vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: false } as MediaQueryList)
   })
@@ -129,6 +142,32 @@ describe('HomeView compact mode', () => {
     expect(compactDestination(wrapper)).toBe('/admin/dashboard')
     expect(authStore.checkAuth).toHaveBeenCalledOnce()
     expect(appStore.fetchPublicSettings).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    { name: 'compact', settings: { compact_home_enabled: true } },
+    { name: 'default', settings: {} },
+  ])('links the $name home to the latest published desktop release', async ({ settings }) => {
+    const wrapper = mountHome(settings)
+    await flushPromises()
+    const links = desktopDownloadLinks(wrapper)
+
+    expect(wrapper.get('[data-testid="desktop-download-menu"]').exists()).toBe(true)
+    expect(links.map((link) => link.attributes('href'))).toEqual([
+      'https://downloads.example.com/darwin-aarch64',
+      'https://downloads.example.com/darwin-x86_64',
+      'https://downloads.example.com/windows-x86_64',
+    ])
+    expect(wrapper.html()).not.toContain('devku-desktop')
+  })
+
+  it('hides desktop downloads when the backend has no published release', async () => {
+    fetchMock.mockResolvedValue({ ok: true, status: 204 })
+
+    const wrapper = mountHome({ compact_home_enabled: true })
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="desktop-download-menu"]').exists()).toBe(false)
   })
 
   it('shows the model plaza link to anonymous visitors when public access is enabled', () => {
