@@ -2,7 +2,7 @@
   <div>
     <!-- Window stats row (above progress bar) -->
     <div
-      v-if="windowStats && (windowStats.requests > 0 || windowStats.tokens > 0)"
+      v-if="shouldShowWindowStats"
       class="mb-0.5 flex items-center"
     >
       <div class="flex items-center gap-1.5 text-[9px] text-gray-500 dark:text-gray-400">
@@ -67,6 +67,7 @@ const props = withDefaults(
     resetsAt?: string | null
     color: 'indigo' | 'emerald' | 'purple' | 'amber'
     windowStats?: WindowStats | null
+    showWindowStatsWhenEmpty?: boolean
     showNowWhenIdle?: boolean
     remainingCapacity?: boolean
     /** fixed: 定宽居中徽章（账号页纵向对齐）；auto: 限宽截断左对齐（监控页组合标签） */
@@ -76,6 +77,12 @@ const props = withDefaults(
 )
 
 const { t } = useI18n()
+
+const shouldShowWindowStats = computed(() => {
+  if (!props.windowStats) return false
+  if (props.showWindowStatsWhenEmpty) return true
+  return props.windowStats.requests > 0 || props.windowStats.tokens > 0 || props.windowStats.cost !== 0 || (props.windowStats.user_cost ?? 0) !== 0
+})
 
 // Reactive clock for countdown — only runs when a reset time is shown,
 // to avoid creating many idle timers across large account lists.

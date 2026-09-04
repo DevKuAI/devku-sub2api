@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/pkg/usagestats"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
@@ -24,6 +25,17 @@ type accountBindingAdminService struct {
 	expectedUserID    *int64
 	bindAccountResult *service.Account
 	bindAccountError  error
+}
+
+type accountBindingUsageLogRepo struct {
+	service.UsageLogRepository
+	stats  []*usagestats.AccountStats
+	starts []time.Time
+}
+
+func (r *accountBindingUsageLogRepo) GetAccountWindowStats(_ context.Context, _ int64, start time.Time) (*usagestats.AccountStats, error) {
+	r.starts = append(r.starts, start)
+	return r.stats[len(r.starts)-1], nil
 }
 
 func (s *accountBindingAdminService) ListAccountsByBoundUserID(_ context.Context, userID int64) ([]service.Account, error) {
@@ -164,6 +176,62 @@ func TestAccountHandlerListMySubscriptionAccountsUsesAuthenticatedUserAndRedacts
 		_, exists := payload.Data[0][forbidden]
 		require.False(t, exists, "response must not expose %s", forbidden)
 	}
+}
+
+func TestAccountHandlerListMySubscriptionAccountsIncludesReadOnlyUsageWindows(t *testing.T) {
+	stub := &accountBindingAdminService{
+		stubAdminService: newStubAdminService(),
+		accounts: []service.Account{{
+			ID:       8,
+			Name:     "Codex subscription",
+			Platform: service.PlatformOpenAI,
+			Type:     service.AccountTypeOAuth,
+			Status:   service.StatusActive,
+			Extra: map[string]any{
+				"codex_5h_used_percent": 0.0,
+				"codex_7d_used_percent": 7.0,
+			},
+		}},
+	}
+	usageRepo := &accountBindingUsageLogRepo{stats: []*usagestats.AccountStats{
+		{Requests: 660, Tokens: 60100000, Cost: 54.82, StandardCost: 48.00, UserCost: 54.82},
+		{Requests: 2300, Tokens: 195800000, Cost: 175.07, StandardCost: 160.00, UserCost: 175.07},
+	}}
+	handler := newAccountBindingHandler(stub)
+	handler.accountUsageService = service.NewAccountUsageService(
+		nil, usageRepo, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+	)
+	router := gin.New()
+	router.Use(func(c *gin.Context) {
+		c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: 123})
+		c.Next()
+	})
+	router.GET("/subscription-accounts", handler.ListMySubscriptionAccounts)
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/subscription-accounts?include_usage=true", nil)
+	router.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Len(t, usageRepo.starts, 2)
+	var payload struct {
+		Data []struct {
+			Usage *subscriptionAccountUsage `json:"usage"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &payload))
+	require.Len(t, payload.Data, 1)
+	require.NotNil(t, payload.Data[0].Usage)
+	require.NotNil(t, payload.Data[0].Usage.FiveHour)
+	require.NotNil(t, payload.Data[0].Usage.SevenDay)
+	require.Equal(t, 0.0, payload.Data[0].Usage.FiveHour.Utilization)
+	require.Equal(t, 7.0, payload.Data[0].Usage.SevenDay.Utilization)
+	require.Equal(t, &service.WindowStats{
+		Requests: 660, Tokens: 60100000, Cost: 54.82, StandardCost: 48.00, UserCost: 54.82,
+	}, payload.Data[0].Usage.FiveHour.WindowStats)
+	require.Equal(t, &service.WindowStats{
+		Requests: 2300, Tokens: 195800000, Cost: 175.07, StandardCost: 160.00, UserCost: 175.07,
+	}, payload.Data[0].Usage.SevenDay.WindowStats)
 }
 
 func TestAccountHandlerListMySubscriptionAccountsRequiresAuthentication(t *testing.T) {

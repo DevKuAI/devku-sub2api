@@ -1,7 +1,7 @@
 <template>
   <AppLayout>
-    <div class="mx-auto max-w-7xl space-y-6">
-      <header>
+    <div class="mx-auto max-w-6xl space-y-5">
+      <header class="border-b border-gray-200 pb-5 dark:border-dark-700">
         <h1 class="text-xl font-semibold text-gray-900 dark:text-white">{{ t('subscriptionAccounts.title') }}</h1>
         <p class="mt-1 text-sm text-gray-500 dark:text-dark-400">{{ t('subscriptionAccounts.description') }}</p>
       </header>
@@ -16,42 +16,48 @@
         <p class="mt-1 text-sm text-gray-500 dark:text-dark-400">{{ t('subscriptionAccounts.emptyDescription') }}</p>
       </div>
 
-      <div v-else class="divide-y divide-gray-200 border-y border-gray-200 dark:divide-dark-700 dark:border-dark-700">
+      <div v-else class="space-y-4">
         <article
           v-for="account in accounts"
           :key="account.id"
-          class="grid min-w-0 gap-5 py-6 md:grid-cols-[minmax(12rem,1.1fr)_minmax(14rem,1fr)_minmax(16rem,1.25fr)] md:items-start"
+          :aria-labelledby="`subscription-account-${account.id}`"
+          class="min-w-0 overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-gray-200 dark:bg-dark-800 dark:ring-dark-700"
         >
-          <div class="min-w-0">
-            <div class="flex flex-wrap items-center gap-2">
-              <h2 class="truncate font-semibold text-gray-900 dark:text-white" :title="account.name">{{ account.name }}</h2>
+          <div class="flex flex-wrap items-start justify-between gap-3 border-b border-primary-100 bg-primary-50/80 px-5 py-4 dark:border-primary-900/60 dark:bg-primary-950/30">
+            <div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+              <h2
+                :id="`subscription-account-${account.id}`"
+                class="min-w-0 break-words text-base font-semibold text-gray-900 dark:text-white"
+              >
+                {{ account.name }}
+              </h2>
               <span :class="['rounded-md px-2 py-0.5 text-xs font-medium', statusClass(account.status)]">
                 {{ t(`subscriptionAccounts.status.${account.status}`) }}
               </span>
             </div>
-            <div class="mt-2">
-              <PlatformTypeBadge :platform="account.platform" :type="account.type" />
-            </div>
+            <PlatformTypeBadge :platform="account.platform" :type="account.type" />
           </div>
 
-          <dl class="grid grid-cols-2 gap-x-5 gap-y-3 text-sm md:grid-cols-1">
-            <div>
-              <dt class="text-xs text-gray-500 dark:text-dark-400">{{ t('subscriptionAccounts.lastUsed') }}</dt>
-              <dd class="mt-1 text-gray-800 dark:text-gray-200">{{ formatOptionalDate(account.last_used_at) }}</dd>
-            </div>
-            <div>
-              <dt class="text-xs text-gray-500 dark:text-dark-400">{{ t('subscriptionAccounts.createdAt') }}</dt>
-              <dd class="mt-1 text-gray-800 dark:text-gray-200">{{ formatOptionalDate(account.created_at) }}</dd>
-            </div>
-            <div>
-              <dt class="text-xs text-gray-500 dark:text-dark-400">{{ t('subscriptionAccounts.expiresAt') }}</dt>
-              <dd class="mt-1 text-gray-800 dark:text-gray-200">{{ formatExpiration(account.expires_at) }}</dd>
-            </div>
-          </dl>
+          <div class="grid min-w-0 lg:grid-cols-[minmax(0,1fr)_18rem]">
+            <section class="min-w-0 px-5 py-5">
+              <h3 class="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('subscriptionAccounts.usage') }}</h3>
+              <SubscriptionAccountUsage :usage="account.usage" />
+            </section>
 
-          <div class="min-w-0">
-            <h3 class="mb-2 text-xs font-medium text-gray-500 dark:text-dark-400">{{ t('subscriptionAccounts.usage') }}</h3>
-            <SubscriptionAccountUsage :usage="account.usage" />
+            <dl class="grid grid-cols-2 gap-4 border-t border-gray-100 bg-gray-50/70 px-5 py-5 text-sm sm:grid-cols-3 lg:grid-cols-1 lg:border-l lg:border-t-0 dark:border-dark-700 dark:bg-dark-900/30">
+              <div class="min-w-0">
+                <dt class="text-xs text-gray-500 dark:text-dark-400">{{ t('subscriptionAccounts.lastUsed') }}</dt>
+                <dd class="mt-1 break-words tabular-nums text-gray-800 dark:text-gray-200">{{ formatOptionalDate(account.last_used_at) }}</dd>
+              </div>
+              <div class="min-w-0">
+                <dt class="text-xs text-gray-500 dark:text-dark-400">{{ t('subscriptionAccounts.createdAt') }}</dt>
+                <dd class="mt-1 break-words tabular-nums text-gray-800 dark:text-gray-200">{{ formatOptionalDate(account.created_at) }}</dd>
+              </div>
+              <div class="min-w-0">
+                <dt class="text-xs text-gray-500 dark:text-dark-400">{{ t('subscriptionAccounts.expiresAt') }}</dt>
+                <dd class="mt-1 break-words tabular-nums text-gray-800 dark:text-gray-200">{{ formatExpiration(account.expires_at) }}</dd>
+              </div>
+            </dl>
           </div>
         </article>
       </div>

@@ -68,6 +68,28 @@ describe('UsageProgressBar', () => {
     expect(wrapper.text()).not.toContain('usage.resetNow')
   })
 
+  it('只读用量窗口可完整显示零值统计', () => {
+    const wrapper = mount(UsageProgressBar, {
+      props: {
+        label: '5h',
+        utilization: 0,
+        color: 'indigo',
+        showWindowStatsWhenEmpty: true,
+        windowStats: {
+          requests: 0,
+          tokens: 0,
+          cost: 0,
+          standard_cost: 0,
+          user_cost: 0,
+        },
+      }
+    })
+
+    expect(wrapper.text()).toContain('0 req')
+    expect(wrapper.text()).toContain('A $0.00')
+    expect(wrapper.text()).toContain('U $0.00')
+  })
+
   it('resetsAt 已过期且利用率大于 0 时显示「待刷新」', () => {
     const wrapper = mount(UsageProgressBar, {
       props: {

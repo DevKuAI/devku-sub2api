@@ -473,6 +473,7 @@
     </TablePageLayout>
     <CreateAccountModal :show="showCreate" :proxies="proxies" :groups="groups" @close="showCreate = false" @created="reload" />
     <EditAccountModal :show="showEdit" :account="edAcc" :proxies="proxies" :groups="groups" @close="showEdit = false" @updated="handleAccountUpdated" />
+    <AccountBindingModal :show="showBinding" :account="bindingAcc" @close="closeBindingModal" @updated="handleBindingUpdated" />
     <ReAuthAccountModal :show="showReAuth" :account="reAuthAcc" @close="closeReAuthModal" @reauthorized="handleAccountUpdated" />
     <AccountTestModal :show="showTest" :account="testingAcc" @close="closeTestModal" />
     <AccountStatsModal :show="showStats" :account="statsAcc" @close="closeStatsModal" />
@@ -510,7 +511,6 @@
 import { ref, reactive, computed, onMounted, onUnmounted, toRaw, watch } from 'vue'
 import { useIntervalFn } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import { adminAPI } from '@/api/admin'
@@ -530,6 +530,7 @@ import AccountTableActions from '@/components/admin/account/AccountTableActions.
 import AccountTableFilters from '@/components/admin/account/AccountTableFilters.vue'
 import AccountBulkActionsBar from '@/components/admin/account/AccountBulkActionsBar.vue'
 import AccountActionMenu from '@/components/admin/account/AccountActionMenu.vue'
+import AccountBindingModal from '@/components/admin/account/AccountBindingModal.vue'
 import ImportDataModal from '@/components/admin/account/ImportDataModal.vue'
 import ReAuthAccountModal from '@/components/admin/account/ReAuthAccountModal.vue'
 import AccountTestModal from '@/components/admin/account/AccountTestModal.vue'
@@ -557,7 +558,6 @@ import { formatMultiplier } from '@/utils/formatters'
 import type { Account, AccountPlatform, AccountSchedulerGroupScore, AccountType, AccountUsageInfo, Proxy as AccountProxy, AdminGroup, WindowStats, ClaudeModel, UpstreamBillingProbeSnapshot } from '@/types'
 
 const { t } = useI18n()
-const router = useRouter()
 const appStore = useAppStore()
 const authStore = useAuthStore()
 
@@ -606,6 +606,7 @@ const selTypes = computed<AccountType[]>(() => {
 })
 const showCreate = ref(false)
 const showEdit = ref(false)
+const showBinding = ref(false)
 const showSync = ref(false)
 const showImportData = ref(false)
 const showExportDataDialog = ref(false)
@@ -621,6 +622,7 @@ const showStats = ref(false)
 const showErrorPassthrough = ref(false)
 const showTLSFingerprintProfiles = ref(false)
 const edAcc = ref<Account | null>(null)
+const bindingAcc = ref<Account | null>(null)
 const tempUnschedAcc = ref<Account | null>(null)
 const deletingAcc = ref<Account | null>(null)
 const creatingShadowAcc = ref<Account | null>(null)
@@ -1382,6 +1384,7 @@ const isAnyModalOpen = computed(() => {
   return (
     showCreate.value ||
     showEdit.value ||
+    showBinding.value ||
     showSync.value ||
     showImportData.value ||
     showExportDataDialog.value ||
@@ -1424,6 +1427,7 @@ const shouldReplaceAutoRefreshRow = (current: Account, next: Account) => {
 
 const syncAccountRefs = (nextAccount: Account) => {
   if (edAcc.value?.id === nextAccount.id) edAcc.value = nextAccount
+  if (bindingAcc.value?.id === nextAccount.id) bindingAcc.value = nextAccount
   if (reAuthAcc.value?.id === nextAccount.id) reAuthAcc.value = nextAccount
   if (tempUnschedAcc.value?.id === nextAccount.id) tempUnschedAcc.value = nextAccount
   if (deletingAcc.value?.id === nextAccount.id) deletingAcc.value = nextAccount
@@ -1848,7 +1852,12 @@ const cols = computed(() =>
 
 const handleEdit = (a: Account) => { edAcc.value = a; showEdit.value = true }
 const handleBinding = (a: Account) => {
-  void router.push({ name: 'AdminAccountBinding', params: { id: String(a.id) } })
+  bindingAcc.value = a
+  showBinding.value = true
+}
+const closeBindingModal = () => {
+  showBinding.value = false
+  bindingAcc.value = null
 }
 const openMenu = (a: Account, e: MouseEvent) => {
   menu.acc = a
@@ -2301,6 +2310,10 @@ const handleProbeUpstreamBilling = async (account: Account) => {
 const handleAccountUpdated = (updatedAccount: Account) => {
   patchAccountInList(updatedAccount)
   enterAutoRefreshSilentWindow()
+}
+const handleBindingUpdated = (updatedAccount: Account) => {
+  handleAccountUpdated(updatedAccount)
+  closeBindingModal()
 }
 const formatExportTimestamp = () => {
   const now = new Date()

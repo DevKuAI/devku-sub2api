@@ -8,6 +8,7 @@
         :utilization="bar.utilization"
         :resets-at="bar.resetsAt"
         :window-stats="bar.windowStats"
+        :show-window-stats-when-empty="true"
         :color="bar.color"
         label-width="auto"
       />
