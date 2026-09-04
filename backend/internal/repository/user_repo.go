@@ -10,6 +10,7 @@ import (
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	dbaccount "github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
 	"github.com/Wei-Shaw/sub2api/ent/authidentitychannel"
@@ -24,6 +25,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/lib/pq"
 
+	"entgo.io/ent/dialect"
 	entsql "entgo.io/ent/dialect/sql"
 )
 
@@ -488,6 +490,21 @@ func (r *userRepository) Delete(ctx context.Context, id int64) error {
 
 // deleteUser 在给定 client（可能是外部事务 client）上删除用户及其身份关联记录，自身不开启/提交事务。
 func (r *userRepository) deleteUser(ctx context.Context, exec *dbent.Client, id int64) error {
+	userQuery := exec.User.Query().Where(dbuser.IDEQ(id), dbuser.DeletedAtIsNil())
+	if exec.Driver().Dialect() != dialect.SQLite {
+		userQuery = userQuery.ForUpdate()
+	}
+	if _, err := userQuery.Select(dbuser.FieldID).Only(ctx); err != nil {
+		return translatePersistenceError(err, service.ErrUserNotFound, nil)
+	}
+
+	if _, err := exec.Account.Update().
+		Where(dbaccount.BoundUserIDEQ(id)).
+		ClearBoundUserID().
+		Save(ctx); err != nil {
+		return translatePersistenceError(err, service.ErrUserNotFound, nil)
+	}
+
 	identityIDs, err := exec.AuthIdentity.Query().
 		Where(authidentity.UserIDEQ(id)).
 		IDs(ctx)

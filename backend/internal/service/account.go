@@ -31,6 +31,8 @@ type Account struct {
 	ProxyID                 *int64
 	ProxyFallbackOriginID   *int64
 	ProxyFallbackOriginName *string // 仅展示用
+	BoundUserID             *int64
+	BoundUser               *AccountBoundUser `json:"-"`
 	Concurrency             int
 	Priority                int
 	// RateMultiplier 账号计费倍率（>=0，允许 0 表示该账号计费为 0）。
@@ -82,6 +84,13 @@ type Account struct {
 	headerOverrideCacheRawPtr         uintptr
 	headerOverrideCacheRawLen         int
 	headerOverrideCacheRawSig         uint64
+}
+
+// AccountBoundUser is the minimal user projection exposed with admin account data.
+type AccountBoundUser struct {
+	ID       int64
+	Username string
+	Email    string
 }
 
 type OpenAIEndpointCapability string

@@ -1188,6 +1188,12 @@ export interface Account {
   proxy_id: number | null
   proxy_fallback_origin_id?: number | null
   proxy_fallback_origin_name?: string | null
+  bound_user_id: number | null
+  bound_user?: {
+    id: number
+    username: string
+    email: string
+  } | null
   concurrency: number
   load_factor?: number | null
   current_concurrency?: number // Real-time concurrency count from Redis
@@ -1286,6 +1292,37 @@ export interface Account {
   parent_privacy_mode?: string
   parent_subscription_expires_at?: string
   parent_chatgpt_account_id?: string
+}
+
+export interface SubscriptionAccountUsage {
+  source?: 'passive' | 'active'
+  updated_at?: string | null
+  five_hour?: UsageProgress | null
+  seven_day?: UsageProgress | null
+  seven_day_sonnet?: UsageProgress | null
+  seven_day_fable?: UsageProgress | null
+  thirty_day?: UsageProgress | null
+  gemini_shared_daily?: UsageProgress | null
+  gemini_pro_daily?: UsageProgress | null
+  gemini_flash_daily?: UsageProgress | null
+  gemini_shared_minute?: UsageProgress | null
+  gemini_pro_minute?: UsageProgress | null
+  gemini_flash_minute?: UsageProgress | null
+  antigravity_quota?: Record<string, AntigravityModelQuota> | null
+  grok_request_quota?: GrokQuotaWindow | null
+  grok_token_quota?: GrokQuotaWindow | null
+}
+
+export interface SubscriptionAccount {
+  id: number
+  name: string
+  platform: AccountPlatform
+  type: AccountType
+  status: 'active' | 'disabled' | 'error'
+  last_used_at: string | null
+  expires_at: number | null
+  created_at: string
+  usage?: SubscriptionAccountUsage | null
 }
 
 export interface AccountSchedulerGroupScore {

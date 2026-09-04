@@ -188,6 +188,26 @@ func (s *stubAdminService) DeleteUser(ctx context.Context, id int64) error {
 	return nil
 }
 
+func (s *stubAdminService) ListAccountsByBoundUserID(_ context.Context, userID int64) ([]service.Account, error) {
+	result := make([]service.Account, 0)
+	for _, account := range s.accounts {
+		if account.BoundUserID != nil && *account.BoundUserID == userID {
+			result = append(result, account)
+		}
+	}
+	return result, nil
+}
+
+func (s *stubAdminService) BindAccountUser(_ context.Context, accountID int64, userID, _ *int64) (*service.Account, error) {
+	for i := range s.accounts {
+		if s.accounts[i].ID == accountID {
+			s.accounts[i].BoundUserID = userID
+			return &s.accounts[i], nil
+		}
+	}
+	return nil, service.ErrAccountNotFound
+}
+
 func (s *stubAdminService) UpdateUserBalance(ctx context.Context, userID int64, balance float64, operation string, notes string) (*service.User, error) {
 	user := service.User{ID: userID, Balance: balance, Status: service.StatusActive}
 	return &user, nil

@@ -38,6 +38,8 @@ const (
 	FieldProxyID = "proxy_id"
 	// FieldProxyFallbackOriginID holds the string denoting the proxy_fallback_origin_id field in the database.
 	FieldProxyFallbackOriginID = "proxy_fallback_origin_id"
+	// FieldBoundUserID holds the string denoting the bound_user_id field in the database.
+	FieldBoundUserID = "bound_user_id"
 	// FieldConcurrency holds the string denoting the concurrency field in the database.
 	FieldConcurrency = "concurrency"
 	// FieldLoadFactor holds the string denoting the load_factor field in the database.
@@ -82,6 +84,8 @@ const (
 	EdgeGroups = "groups"
 	// EdgeProxy holds the string denoting the proxy edge name in mutations.
 	EdgeProxy = "proxy"
+	// EdgeBoundUser holds the string denoting the bound_user edge name in mutations.
+	EdgeBoundUser = "bound_user"
 	// EdgeParent holds the string denoting the parent edge name in mutations.
 	EdgeParent = "parent"
 	// EdgeChildren holds the string denoting the children edge name in mutations.
@@ -104,6 +108,13 @@ const (
 	ProxyInverseTable = "proxies"
 	// ProxyColumn is the table column denoting the proxy relation/edge.
 	ProxyColumn = "proxy_id"
+	// BoundUserTable is the table that holds the bound_user relation/edge.
+	BoundUserTable = "accounts"
+	// BoundUserInverseTable is the table name for the User entity.
+	// It exists in this package in order to avoid circular dependency with the "user" package.
+	BoundUserInverseTable = "users"
+	// BoundUserColumn is the table column denoting the bound_user relation/edge.
+	BoundUserColumn = "bound_user_id"
 	// ParentTable is the table that holds the parent relation/edge.
 	ParentTable = "accounts"
 	// ParentColumn is the table column denoting the parent relation/edge.
@@ -142,6 +153,7 @@ var Columns = []string{
 	FieldExtra,
 	FieldProxyID,
 	FieldProxyFallbackOriginID,
+	FieldBoundUserID,
 	FieldConcurrency,
 	FieldLoadFactor,
 	FieldPriority,
@@ -301,6 +313,11 @@ func ByProxyFallbackOriginID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldProxyFallbackOriginID, opts...).ToFunc()
 }
 
+// ByBoundUserID orders the results by the bound_user_id field.
+func ByBoundUserID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldBoundUserID, opts...).ToFunc()
+}
+
 // ByConcurrency orders the results by the concurrency field.
 func ByConcurrency(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldConcurrency, opts...).ToFunc()
@@ -422,6 +439,13 @@ func ByProxyField(field string, opts ...sql.OrderTermOption) OrderOption {
 	}
 }
 
+// ByBoundUserField orders the results by bound_user field.
+func ByBoundUserField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newBoundUserStep(), sql.OrderByField(field, opts...))
+	}
+}
+
 // ByParentField orders the results by parent field.
 func ByParentField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -482,6 +506,13 @@ func newProxyStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ProxyInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, false, ProxyTable, ProxyColumn),
+	)
+}
+func newBoundUserStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(BoundUserInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, true, BoundUserTable, BoundUserColumn),
 	)
 }
 func newParentStep() *sqlgraph.Step {

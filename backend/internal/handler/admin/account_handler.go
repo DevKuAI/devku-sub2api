@@ -27,6 +27,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
+	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -150,6 +151,42 @@ type UpdateAccountRequest struct {
 	ProbeEnabled            *bool          `json:"upstream_billing_probe_enabled"`
 	RateSyncEnabled         *bool          `json:"upstream_billing_rate_sync_enabled"`
 	ConfirmMixedChannelRisk *bool          `json:"confirm_mixed_channel_risk"` // 用户确认混合渠道风险
+}
+
+type BindAccountUserRequest struct {
+	BoundUserID         json.RawMessage `json:"bound_user_id"`
+	ExpectedBoundUserID json.RawMessage `json:"expected_bound_user_id"`
+}
+
+type subscriptionAccountUsage struct {
+	Source             string                                    `json:"source,omitempty"`
+	UpdatedAt          *time.Time                                `json:"updated_at,omitempty"`
+	FiveHour           *service.UsageProgress                    `json:"five_hour,omitempty"`
+	SevenDay           *service.UsageProgress                    `json:"seven_day,omitempty"`
+	SevenDaySonnet     *service.UsageProgress                    `json:"seven_day_sonnet,omitempty"`
+	SevenDayFable      *service.UsageProgress                    `json:"seven_day_fable,omitempty"`
+	ThirtyDay          *service.UsageProgress                    `json:"thirty_day,omitempty"`
+	GeminiSharedDaily  *service.UsageProgress                    `json:"gemini_shared_daily,omitempty"`
+	GeminiProDaily     *service.UsageProgress                    `json:"gemini_pro_daily,omitempty"`
+	GeminiFlashDaily   *service.UsageProgress                    `json:"gemini_flash_daily,omitempty"`
+	GeminiSharedMinute *service.UsageProgress                    `json:"gemini_shared_minute,omitempty"`
+	GeminiProMinute    *service.UsageProgress                    `json:"gemini_pro_minute,omitempty"`
+	GeminiFlashMinute  *service.UsageProgress                    `json:"gemini_flash_minute,omitempty"`
+	AntigravityQuota   map[string]*service.AntigravityModelQuota `json:"antigravity_quota,omitempty"`
+	GrokRequestQuota   *xai.QuotaWindow                          `json:"grok_request_quota,omitempty"`
+	GrokTokenQuota     *xai.QuotaWindow                          `json:"grok_token_quota,omitempty"`
+}
+
+type subscriptionAccountResponse struct {
+	ID         int64                     `json:"id"`
+	Name       string                    `json:"name"`
+	Platform   string                    `json:"platform"`
+	Type       string                    `json:"type"`
+	Status     string                    `json:"status"`
+	LastUsedAt *time.Time                `json:"last_used_at"`
+	ExpiresAt  *int64                    `json:"expires_at"`
+	CreatedAt  time.Time                 `json:"created_at"`
+	Usage      *subscriptionAccountUsage `json:"usage,omitempty"`
 }
 
 // BulkUpdateAccountsRequest represents the payload for bulk editing accounts
@@ -773,6 +810,129 @@ func (h *AccountHandler) GetByID(c *gin.Context) {
 	}
 
 	response.Success(c, h.buildAccountResponseWithRuntime(c.Request.Context(), account))
+}
+
+// BindUser replaces or removes the user allowed to view an account.
+// PUT /api/v1/admin/accounts/:id/binding
+func (h *AccountHandler) BindUser(c *gin.Context) {
+	accountID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || accountID <= 0 {
+		response.BadRequest(c, "Invalid account ID")
+		return
+	}
+
+	var req BindAccountUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	boundUserID, err := parseRequiredNullableID(req.BoundUserID, "bound_user_id")
+	if err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	expectedBoundUserID, err := parseRequiredNullableID(req.ExpectedBoundUserID, "expected_bound_user_id")
+	if err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	account, err := h.adminService.BindAccountUser(c.Request.Context(), accountID, boundUserID, expectedBoundUserID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, h.accountResponseFromService(account))
+}
+
+// ListMySubscriptionAccounts returns only subscription-safe fields for the current user.
+// GET /api/v1/subscription-accounts
+func (h *AccountHandler) ListMySubscriptionAccounts(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not found in context")
+		return
+	}
+
+	accounts, err := h.adminService.ListAccountsByBoundUserID(c.Request.Context(), subject.UserID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	usageByAccount := map[int64]*service.UsageInfo{}
+	if c.Query("include_usage") == "true" && h.accountUsageService != nil && len(accounts) > 0 {
+		for i := range accounts {
+			usage, usageErr := h.accountUsageService.GetReadOnlyUsageForAccount(c.Request.Context(), &accounts[i])
+			if usageErr == nil && usage != nil {
+				usageByAccount[accounts[i].ID] = usage
+			}
+		}
+	}
+
+	result := make([]subscriptionAccountResponse, 0, len(accounts))
+	for i := range accounts {
+		account := &accounts[i]
+		result = append(result, subscriptionAccountResponse{
+			ID:         account.ID,
+			Name:       account.Name,
+			Platform:   account.Platform,
+			Type:       account.Type,
+			Status:     account.Status,
+			LastUsedAt: account.LastUsedAt,
+			ExpiresAt:  accountExpiresAtUnix(account.ExpiresAt),
+			CreatedAt:  account.CreatedAt,
+			Usage:      subscriptionAccountUsageFromService(usageByAccount[account.ID]),
+		})
+	}
+	response.Success(c, result)
+}
+
+func parseRequiredNullableID(raw json.RawMessage, field string) (*int64, error) {
+	value := strings.TrimSpace(string(raw))
+	if value == "" {
+		return nil, fmt.Errorf("%s is required", field)
+	}
+	if value == "null" {
+		return nil, nil
+	}
+	var id int64
+	if err := json.Unmarshal(raw, &id); err != nil || id <= 0 {
+		return nil, fmt.Errorf("%s must be a positive integer or null", field)
+	}
+	return &id, nil
+}
+
+func accountExpiresAtUnix(value *time.Time) *int64 {
+	if value == nil {
+		return nil
+	}
+	unix := value.Unix()
+	return &unix
+}
+
+func subscriptionAccountUsageFromService(usage *service.UsageInfo) *subscriptionAccountUsage {
+	if usage == nil {
+		return nil
+	}
+	return &subscriptionAccountUsage{
+		Source:             usage.Source,
+		UpdatedAt:          usage.UpdatedAt,
+		FiveHour:           usage.FiveHour,
+		SevenDay:           usage.SevenDay,
+		SevenDaySonnet:     usage.SevenDaySonnet,
+		SevenDayFable:      usage.SevenDayFable,
+		ThirtyDay:          usage.ThirtyDay,
+		GeminiSharedDaily:  usage.GeminiSharedDaily,
+		GeminiProDaily:     usage.GeminiProDaily,
+		GeminiFlashDaily:   usage.GeminiFlashDaily,
+		GeminiSharedMinute: usage.GeminiSharedMinute,
+		GeminiProMinute:    usage.GeminiProMinute,
+		GeminiFlashMinute:  usage.GeminiFlashMinute,
+		AntigravityQuota:   usage.AntigravityQuota,
+		GrokRequestQuota:   usage.GrokRequestQuota,
+		GrokTokenQuota:     usage.GrokTokenQuota,
+	}
 }
 
 // CheckMixedChannel handles checking mixed channel risk for account-group binding.

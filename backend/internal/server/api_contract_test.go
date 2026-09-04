@@ -1867,6 +1867,18 @@ func (s *stubAccountRepo) GetByIDs(ctx context.Context, ids []int64) ([]*service
 	return nil, errors.New("not implemented")
 }
 
+func (s *stubAccountRepo) ListByBoundUserID(context.Context, int64) ([]service.Account, error) {
+	return nil, nil
+}
+
+func (s *stubAccountRepo) SetBoundUser(context.Context, int64, *int64, *int64) (*service.Account, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *stubAccountRepo) PopulateBoundUsers(context.Context, []service.Account) error {
+	return nil
+}
+
 func (s *stubAccountRepo) ExistsByID(ctx context.Context, id int64) (bool, error) {
 	return false, errors.New("not implemented")
 }

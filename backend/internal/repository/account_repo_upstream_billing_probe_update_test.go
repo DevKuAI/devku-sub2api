@@ -3,7 +3,9 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -362,7 +364,12 @@ func TestUpdateCredentialsAtomicallyClearsProbeForOpenAIAPIKeyIdentityChange(t *
 }
 
 func TestUpdateWithAccountBillingSettingsRollsBackWhenOutboxFails(t *testing.T) {
-	db, mock, err := sqlmock.New()
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherFunc(func(expectedSQL, actualSQL string) error {
+		if strings.Contains(actualSQL, `UPDATE "accounts" SET`) && strings.Contains(actualSQL, `"bound_user_id"`) {
+			return fmt.Errorf("generic account update must not write bound_user_id")
+		}
+		return sqlmock.QueryMatcherRegexp.Match(expectedSQL, actualSQL)
+	})))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = db.Close() })
 	client := dbent.NewClient(dbent.Driver(entsql.OpenDB(dialect.Postgres, db)))
@@ -476,7 +483,7 @@ func updatedAccountRows(id int64, extra string) *sqlmock.Rows {
 	now := time.Now()
 	return sqlmock.NewRows(dbaccount.Columns).AddRow(
 		id, now, now, nil, "test", nil, service.PlatformOpenAI, service.AccountTypeAPIKey,
-		[]byte(`{"api_key":"sk-test"}`), []byte(extra), nil, nil, 1, nil, 1, 1.0,
+		[]byte(`{"api_key":"sk-test"}`), []byte(extra), nil, nil, nil, 1, nil, 1, 1.0,
 		service.StatusActive, nil, nil, nil, false, true, nil, nil, nil, nil, nil, nil,
 		nil, nil, nil, service.QuotaDimensionGlobal,
 	)

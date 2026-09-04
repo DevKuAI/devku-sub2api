@@ -94,6 +94,10 @@ func (Account) Fields() []ent.Field {
 		field.Int64("proxy_fallback_origin_id").
 			Optional().Nillable().
 			Comment("Original proxy id replaced by expiry-fallback; for manual revert. NULL = not in fallback."),
+		field.Int64("bound_user_id").
+			Optional().
+			Nillable().
+			Comment("User allowed to view this subscription account; one user may own multiple accounts."),
 
 		// concurrency: 账户最大并发请求数
 		// 用于限制同一时间对该账户发起的请求数量
@@ -217,6 +221,11 @@ func (Account) Edges() []ent.Edge {
 		edge.To("proxy", Proxy.Type).
 			Field("proxy_id").
 			Unique(),
+		edge.From("bound_user", User.Type).
+			Ref("bound_accounts").
+			Field("bound_user_id").
+			Unique().
+			Annotations(entsql.OnDelete(entsql.SetNull)),
 		// children/parent: linked spark shadow relationship.
 		// parent_account_id is nullable, and the active one-shadow-per-parent rule
 		// is enforced by the partial unique index in migration 154a.
@@ -249,5 +258,6 @@ func (Account) Indexes() []ent.Index {
 		index.Fields("priority", "status"),
 		index.Fields("deleted_at"), // 软删除查询优化
 		index.Fields("parent_account_id"),
+		index.Fields("bound_user_id"),
 	}
 }

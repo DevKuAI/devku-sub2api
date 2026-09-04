@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
@@ -678,6 +679,21 @@ func (_u *UserUpdate) AddDesktopOrganizations(v ...*DesktopOrganization) *UserUp
 	return _u.AddDesktopOrganizationIDs(ids...)
 }
 
+// AddBoundAccountIDs adds the "bound_accounts" edge to the Account entity by IDs.
+func (_u *UserUpdate) AddBoundAccountIDs(ids ...int64) *UserUpdate {
+	_u.mutation.AddBoundAccountIDs(ids...)
+	return _u
+}
+
+// AddBoundAccounts adds the "bound_accounts" edges to the Account entity.
+func (_u *UserUpdate) AddBoundAccounts(v ...*Account) *UserUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddBoundAccountIDs(ids...)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (_u *UserUpdate) Mutation() *UserMutation {
 	return _u.mutation
@@ -975,6 +991,27 @@ func (_u *UserUpdate) RemoveDesktopOrganizations(v ...*DesktopOrganization) *Use
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveDesktopOrganizationIDs(ids...)
+}
+
+// ClearBoundAccounts clears all "bound_accounts" edges to the Account entity.
+func (_u *UserUpdate) ClearBoundAccounts() *UserUpdate {
+	_u.mutation.ClearBoundAccounts()
+	return _u
+}
+
+// RemoveBoundAccountIDs removes the "bound_accounts" edge to Account entities by IDs.
+func (_u *UserUpdate) RemoveBoundAccountIDs(ids ...int64) *UserUpdate {
+	_u.mutation.RemoveBoundAccountIDs(ids...)
+	return _u
+}
+
+// RemoveBoundAccounts removes "bound_accounts" edges to Account entities.
+func (_u *UserUpdate) RemoveBoundAccounts(v ...*Account) *UserUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveBoundAccountIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -1827,6 +1864,51 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.BoundAccountsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.BoundAccountsTable,
+			Columns: []string{user.BoundAccountsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedBoundAccountsIDs(); len(nodes) > 0 && !_u.mutation.BoundAccountsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.BoundAccountsTable,
+			Columns: []string{user.BoundAccountsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.BoundAccountsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.BoundAccountsTable,
+			Columns: []string{user.BoundAccountsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{user.Label}
@@ -2484,6 +2566,21 @@ func (_u *UserUpdateOne) AddDesktopOrganizations(v ...*DesktopOrganization) *Use
 	return _u.AddDesktopOrganizationIDs(ids...)
 }
 
+// AddBoundAccountIDs adds the "bound_accounts" edge to the Account entity by IDs.
+func (_u *UserUpdateOne) AddBoundAccountIDs(ids ...int64) *UserUpdateOne {
+	_u.mutation.AddBoundAccountIDs(ids...)
+	return _u
+}
+
+// AddBoundAccounts adds the "bound_accounts" edges to the Account entity.
+func (_u *UserUpdateOne) AddBoundAccounts(v ...*Account) *UserUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddBoundAccountIDs(ids...)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (_u *UserUpdateOne) Mutation() *UserMutation {
 	return _u.mutation
@@ -2781,6 +2878,27 @@ func (_u *UserUpdateOne) RemoveDesktopOrganizations(v ...*DesktopOrganization) *
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveDesktopOrganizationIDs(ids...)
+}
+
+// ClearBoundAccounts clears all "bound_accounts" edges to the Account entity.
+func (_u *UserUpdateOne) ClearBoundAccounts() *UserUpdateOne {
+	_u.mutation.ClearBoundAccounts()
+	return _u
+}
+
+// RemoveBoundAccountIDs removes the "bound_accounts" edge to Account entities by IDs.
+func (_u *UserUpdateOne) RemoveBoundAccountIDs(ids ...int64) *UserUpdateOne {
+	_u.mutation.RemoveBoundAccountIDs(ids...)
+	return _u
+}
+
+// RemoveBoundAccounts removes "bound_accounts" edges to Account entities.
+func (_u *UserUpdateOne) RemoveBoundAccounts(v ...*Account) *UserUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveBoundAccountIDs(ids...)
 }
 
 // Where appends a list predicates to the UserUpdate builder.
@@ -3656,6 +3774,51 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(desktoporganization.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.BoundAccountsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.BoundAccountsTable,
+			Columns: []string{user.BoundAccountsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedBoundAccountsIDs(); len(nodes) > 0 && !_u.mutation.BoundAccountsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.BoundAccountsTable,
+			Columns: []string{user.BoundAccountsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.BoundAccountsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.BoundAccountsTable,
+			Columns: []string{user.BoundAccountsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

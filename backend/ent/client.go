@@ -904,6 +904,22 @@ func (c *AccountClient) QueryProxy(_m *Account) *ProxyQuery {
 	return query
 }
 
+// QueryBoundUser queries the bound_user edge of a Account.
+func (c *AccountClient) QueryBoundUser(_m *Account) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, account.BoundUserTable, account.BoundUserColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryParent queries the parent edge of a Account.
 func (c *AccountClient) QueryParent(_m *Account) *AccountQuery {
 	query := (&AccountClient{config: c.config}).Query()
@@ -6720,6 +6736,22 @@ func (c *UserClient) QueryDesktopOrganizations(_m *User) *DesktopOrganizationQue
 			sqlgraph.From(user.Table, user.FieldID, id),
 			sqlgraph.To(desktoporganization.Table, desktoporganization.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, user.DesktopOrganizationsTable, user.DesktopOrganizationsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryBoundAccounts queries the bound_accounts edge of a User.
+func (c *UserClient) QueryBoundAccounts(_m *User) *AccountQuery {
+	query := (&AccountClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(account.Table, account.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.BoundAccountsTable, user.BoundAccountsColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil

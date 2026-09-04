@@ -178,6 +178,7 @@ export default {
     desktopOrganization: '企业管理',
     desktopOrganizations: '组织管理',
     desktopUpdates: '软件更新',
+    subscriptionAccounts: '订阅账户',
     channels: '渠道管理',
     availableChannels: '可用渠道',
     modelPlaza: '模型广场',

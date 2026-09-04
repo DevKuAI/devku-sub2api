@@ -105,11 +105,13 @@ type UserEdges struct {
 	PlatformQuotas []*UserPlatformQuota `json:"platform_quotas,omitempty"`
 	// DesktopOrganizations holds the value of the desktop_organizations edge.
 	DesktopOrganizations []*DesktopOrganization `json:"desktop_organizations,omitempty"`
+	// BoundAccounts holds the value of the bound_accounts edge.
+	BoundAccounts []*Account `json:"bound_accounts,omitempty"`
 	// UserAllowedGroups holds the value of the user_allowed_groups edge.
 	UserAllowedGroups []*UserAllowedGroup `json:"user_allowed_groups,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [15]bool
+	loadedTypes [16]bool
 }
 
 // APIKeysOrErr returns the APIKeys value or an error if the edge
@@ -238,10 +240,19 @@ func (e UserEdges) DesktopOrganizationsOrErr() ([]*DesktopOrganization, error) {
 	return nil, &NotLoadedError{edge: "desktop_organizations"}
 }
 
+// BoundAccountsOrErr returns the BoundAccounts value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) BoundAccountsOrErr() ([]*Account, error) {
+	if e.loadedTypes[14] {
+		return e.BoundAccounts, nil
+	}
+	return nil, &NotLoadedError{edge: "bound_accounts"}
+}
+
 // UserAllowedGroupsOrErr returns the UserAllowedGroups value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) UserAllowedGroupsOrErr() ([]*UserAllowedGroup, error) {
-	if e.loadedTypes[14] {
+	if e.loadedTypes[15] {
 		return e.UserAllowedGroups, nil
 	}
 	return nil, &NotLoadedError{edge: "user_allowed_groups"}
@@ -526,6 +537,11 @@ func (_m *User) QueryPlatformQuotas() *UserPlatformQuotaQuery {
 // QueryDesktopOrganizations queries the "desktop_organizations" edge of the User entity.
 func (_m *User) QueryDesktopOrganizations() *DesktopOrganizationQuery {
 	return NewUserClient(_m.config).QueryDesktopOrganizations(_m)
+}
+
+// QueryBoundAccounts queries the "bound_accounts" edge of the User entity.
+func (_m *User) QueryBoundAccounts() *AccountQuery {
+	return NewUserClient(_m.config).QueryBoundAccounts(_m)
 }
 
 // QueryUserAllowedGroups queries the "user_allowed_groups" edge of the User entity.

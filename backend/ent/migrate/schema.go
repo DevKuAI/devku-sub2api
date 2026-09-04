@@ -127,6 +127,7 @@ var (
 		{Name: "quota_dimension", Type: field.TypeEnum, Enums: []string{"global", "spark"}, Default: "global"},
 		{Name: "proxy_id", Type: field.TypeInt64, Nullable: true},
 		{Name: "parent_account_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "bound_user_id", Type: field.TypeInt64, Nullable: true},
 	}
 	// AccountsTable holds the schema information for the "accounts" table.
 	AccountsTable = &schema.Table{
@@ -145,6 +146,12 @@ var (
 				Columns:    []*schema.Column{AccountsColumns[31]},
 				RefColumns: []*schema.Column{AccountsColumns[0]},
 				OnDelete:   schema.Restrict,
+			},
+			{
+				Symbol:     "accounts_users_bound_accounts",
+				Columns:    []*schema.Column{AccountsColumns[32]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.SetNull,
 			},
 		},
 		Indexes: []*schema.Index{
@@ -217,6 +224,11 @@ var (
 				Name:    "account_parent_account_id",
 				Unique:  false,
 				Columns: []*schema.Column{AccountsColumns[31]},
+			},
+			{
+				Name:    "account_bound_user_id",
+				Unique:  false,
+				Columns: []*schema.Column{AccountsColumns[32]},
 			},
 		},
 	}
@@ -2337,6 +2349,7 @@ func init() {
 	}
 	AccountsTable.ForeignKeys[0].RefTable = ProxiesTable
 	AccountsTable.ForeignKeys[1].RefTable = AccountsTable
+	AccountsTable.ForeignKeys[2].RefTable = UsersTable
 	AccountsTable.Annotation = &entsql.Annotation{
 		Table: "accounts",
 	}

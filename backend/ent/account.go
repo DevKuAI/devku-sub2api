@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/proxy"
+	"github.com/Wei-Shaw/sub2api/ent/user"
 )
 
 // Account is the model entity for the Account schema.
@@ -41,6 +42,8 @@ type Account struct {
 	ProxyID *int64 `json:"proxy_id,omitempty"`
 	// Original proxy id replaced by expiry-fallback; for manual revert. NULL = not in fallback.
 	ProxyFallbackOriginID *int64 `json:"proxy_fallback_origin_id,omitempty"`
+	// User allowed to view this subscription account; one user may own multiple accounts.
+	BoundUserID *int64 `json:"bound_user_id,omitempty"`
 	// Concurrency holds the value of the "concurrency" field.
 	Concurrency int `json:"concurrency,omitempty"`
 	// LoadFactor holds the value of the "load_factor" field.
@@ -93,6 +96,8 @@ type AccountEdges struct {
 	Groups []*Group `json:"groups,omitempty"`
 	// Proxy holds the value of the proxy edge.
 	Proxy *Proxy `json:"proxy,omitempty"`
+	// BoundUser holds the value of the bound_user edge.
+	BoundUser *User `json:"bound_user,omitempty"`
 	// Parent holds the value of the parent edge.
 	Parent *Account `json:"parent,omitempty"`
 	// Children holds the value of the children edge.
@@ -103,7 +108,7 @@ type AccountEdges struct {
 	AccountGroups []*AccountGroup `json:"account_groups,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [6]bool
+	loadedTypes [7]bool
 }
 
 // GroupsOrErr returns the Groups value or an error if the edge
@@ -126,12 +131,23 @@ func (e AccountEdges) ProxyOrErr() (*Proxy, error) {
 	return nil, &NotLoadedError{edge: "proxy"}
 }
 
+// BoundUserOrErr returns the BoundUser value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e AccountEdges) BoundUserOrErr() (*User, error) {
+	if e.BoundUser != nil {
+		return e.BoundUser, nil
+	} else if e.loadedTypes[2] {
+		return nil, &NotFoundError{label: user.Label}
+	}
+	return nil, &NotLoadedError{edge: "bound_user"}
+}
+
 // ParentOrErr returns the Parent value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
 func (e AccountEdges) ParentOrErr() (*Account, error) {
 	if e.Parent != nil {
 		return e.Parent, nil
-	} else if e.loadedTypes[2] {
+	} else if e.loadedTypes[3] {
 		return nil, &NotFoundError{label: account.Label}
 	}
 	return nil, &NotLoadedError{edge: "parent"}
@@ -140,7 +156,7 @@ func (e AccountEdges) ParentOrErr() (*Account, error) {
 // ChildrenOrErr returns the Children value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) ChildrenOrErr() ([]*Account, error) {
-	if e.loadedTypes[3] {
+	if e.loadedTypes[4] {
 		return e.Children, nil
 	}
 	return nil, &NotLoadedError{edge: "children"}
@@ -149,7 +165,7 @@ func (e AccountEdges) ChildrenOrErr() ([]*Account, error) {
 // UsageLogsOrErr returns the UsageLogs value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) UsageLogsOrErr() ([]*UsageLog, error) {
-	if e.loadedTypes[4] {
+	if e.loadedTypes[5] {
 		return e.UsageLogs, nil
 	}
 	return nil, &NotLoadedError{edge: "usage_logs"}
@@ -158,7 +174,7 @@ func (e AccountEdges) UsageLogsOrErr() ([]*UsageLog, error) {
 // AccountGroupsOrErr returns the AccountGroups value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) AccountGroupsOrErr() ([]*AccountGroup, error) {
-	if e.loadedTypes[5] {
+	if e.loadedTypes[6] {
 		return e.AccountGroups, nil
 	}
 	return nil, &NotLoadedError{edge: "account_groups"}
@@ -175,7 +191,7 @@ func (*Account) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullBool)
 		case account.FieldRateMultiplier:
 			values[i] = new(sql.NullFloat64)
-		case account.FieldID, account.FieldProxyID, account.FieldProxyFallbackOriginID, account.FieldConcurrency, account.FieldLoadFactor, account.FieldPriority, account.FieldParentAccountID:
+		case account.FieldID, account.FieldProxyID, account.FieldProxyFallbackOriginID, account.FieldBoundUserID, account.FieldConcurrency, account.FieldLoadFactor, account.FieldPriority, account.FieldParentAccountID:
 			values[i] = new(sql.NullInt64)
 		case account.FieldName, account.FieldNotes, account.FieldPlatform, account.FieldType, account.FieldStatus, account.FieldErrorMessage, account.FieldTempUnschedulableReason, account.FieldSessionWindowStatus, account.FieldQuotaDimension:
 			values[i] = new(sql.NullString)
@@ -275,6 +291,13 @@ func (_m *Account) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.ProxyFallbackOriginID = new(int64)
 				*_m.ProxyFallbackOriginID = value.Int64
+			}
+		case account.FieldBoundUserID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field bound_user_id", values[i])
+			} else if value.Valid {
+				_m.BoundUserID = new(int64)
+				*_m.BoundUserID = value.Int64
 			}
 		case account.FieldConcurrency:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -432,6 +455,11 @@ func (_m *Account) QueryProxy() *ProxyQuery {
 	return NewAccountClient(_m.config).QueryProxy(_m)
 }
 
+// QueryBoundUser queries the "bound_user" edge of the Account entity.
+func (_m *Account) QueryBoundUser() *UserQuery {
+	return NewAccountClient(_m.config).QueryBoundUser(_m)
+}
+
 // QueryParent queries the "parent" edge of the Account entity.
 func (_m *Account) QueryParent() *AccountQuery {
 	return NewAccountClient(_m.config).QueryParent(_m)
@@ -513,6 +541,11 @@ func (_m *Account) String() string {
 	builder.WriteString(", ")
 	if v := _m.ProxyFallbackOriginID; v != nil {
 		builder.WriteString("proxy_fallback_origin_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.BoundUserID; v != nil {
+		builder.WriteString("bound_user_id=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
 	builder.WriteString(", ")

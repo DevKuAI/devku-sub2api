@@ -25,11 +25,13 @@ import (
 	dbgroup "github.com/Wei-Shaw/sub2api/ent/group"
 	dbpredicate "github.com/Wei-Shaw/sub2api/ent/predicate"
 	dbproxy "github.com/Wei-Shaw/sub2api/ent/proxy"
+	dbuser "github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/lib/pq"
 
+	"entgo.io/ent/dialect"
 	entsql "entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqljson"
 )
@@ -160,6 +162,9 @@ func createAccountRecord(ctx context.Context, client *dbent.Client, account *ser
 
 	if account.ProxyID != nil {
 		builder.SetProxyID(*account.ProxyID)
+	}
+	if account.BoundUserID != nil {
+		builder.SetBoundUserID(*account.BoundUserID)
 	}
 	if account.LastUsedAt != nil {
 		builder.SetLastUsedAt(*account.LastUsedAt)
@@ -328,7 +333,6 @@ func (r *accountRepository) GetByIDs(ctx context.Context, ids []int64) ([]*servi
 		if entAcc.Edges.Proxy != nil {
 			out.Proxy = proxyEntityToService(entAcc.Edges.Proxy)
 		}
-
 		if groups, ok := groupsByAccount[entAcc.ID]; ok {
 			out.Groups = groups
 		}
@@ -433,6 +437,142 @@ func (r *accountRepository) ListCRSAccountIDs(ctx context.Context) (map[string]i
 
 func (r *accountRepository) Update(ctx context.Context, account *service.Account) error {
 	return r.updateAccount(ctx, account, nil, nil, account.RateMultiplier)
+}
+
+func (r *accountRepository) ListByBoundUserID(ctx context.Context, userID int64) ([]service.Account, error) {
+	if userID <= 0 {
+		return []service.Account{}, nil
+	}
+	accounts, err := clientFromContext(ctx, r.client).Account.Query().
+		Where(dbaccount.BoundUserIDEQ(userID)).
+		Order(dbaccount.ByName(), dbaccount.ByID()).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return r.accountsToService(ctx, accounts)
+}
+
+func (r *accountRepository) SetBoundUser(ctx context.Context, accountID int64, userID, expectedUserID *int64) (*service.Account, error) {
+	if accountID <= 0 {
+		return nil, service.ErrAccountNotFound
+	}
+
+	client := r.client
+	var tx *dbent.Tx
+	var err error
+	if existingTx := dbent.TxFromContext(ctx); existingTx != nil {
+		client = existingTx.Client()
+	} else {
+		tx, err = r.client.Tx(ctx)
+		if err != nil && !errors.Is(err, dbent.ErrTxStarted) {
+			return nil, err
+		}
+		if tx != nil {
+			defer func() { _ = tx.Rollback() }()
+			ctx = dbent.NewTxContext(ctx, tx)
+			client = tx.Client()
+		}
+	}
+
+	var boundUser *dbent.User
+	if userID != nil {
+		if *userID <= 0 {
+			return nil, service.ErrUserNotFound
+		}
+		userQuery := client.User.Query().Where(dbuser.IDEQ(*userID), dbuser.DeletedAtIsNil())
+		if client.Driver().Dialect() != dialect.SQLite {
+			userQuery = userQuery.ForUpdate()
+		}
+		boundUser, err = userQuery.Only(ctx)
+		if err != nil {
+			return nil, translatePersistenceError(err, service.ErrUserNotFound, nil)
+		}
+		if boundUser.Status != service.StatusActive {
+			return nil, service.ErrAccountBoundUserInactive
+		}
+	}
+
+	accountQuery := client.Account.Query().Where(dbaccount.IDEQ(accountID), dbaccount.DeletedAtIsNil())
+	if client.Driver().Dialect() != dialect.SQLite {
+		accountQuery = accountQuery.ForUpdate()
+	}
+	lockedAccount, err := accountQuery.Only(ctx)
+	if err != nil {
+		return nil, translatePersistenceError(err, service.ErrAccountNotFound, nil)
+	}
+	if !sameOptionalInt64(lockedAccount.BoundUserID, expectedUserID) {
+		return nil, service.ErrAccountBindingConflict
+	}
+
+	builder := client.Account.UpdateOne(lockedAccount)
+	if userID == nil {
+		builder.ClearBoundUserID()
+	} else {
+		builder.SetBoundUserID(*userID)
+	}
+	updated, err := builder.Save(ctx)
+	if err != nil {
+		return nil, translatePersistenceError(err, service.ErrAccountNotFound, nil)
+	}
+	if tx != nil {
+		if err := tx.Commit(); err != nil {
+			return nil, err
+		}
+	}
+
+	account := accountEntityToService(updated)
+	if boundUser != nil {
+		account.BoundUser = &service.AccountBoundUser{
+			ID:       boundUser.ID,
+			Username: boundUser.Username,
+			Email:    boundUser.Email,
+		}
+	}
+	return account, nil
+}
+
+func sameOptionalInt64(left, right *int64) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
+}
+
+func (r *accountRepository) PopulateBoundUsers(ctx context.Context, accounts []service.Account) error {
+	userIDs := make([]int64, 0, len(accounts))
+	for i := range accounts {
+		accounts[i].BoundUser = nil
+		if accounts[i].BoundUserID != nil {
+			userIDs = append(userIDs, *accounts[i].BoundUserID)
+		}
+	}
+	userIDs = uniquePositiveInt64s(userIDs)
+	if len(userIDs) == 0 {
+		return nil
+	}
+
+	users, err := clientFromContext(ctx, r.client).User.Query().
+		Where(dbuser.IDIn(userIDs...), dbuser.DeletedAtIsNil()).
+		Select(dbuser.FieldID, dbuser.FieldUsername, dbuser.FieldEmail).
+		All(ctx)
+	if err != nil {
+		return err
+	}
+	usersByID := make(map[int64]*service.AccountBoundUser, len(users))
+	for _, user := range users {
+		usersByID[user.ID] = &service.AccountBoundUser{
+			ID:       user.ID,
+			Username: user.Username,
+			Email:    user.Email,
+		}
+	}
+	for i := range accounts {
+		if accounts[i].BoundUserID != nil {
+			accounts[i].BoundUser = usersByID[*accounts[i].BoundUserID]
+		}
+	}
+	return nil
 }
 
 // UpdateWithAccountBillingSettings applies an admin account edit while
@@ -3378,6 +3518,7 @@ func accountEntityToService(m *dbent.Account) *service.Account {
 		Extra:                   copyJSONMap(m.Extra),
 		ProxyID:                 m.ProxyID,
 		ProxyFallbackOriginID:   m.ProxyFallbackOriginID,
+		BoundUserID:             m.BoundUserID,
 		Concurrency:             m.Concurrency,
 		Priority:                m.Priority,
 		RateMultiplier:          &rateMultiplier,

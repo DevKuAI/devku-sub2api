@@ -178,6 +178,7 @@ export default {
     desktopOrganization: 'Organization',
     desktopOrganizations: 'Organizations',
     desktopUpdates: 'Software Updates',
+    subscriptionAccounts: 'Subscription Accounts',
     channels: 'Channels',
     availableChannels: 'Available Channels',
     modelPlaza: 'Model Plaza',

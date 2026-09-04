@@ -11,6 +11,8 @@ import (
 
 // AdminService interface defines admin management operations
 type AdminService interface {
+	AccountBindingService
+
 	// User management
 	ListUsers(ctx context.Context, page, pageSize int, filters UserListFilters, sortBy, sortOrder string) ([]User, int64, error)
 	GetUser(ctx context.Context, id int64) (*User, error)
@@ -135,6 +137,11 @@ type AdminService interface {
 	BatchDeleteRedeemCodes(ctx context.Context, ids []int64) (int64, error)
 	ExpireRedeemCode(ctx context.Context, id int64) (*RedeemCode, error)
 	ResetAccountQuota(ctx context.Context, id int64) error
+}
+
+type AccountBindingService interface {
+	ListAccountsByBoundUserID(ctx context.Context, userID int64) ([]Account, error)
+	BindAccountUser(ctx context.Context, accountID int64, userID, expectedUserID *int64) (*Account, error)
 }
 
 // CreateUserInput represents input for creating a new user via admin operations.
@@ -660,6 +667,7 @@ type adminServiceImpl struct {
 	groupRepo            GroupRepository
 	groupDuplicateRepo   GroupDuplicateRepository
 	accountRepo          AccountRepository
+	accountBindingRepo   AccountBindingRepository
 	accountDuplicateRepo AccountDuplicateRepository
 	accountBillingRepo   AccountBillingSettingsRepository
 	proxyRepo            ProxyRepository
@@ -728,6 +736,7 @@ func NewAdminService(
 		groupRepo:            groupRepo,
 		groupDuplicateRepo:   groupRepo,
 		accountRepo:          accountRepo,
+		accountBindingRepo:   accountRepo,
 		accountDuplicateRepo: accountRepo,
 		accountBillingRepo:   accountRepo,
 		proxyRepo:            proxyRepo,

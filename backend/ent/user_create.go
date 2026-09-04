@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
@@ -593,6 +594,21 @@ func (_c *UserCreate) AddDesktopOrganizations(v ...*DesktopOrganization) *UserCr
 	return _c.AddDesktopOrganizationIDs(ids...)
 }
 
+// AddBoundAccountIDs adds the "bound_accounts" edge to the Account entity by IDs.
+func (_c *UserCreate) AddBoundAccountIDs(ids ...int64) *UserCreate {
+	_c.mutation.AddBoundAccountIDs(ids...)
+	return _c
+}
+
+// AddBoundAccounts adds the "bound_accounts" edges to the Account entity.
+func (_c *UserCreate) AddBoundAccounts(v ...*Account) *UserCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddBoundAccountIDs(ids...)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (_c *UserCreate) Mutation() *UserMutation {
 	return _c.mutation
@@ -1160,6 +1176,22 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(desktoporganization.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.BoundAccountsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.BoundAccountsTable,
+			Columns: []string{user.BoundAccountsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

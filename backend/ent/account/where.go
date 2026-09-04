@@ -100,6 +100,11 @@ func ProxyFallbackOriginID(v int64) predicate.Account {
 	return predicate.Account(sql.FieldEQ(FieldProxyFallbackOriginID, v))
 }
 
+// BoundUserID applies equality check predicate on the "bound_user_id" field. It's identical to BoundUserIDEQ.
+func BoundUserID(v int64) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldBoundUserID, v))
+}
+
 // Concurrency applies equality check predicate on the "concurrency" field. It's identical to ConcurrencyEQ.
 func Concurrency(v int) predicate.Account {
 	return predicate.Account(sql.FieldEQ(FieldConcurrency, v))
@@ -673,6 +678,36 @@ func ProxyFallbackOriginIDIsNil() predicate.Account {
 // ProxyFallbackOriginIDNotNil applies the NotNil predicate on the "proxy_fallback_origin_id" field.
 func ProxyFallbackOriginIDNotNil() predicate.Account {
 	return predicate.Account(sql.FieldNotNull(FieldProxyFallbackOriginID))
+}
+
+// BoundUserIDEQ applies the EQ predicate on the "bound_user_id" field.
+func BoundUserIDEQ(v int64) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldBoundUserID, v))
+}
+
+// BoundUserIDNEQ applies the NEQ predicate on the "bound_user_id" field.
+func BoundUserIDNEQ(v int64) predicate.Account {
+	return predicate.Account(sql.FieldNEQ(FieldBoundUserID, v))
+}
+
+// BoundUserIDIn applies the In predicate on the "bound_user_id" field.
+func BoundUserIDIn(vs ...int64) predicate.Account {
+	return predicate.Account(sql.FieldIn(FieldBoundUserID, vs...))
+}
+
+// BoundUserIDNotIn applies the NotIn predicate on the "bound_user_id" field.
+func BoundUserIDNotIn(vs ...int64) predicate.Account {
+	return predicate.Account(sql.FieldNotIn(FieldBoundUserID, vs...))
+}
+
+// BoundUserIDIsNil applies the IsNil predicate on the "bound_user_id" field.
+func BoundUserIDIsNil() predicate.Account {
+	return predicate.Account(sql.FieldIsNull(FieldBoundUserID))
+}
+
+// BoundUserIDNotNil applies the NotNil predicate on the "bound_user_id" field.
+func BoundUserIDNotNil() predicate.Account {
+	return predicate.Account(sql.FieldNotNull(FieldBoundUserID))
 }
 
 // ConcurrencyEQ applies the EQ predicate on the "concurrency" field.
@@ -1643,6 +1678,29 @@ func HasProxy() predicate.Account {
 func HasProxyWith(preds ...predicate.Proxy) predicate.Account {
 	return predicate.Account(func(s *sql.Selector) {
 		step := newProxyStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasBoundUser applies the HasEdge predicate on the "bound_user" edge.
+func HasBoundUser() predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, BoundUserTable, BoundUserColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasBoundUserWith applies the HasEdge predicate on the "bound_user" edge with a given conditions (other predicates).
+func HasBoundUserWith(preds ...predicate.User) predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := newBoundUserStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

@@ -95,6 +95,8 @@ const (
 	EdgePlatformQuotas = "platform_quotas"
 	// EdgeDesktopOrganizations holds the string denoting the desktop_organizations edge name in mutations.
 	EdgeDesktopOrganizations = "desktop_organizations"
+	// EdgeBoundAccounts holds the string denoting the bound_accounts edge name in mutations.
+	EdgeBoundAccounts = "bound_accounts"
 	// EdgeUserAllowedGroups holds the string denoting the user_allowed_groups edge name in mutations.
 	EdgeUserAllowedGroups = "user_allowed_groups"
 	// Table holds the table name of the user in the database.
@@ -195,6 +197,13 @@ const (
 	DesktopOrganizationsInverseTable = "desktop_organizations"
 	// DesktopOrganizationsColumn is the table column denoting the desktop_organizations relation/edge.
 	DesktopOrganizationsColumn = "gateway_user_id"
+	// BoundAccountsTable is the table that holds the bound_accounts relation/edge.
+	BoundAccountsTable = "accounts"
+	// BoundAccountsInverseTable is the table name for the Account entity.
+	// It exists in this package in order to avoid circular dependency with the "account" package.
+	BoundAccountsInverseTable = "accounts"
+	// BoundAccountsColumn is the table column denoting the bound_accounts relation/edge.
+	BoundAccountsColumn = "bound_user_id"
 	// UserAllowedGroupsTable is the table that holds the user_allowed_groups relation/edge.
 	UserAllowedGroupsTable = "user_allowed_groups"
 	// UserAllowedGroupsInverseTable is the table name for the UserAllowedGroup entity.
@@ -647,6 +656,20 @@ func ByDesktopOrganizations(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOpt
 	}
 }
 
+// ByBoundAccountsCount orders the results by bound_accounts count.
+func ByBoundAccountsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newBoundAccountsStep(), opts...)
+	}
+}
+
+// ByBoundAccounts orders the results by bound_accounts terms.
+func ByBoundAccounts(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newBoundAccountsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByUserAllowedGroupsCount orders the results by user_allowed_groups count.
 func ByUserAllowedGroupsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -756,6 +779,13 @@ func newDesktopOrganizationsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(DesktopOrganizationsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, DesktopOrganizationsTable, DesktopOrganizationsColumn),
+	)
+}
+func newBoundAccountsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(BoundAccountsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, BoundAccountsTable, BoundAccountsColumn),
 	)
 }
 func newUserAllowedGroupsStep() *sqlgraph.Step {

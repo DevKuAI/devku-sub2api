@@ -429,8 +429,29 @@
               </div>
             </div>
           </template>
+          <template #cell-bound_user="{ row }">
+            <div v-if="row.bound_user" class="min-w-0 max-w-56">
+              <div class="truncate text-sm font-medium text-gray-900 dark:text-white">
+                {{ row.bound_user.username || row.bound_user.email }}
+              </div>
+              <div v-if="row.bound_user.username" class="truncate text-xs text-gray-500 dark:text-dark-400">
+                {{ row.bound_user.email }}
+              </div>
+            </div>
+            <span v-else class="text-sm text-gray-400 dark:text-dark-500">{{ t('admin.accounts.binding.unbound') }}</span>
+          </template>
           <template #cell-actions="{ row }">
             <div class="flex items-center gap-1">
+              <button
+                type="button"
+                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-primary-600 dark:hover:bg-dark-700 dark:hover:text-primary-400"
+                :title="t('admin.accounts.binding.action')"
+                :aria-label="t('admin.accounts.binding.action')"
+                @click="handleBinding(row)"
+              >
+                <Icon name="userPlus" size="sm" />
+                <span class="text-xs">{{ t('admin.accounts.binding.actionShort') }}</span>
+              </button>
               <button @click="handleEdit(row)" class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-primary-600 dark:hover:bg-dark-700 dark:hover:text-primary-400">
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>
                 <span class="text-xs">{{ t('common.edit') }}</span>
@@ -489,6 +510,7 @@
 import { ref, reactive, computed, onMounted, onUnmounted, toRaw, watch } from 'vue'
 import { useIntervalFn } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import { adminAPI } from '@/api/admin'
@@ -535,6 +557,7 @@ import { formatMultiplier } from '@/utils/formatters'
 import type { Account, AccountPlatform, AccountSchedulerGroupScore, AccountType, AccountUsageInfo, Proxy as AccountProxy, AdminGroup, WindowStats, ClaudeModel, UpstreamBillingProbeSnapshot } from '@/types'
 
 const { t } = useI18n()
+const router = useRouter()
 const appStore = useAppStore()
 const authStore = useAuthStore()
 
@@ -1794,6 +1817,7 @@ const allColumns = computed(() => {
   if (!authStore.isSimpleMode) {
     c.push({ key: 'groups', label: t('admin.accounts.columns.groups'), sortable: false })
   }
+  c.push({ key: 'bound_user', label: t('admin.accounts.columns.boundUser'), sortable: false })
   c.push({ key: 'usage', label: t('admin.accounts.columns.usageWindows'), sortable: false })
   c.push(
     { key: 'proxy', label: t('admin.accounts.columns.proxy'), sortable: false },
@@ -1823,6 +1847,9 @@ const cols = computed(() =>
 )
 
 const handleEdit = (a: Account) => { edAcc.value = a; showEdit.value = true }
+const handleBinding = (a: Account) => {
+  void router.push({ name: 'AdminAccountBinding', params: { id: String(a.id) } })
+}
 const openMenu = (a: Account, e: MouseEvent) => {
   menu.acc = a
 

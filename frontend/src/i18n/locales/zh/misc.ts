@@ -135,6 +135,26 @@ export default {
     usageOf: '已用 {used} / {limit}'
   },
 
+  subscriptionAccounts: {
+    title: '订阅账户',
+    description: '查看管理员为您关联的上游订阅信息和用量窗口',
+    empty: '暂无关联的订阅账户',
+    emptyDescription: '管理员关联订阅账户后，相关信息将显示在这里。',
+    failedToLoad: '加载订阅账户失败',
+    usage: '用量窗口',
+    noUsage: '暂无用量数据',
+    usageUpdatedAt: '更新于 {time}',
+    lastUsed: '最近使用',
+    createdAt: '创建时间',
+    expiresAt: '过期时间',
+    noExpiration: '长期有效',
+    status: {
+      active: '正常',
+      disabled: '停用',
+      error: '异常'
+    }
+  },
+
   // Onboarding Tour
   onboarding: {
     restartTour: '重新查看新手引导',

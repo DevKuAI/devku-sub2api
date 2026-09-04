@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
@@ -52,6 +53,7 @@ type UserQuery struct {
 	withPendingAuthSessions   *PendingAuthSessionQuery
 	withPlatformQuotas        *UserPlatformQuotaQuery
 	withDesktopOrganizations  *DesktopOrganizationQuery
+	withBoundAccounts         *AccountQuery
 	withUserAllowedGroups     *UserAllowedGroupQuery
 	modifiers                 []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
@@ -398,6 +400,28 @@ func (_q *UserQuery) QueryDesktopOrganizations() *DesktopOrganizationQuery {
 	return query
 }
 
+// QueryBoundAccounts chains the current query on the "bound_accounts" edge.
+func (_q *UserQuery) QueryBoundAccounts() *AccountQuery {
+	query := (&AccountClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(account.Table, account.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.BoundAccountsTable, user.BoundAccountsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
 // QueryUserAllowedGroups chains the current query on the "user_allowed_groups" edge.
 func (_q *UserQuery) QueryUserAllowedGroups() *UserAllowedGroupQuery {
 	query := (&UserAllowedGroupClient{config: _q.config}).Query()
@@ -626,6 +650,7 @@ func (_q *UserQuery) Clone() *UserQuery {
 		withPendingAuthSessions:   _q.withPendingAuthSessions.Clone(),
 		withPlatformQuotas:        _q.withPlatformQuotas.Clone(),
 		withDesktopOrganizations:  _q.withDesktopOrganizations.Clone(),
+		withBoundAccounts:         _q.withBoundAccounts.Clone(),
 		withUserAllowedGroups:     _q.withUserAllowedGroups.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
@@ -787,6 +812,17 @@ func (_q *UserQuery) WithDesktopOrganizations(opts ...func(*DesktopOrganizationQ
 	return _q
 }
 
+// WithBoundAccounts tells the query-builder to eager-load the nodes that are connected to
+// the "bound_accounts" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *UserQuery) WithBoundAccounts(opts ...func(*AccountQuery)) *UserQuery {
+	query := (&AccountClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withBoundAccounts = query
+	return _q
+}
+
 // WithUserAllowedGroups tells the query-builder to eager-load the nodes that are connected to
 // the "user_allowed_groups" edge. The optional arguments are used to configure the query builder of the edge.
 func (_q *UserQuery) WithUserAllowedGroups(opts ...func(*UserAllowedGroupQuery)) *UserQuery {
@@ -876,7 +912,7 @@ func (_q *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 	var (
 		nodes       = []*User{}
 		_spec       = _q.querySpec()
-		loadedTypes = [15]bool{
+		loadedTypes = [16]bool{
 			_q.withAPIKeys != nil,
 			_q.withRedeemCodes != nil,
 			_q.withSubscriptions != nil,
@@ -891,6 +927,7 @@ func (_q *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 			_q.withPendingAuthSessions != nil,
 			_q.withPlatformQuotas != nil,
 			_q.withDesktopOrganizations != nil,
+			_q.withBoundAccounts != nil,
 			_q.withUserAllowedGroups != nil,
 		}
 	)
@@ -1016,6 +1053,13 @@ func (_q *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 			func(n *User, e *DesktopOrganization) {
 				n.Edges.DesktopOrganizations = append(n.Edges.DesktopOrganizations, e)
 			}); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withBoundAccounts; query != nil {
+		if err := _q.loadBoundAccounts(ctx, query, nodes,
+			func(n *User) { n.Edges.BoundAccounts = []*Account{} },
+			func(n *User, e *Account) { n.Edges.BoundAccounts = append(n.Edges.BoundAccounts, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -1484,6 +1528,39 @@ func (_q *UserQuery) loadDesktopOrganizations(ctx context.Context, query *Deskto
 		node, ok := nodeids[fk]
 		if !ok {
 			return fmt.Errorf(`unexpected referenced foreign-key "gateway_user_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *UserQuery) loadBoundAccounts(ctx context.Context, query *AccountQuery, nodes []*User, init func(*User), assign func(*User, *Account)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(account.FieldBoundUserID)
+	}
+	query.Where(predicate.Account(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.BoundAccountsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.BoundUserID
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "bound_user_id" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "bound_user_id" returned %v for node %v`, *fk, n.ID)
 		}
 		assign(node, n)
 	}

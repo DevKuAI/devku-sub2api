@@ -199,6 +199,7 @@ import { sanitizeUrl } from '@/utils/url'
 import { FeatureFlags, makeSidebarFlag } from '@/utils/featureFlags'
 import { useBatchImageAccess } from '@/composables/useBatchImageAccess'
 import { useDesktopOrganizationAccess } from '@/composables/useDesktopOrganizationAccess'
+import { useSubscriptionAccountAccess } from '@/composables/useSubscriptionAccountAccess'
 
 interface NavItem {
   path: string
@@ -264,6 +265,11 @@ const {
   refreshDesktopOrganizationAccess,
   resetDesktopOrganizationAccess,
 } = useDesktopOrganizationAccess()
+const {
+  hasSubscriptionAccounts,
+  refreshSubscriptionAccountAccess,
+  resetSubscriptionAccountAccess,
+} = useSubscriptionAccountAccess()
 
 const sidebarCollapsed = computed(() => appStore.sidebarCollapsed)
 const mobileOpen = computed(() => appStore.mobileOpen)
@@ -729,6 +735,9 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
   if (flagDesktop() && canManageDesktopOrganization.value) {
     items.push({ path: '/desktop/organization', label: t('nav.desktopOrganization'), icon: ServerIcon })
   }
+  if (hasSubscriptionAccounts.value) {
+    items.push({ path: '/subscription-accounts', label: t('nav.subscriptionAccounts'), icon: CreditCardIcon })
+  }
   items.push(
     { path: '/keys', label: t('nav.apiKeys'), icon: KeyIcon },
     { path: '/batch-image', label: t('nav.batchImage'), icon: BatchImageIcon, hideInSimpleMode: true, featureFlag: flagBatchImageAccess },
@@ -987,6 +996,18 @@ watch(
       return
     }
     resetDesktopOrganizationAccess()
+  },
+  { immediate: true }
+)
+
+watch(
+  () => authStore.user?.id,
+  (userID) => {
+    if (userID) {
+      void refreshSubscriptionAccountAccess(true)
+      return
+    }
+    resetSubscriptionAccountAccess()
   },
   { immediate: true }
 )

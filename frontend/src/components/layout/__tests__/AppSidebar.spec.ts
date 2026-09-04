@@ -69,3 +69,11 @@ describe('AppSidebar Desktop navigation', () => {
     expect(componentSource).toMatch(/if \(flagDesktop\(\) && canManageDesktopOrganization\.value\)[\s\S]*?path: '\/desktop\/organization'/)
   })
 })
+
+describe('AppSidebar subscription account navigation', () => {
+  it('only adds the read-only subscription page when the user has assigned accounts', () => {
+    expect(componentSource).toContain('useSubscriptionAccountAccess')
+    expect(componentSource).toMatch(/if \(hasSubscriptionAccounts\.value\)[\s\S]*?path: '\/subscription-accounts'/)
+    expect(componentSource).toContain('refreshSubscriptionAccountAccess(true)')
+  })
+})

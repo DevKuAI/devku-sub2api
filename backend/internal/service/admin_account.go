@@ -26,6 +26,11 @@ func (s *adminServiceImpl) ListAccounts(ctx context.Context, page, pageSize int,
 	if err != nil {
 		return nil, 0, err
 	}
+	if s.accountBindingRepo != nil {
+		if err := s.accountBindingRepo.PopulateBoundUsers(ctx, accounts); err != nil {
+			return nil, 0, err
+		}
+	}
 	return accounts, result.Total, nil
 }
 
@@ -47,7 +52,15 @@ func (s *adminServiceImpl) ListOpenAISchedulableAccountsForSchedulerScore(ctx co
 }
 
 func (s *adminServiceImpl) GetAccount(ctx context.Context, id int64) (*Account, error) {
-	return s.accountRepo.GetByID(ctx, id)
+	account, err := s.accountRepo.GetByID(ctx, id)
+	if err != nil || account == nil || s.accountBindingRepo == nil {
+		return account, err
+	}
+	accounts := []Account{*account}
+	if err := s.accountBindingRepo.PopulateBoundUsers(ctx, accounts); err != nil {
+		return nil, err
+	}
+	return &accounts[0], nil
 }
 
 func (s *adminServiceImpl) GetAccountsByIDs(ctx context.Context, ids []int64) ([]*Account, error) {
@@ -61,6 +74,32 @@ func (s *adminServiceImpl) GetAccountsByIDs(ctx context.Context, ids []int64) ([
 	}
 
 	return accounts, nil
+}
+
+func (s *adminServiceImpl) ListAccountsByBoundUserID(ctx context.Context, userID int64) ([]Account, error) {
+	if s.accountBindingRepo == nil {
+		return nil, errors.New("account binding repository is not configured")
+	}
+	return s.accountBindingRepo.ListByBoundUserID(ctx, userID)
+}
+
+func (s *adminServiceImpl) BindAccountUser(ctx context.Context, accountID int64, userID, expectedUserID *int64) (*Account, error) {
+	if userID != nil {
+		if *userID <= 0 {
+			return nil, infraerrors.BadRequest("ACCOUNT_BOUND_USER_INVALID", "bound user id must be positive")
+		}
+		user, err := s.userRepo.GetByID(ctx, *userID)
+		if err != nil {
+			return nil, err
+		}
+		if !user.IsActive() {
+			return nil, ErrAccountBoundUserInactive
+		}
+	}
+	if s.accountBindingRepo == nil {
+		return nil, errors.New("account binding repository is not configured")
+	}
+	return s.accountBindingRepo.SetBoundUser(ctx, accountID, userID, expectedUserID)
 }
 
 const maxAccountNameRunes = 100

@@ -2392,6 +2392,8 @@ type AccountMutation struct {
 	clearedgroups               bool
 	proxy                       *int64
 	clearedproxy                bool
+	bound_user                  *int64
+	clearedbound_user           bool
 	parent                      *int64
 	clearedparent               bool
 	children                    map[int64]struct{}
@@ -2970,6 +2972,55 @@ func (m *AccountMutation) ResetProxyFallbackOriginID() {
 	m.proxy_fallback_origin_id = nil
 	m.addproxy_fallback_origin_id = nil
 	delete(m.clearedFields, account.FieldProxyFallbackOriginID)
+}
+
+// SetBoundUserID sets the "bound_user_id" field.
+func (m *AccountMutation) SetBoundUserID(i int64) {
+	m.bound_user = &i
+}
+
+// BoundUserID returns the value of the "bound_user_id" field in the mutation.
+func (m *AccountMutation) BoundUserID() (r int64, exists bool) {
+	v := m.bound_user
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBoundUserID returns the old "bound_user_id" field's value of the Account entity.
+// If the Account object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountMutation) OldBoundUserID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBoundUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBoundUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBoundUserID: %w", err)
+	}
+	return oldValue.BoundUserID, nil
+}
+
+// ClearBoundUserID clears the value of the "bound_user_id" field.
+func (m *AccountMutation) ClearBoundUserID() {
+	m.bound_user = nil
+	m.clearedFields[account.FieldBoundUserID] = struct{}{}
+}
+
+// BoundUserIDCleared returns if the "bound_user_id" field was cleared in this mutation.
+func (m *AccountMutation) BoundUserIDCleared() bool {
+	_, ok := m.clearedFields[account.FieldBoundUserID]
+	return ok
+}
+
+// ResetBoundUserID resets all changes to the "bound_user_id" field.
+func (m *AccountMutation) ResetBoundUserID() {
+	m.bound_user = nil
+	delete(m.clearedFields, account.FieldBoundUserID)
 }
 
 // SetConcurrency sets the "concurrency" field.
@@ -4023,6 +4074,33 @@ func (m *AccountMutation) ResetProxy() {
 	m.clearedproxy = false
 }
 
+// ClearBoundUser clears the "bound_user" edge to the User entity.
+func (m *AccountMutation) ClearBoundUser() {
+	m.clearedbound_user = true
+	m.clearedFields[account.FieldBoundUserID] = struct{}{}
+}
+
+// BoundUserCleared reports if the "bound_user" edge to the User entity was cleared.
+func (m *AccountMutation) BoundUserCleared() bool {
+	return m.BoundUserIDCleared() || m.clearedbound_user
+}
+
+// BoundUserIDs returns the "bound_user" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// BoundUserID instead. It exists only for internal usage by the builders.
+func (m *AccountMutation) BoundUserIDs() (ids []int64) {
+	if id := m.bound_user; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetBoundUser resets all changes to the "bound_user" edge.
+func (m *AccountMutation) ResetBoundUser() {
+	m.bound_user = nil
+	m.clearedbound_user = false
+}
+
 // SetParentID sets the "parent" edge to the Account entity by id.
 func (m *AccountMutation) SetParentID(id int64) {
 	m.parent = &id
@@ -4205,7 +4283,7 @@ func (m *AccountMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AccountMutation) Fields() []string {
-	fields := make([]string, 0, 31)
+	fields := make([]string, 0, 32)
 	if m.created_at != nil {
 		fields = append(fields, account.FieldCreatedAt)
 	}
@@ -4238,6 +4316,9 @@ func (m *AccountMutation) Fields() []string {
 	}
 	if m.proxy_fallback_origin_id != nil {
 		fields = append(fields, account.FieldProxyFallbackOriginID)
+	}
+	if m.bound_user != nil {
+		fields = append(fields, account.FieldBoundUserID)
 	}
 	if m.concurrency != nil {
 		fields = append(fields, account.FieldConcurrency)
@@ -4329,6 +4410,8 @@ func (m *AccountMutation) Field(name string) (ent.Value, bool) {
 		return m.ProxyID()
 	case account.FieldProxyFallbackOriginID:
 		return m.ProxyFallbackOriginID()
+	case account.FieldBoundUserID:
+		return m.BoundUserID()
 	case account.FieldConcurrency:
 		return m.Concurrency()
 	case account.FieldLoadFactor:
@@ -4400,6 +4483,8 @@ func (m *AccountMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldProxyID(ctx)
 	case account.FieldProxyFallbackOriginID:
 		return m.OldProxyFallbackOriginID(ctx)
+	case account.FieldBoundUserID:
+		return m.OldBoundUserID(ctx)
 	case account.FieldConcurrency:
 		return m.OldConcurrency(ctx)
 	case account.FieldLoadFactor:
@@ -4525,6 +4610,13 @@ func (m *AccountMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetProxyFallbackOriginID(v)
+		return nil
+	case account.FieldBoundUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBoundUserID(v)
 		return nil
 	case account.FieldConcurrency:
 		v, ok := value.(int)
@@ -4771,6 +4863,9 @@ func (m *AccountMutation) ClearedFields() []string {
 	if m.FieldCleared(account.FieldProxyFallbackOriginID) {
 		fields = append(fields, account.FieldProxyFallbackOriginID)
 	}
+	if m.FieldCleared(account.FieldBoundUserID) {
+		fields = append(fields, account.FieldBoundUserID)
+	}
 	if m.FieldCleared(account.FieldLoadFactor) {
 		fields = append(fields, account.FieldLoadFactor)
 	}
@@ -4835,6 +4930,9 @@ func (m *AccountMutation) ClearField(name string) error {
 		return nil
 	case account.FieldProxyFallbackOriginID:
 		m.ClearProxyFallbackOriginID()
+		return nil
+	case account.FieldBoundUserID:
+		m.ClearBoundUserID()
 		return nil
 	case account.FieldLoadFactor:
 		m.ClearLoadFactor()
@@ -4916,6 +5014,9 @@ func (m *AccountMutation) ResetField(name string) error {
 	case account.FieldProxyFallbackOriginID:
 		m.ResetProxyFallbackOriginID()
 		return nil
+	case account.FieldBoundUserID:
+		m.ResetBoundUserID()
+		return nil
 	case account.FieldConcurrency:
 		m.ResetConcurrency()
 		return nil
@@ -4982,12 +5083,15 @@ func (m *AccountMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *AccountMutation) AddedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.groups != nil {
 		edges = append(edges, account.EdgeGroups)
 	}
 	if m.proxy != nil {
 		edges = append(edges, account.EdgeProxy)
+	}
+	if m.bound_user != nil {
+		edges = append(edges, account.EdgeBoundUser)
 	}
 	if m.parent != nil {
 		edges = append(edges, account.EdgeParent)
@@ -5015,6 +5119,10 @@ func (m *AccountMutation) AddedIDs(name string) []ent.Value {
 		if id := m.proxy; id != nil {
 			return []ent.Value{*id}
 		}
+	case account.EdgeBoundUser:
+		if id := m.bound_user; id != nil {
+			return []ent.Value{*id}
+		}
 	case account.EdgeParent:
 		if id := m.parent; id != nil {
 			return []ent.Value{*id}
@@ -5037,7 +5145,7 @@ func (m *AccountMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *AccountMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.removedgroups != nil {
 		edges = append(edges, account.EdgeGroups)
 	}
@@ -5078,12 +5186,15 @@ func (m *AccountMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *AccountMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.clearedgroups {
 		edges = append(edges, account.EdgeGroups)
 	}
 	if m.clearedproxy {
 		edges = append(edges, account.EdgeProxy)
+	}
+	if m.clearedbound_user {
+		edges = append(edges, account.EdgeBoundUser)
 	}
 	if m.clearedparent {
 		edges = append(edges, account.EdgeParent)
@@ -5105,6 +5216,8 @@ func (m *AccountMutation) EdgeCleared(name string) bool {
 		return m.clearedgroups
 	case account.EdgeProxy:
 		return m.clearedproxy
+	case account.EdgeBoundUser:
+		return m.clearedbound_user
 	case account.EdgeParent:
 		return m.clearedparent
 	case account.EdgeChildren:
@@ -5122,6 +5235,9 @@ func (m *AccountMutation) ClearEdge(name string) error {
 	case account.EdgeProxy:
 		m.ClearProxy()
 		return nil
+	case account.EdgeBoundUser:
+		m.ClearBoundUser()
+		return nil
 	case account.EdgeParent:
 		m.ClearParent()
 		return nil
@@ -5138,6 +5254,9 @@ func (m *AccountMutation) ResetEdge(name string) error {
 		return nil
 	case account.EdgeProxy:
 		m.ResetProxy()
+		return nil
+	case account.EdgeBoundUser:
+		m.ResetBoundUser()
 		return nil
 	case account.EdgeParent:
 		m.ResetParent()
@@ -52929,6 +53048,9 @@ type UserMutation struct {
 	desktop_organizations         map[int64]struct{}
 	removeddesktop_organizations  map[int64]struct{}
 	cleareddesktop_organizations  bool
+	bound_accounts                map[int64]struct{}
+	removedbound_accounts         map[int64]struct{}
+	clearedbound_accounts         bool
 	done                          bool
 	oldValue                      func(context.Context) (*User, error)
 	predicates                    []predicate.User
@@ -54943,6 +55065,60 @@ func (m *UserMutation) ResetDesktopOrganizations() {
 	m.removeddesktop_organizations = nil
 }
 
+// AddBoundAccountIDs adds the "bound_accounts" edge to the Account entity by ids.
+func (m *UserMutation) AddBoundAccountIDs(ids ...int64) {
+	if m.bound_accounts == nil {
+		m.bound_accounts = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.bound_accounts[ids[i]] = struct{}{}
+	}
+}
+
+// ClearBoundAccounts clears the "bound_accounts" edge to the Account entity.
+func (m *UserMutation) ClearBoundAccounts() {
+	m.clearedbound_accounts = true
+}
+
+// BoundAccountsCleared reports if the "bound_accounts" edge to the Account entity was cleared.
+func (m *UserMutation) BoundAccountsCleared() bool {
+	return m.clearedbound_accounts
+}
+
+// RemoveBoundAccountIDs removes the "bound_accounts" edge to the Account entity by IDs.
+func (m *UserMutation) RemoveBoundAccountIDs(ids ...int64) {
+	if m.removedbound_accounts == nil {
+		m.removedbound_accounts = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.bound_accounts, ids[i])
+		m.removedbound_accounts[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedBoundAccounts returns the removed IDs of the "bound_accounts" edge to the Account entity.
+func (m *UserMutation) RemovedBoundAccountsIDs() (ids []int64) {
+	for id := range m.removedbound_accounts {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// BoundAccountsIDs returns the "bound_accounts" edge IDs in the mutation.
+func (m *UserMutation) BoundAccountsIDs() (ids []int64) {
+	for id := range m.bound_accounts {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetBoundAccounts resets all changes to the "bound_accounts" edge.
+func (m *UserMutation) ResetBoundAccounts() {
+	m.bound_accounts = nil
+	m.clearedbound_accounts = false
+	m.removedbound_accounts = nil
+}
+
 // Where appends a list predicates to the UserMutation builder.
 func (m *UserMutation) Where(ps ...predicate.User) {
 	m.predicates = append(m.predicates, ps...)
@@ -55627,7 +55803,7 @@ func (m *UserMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *UserMutation) AddedEdges() []string {
-	edges := make([]string, 0, 14)
+	edges := make([]string, 0, 15)
 	if m.api_keys != nil {
 		edges = append(edges, user.EdgeAPIKeys)
 	}
@@ -55669,6 +55845,9 @@ func (m *UserMutation) AddedEdges() []string {
 	}
 	if m.desktop_organizations != nil {
 		edges = append(edges, user.EdgeDesktopOrganizations)
+	}
+	if m.bound_accounts != nil {
+		edges = append(edges, user.EdgeBoundAccounts)
 	}
 	return edges
 }
@@ -55761,13 +55940,19 @@ func (m *UserMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case user.EdgeBoundAccounts:
+		ids := make([]ent.Value, 0, len(m.bound_accounts))
+		for id := range m.bound_accounts {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *UserMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 14)
+	edges := make([]string, 0, 15)
 	if m.removedapi_keys != nil {
 		edges = append(edges, user.EdgeAPIKeys)
 	}
@@ -55809,6 +55994,9 @@ func (m *UserMutation) RemovedEdges() []string {
 	}
 	if m.removeddesktop_organizations != nil {
 		edges = append(edges, user.EdgeDesktopOrganizations)
+	}
+	if m.removedbound_accounts != nil {
+		edges = append(edges, user.EdgeBoundAccounts)
 	}
 	return edges
 }
@@ -55901,13 +56089,19 @@ func (m *UserMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case user.EdgeBoundAccounts:
+		ids := make([]ent.Value, 0, len(m.removedbound_accounts))
+		for id := range m.removedbound_accounts {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *UserMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 14)
+	edges := make([]string, 0, 15)
 	if m.clearedapi_keys {
 		edges = append(edges, user.EdgeAPIKeys)
 	}
@@ -55950,6 +56144,9 @@ func (m *UserMutation) ClearedEdges() []string {
 	if m.cleareddesktop_organizations {
 		edges = append(edges, user.EdgeDesktopOrganizations)
 	}
+	if m.clearedbound_accounts {
+		edges = append(edges, user.EdgeBoundAccounts)
+	}
 	return edges
 }
 
@@ -55985,6 +56182,8 @@ func (m *UserMutation) EdgeCleared(name string) bool {
 		return m.clearedplatform_quotas
 	case user.EdgeDesktopOrganizations:
 		return m.cleareddesktop_organizations
+	case user.EdgeBoundAccounts:
+		return m.clearedbound_accounts
 	}
 	return false
 }
@@ -56042,6 +56241,9 @@ func (m *UserMutation) ResetEdge(name string) error {
 		return nil
 	case user.EdgeDesktopOrganizations:
 		m.ResetDesktopOrganizations()
+		return nil
+	case user.EdgeBoundAccounts:
+		m.ResetBoundAccounts()
 		return nil
 	}
 	return fmt.Errorf("unknown User edge %s", name)

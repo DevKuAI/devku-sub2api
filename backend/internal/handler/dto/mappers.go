@@ -281,6 +281,7 @@ func AccountFromServiceShallow(a *service.Account) *Account {
 		ProxyID:                 a.ProxyID,
 		ProxyFallbackOriginID:   a.ProxyFallbackOriginID,
 		ProxyFallbackOriginName: a.ProxyFallbackOriginName,
+		BoundUserID:             a.BoundUserID,
 		Concurrency:             a.Concurrency,
 		LoadFactor:              a.LoadFactor,
 		Priority:                a.Priority,
@@ -304,6 +305,13 @@ func AccountFromServiceShallow(a *service.Account) *Account {
 		GroupIDs:                a.GroupIDs,
 		ParentAccountID:         a.ParentAccountID,
 		QuotaDimension:          a.QuotaDimension,
+	}
+	if a.BoundUser != nil {
+		out.BoundUser = &AccountBoundUser{
+			ID:       a.BoundUser.ID,
+			Username: a.BoundUser.Username,
+			Email:    a.BoundUser.Email,
+		}
 	}
 
 	// 提取 5h 窗口费用控制和会话数量控制配置（仅 Anthropic OAuth/SetupToken 账号有效）

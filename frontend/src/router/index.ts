@@ -289,6 +289,18 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/subscription-accounts',
+    name: 'SubscriptionAccounts',
+    component: () => import('@/views/user/SubscriptionAccountsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Subscription Accounts',
+      titleKey: 'subscriptionAccounts.title',
+      descriptionKey: 'subscriptionAccounts.description'
+    }
+  },
+  {
     path: '/desktop/organization',
     name: 'DesktopOrganization',
     component: () => import('@/views/admin/desktop/DesktopOrganizationDetailView.vue'),
@@ -572,6 +584,18 @@ const routes: RouteRecordRaw[] = [
       title: 'Account Management',
       titleKey: 'admin.accounts.title',
       descriptionKey: 'admin.accounts.description'
+    }
+  },
+  {
+    path: '/admin/accounts/:id/binding',
+    name: 'AdminAccountBinding',
+    component: () => import('@/views/admin/AccountBindingView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Account User Binding',
+      titleKey: 'admin.accounts.binding.title',
+      descriptionKey: 'admin.accounts.binding.description'
     }
   },
   {

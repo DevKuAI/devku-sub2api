@@ -511,6 +511,34 @@ func (s *AccountUsageService) GetUsageForAccount(ctx context.Context, account *A
 	return s.getUsageForAccount(ctx, account, forceProbe)
 }
 
+// GetReadOnlyUsageForAccount builds usage from persisted snapshots and local logs only.
+// It never probes an upstream provider or writes account state.
+func (s *AccountUsageService) GetReadOnlyUsageForAccount(ctx context.Context, account *Account) (*UsageInfo, error) {
+	if account == nil {
+		return nil, fmt.Errorf("account is required")
+	}
+	if supportsAnthropicPassiveUsage(account) {
+		return s.getPassiveUsageForAccount(ctx, account)
+	}
+	if account.Platform == PlatformOpenAI && account.Type == AccountTypeOAuth {
+		return s.getOpenAIUsageWithProbe(ctx, account, false, false)
+	}
+	if account.Platform == PlatformGemini {
+		usage, err := s.getGeminiUsage(ctx, account)
+		if usage != nil {
+			usage.Source = "passive"
+		}
+		return usage, err
+	}
+	if account.Platform == PlatformAntigravity {
+		return s.getCachedAntigravityUsage(account.ID), nil
+	}
+	if account.Platform == PlatformGrok {
+		return s.getGrokUsageWithProbe(ctx, account, false, false)
+	}
+	return nil, fmt.Errorf("account type %s does not support usage query", account.Type)
+}
+
 // GetUsageBatch 批量获取账号使用量。
 // Anthropic OAuth/SetupToken 统一走 passive 链路，其他账号复用现有主动查询逻辑。
 // 单个账号失败不会中断整批请求，错误会按账号返回。
@@ -710,16 +738,32 @@ func (s *AccountUsageService) syncActiveToPassive(ctx context.Context, accountID
 }
 
 func (s *AccountUsageService) getOpenAIUsage(ctx context.Context, account *Account, force bool) (*UsageInfo, error) {
+	return s.getOpenAIUsageWithProbe(ctx, account, force, true)
+}
+
+func (s *AccountUsageService) getOpenAIUsageWithProbe(ctx context.Context, account *Account, force, allowProbe bool) (*UsageInfo, error) {
 	now := time.Now()
-	usage := &UsageInfo{UpdatedAt: &now}
+	usage := &UsageInfo{}
+	if allowProbe {
+		usage.UpdatedAt = &now
+	} else {
+		usage.Source = "passive"
+	}
 
 	if account == nil {
 		return usage, nil
 	}
 
 	applyExtraToUsage(usage, account.Extra, now)
+	if !allowProbe {
+		if raw, ok := account.Extra["codex_usage_updated_at"]; ok {
+			if sampledAt, err := parseTime(fmt.Sprint(raw)); err == nil {
+				usage.UpdatedAt = &sampledAt
+			}
+		}
+	}
 
-	if (force || shouldRefreshOpenAICodexSnapshot(account, usage, now)) && s.shouldProbeOpenAICodexSnapshot(account.ID, now, force) {
+	if allowProbe && (force || shouldRefreshOpenAICodexSnapshot(account, usage, now)) && s.shouldProbeOpenAICodexSnapshot(account.ID, now, force) {
 		if account.IsShadow() {
 			// Spark shadow accounts fetch usage from /wham/usage (bengalfox channel)
 			// via the shared OpenAIQuotaService, which resolves credentials from the
@@ -1100,13 +1144,32 @@ func (s *AccountUsageService) getAntigravityUsage(ctx context.Context, account *
 	return usage, nil
 }
 
+func (s *AccountUsageService) getCachedAntigravityUsage(accountID int64) *UsageInfo {
+	if s == nil || s.cache == nil || accountID <= 0 {
+		return nil
+	}
+	cached, ok := s.cache.antigravityCache.Load(accountID)
+	if !ok {
+		return nil
+	}
+	entry, ok := cached.(*antigravityUsageCache)
+	if !ok || entry == nil {
+		return nil
+	}
+	return entry.usageInfo
+}
+
 func (s *AccountUsageService) getGrokUsage(ctx context.Context, account *Account, force bool) (*UsageInfo, error) {
+	return s.getGrokUsageWithProbe(ctx, account, force, true)
+}
+
+func (s *AccountUsageService) getGrokUsageWithProbe(ctx context.Context, account *Account, force, allowProbe bool) (*UsageInfo, error) {
 	if s.grokQuotaFetcher == nil {
 		now := time.Now()
 		return &UsageInfo{UpdatedAt: &now}, nil
 	}
 	var billingProbeResult *GrokQuotaProbeResult
-	if account != nil && account.IsGrokOAuth() && s.grokQuotaService != nil && (force || grokBillingSnapshotNeedsRefresh(account, time.Now())) && s.shouldProbeGrokBilling(account.ID, time.Now(), force) {
+	if allowProbe && account != nil && account.IsGrokOAuth() && s.grokQuotaService != nil && (force || grokBillingSnapshotNeedsRefresh(account, time.Now())) && s.shouldProbeGrokBilling(account.ID, time.Now(), force) {
 		result, err := s.grokQuotaService.ProbeBilling(ctx, account.ID)
 		if err == nil && result != nil && result.Billing != nil {
 			billingProbeResult = result

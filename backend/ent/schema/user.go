@@ -145,6 +145,7 @@ func (User) Edges() []ent.Edge {
 		edge.To("pending_auth_sessions", PendingAuthSession.Type),
 		edge.To("platform_quotas", UserPlatformQuota.Type),
 		edge.To("desktop_organizations", DesktopOrganization.Type),
+		edge.To("bound_accounts", Account.Type),
 	}
 }
 

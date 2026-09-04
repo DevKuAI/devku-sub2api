@@ -138,6 +138,26 @@ export default {
     usageOf: '{used} of {limit}'
   },
 
+  subscriptionAccounts: {
+    title: 'Subscription Accounts',
+    description: 'View upstream subscription details and usage windows linked by an administrator',
+    empty: 'No linked subscription accounts',
+    emptyDescription: 'Linked subscription accounts will appear here after an administrator assigns them.',
+    failedToLoad: 'Failed to load subscription accounts',
+    usage: 'Usage Windows',
+    noUsage: 'No usage data',
+    usageUpdatedAt: 'Updated {time}',
+    lastUsed: 'Last Used',
+    createdAt: 'Created',
+    expiresAt: 'Expires',
+    noExpiration: 'No expiration',
+    status: {
+      active: 'Active',
+      disabled: 'Disabled',
+      error: 'Error'
+    }
+  },
+
   // Onboarding Tour
   onboarding: {
     restartTour: 'Restart Onboarding Tour',

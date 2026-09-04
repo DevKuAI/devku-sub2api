@@ -10,9 +10,11 @@ import (
 )
 
 var (
-	ErrAccountNotFound      = infraerrors.NotFound("ACCOUNT_NOT_FOUND", "account not found")
-	ErrAccountNilInput      = infraerrors.BadRequest("ACCOUNT_NIL_INPUT", "account input cannot be nil")
-	ErrAccountNotInFallback = infraerrors.BadRequest("ACCOUNT_NOT_IN_FALLBACK", "account is not in proxy fallback state")
+	ErrAccountNotFound          = infraerrors.NotFound("ACCOUNT_NOT_FOUND", "account not found")
+	ErrAccountNilInput          = infraerrors.BadRequest("ACCOUNT_NIL_INPUT", "account input cannot be nil")
+	ErrAccountNotInFallback     = infraerrors.BadRequest("ACCOUNT_NOT_IN_FALLBACK", "account is not in proxy fallback state")
+	ErrAccountBoundUserInactive = infraerrors.BadRequest("ACCOUNT_BOUND_USER_INACTIVE", "bound user must be active")
+	ErrAccountBindingConflict   = infraerrors.Conflict("ACCOUNT_BINDING_CONFLICT", "account binding changed; refresh and try again")
 )
 
 const AccountListGroupUngrouped int64 = -1
@@ -126,6 +128,12 @@ type AccountRepository interface {
 	ListShadowsByParent(ctx context.Context, parentID int64) ([]*Account, error)
 }
 
+type AccountBindingRepository interface {
+	ListByBoundUserID(ctx context.Context, userID int64) ([]Account, error)
+	SetBoundUser(ctx context.Context, accountID int64, userID, expectedUserID *int64) (*Account, error)
+	PopulateBoundUsers(ctx context.Context, accounts []Account) error
+}
+
 type AccountDuplicateRepository interface {
 	// CreateWithAccountGroups atomically persists an account, its exact group priorities,
 	// and the scheduler outbox event for the new routing snapshot.
@@ -149,6 +157,7 @@ type AccountBillingSettingsRepository interface {
 // construction dependency without forcing read-only gateway test doubles to implement it.
 type AdminAccountRepository interface {
 	AccountRepository
+	AccountBindingRepository
 	AccountDuplicateRepository
 	AccountBillingSettingsRepository
 }

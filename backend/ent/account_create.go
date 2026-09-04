@@ -15,6 +15,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/proxy"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
+	"github.com/Wei-Shaw/sub2api/ent/user"
 )
 
 // AccountCreate is the builder for creating a Account entity.
@@ -135,6 +136,20 @@ func (_c *AccountCreate) SetProxyFallbackOriginID(v int64) *AccountCreate {
 func (_c *AccountCreate) SetNillableProxyFallbackOriginID(v *int64) *AccountCreate {
 	if v != nil {
 		_c.SetProxyFallbackOriginID(*v)
+	}
+	return _c
+}
+
+// SetBoundUserID sets the "bound_user_id" field.
+func (_c *AccountCreate) SetBoundUserID(v int64) *AccountCreate {
+	_c.mutation.SetBoundUserID(v)
+	return _c
+}
+
+// SetNillableBoundUserID sets the "bound_user_id" field if the given value is not nil.
+func (_c *AccountCreate) SetNillableBoundUserID(v *int64) *AccountCreate {
+	if v != nil {
+		_c.SetBoundUserID(*v)
 	}
 	return _c
 }
@@ -437,6 +452,11 @@ func (_c *AccountCreate) AddGroups(v ...*Group) *AccountCreate {
 // SetProxy sets the "proxy" edge to the Proxy entity.
 func (_c *AccountCreate) SetProxy(v *Proxy) *AccountCreate {
 	return _c.SetProxyID(v.ID)
+}
+
+// SetBoundUser sets the "bound_user" edge to the User entity.
+func (_c *AccountCreate) SetBoundUser(v *User) *AccountCreate {
+	return _c.SetBoundUserID(v.ID)
 }
 
 // SetParentID sets the "parent" edge to the Account entity by ID.
@@ -838,6 +858,23 @@ func (_c *AccountCreate) createSpec() (*Account, *sqlgraph.CreateSpec) {
 		_node.ProxyID = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
+	if nodes := _c.mutation.BoundUserIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   account.BoundUserTable,
+			Columns: []string{account.BoundUserColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.BoundUserID = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
 	if nodes := _c.mutation.ParentIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
@@ -1086,6 +1123,24 @@ func (u *AccountUpsert) AddProxyFallbackOriginID(v int64) *AccountUpsert {
 // ClearProxyFallbackOriginID clears the value of the "proxy_fallback_origin_id" field.
 func (u *AccountUpsert) ClearProxyFallbackOriginID() *AccountUpsert {
 	u.SetNull(account.FieldProxyFallbackOriginID)
+	return u
+}
+
+// SetBoundUserID sets the "bound_user_id" field.
+func (u *AccountUpsert) SetBoundUserID(v int64) *AccountUpsert {
+	u.Set(account.FieldBoundUserID, v)
+	return u
+}
+
+// UpdateBoundUserID sets the "bound_user_id" field to the value that was provided on create.
+func (u *AccountUpsert) UpdateBoundUserID() *AccountUpsert {
+	u.SetExcluded(account.FieldBoundUserID)
+	return u
+}
+
+// ClearBoundUserID clears the value of the "bound_user_id" field.
+func (u *AccountUpsert) ClearBoundUserID() *AccountUpsert {
+	u.SetNull(account.FieldBoundUserID)
 	return u
 }
 
@@ -1648,6 +1703,27 @@ func (u *AccountUpsertOne) UpdateProxyFallbackOriginID() *AccountUpsertOne {
 func (u *AccountUpsertOne) ClearProxyFallbackOriginID() *AccountUpsertOne {
 	return u.Update(func(s *AccountUpsert) {
 		s.ClearProxyFallbackOriginID()
+	})
+}
+
+// SetBoundUserID sets the "bound_user_id" field.
+func (u *AccountUpsertOne) SetBoundUserID(v int64) *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetBoundUserID(v)
+	})
+}
+
+// UpdateBoundUserID sets the "bound_user_id" field to the value that was provided on create.
+func (u *AccountUpsertOne) UpdateBoundUserID() *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateBoundUserID()
+	})
+}
+
+// ClearBoundUserID clears the value of the "bound_user_id" field.
+func (u *AccountUpsertOne) ClearBoundUserID() *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.ClearBoundUserID()
 	})
 }
 
@@ -2433,6 +2509,27 @@ func (u *AccountUpsertBulk) UpdateProxyFallbackOriginID() *AccountUpsertBulk {
 func (u *AccountUpsertBulk) ClearProxyFallbackOriginID() *AccountUpsertBulk {
 	return u.Update(func(s *AccountUpsert) {
 		s.ClearProxyFallbackOriginID()
+	})
+}
+
+// SetBoundUserID sets the "bound_user_id" field.
+func (u *AccountUpsertBulk) SetBoundUserID(v int64) *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetBoundUserID(v)
+	})
+}
+
+// UpdateBoundUserID sets the "bound_user_id" field to the value that was provided on create.
+func (u *AccountUpsertBulk) UpdateBoundUserID() *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateBoundUserID()
+	})
+}
+
+// ClearBoundUserID clears the value of the "bound_user_id" field.
+func (u *AccountUpsertBulk) ClearBoundUserID() *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.ClearBoundUserID()
 	})
 }
 

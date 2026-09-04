@@ -172,6 +172,14 @@ export async function getById(id: number): Promise<Account> {
   return data
 }
 
+export async function bindUser(id: number, boundUserId: number | null, expectedBoundUserId: number | null): Promise<Account> {
+  const { data } = await apiClient.put<Account>(`/admin/accounts/${id}/binding`, {
+    bound_user_id: boundUserId,
+    expected_bound_user_id: expectedBoundUserId
+  })
+  return data
+}
+
 /**
  * Create new account
  * @param accountData - Account data
@@ -1050,6 +1058,7 @@ export const accountsAPI = {
   listWithEtag,
   getUpstreamBillingRatesWithEtag,
   getById,
+  bindUser,
   create,
   duplicate,
   update,

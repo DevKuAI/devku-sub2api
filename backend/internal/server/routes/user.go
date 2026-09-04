@@ -28,6 +28,7 @@ func RegisterUserRoutes(
 	authenticated.Use(gin.HandlerFunc(auditLog))
 	{
 		registerDesktopUserRoutesIfEnabled(authenticated, h, cfg)
+		authenticated.GET("/subscription-accounts", panelRateLimiter.Heavy(), h.Admin.Account.ListMySubscriptionAccounts)
 
 		// 用户接口
 		user := authenticated.Group("/user")
