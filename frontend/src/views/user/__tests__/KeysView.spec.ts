@@ -45,6 +45,8 @@ const messages: Record<string, string> = {
   'keys.creationQuotaUnlimited': '{used} API Keys, unlimited',
   'keys.creationLimitReached': 'API key creation limit reached',
   'keys.created': 'Created',
+  'keys.copied': 'Copied',
+  'keys.copyToClipboard': 'Copy to clipboard',
   'keys.expiresAt': 'Expires',
   'keys.group': 'Group',
   'keys.id': 'ID',
@@ -186,6 +188,10 @@ const DataTableStub = {
           <slot name="cell-id" :value="row.id" :row="row" />
         </div>
         <slot name="cell-name" :value="row.name" :row="row" />
+        <div data-test="api-key">
+          <slot name="cell-key" :value="row.key" :row="row" />
+        </div>
+        <slot name="cell-group" :value="row.group" :row="row" />
         <div data-test="current-concurrency">
           <slot name="cell-current_concurrency" :value="row.current_concurrency" :row="row" />
         </div>
@@ -203,9 +209,15 @@ const DataTableStub = {
 
 const SelectStub = {
   name: 'Select',
-  props: ['modelValue', 'options'],
+  props: ['modelValue', 'options', 'disabled'],
   emits: ['update:modelValue'],
-  template: '<select :value="modelValue" @change="$emit(\'update:modelValue\', $event.target.value)"></select>',
+  template: '<select :value="modelValue" :disabled="disabled" @change="$emit(\'update:modelValue\', $event.target.value)"></select>',
+}
+
+const BaseDialogStub = {
+  name: 'BaseDialog',
+  props: ['show'],
+  template: '<div v-if="show"><slot /></div>',
 }
 
 const SearchInputStub = {
@@ -239,7 +251,7 @@ const mountView = async () => {
         TablePageLayout: TablePageLayoutStub,
         DataTable: DataTableStub,
         Pagination: PaginationStub,
-        BaseDialog: true,
+        BaseDialog: BaseDialogStub,
         ConfirmDialog: true,
         EmptyState: true,
         Select: SelectStub,
@@ -441,9 +453,9 @@ describe('user KeysView column settings', () => {
     expect(wrapper.get('[data-test="current-concurrency"]').text()).toBe('3')
   })
 
-  it('shows desktop member names and preserves direct key names', async () => {
+  it('shows desktop member names and prevents editing desktop names and groups', async () => {
     const internalName = 'desktop:org_display_name:mem_display_name'
-    const key = createApiKey({ name: internalName, display_name: 'Alice' })
+    const key = createApiKey({ name: internalName, display_name: 'Alice', managed_by: 'desktop' })
     const directKeyName = 'Backend-created key'
     const directKey = createApiKey({ id: 2, name: directKeyName, display_name: undefined })
     listKeys.mockResolvedValueOnce({
@@ -461,7 +473,55 @@ describe('user KeysView column settings', () => {
     expect(wrapper.text()).not.toContain(internalName)
 
     ;(wrapper.vm as any).editKey(key)
-    expect((wrapper.vm as any).formData.name).toBe(internalName)
+    await nextTick()
+
+    const nameInput = wrapper.get('[data-tour="key-form-name"]')
+    const groupSelect = wrapper.get('[data-tour="key-form-group"]')
+    expect((nameInput.element as HTMLInputElement).value).toBe('Alice')
+    expect(nameInput.attributes('disabled')).toBeDefined()
+    expect(groupSelect.attributes('disabled')).toBeDefined()
+
+    ;(wrapper.vm as any).openGroupSelector(key)
+    expect((wrapper.vm as any).groupSelectorKeyId).toBeNull()
+  })
+
+  it('masks a desktop API key for display and copies its full value', async () => {
+    const key = createApiKey({
+      key: 'sk-desktop-full-secret-1234',
+      managed_by: 'desktop',
+    })
+    listKeys.mockResolvedValueOnce({
+      items: [key],
+      total: 1,
+      page: 1,
+      page_size: 20,
+      pages: 1,
+    })
+    copyToClipboard.mockResolvedValueOnce(true)
+
+    const wrapper = await mountView()
+    const apiKeyCell = wrapper.get('[data-test="api-key"]')
+
+    expect(apiKeyCell.text()).toContain('sk-des...1234')
+    expect(apiKeyCell.text()).not.toContain(key.key)
+
+    await apiKeyCell.get('button').trigger('click')
+
+    expect(copyToClipboard).toHaveBeenCalledWith(key.key, 'Copied')
+  })
+
+  it('keeps direct API key names and groups editable', async () => {
+    const key = createApiKey({ name: 'Backend-created key', group_id: 42 })
+    const wrapper = await mountView()
+
+    ;(wrapper.vm as any).editKey(key)
+    await nextTick()
+
+    const nameInput = wrapper.get('[data-tour="key-form-name"]')
+    const groupSelect = wrapper.get('[data-tour="key-form-group"]')
+    expect((nameInput.element as HTMLInputElement).value).toBe(key.name)
+    expect(nameInput.attributes('disabled')).toBeUndefined()
+    expect(groupSelect.attributes('disabled')).toBeUndefined()
   })
 
   it('marks current concurrency as sortable', async () => {

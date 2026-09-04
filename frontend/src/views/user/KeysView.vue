@@ -150,8 +150,14 @@
               <button
                 :ref="(el) => setGroupButtonRef(row.id, el)"
                 @click="openGroupSelector(row)"
-                class="-mx-2 -my-1 flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 transition-all duration-200 hover:bg-gray-100 dark:hover:bg-dark-700"
-                :title="t('keys.clickToChangeGroup')"
+                :disabled="isDesktopManagedApiKey(row)"
+                :class="[
+                  '-mx-2 -my-1 flex items-center gap-2 rounded-lg px-2 py-1 transition-all duration-200',
+                  isDesktopManagedApiKey(row)
+                    ? 'cursor-default'
+                    : 'cursor-pointer hover:bg-gray-100 dark:hover:bg-dark-700'
+                ]"
+                :title="isDesktopManagedApiKey(row) ? undefined : t('keys.clickToChangeGroup')"
               >
                 <GroupBadge
                   v-if="row.group"
@@ -168,8 +174,9 @@
                 <span v-else class="text-sm text-gray-400 dark:text-dark-500">{{
                   t('keys.noGroup')
                 }}</span>
-                <span class="text-xs text-gray-500 dark:text-gray-400">{{ t('keys.selectGroup') }}</span>
+                <span v-if="!isDesktopManagedApiKey(row)" class="text-xs text-gray-500 dark:text-gray-400">{{ t('keys.selectGroup') }}</span>
                 <svg
+                  v-if="!isDesktopManagedApiKey(row)"
                   class="h-3.5 w-3.5 text-gray-400 opacity-60 transition-opacity group-hover/dropdown:opacity-100"
                   fill="none"
                   stroke="currentColor"
@@ -467,10 +474,11 @@
         <div>
           <label class="input-label">{{ t('keys.nameLabel') }}</label>
           <input
-            v-model="formData.name"
+            v-model="formName"
             type="text"
             required
             class="input"
+            :disabled="isSelectedKeyDesktopManaged"
             :placeholder="t('keys.namePlaceholder')"
             data-tour="key-form-name"
           />
@@ -481,6 +489,7 @@
           <Select
             v-model="formData.group_id"
             :options="groupOptions"
+            :disabled="isSelectedKeyDesktopManaged"
             :placeholder="t('keys.selectGroup')"
             :searchable="true"
             :search-placeholder="t('keys.searchGroup')"
@@ -1157,7 +1166,7 @@ import type { Column } from '@/components/common/types'
 import type { BatchApiKeyUsageStats } from '@/api/usage'
 import { formatDateTime } from '@/utils/format'
 import { maskApiKey } from '@/utils/maskApiKey'
-import { getApiKeyDisplayName } from '@/utils/apiKey'
+import { getApiKeyDisplayName, isDesktopManagedApiKey } from '@/utils/apiKey'
 import {
   buildCcSwitchImportDeeplink,
   type CcSwitchClientType
@@ -1375,6 +1384,21 @@ const formData = ref({
   enable_expiration: false,
   expiration_preset: '30' as '7' | '30' | '90' | 'custom',
   expiration_date: ''
+})
+
+const isSelectedKeyDesktopManaged = computed(() =>
+  showEditModal.value && isDesktopManagedApiKey(selectedKey.value)
+)
+
+const formName = computed({
+  get: () => isSelectedKeyDesktopManaged.value
+    ? getApiKeyDisplayName(selectedKey.value)
+    : formData.value.name,
+  set: (name: string) => {
+    if (!isSelectedKeyDesktopManaged.value) {
+      formData.value.name = name
+    }
+  }
 })
 
 // 自定义Key验证
@@ -1633,6 +1657,8 @@ const toggleKeyStatus = async (key: ApiKey) => {
 }
 
 const openGroupSelector = (key: ApiKey) => {
+  if (isDesktopManagedApiKey(key)) return
+
   if (groupSelectorKeyId.value === key.id) {
     groupSelectorKeyId.value = null
     dropdownPosition.value = null
@@ -1669,6 +1695,7 @@ const openGroupSelector = (key: ApiKey) => {
 const changeGroup = async (key: ApiKey, newGroupId: number | null) => {
   groupSelectorKeyId.value = null
   dropdownPosition.value = null
+  if (isDesktopManagedApiKey(key)) return
   if (key.group_id === newGroupId) return
 
   try {
@@ -1755,8 +1782,6 @@ const handleSubmit = async () => {
   try {
     if (showEditModal.value && selectedKey.value) {
       const updates: UpdateApiKeyRequest = {
-        name: formData.value.name,
-        group_id: formData.value.group_id,
         ip_whitelist: ipWhitelist,
         ip_blacklist: ipBlacklist,
         quota: quota,
@@ -1764,6 +1789,10 @@ const handleSubmit = async () => {
         rate_limit_5h: rateLimitData.rate_limit_5h,
         rate_limit_1d: rateLimitData.rate_limit_1d,
         rate_limit_7d: rateLimitData.rate_limit_7d,
+      }
+      if (!isDesktopManagedApiKey(selectedKey.value)) {
+        updates.name = formData.value.name
+        updates.group_id = formData.value.group_id
       }
       if (shouldSubmitEditStatus(selectedKey.value, formData.value.status)) {
         updates.status = formData.value.status

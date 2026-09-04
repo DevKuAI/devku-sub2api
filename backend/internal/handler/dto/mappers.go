@@ -91,11 +91,20 @@ func UserFromServiceAdmin(u *service.User) *AdminUser {
 }
 
 func APIKeyFromService(k *service.APIKey) *APIKey {
+	return apiKeyFromService(k, false)
+}
+
+// APIKeyFromServiceForOwner preserves the credential for an authenticated owner response.
+func APIKeyFromServiceForOwner(k *service.APIKey) *APIKey {
+	return apiKeyFromService(k, true)
+}
+
+func apiKeyFromService(k *service.APIKey, exposeDesktopKey bool) *APIKey {
 	if k == nil {
 		return nil
 	}
 	key := k.Key
-	if k.ManagedBy == "desktop" {
+	if k.ManagedBy == "desktop" && !exposeDesktopKey {
 		key = "***"
 	}
 	out := &APIKey{

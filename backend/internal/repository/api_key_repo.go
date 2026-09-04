@@ -1004,7 +1004,6 @@ func apiKeyEntityToService(m *dbent.APIKey) *service.APIKey {
 		out.Group = groupEntityToService(m.Edges.Group)
 	}
 	if m.Edges.DesktopMemberAssignment != nil {
-		out.Key = "***"
 		out.ManagedBy = "desktop"
 		if member := m.Edges.DesktopMemberAssignment.Edges.Member; member != nil && member.Name != "" {
 			out.DisplayName = member.Name

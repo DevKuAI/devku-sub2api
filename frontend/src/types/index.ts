@@ -719,6 +719,7 @@ export interface ApiKey {
   key: string
   name: string
   display_name?: string
+  managed_by?: string
   group_id: number | null
   status: 'active' | 'inactive' | 'quota_exhausted' | 'expired'
   ip_whitelist: string[]

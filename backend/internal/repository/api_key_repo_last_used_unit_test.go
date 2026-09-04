@@ -176,6 +176,7 @@ func TestAPIKeyRepositoryListByUserIDUsesDesktopMemberDisplayName(t *testing.T) 
 	require.NoError(t, err)
 	require.Len(t, keys, 1)
 	require.Equal(t, internalName, keys[0].Name)
+	require.Equal(t, "sk-desktop-display-name", keys[0].Key)
 	require.Equal(t, "Alice", keys[0].DisplayName)
 	require.Equal(t, "desktop", keys[0].ManagedBy)
 

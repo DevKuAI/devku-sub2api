@@ -24,6 +24,23 @@ func TestAPIKeyFromServiceMasksDesktopManagedCredential(t *testing.T) {
 	require.Equal(t, "desktop", result.ManagedBy)
 }
 
+func TestAPIKeyFromServiceForOwnerExposesDesktopManagedCredential(t *testing.T) {
+	source := &service.APIKey{
+		ID:          7,
+		Key:         "sk-desktop-secret",
+		Name:        "desktop:org_test:mem_test",
+		DisplayName: "Alice",
+		ManagedBy:   "desktop",
+	}
+
+	result := APIKeyFromServiceForOwner(source)
+
+	require.Equal(t, "sk-desktop-secret", result.Key)
+	require.Equal(t, "desktop:org_test:mem_test", result.Name)
+	require.Equal(t, "Alice", result.DisplayName)
+	require.Equal(t, "desktop", result.ManagedBy)
+}
+
 func TestUsageLogMappersMaskDesktopManagedCredential(t *testing.T) {
 	source := &service.UsageLog{
 		APIKey: &service.APIKey{ID: 7, Key: "sk-desktop-secret", ManagedBy: "desktop"},
