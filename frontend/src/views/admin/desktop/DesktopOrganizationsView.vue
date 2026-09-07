@@ -35,6 +35,7 @@
             </div>
           </template>
           <template #cell-group="{ row }"><span class="break-words">{{ row.group.name }}</span></template>
+          <template #cell-member_count="{ row }"><span class="whitespace-nowrap tabular-nums">{{ row.member_count }} / {{ row.member_limit }}</span></template>
           <template #cell-target_config_assigned="{ row }">
             <span :class="['badge', row.target_config_assigned ? 'badge-success' : 'badge-warning']">
               {{ row.target_config_assigned ? t('admin.desktop.configured') : t('admin.desktop.notConfigured') }}
@@ -70,6 +71,10 @@
         <div>
           <label class="input-label mb-1.5 block">{{ t('admin.desktop.group') }} <span class="text-red-500">*</span></label>
           <Select v-model="form.group_id" :options="groupOptions" searchable :loading="groupsLoading" :placeholder="t('admin.desktop.selectGroup')" />
+        </div>
+        <div>
+          <label for="desktop-create-member-limit" class="input-label mb-1.5 block">{{ t('admin.desktop.memberLimit') }} <span class="text-red-500">*</span></label>
+          <input id="desktop-create-member-limit" v-model.number="form.member_limit" class="input" type="number" min="1" step="1" required />
         </div>
       </form>
       <template #footer>
@@ -118,7 +123,7 @@ const usersLoading = ref(false)
 const groupsLoading = ref(false)
 const users = ref<AdminUser[]>([])
 const groups = ref<AdminGroup[]>([])
-const form = reactive({ name: '', code: '', gateway_user_id: null as number | null, group_id: null as number | null })
+const form = reactive({ name: '', code: '', gateway_user_id: null as number | null, group_id: null as number | null, member_limit: 10 })
 let searchTimer: ReturnType<typeof setTimeout> | undefined
 let listController: AbortController | undefined
 let userController: AbortController | undefined
@@ -128,7 +133,7 @@ const columns = computed<Column[]>(() => [
   { key: 'status', label: t('common.status') },
   { key: 'gateway_user', label: t('admin.desktop.gatewayUser') },
   { key: 'group', label: t('admin.desktop.group') },
-  { key: 'member_count', label: t('admin.desktop.memberCount') },
+  { key: 'member_count', label: t('admin.desktop.memberCapacity') },
   { key: 'target_config_assigned', label: t('admin.desktop.configuration') },
   { key: 'updated_at', label: t('admin.desktop.updatedAt') },
   { key: 'actions', label: t('common.actions') },
@@ -172,7 +177,7 @@ async function loadUsers(query = '') {
   finally { usersLoading.value = false }
 }
 async function openCreate() {
-  Object.assign(form, { name: '', code: '', gateway_user_id: null, group_id: null })
+  Object.assign(form, { name: '', code: '', gateway_user_id: null, group_id: null, member_limit: 10 })
   showCreate.value = true; groupsLoading.value = true
   void loadUsers()
   try { groups.value = await adminAPI.desktop.listActiveGroups() }
@@ -181,12 +186,12 @@ async function openCreate() {
 }
 function closeCreate() { if (!creating.value) showCreate.value = false }
 async function createOrganization() {
-  if (!form.name.trim() || !/^[a-z0-9]{2,16}$/.test(form.code.trim().toLowerCase()) || !form.gateway_user_id || !form.group_id) {
+  if (!form.name.trim() || !/^[a-z0-9]{2,16}$/.test(form.code.trim().toLowerCase()) || !form.gateway_user_id || !form.group_id || !Number.isInteger(form.member_limit) || form.member_limit < 1) {
     appStore.showError(t('admin.desktop.errors.VALIDATION_FAILED')); return
   }
   creating.value = true
   try {
-    const created = await adminAPI.desktop.createOrganization({ name: form.name.trim(), code: form.code.trim().toLowerCase(), gateway_user_id: form.gateway_user_id, group_id: form.group_id })
+    const created = await adminAPI.desktop.createOrganization({ name: form.name.trim(), code: form.code.trim().toLowerCase(), gateway_user_id: form.gateway_user_id, group_id: form.group_id, member_limit: form.member_limit })
     appStore.showSuccess(t('admin.desktop.organizationCreated')); showCreate.value = false
     await router.push(`/admin/desktop/organizations/${encodeURIComponent(created.public_id)}`)
   } catch (error) { appStore.showError(errorMessage(error)) }

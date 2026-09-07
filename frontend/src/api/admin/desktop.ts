@@ -78,6 +78,7 @@ export interface DesktopOrganization {
   gateway_user: DesktopGatewayUser
   group: DesktopGroup
   member_count: number
+  member_limit: number
   target_config_assigned: boolean
   target_config?: DesktopTargetConfig | null
   created_at: string
@@ -109,6 +110,7 @@ export interface CreateDesktopOrganizationRequest {
   name: string
   gateway_user_id: number
   group_id: number
+  member_limit?: number
 }
 
 export interface UpdateDesktopOrganizationRequest {
@@ -116,6 +118,7 @@ export interface UpdateDesktopOrganizationRequest {
   status?: DesktopStatus
   gateway_user_id?: number
   group_id?: number
+  member_limit?: number
 }
 
 export interface CreateDesktopMemberRequest {

@@ -35,7 +35,7 @@ enableAutoUnmount(afterEach)
 const organization = {
   public_id: 'org_one', code: 'desktop', name: 'Desktop', status: 'active',
   gateway_user: { id: 42, email: 'carrier@example.test' },
-  group: { id: 7, name: 'Exclusive' }, member_count: 0,
+  group: { id: 7, name: 'Exclusive' }, member_count: 0, member_limit: 10,
   target_config_assigned: false, target_config: null,
   created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z',
 }
@@ -104,5 +104,30 @@ describe.each(['create', 'edit'] as const)('Desktop organization %s errors', (op
     await submitOrganization(operation, 'zh', { reason: 'UNRECOGNIZED_DESKTOP_ERROR' })
 
     expect(appStore.showError).toHaveBeenCalledWith(zh.admin.desktop.errors.UNKNOWN)
+  })
+})
+
+describe('Desktop organization member limit on creation', () => {
+  it.each([10, 25])('submits member limit %s and resets the next form to 10', async (limit) => {
+    desktopAPI.createOrganization.mockResolvedValue(organization)
+    const wrapper = mount(DesktopOrganizationsView, {
+      global: {
+        plugins: [createI18n({ legacy: false, locale: 'en', messages: { en }, messageCompiler: (message) => () => String(message) })],
+        stubs: {
+          AppLayout: { template: '<main><slot /></main>' },
+          TablePageLayout: true, BaseDialog: true,
+        },
+      },
+    })
+    await flushPromises()
+    const vm = wrapper.vm as any
+    await vm.openCreate()
+    expect(vm.form.member_limit).toBe(10)
+    Object.assign(vm.form, { name: 'Desktop', code: 'desktop', gateway_user_id: 42, group_id: 7, member_limit: limit })
+    await vm.createOrganization()
+
+    expect(desktopAPI.createOrganization).toHaveBeenCalledWith({ name: 'Desktop', code: 'desktop', gateway_user_id: 42, group_id: 7, member_limit: limit })
+    await vm.openCreate()
+    expect(vm.form.member_limit).toBe(10)
   })
 })

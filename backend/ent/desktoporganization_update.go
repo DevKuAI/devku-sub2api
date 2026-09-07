@@ -101,6 +101,27 @@ func (_u *DesktopOrganizationUpdate) SetNillableStatus(v *string) *DesktopOrgani
 	return _u
 }
 
+// SetMemberLimit sets the "member_limit" field.
+func (_u *DesktopOrganizationUpdate) SetMemberLimit(v int) *DesktopOrganizationUpdate {
+	_u.mutation.ResetMemberLimit()
+	_u.mutation.SetMemberLimit(v)
+	return _u
+}
+
+// SetNillableMemberLimit sets the "member_limit" field if the given value is not nil.
+func (_u *DesktopOrganizationUpdate) SetNillableMemberLimit(v *int) *DesktopOrganizationUpdate {
+	if v != nil {
+		_u.SetMemberLimit(*v)
+	}
+	return _u
+}
+
+// AddMemberLimit adds value to the "member_limit" field.
+func (_u *DesktopOrganizationUpdate) AddMemberLimit(v int) *DesktopOrganizationUpdate {
+	_u.mutation.AddMemberLimit(v)
+	return _u
+}
+
 // SetAuthVersion sets the "auth_version" field.
 func (_u *DesktopOrganizationUpdate) SetAuthVersion(v int64) *DesktopOrganizationUpdate {
 	_u.mutation.ResetAuthVersion()
@@ -290,6 +311,11 @@ func (_u *DesktopOrganizationUpdate) check() error {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "DesktopOrganization.status": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.MemberLimit(); ok {
+		if err := desktoporganization.MemberLimitValidator(v); err != nil {
+			return &ValidationError{Name: "member_limit", err: fmt.Errorf(`ent: validator failed for field "DesktopOrganization.member_limit": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.AuthVersion(); ok {
 		if err := desktoporganization.AuthVersionValidator(v); err != nil {
 			return &ValidationError{Name: "auth_version", err: fmt.Errorf(`ent: validator failed for field "DesktopOrganization.auth_version": %w`, err)}
@@ -333,6 +359,12 @@ func (_u *DesktopOrganizationUpdate) sqlSave(ctx context.Context) (_node int, er
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(desktoporganization.FieldStatus, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.MemberLimit(); ok {
+		_spec.SetField(desktoporganization.FieldMemberLimit, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedMemberLimit(); ok {
+		_spec.AddField(desktoporganization.FieldMemberLimit, field.TypeInt, value)
 	}
 	if value, ok := _u.mutation.AuthVersion(); ok {
 		_spec.SetField(desktoporganization.FieldAuthVersion, field.TypeInt64, value)
@@ -542,6 +574,27 @@ func (_u *DesktopOrganizationUpdateOne) SetNillableStatus(v *string) *DesktopOrg
 	return _u
 }
 
+// SetMemberLimit sets the "member_limit" field.
+func (_u *DesktopOrganizationUpdateOne) SetMemberLimit(v int) *DesktopOrganizationUpdateOne {
+	_u.mutation.ResetMemberLimit()
+	_u.mutation.SetMemberLimit(v)
+	return _u
+}
+
+// SetNillableMemberLimit sets the "member_limit" field if the given value is not nil.
+func (_u *DesktopOrganizationUpdateOne) SetNillableMemberLimit(v *int) *DesktopOrganizationUpdateOne {
+	if v != nil {
+		_u.SetMemberLimit(*v)
+	}
+	return _u
+}
+
+// AddMemberLimit adds value to the "member_limit" field.
+func (_u *DesktopOrganizationUpdateOne) AddMemberLimit(v int) *DesktopOrganizationUpdateOne {
+	_u.mutation.AddMemberLimit(v)
+	return _u
+}
+
 // SetAuthVersion sets the "auth_version" field.
 func (_u *DesktopOrganizationUpdateOne) SetAuthVersion(v int64) *DesktopOrganizationUpdateOne {
 	_u.mutation.ResetAuthVersion()
@@ -744,6 +797,11 @@ func (_u *DesktopOrganizationUpdateOne) check() error {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "DesktopOrganization.status": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.MemberLimit(); ok {
+		if err := desktoporganization.MemberLimitValidator(v); err != nil {
+			return &ValidationError{Name: "member_limit", err: fmt.Errorf(`ent: validator failed for field "DesktopOrganization.member_limit": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.AuthVersion(); ok {
 		if err := desktoporganization.AuthVersionValidator(v); err != nil {
 			return &ValidationError{Name: "auth_version", err: fmt.Errorf(`ent: validator failed for field "DesktopOrganization.auth_version": %w`, err)}
@@ -804,6 +862,12 @@ func (_u *DesktopOrganizationUpdateOne) sqlSave(ctx context.Context) (_node *Des
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(desktoporganization.FieldStatus, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.MemberLimit(); ok {
+		_spec.SetField(desktoporganization.FieldMemberLimit, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedMemberLimit(); ok {
+		_spec.AddField(desktoporganization.FieldMemberLimit, field.TypeInt, value)
 	}
 	if value, ok := _u.mutation.AuthVersion(); ok {
 		_spec.SetField(desktoporganization.FieldAuthVersion, field.TypeInt64, value)

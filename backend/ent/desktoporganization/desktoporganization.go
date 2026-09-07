@@ -29,6 +29,8 @@ const (
 	FieldName = "name"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
+	// FieldMemberLimit holds the string denoting the member_limit field in the database.
+	FieldMemberLimit = "member_limit"
 	// FieldAuthVersion holds the string denoting the auth_version field in the database.
 	FieldAuthVersion = "auth_version"
 	// FieldGatewayUserID holds the string denoting the gateway_user_id field in the database.
@@ -78,6 +80,7 @@ var Columns = []string{
 	FieldCode,
 	FieldName,
 	FieldStatus,
+	FieldMemberLimit,
 	FieldAuthVersion,
 	FieldGatewayUserID,
 	FieldGroupID,
@@ -118,6 +121,10 @@ var (
 	DefaultStatus string
 	// StatusValidator is a validator for the "status" field. It is called by the builders before save.
 	StatusValidator func(string) error
+	// DefaultMemberLimit holds the default value on creation for the "member_limit" field.
+	DefaultMemberLimit int
+	// MemberLimitValidator is a validator for the "member_limit" field. It is called by the builders before save.
+	MemberLimitValidator func(int) error
 	// DefaultAuthVersion holds the default value on creation for the "auth_version" field.
 	DefaultAuthVersion int64
 	// AuthVersionValidator is a validator for the "auth_version" field. It is called by the builders before save.
@@ -165,6 +172,11 @@ func ByName(opts ...sql.OrderTermOption) OrderOption {
 // ByStatus orders the results by the status field.
 func ByStatus(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldStatus, opts...).ToFunc()
+}
+
+// ByMemberLimit orders the results by the member_limit field.
+func ByMemberLimit(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldMemberLimit, opts...).ToFunc()
 }
 
 // ByAuthVersion orders the results by the auth_version field.

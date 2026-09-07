@@ -40,6 +40,8 @@ func TestDesktopAdminConflictReasonsUseStableEnvelope(t *testing.T) {
 		{reason: "ORGANIZATION_PROVISIONING_LOCKED", err: service.ErrDesktopProvisioningLocked},
 		{reason: "ORGANIZATION_DISABLED", err: service.ErrDesktopOrganizationDisabled},
 		{reason: "MEMBER_DISABLED", err: service.ErrDesktopMemberDisabled},
+		{reason: "MEMBER_LIMIT_REACHED", err: service.ErrDesktopMemberLimitReached},
+		{reason: "MEMBER_LIMIT_BELOW_CURRENT_COUNT", err: service.ErrDesktopMemberLimitTooLow},
 		{reason: "DESKTOP_MANAGED_API_KEY", err: service.ErrDesktopManagedAPIKey},
 		{reason: "MODEL_TOKEN_ROTATION_CONFLICT", err: service.ErrDesktopRotationConflict},
 		{reason: "DESKTOP_ORGANIZATION_DEPENDENCY", err: service.ErrDesktopDependency},
@@ -118,4 +120,30 @@ func TestDesktopAdminMemberDTOExposesUsage(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, string(payload), `"last_30_days_tokens":900`)
 	require.Contains(t, string(payload), `"total_actual_cost":1.2`)
+}
+
+func TestDesktopAdminOrganizationDTOExposesMemberLimit(t *testing.T) {
+	payload, err := json.Marshal(desktopOrganizationFromService(&service.DesktopOrganization{MemberCount: 2, MemberLimit: 10}, false))
+	require.NoError(t, err)
+	require.Contains(t, string(payload), `"member_count":2`)
+	require.Contains(t, string(payload), `"member_limit":10`)
+}
+
+func TestDesktopAdminRejectsInvalidMemberLimit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, method := range []string{http.MethodPost, http.MethodPatch} {
+		for _, limit := range []string{"0", "-1", "1.5"} {
+			t.Run(method+"/"+limit, func(t *testing.T) {
+				router := gin.New()
+				handler := NewDesktopHandler(nil)
+				router.POST("/organizations", handler.CreateOrganization)
+				router.PATCH("/organizations", handler.UpdateOrganization)
+				request := httptest.NewRequest(method, "/organizations", strings.NewReader(`{"name":"Test","code":"test","gateway_user_id":1,"group_id":1,"member_limit":`+limit+`}`))
+				request.Header.Set("Content-Type", "application/json")
+				recorder := httptest.NewRecorder()
+				router.ServeHTTP(recorder, request)
+				require.Equal(t, http.StatusUnprocessableEntity, recorder.Code)
+			})
+		}
+	}
 }

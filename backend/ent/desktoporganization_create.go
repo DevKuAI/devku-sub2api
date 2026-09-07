@@ -100,6 +100,20 @@ func (_c *DesktopOrganizationCreate) SetNillableStatus(v *string) *DesktopOrgani
 	return _c
 }
 
+// SetMemberLimit sets the "member_limit" field.
+func (_c *DesktopOrganizationCreate) SetMemberLimit(v int) *DesktopOrganizationCreate {
+	_c.mutation.SetMemberLimit(v)
+	return _c
+}
+
+// SetNillableMemberLimit sets the "member_limit" field if the given value is not nil.
+func (_c *DesktopOrganizationCreate) SetNillableMemberLimit(v *int) *DesktopOrganizationCreate {
+	if v != nil {
+		_c.SetMemberLimit(*v)
+	}
+	return _c
+}
+
 // SetAuthVersion sets the "auth_version" field.
 func (_c *DesktopOrganizationCreate) SetAuthVersion(v int64) *DesktopOrganizationCreate {
 	_c.mutation.SetAuthVersion(v)
@@ -212,6 +226,10 @@ func (_c *DesktopOrganizationCreate) defaults() error {
 		v := desktoporganization.DefaultStatus
 		_c.mutation.SetStatus(v)
 	}
+	if _, ok := _c.mutation.MemberLimit(); !ok {
+		v := desktoporganization.DefaultMemberLimit
+		_c.mutation.SetMemberLimit(v)
+	}
 	if _, ok := _c.mutation.AuthVersion(); !ok {
 		v := desktoporganization.DefaultAuthVersion
 		_c.mutation.SetAuthVersion(v)
@@ -257,6 +275,14 @@ func (_c *DesktopOrganizationCreate) check() error {
 	if v, ok := _c.mutation.Status(); ok {
 		if err := desktoporganization.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "DesktopOrganization.status": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.MemberLimit(); !ok {
+		return &ValidationError{Name: "member_limit", err: errors.New(`ent: missing required field "DesktopOrganization.member_limit"`)}
+	}
+	if v, ok := _c.mutation.MemberLimit(); ok {
+		if err := desktoporganization.MemberLimitValidator(v); err != nil {
+			return &ValidationError{Name: "member_limit", err: fmt.Errorf(`ent: validator failed for field "DesktopOrganization.member_limit": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.AuthVersion(); !ok {
@@ -333,6 +359,10 @@ func (_c *DesktopOrganizationCreate) createSpec() (*DesktopOrganization, *sqlgra
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(desktoporganization.FieldStatus, field.TypeString, value)
 		_node.Status = value
+	}
+	if value, ok := _c.mutation.MemberLimit(); ok {
+		_spec.SetField(desktoporganization.FieldMemberLimit, field.TypeInt, value)
+		_node.MemberLimit = value
 	}
 	if value, ok := _c.mutation.AuthVersion(); ok {
 		_spec.SetField(desktoporganization.FieldAuthVersion, field.TypeInt64, value)
@@ -507,6 +537,24 @@ func (u *DesktopOrganizationUpsert) SetStatus(v string) *DesktopOrganizationUpse
 // UpdateStatus sets the "status" field to the value that was provided on create.
 func (u *DesktopOrganizationUpsert) UpdateStatus() *DesktopOrganizationUpsert {
 	u.SetExcluded(desktoporganization.FieldStatus)
+	return u
+}
+
+// SetMemberLimit sets the "member_limit" field.
+func (u *DesktopOrganizationUpsert) SetMemberLimit(v int) *DesktopOrganizationUpsert {
+	u.Set(desktoporganization.FieldMemberLimit, v)
+	return u
+}
+
+// UpdateMemberLimit sets the "member_limit" field to the value that was provided on create.
+func (u *DesktopOrganizationUpsert) UpdateMemberLimit() *DesktopOrganizationUpsert {
+	u.SetExcluded(desktoporganization.FieldMemberLimit)
+	return u
+}
+
+// AddMemberLimit adds v to the "member_limit" field.
+func (u *DesktopOrganizationUpsert) AddMemberLimit(v int) *DesktopOrganizationUpsert {
+	u.Add(desktoporganization.FieldMemberLimit, v)
 	return u
 }
 
@@ -692,6 +740,27 @@ func (u *DesktopOrganizationUpsertOne) SetStatus(v string) *DesktopOrganizationU
 func (u *DesktopOrganizationUpsertOne) UpdateStatus() *DesktopOrganizationUpsertOne {
 	return u.Update(func(s *DesktopOrganizationUpsert) {
 		s.UpdateStatus()
+	})
+}
+
+// SetMemberLimit sets the "member_limit" field.
+func (u *DesktopOrganizationUpsertOne) SetMemberLimit(v int) *DesktopOrganizationUpsertOne {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.SetMemberLimit(v)
+	})
+}
+
+// AddMemberLimit adds v to the "member_limit" field.
+func (u *DesktopOrganizationUpsertOne) AddMemberLimit(v int) *DesktopOrganizationUpsertOne {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.AddMemberLimit(v)
+	})
+}
+
+// UpdateMemberLimit sets the "member_limit" field to the value that was provided on create.
+func (u *DesktopOrganizationUpsertOne) UpdateMemberLimit() *DesktopOrganizationUpsertOne {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.UpdateMemberLimit()
 	})
 }
 
@@ -1053,6 +1122,27 @@ func (u *DesktopOrganizationUpsertBulk) SetStatus(v string) *DesktopOrganization
 func (u *DesktopOrganizationUpsertBulk) UpdateStatus() *DesktopOrganizationUpsertBulk {
 	return u.Update(func(s *DesktopOrganizationUpsert) {
 		s.UpdateStatus()
+	})
+}
+
+// SetMemberLimit sets the "member_limit" field.
+func (u *DesktopOrganizationUpsertBulk) SetMemberLimit(v int) *DesktopOrganizationUpsertBulk {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.SetMemberLimit(v)
+	})
+}
+
+// AddMemberLimit adds v to the "member_limit" field.
+func (u *DesktopOrganizationUpsertBulk) AddMemberLimit(v int) *DesktopOrganizationUpsertBulk {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.AddMemberLimit(v)
+	})
+}
+
+// UpdateMemberLimit sets the "member_limit" field to the value that was provided on create.
+func (u *DesktopOrganizationUpsertBulk) UpdateMemberLimit() *DesktopOrganizationUpsertBulk {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.UpdateMemberLimit()
 	})
 }
 

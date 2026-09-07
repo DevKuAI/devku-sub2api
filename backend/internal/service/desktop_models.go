@@ -14,6 +14,7 @@ import (
 )
 
 const (
+	DesktopDefaultMemberLimit     = 10
 	DesktopStatusActive           = "active"
 	DesktopStatusDisabled         = "disabled"
 	DesktopWireAPIResponses       = "responses"
@@ -33,6 +34,8 @@ var (
 	ErrDesktopProvisioningLocked   = infraerrors.Conflict("ORGANIZATION_PROVISIONING_LOCKED", "organization provisioning fields are locked")
 	ErrDesktopOrganizationDisabled = infraerrors.Conflict("ORGANIZATION_DISABLED", "organization is disabled")
 	ErrDesktopMemberDisabled       = infraerrors.Conflict("MEMBER_DISABLED", "member is disabled")
+	ErrDesktopMemberLimitReached   = infraerrors.Conflict("MEMBER_LIMIT_REACHED", "organization member limit reached")
+	ErrDesktopMemberLimitTooLow    = infraerrors.Conflict("MEMBER_LIMIT_BELOW_CURRENT_COUNT", "member limit cannot be lower than the current member count")
 	ErrDesktopManagedAPIKey        = infraerrors.Conflict("DESKTOP_MANAGED_API_KEY", "desktop managed API key cannot be changed here")
 	ErrDesktopRotationConflict     = infraerrors.Conflict("MODEL_TOKEN_ROTATION_CONFLICT", "model token rotation conflict")
 	ErrDesktopDependency           = infraerrors.Conflict("DESKTOP_ORGANIZATION_DEPENDENCY", "desktop organization dependency exists")
@@ -55,6 +58,7 @@ type DesktopOrganization struct {
 	GroupName            string
 	TargetConfig         *DesktopTargetConfig
 	MemberCount          int
+	MemberLimit          int
 	TargetConfigAssigned bool
 	CreatedAt            time.Time
 	UpdatedAt            time.Time
@@ -188,6 +192,7 @@ type DesktopCreateOrganizationInput struct {
 	Name          string
 	GatewayUserID int64
 	GroupID       int64
+	MemberLimit   *int
 }
 
 type DesktopUpdateOrganizationInput struct {
@@ -195,6 +200,7 @@ type DesktopUpdateOrganizationInput struct {
 	Status        *string
 	GatewayUserID *int64
 	GroupID       *int64
+	MemberLimit   *int
 }
 
 type DesktopCreateMemberInput struct {

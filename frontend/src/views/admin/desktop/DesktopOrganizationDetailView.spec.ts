@@ -57,6 +57,7 @@ const organization = {
   gateway_user: { id: 42, email: 'carrier@example.com', username: 'carrier' },
   group: { id: 7, name: 'Responses' },
   member_count: 1,
+  member_limit: 10,
   target_config_assigned: false,
   target_config: null,
   created_at: '2026-08-26T00:00:00Z',
@@ -272,12 +273,69 @@ describe('DesktopOrganizationDetailView', () => {
 
     await vm.openEditOrganization()
     vm.organizationForm.name = 'Managed Organization'
+    vm.organizationForm.member_limit = 100
     await vm.saveOrganization()
 
     expect(managedDesktopAPI.updateOrganization).toHaveBeenCalledWith('org_one', {
       name: 'Managed Organization',
       status: 'active',
     })
+    wrapper.unmount()
+  })
+
+  it('shows the total member capacity in the managed view', async () => {
+    const wrapper = mountManagedView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('1 / 10')
+    await (wrapper.vm as any).openEditOrganization()
+    expect(wrapper.find('#desktop-edit-member-limit').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('allows administrators to change the member limit', async () => {
+    desktopAPI.updateOrganization.mockResolvedValue({ ...organization, member_limit: 25 })
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as any
+    await vm.openEditOrganization()
+    expect(vm.organizationForm.member_limit).toBe(10)
+    vm.organizationForm.member_limit = 25
+    await vm.saveOrganization()
+
+    expect(desktopAPI.updateOrganization).toHaveBeenCalledWith('org_one', {
+      name: organization.name, status: 'active', member_limit: 25,
+    })
+    expect(wrapper.text()).toContain('1 / 25')
+    wrapper.unmount()
+  })
+
+  it.each([0, -1, 1.5])('rejects invalid member limit %s', async (limit) => {
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as any
+    await vm.openEditOrganization()
+    vm.organizationForm.member_limit = limit
+    await vm.saveOrganization()
+
+    expect(desktopAPI.updateOrganization).not.toHaveBeenCalled()
+    expect(appStore.showError).toHaveBeenCalledWith('admin.desktop.errors.VALIDATION_FAILED')
+    wrapper.unmount()
+  })
+
+  it.each([false, true])('blocks member creation at capacity with selfManaged=%s', async (selfManaged) => {
+    const api = selfManaged ? managedDesktopAPI : desktopAPI
+    api.getOrganization.mockResolvedValue({ ...organization, member_limit: 1 })
+    const wrapper = selfManaged ? mountManagedView() : mountView()
+    await flushPromises()
+    const button = wrapper.findAll('button').find((item) => item.text().includes('admin.desktop.createMember'))
+    expect(button?.attributes('disabled')).toBeDefined()
+    const vm = wrapper.vm as any
+    Object.assign(vm.memberForm, { name: 'Extra', phone: '13800138001' })
+    await vm.saveMember()
+
+    expect(api.createMember).not.toHaveBeenCalled()
+    expect(appStore.showError).toHaveBeenCalledWith('admin.desktop.errors.MEMBER_LIMIT_REACHED')
     wrapper.unmount()
   })
 

@@ -20,7 +20,7 @@
       <div v-if="organization" class="grid grid-cols-1 gap-x-8 gap-y-4 border-y border-gray-200 py-5 dark:border-dark-700 sm:grid-cols-2 lg:grid-cols-4">
         <div class="min-w-0"><div class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.gatewayUser') }}</div><div class="mt-1 truncate text-sm font-medium">{{ organization.gateway_user.username || organization.gateway_user.email }}</div><div class="truncate text-xs text-gray-500">{{ organization.gateway_user.email }}</div></div>
         <div class="min-w-0"><div class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.group') }}</div><div class="mt-1 break-words text-sm font-medium">{{ organization.group.name }}</div></div>
-        <div><div class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.memberCount') }}</div><div class="mt-1 text-sm font-medium tabular-nums">{{ organization.member_count }}</div></div>
+        <div><div class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.memberCapacity') }}</div><div class="mt-1 text-sm font-medium tabular-nums">{{ organization.member_count }} / {{ organization.member_limit }}</div></div>
         <div><div class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.configuration') }}</div><div class="mt-1 text-sm font-medium">{{ organization.target_config_assigned ? t('admin.desktop.configured') : t('admin.desktop.notConfigured') }}</div></div>
       </div>
 
@@ -34,7 +34,7 @@
           <Select v-model="memberStatus" class="w-40" :options="statusOptions" @change="resetMembers" />
           <div class="ml-auto flex items-center gap-2">
             <button class="btn btn-secondary" type="button" :disabled="membersLoading" :title="t('common.refresh')" :aria-label="t('common.refresh')" @click="loadMembers"><Icon name="refresh" size="md" :class="membersLoading ? 'animate-spin' : ''" /></button>
-            <button class="btn btn-primary" type="button" :disabled="organization?.status !== 'active'" @click="openCreateMember"><Icon name="plus" size="md" class="mr-1" />{{ t('admin.desktop.createMember') }}</button>
+            <button class="btn btn-primary" type="button" :disabled="organization?.status !== 'active' || memberLimitReached" :title="memberLimitReached ? t('admin.desktop.errors.MEMBER_LIMIT_REACHED') : undefined" @click="openCreateMember"><Icon name="plus" size="md" class="mr-1" />{{ t('admin.desktop.createMember') }}</button>
           </div>
         </div>
         <div class="min-w-0">
@@ -123,6 +123,10 @@
         <Input v-model="organizationForm.name" :label="t('admin.desktop.organizationName')" required />
         <div><label class="input-label mb-1.5 block">{{ t('common.status') }}</label><Select v-model="organizationForm.status" :options="editableStatusOptions" /></div>
         <template v-if="!selfManaged">
+          <div>
+            <label for="desktop-edit-member-limit" class="input-label mb-1.5 block">{{ t('admin.desktop.memberLimit') }} <span class="text-red-500">*</span></label>
+            <input id="desktop-edit-member-limit" v-model.number="organizationForm.member_limit" class="input" type="number" :min="Math.max(1, organization?.member_count || 0)" step="1" required />
+          </div>
           <div><label class="input-label mb-1.5 block">{{ t('admin.desktop.gatewayUser') }}</label><Select v-model="organizationForm.gateway_user_id" :options="gatewayUserOptions" searchable remote :loading="gatewayUsersLoading" :disabled="gatewayUserLocked" @search="loadGatewayUsers" /></div>
           <div><label class="input-label mb-1.5 block">{{ t('admin.desktop.group') }}</label><Select v-model="organizationForm.group_id" :options="groupOptions" searchable :loading="groupsLoading" /></div>
           <p v-if="gatewayUserLocked" class="text-sm text-gray-500 dark:text-dark-400">{{ t('admin.desktop.provisioningLockedHint') }}</p>
@@ -191,7 +195,7 @@ const gatewayUsers = ref<AdminUser[]>([])
 const gatewayUsersLoading = ref(false)
 const groups = ref<AdminGroup[]>([])
 const groupsLoading = ref(false)
-const organizationForm = reactive({ name: '', status: 'active' as DesktopStatus, gateway_user_id: null as number | null, group_id: null as number | null })
+const organizationForm = reactive({ name: '', status: 'active' as DesktopStatus, gateway_user_id: null as number | null, group_id: null as number | null, member_limit: 10 })
 const showMemberDialog = ref(false)
 const editingMember = ref<DesktopMember | null>(null)
 const memberSaving = ref(false)
@@ -206,6 +210,7 @@ let memberController: AbortController | undefined
 let gatewayController: AbortController | undefined
 
 const gatewayUserLocked = computed(() => (organization.value?.member_count ?? 0) > 0)
+const memberLimitReached = computed(() => Boolean(organization.value && organization.value.member_count >= organization.value.member_limit))
 const statusOptions = computed(() => [{ value: '', label: t('common.all') }, { value: 'active', label: t('common.active') }, { value: 'disabled', label: t('common.disabled') }])
 const editableStatusOptions = computed(() => statusOptions.value.slice(1))
 const memberColumns = computed<Column[]>(() => [
@@ -291,7 +296,7 @@ async function loadGatewayUsers(query = '') {
 }
 async function openEditOrganization() {
   if (!organization.value) return
-  Object.assign(organizationForm, { name: organization.value.name, status: organization.value.status, gateway_user_id: organization.value.gateway_user.id, group_id: organization.value.group.id })
+  Object.assign(organizationForm, { name: organization.value.name, status: organization.value.status, gateway_user_id: organization.value.gateway_user.id, group_id: organization.value.group.id, member_limit: organization.value.member_limit })
   showOrganizationEdit.value = true
   if (selfManaged) return
   groupsLoading.value = true
@@ -309,9 +314,16 @@ function submitOrganizationEdit() {
 }
 async function saveOrganization() {
   if (!organization.value) return
+  if (!selfManaged && (!Number.isInteger(organizationForm.member_limit) || organizationForm.member_limit < 1)) {
+    appStore.showError(t('admin.desktop.errors.VALIDATION_FAILED')); return
+  }
+  if (!selfManaged && organizationForm.member_limit < organization.value.member_count) {
+    appStore.showError(t('admin.desktop.errors.MEMBER_LIMIT_BELOW_CURRENT_COUNT')); return
+  }
   organizationSaving.value = true
   try {
-    const input = { name: organizationForm.name.trim(), status: organizationForm.status } as { name: string; status: DesktopStatus; gateway_user_id?: number; group_id?: number }
+    const input = { name: organizationForm.name.trim(), status: organizationForm.status } as { name: string; status: DesktopStatus; gateway_user_id?: number; group_id?: number; member_limit?: number }
+    if (!selfManaged) input.member_limit = organizationForm.member_limit
     if (!selfManaged && !gatewayUserLocked.value && organizationForm.gateway_user_id && organizationForm.gateway_user_id !== organization.value.gateway_user.id) input.gateway_user_id = organizationForm.gateway_user_id
     if (!selfManaged && organizationForm.group_id && organizationForm.group_id !== organization.value.group.id) input.group_id = organizationForm.group_id
     organization.value = await organizationAPI.value.updateOrganization(organizationID.value, input)
@@ -323,6 +335,7 @@ function openCreateMember() { editingMember.value = null; Object.assign(memberFo
 function openEditMember(member: DesktopMember) { editingMember.value = member; Object.assign(memberForm, { name: member.name, phone: member.phone }); showMemberDialog.value = true }
 function closeMemberDialog() { if (!memberSaving.value) showMemberDialog.value = false }
 async function saveMember() {
+	if (!editingMember.value && memberLimitReached.value) { appStore.showError(t('admin.desktop.errors.MEMBER_LIMIT_REACHED')); return }
 	if (!memberForm.name.trim() || !memberForm.phone.trim()) { appStore.showError(t('admin.desktop.errors.VALIDATION_FAILED')); return }
 	memberSaving.value = true
 	try {

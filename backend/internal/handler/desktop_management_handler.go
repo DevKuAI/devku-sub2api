@@ -48,6 +48,7 @@ type desktopManagedOrganizationDTO struct {
 	GatewayUser          desktopManagedGatewayUserDTO `json:"gateway_user"`
 	Group                desktopManagedGroupDTO       `json:"group"`
 	MemberCount          int                          `json:"member_count"`
+	MemberLimit          int                          `json:"member_limit"`
 	TargetConfigAssigned bool                         `json:"target_config_assigned"`
 	TargetConfig         *service.DesktopTargetConfig `json:"target_config,omitempty"`
 	CreatedAt            time.Time                    `json:"created_at"`
@@ -231,6 +232,7 @@ func desktopManagedOrganizationFromService(value *service.DesktopOrganization) d
 		PublicID: value.PublicID, Code: value.Code, Name: value.Name, Status: value.Status,
 		GatewayUser: desktopManagedGatewayUserDTO{ID: value.GatewayUserID, Email: value.GatewayUserEmail, Username: value.GatewayUserName},
 		Group:       desktopManagedGroupDTO{ID: value.GroupID, Name: value.GroupName}, MemberCount: value.MemberCount,
+		MemberLimit:          value.MemberLimit,
 		TargetConfigAssigned: value.TargetConfigAssigned, TargetConfig: value.TargetConfig,
 		CreatedAt: value.CreatedAt, UpdatedAt: value.UpdatedAt,
 	}

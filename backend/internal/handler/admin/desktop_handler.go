@@ -34,6 +34,7 @@ type desktopCreateOrganizationRequest struct {
 	Name          string `json:"name" binding:"required"`
 	GatewayUserID int64  `json:"gateway_user_id" binding:"required"`
 	GroupID       int64  `json:"group_id" binding:"required"`
+	MemberLimit   *int   `json:"member_limit" binding:"omitempty,gte=1"`
 }
 
 type desktopUpdateOrganizationRequest struct {
@@ -41,6 +42,7 @@ type desktopUpdateOrganizationRequest struct {
 	Status        *string `json:"status"`
 	GatewayUserID *int64  `json:"gateway_user_id"`
 	GroupID       *int64  `json:"group_id"`
+	MemberLimit   *int    `json:"member_limit" binding:"omitempty,gte=1"`
 }
 
 type desktopTargetConfigRequest struct {
@@ -66,6 +68,7 @@ type desktopOrganizationDTO struct {
 	GatewayUser          desktopGatewayUserDTO        `json:"gateway_user"`
 	Group                desktopGroupDTO              `json:"group"`
 	MemberCount          int                          `json:"member_count"`
+	MemberLimit          int                          `json:"member_limit"`
 	TargetConfigAssigned bool                         `json:"target_config_assigned"`
 	TargetConfig         *service.DesktopTargetConfig `json:"target_config,omitempty"`
 	CreatedAt            time.Time                    `json:"created_at"`
@@ -103,6 +106,7 @@ func (h *DesktopHandler) CreateOrganization(c *gin.Context) {
 	result, err := executeAdminIdempotent(c, desktopOrganizationCreateIdempotencyScope, req, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
 		organization, execErr := h.desktop.CreateOrganization(ctx, service.DesktopCreateOrganizationInput{
 			Code: req.Code, Name: req.Name, GatewayUserID: req.GatewayUserID, GroupID: req.GroupID,
+			MemberLimit: req.MemberLimit,
 		})
 		if execErr != nil {
 			return nil, execErr
@@ -146,6 +150,7 @@ func (h *DesktopHandler) UpdateOrganization(c *gin.Context) {
 	}
 	organization, err := h.desktop.UpdateOrganization(c.Request.Context(), c.Param("organization_id"), service.DesktopUpdateOrganizationInput{
 		Name: req.Name, Status: req.Status, GatewayUserID: req.GatewayUserID, GroupID: req.GroupID,
+		MemberLimit: req.MemberLimit,
 	})
 	if response.ErrorFrom(c, err) {
 		return
@@ -272,6 +277,7 @@ func desktopOrganizationFromService(value *service.DesktopOrganization, includeC
 		PublicID: value.PublicID, Code: value.Code, Name: value.Name, Status: value.Status,
 		GatewayUser: desktopGatewayUserDTO{ID: value.GatewayUserID, Email: value.GatewayUserEmail, Username: value.GatewayUserName},
 		Group:       desktopGroupDTO{ID: value.GroupID, Name: value.GroupName}, MemberCount: value.MemberCount,
+		MemberLimit:          value.MemberLimit,
 		TargetConfigAssigned: value.TargetConfigAssigned, CreatedAt: value.CreatedAt, UpdatedAt: value.UpdatedAt,
 	}
 	if includeConfig {

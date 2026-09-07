@@ -106,6 +106,7 @@ Desktop auth 写请求进入 Audit Middleware，但审计记录只保存脱敏�
     "name": "Enterprise Responses"
   },
   "member_count": 3,
+  "member_limit": 10,
   "target_config_assigned": true,
   "created_at": "2026-08-26T02:00:00Z",
   "updated_at": "2026-08-26T02:30:00Z"
@@ -113,6 +114,8 @@ Desktop auth 写请求进入 Audit Middleware，但审计记录只保存脱敏�
 ```
 
 企业详情和写接口额外返回可空的 `target_config`；列表不返回该字段。
+
+`member_count` 为未删除成员数，包含停用成员。`member_limit` 为企业成员上限，默认 10，必须为正整数。个人账号的企业管理接口返回该字段，但不接受修改。
 
 ### Member
 
@@ -175,11 +178,14 @@ Header：`Idempotency-Key` 必填。首次成功返回 `201`；相同 actor、ro
   "code": "dhjy",
   "name": "东恒锦洋房产开发有限公司",
   "gateway_user_id": 1001,
-  "group_id": 2001
+  "group_id": 2001,
+  "member_limit": 10
 }
 ```
 
 承载 User 必须 active、可绑定目标 active Group，且未承载其他未删除 Desktop 企业。冲突返回 `409 GATEWAY_USER_ALREADY_ASSIGNED`。
+
+`member_limit` 可省略，默认 10。创建企业时，在同一事务中把该值同步到承载 User 的 `api_key_limit`。
 
 ### 2. 企业列表
 
@@ -204,11 +210,12 @@ Header：`Idempotency-Key` 必填。首次成功返回 `201`；相同 actor、ro
   "name": "东恒锦洋集团",
   "status": "active",
   "gateway_user_id": 1001,
-  "group_id": 2001
+  "group_id": 2001,
+  "member_limit": 20
 }
 ```
 
-字段均可选。企业已有成员后，`gateway_user_id` 和 `group_id` 不可变更，返回 `409 ORGANIZATION_PROVISIONING_LOCKED`。停用企业会立即撤销 Desktop 授权并暂停符合条件的当前 Model Token；重新启用后，旧 Desktop Access Token 不会恢复有效。
+字段均可选。管理员修改 `member_limit` 时，不能低于当前未删除成员数；企业限额与承载 User 的 `api_key_limit` 在同一事务中更新，更换承载 User 时也会同步限额。企业已有成员后，`gateway_user_id` 不可变更，返回 `409 ORGANIZATION_PROVISIONING_LOCKED`；修改 `group_id` 会同步成员当前 API Key 的分组。停用企业会立即撤销 Desktop 授权并暂停符合条件的当前 Model Token；重新启用后，旧 Desktop Access Token 不会恢复有效。
 
 ### 5. 更新 Model Configuration
 
@@ -247,6 +254,8 @@ Header：`Idempotency-Key` 必填。首次成功返回 `201`。
 ```
 
 手机号支持中国大陆 11 位格式或 `+86` 国际格式，统一规范化为 E.164 后明文存储；姓名规范化为 Unicode NFC。成员、独立 Model Token 和当前 Key 归属在同一事务创建，响应只返回 Member DTO。
+
+创建前在事务锁内检查企业成员上限，达到上限返回 `409 MEMBER_LIMIT_REACHED`。停用成员仍占用名额，删除成员后释放名额。管理员和个人账号创建成员均受此限制，承载 User 的其他未删除 API Key 也会占用其密钥名额。
 
 ### 7. 成员列表
 
@@ -457,9 +466,11 @@ Header：`Authorization: Bearer <desktop-access-token>`。
 | HTTP | reason | 含义 |
 | ---: | --- | --- |
 | 409 | `GATEWAY_USER_ALREADY_ASSIGNED` | 承载 User 已绑定其他未删除企业 |
-| 409 | `ORGANIZATION_PROVISIONING_LOCKED` | 企业已有成员，承载 User 或 Group 已锁定 |
+| 409 | `ORGANIZATION_PROVISIONING_LOCKED` | 企业已有成员，承载 User 已锁定 |
 | 409 | `ORGANIZATION_DISABLED` | 企业被停用，不能创建、恢复成员或轮换 Token |
 | 409 | `MEMBER_DISABLED` | 成员被停用，不能轮换 Token |
+| 409 | `MEMBER_LIMIT_REACHED` | 企业成员数已达上限，不能创建成员 |
+| 409 | `MEMBER_LIMIT_BELOW_CURRENT_COUNT` | 成员上限低于当前未删除成员数 |
 | 409 | `DESKTOP_MANAGED_API_KEY` | 通用 API Key 接口拒绝修改 Desktop 托管 Key |
 | 409 | `MODEL_TOKEN_ROTATION_CONFLICT` | Token 轮换并发冲突或幂等参数冲突 |
 | 409 | `DESKTOP_ORGANIZATION_DEPENDENCY` | User、Group 或 AllowedGroups 仍被企业依赖 |

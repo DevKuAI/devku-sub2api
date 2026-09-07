@@ -48,7 +48,7 @@ func (s *DesktopService) CreateOrganization(ctx context.Context, input DesktopCr
 		return nil, err
 	}
 	name := strings.TrimSpace(input.Name)
-	if name == "" || len([]rune(name)) > 200 || input.GatewayUserID <= 0 || input.GroupID <= 0 {
+	if name == "" || len([]rune(name)) > 200 || input.GatewayUserID <= 0 || input.GroupID <= 0 || (input.MemberLimit != nil && *input.MemberLimit < 1) {
 		return nil, ErrDesktopValidation
 	}
 	publicID, err := GenerateDesktopPublicID("org")
@@ -86,6 +86,7 @@ func (s *DesktopService) UpdateManagedOrganization(ctx context.Context, userID i
 	}
 	input.GatewayUserID = nil
 	input.GroupID = nil
+	input.MemberLimit = nil
 	return managed.UpdateOrganization(ctx, organization.PublicID, input)
 }
 
@@ -151,6 +152,9 @@ func (s *DesktopService) managedService(ctx context.Context, userID int64) (*Des
 }
 
 func (s *DesktopService) UpdateOrganization(ctx context.Context, publicID string, input DesktopUpdateOrganizationInput) (*DesktopOrganization, error) {
+	if input.MemberLimit != nil && *input.MemberLimit < 1 {
+		return nil, ErrDesktopValidation.WithMetadata(map[string]string{"field": "member_limit"})
+	}
 	if input.Name != nil {
 		name := strings.TrimSpace(*input.Name)
 		if name == "" || len([]rune(name)) > 200 {

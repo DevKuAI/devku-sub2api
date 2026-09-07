@@ -72,3 +72,15 @@ func TestDesktopMeReturnsFullPhone(t *testing.T) {
 	require.Equal(t, "+8613800000000", envelope.Data.Phone)
 	require.NotContains(t, recorder.Body.String(), "masked_phone")
 }
+
+func TestDesktopManagedOrganizationDTOExposesReadOnlyMemberLimit(t *testing.T) {
+	payload, err := json.Marshal(desktopManagedOrganizationFromService(&service.DesktopOrganization{MemberCount: 2, MemberLimit: 10}))
+	require.NoError(t, err)
+	require.Contains(t, string(payload), `"member_count":2`)
+	require.Contains(t, string(payload), `"member_limit":10`)
+	var request desktopManagedOrganizationRequest
+	require.NoError(t, json.Unmarshal([]byte(`{"name":"Managed","member_limit":100}`), &request))
+	writable, err := json.Marshal(request)
+	require.NoError(t, err)
+	require.NotContains(t, string(writable), "member_limit")
+}

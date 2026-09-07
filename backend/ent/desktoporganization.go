@@ -35,6 +35,8 @@ type DesktopOrganization struct {
 	Name string `json:"name,omitempty"`
 	// Status holds the value of the "status" field.
 	Status string `json:"status,omitempty"`
+	// MemberLimit holds the value of the "member_limit" field.
+	MemberLimit int `json:"member_limit,omitempty"`
 	// AuthVersion holds the value of the "auth_version" field.
 	AuthVersion int64 `json:"auth_version,omitempty"`
 	// GatewayUserID holds the value of the "gateway_user_id" field.
@@ -100,7 +102,7 @@ func (*DesktopOrganization) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case desktoporganization.FieldTargetConfig:
 			values[i] = new([]byte)
-		case desktoporganization.FieldID, desktoporganization.FieldAuthVersion, desktoporganization.FieldGatewayUserID, desktoporganization.FieldGroupID:
+		case desktoporganization.FieldID, desktoporganization.FieldMemberLimit, desktoporganization.FieldAuthVersion, desktoporganization.FieldGatewayUserID, desktoporganization.FieldGroupID:
 			values[i] = new(sql.NullInt64)
 		case desktoporganization.FieldPublicID, desktoporganization.FieldCode, desktoporganization.FieldName, desktoporganization.FieldStatus:
 			values[i] = new(sql.NullString)
@@ -169,6 +171,12 @@ func (_m *DesktopOrganization) assignValues(columns []string, values []any) erro
 				return fmt.Errorf("unexpected type %T for field status", values[i])
 			} else if value.Valid {
 				_m.Status = value.String
+			}
+		case desktoporganization.FieldMemberLimit:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field member_limit", values[i])
+			} else if value.Valid {
+				_m.MemberLimit = int(value.Int64)
 			}
 		case desktoporganization.FieldAuthVersion:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -269,6 +277,9 @@ func (_m *DesktopOrganization) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(_m.Status)
+	builder.WriteString(", ")
+	builder.WriteString("member_limit=")
+	builder.WriteString(fmt.Sprintf("%v", _m.MemberLimit))
 	builder.WriteString(", ")
 	builder.WriteString("auth_version=")
 	builder.WriteString(fmt.Sprintf("%v", _m.AuthVersion))

@@ -15,6 +15,8 @@ export default {
     members: '成员',
     memberName: '成员姓名',
     memberCount: '成员数',
+    memberCapacity: '成员数 / 上限',
+    memberLimit: '成员上限',
     phone: '手机号',
     phoneHint: '支持 13800138000 或 +8613800138000，保存后统一为 +86 格式',
     configuration: '模型配置',
@@ -106,6 +108,8 @@ export default {
       }
     },
     errors: {
+      MEMBER_LIMIT_REACHED: '企业成员数已达上限，请联系管理员调整成员上限。',
+      MEMBER_LIMIT_BELOW_CURRENT_COUNT: '成员上限不能低于当前成员数，请先删除不再使用的成员。',
       GROUP_NOT_ALLOWED: '承载用户无法使用所选分组，请检查分组状态、访问权限和有效订阅。',
       GATEWAY_USER_ALREADY_ASSIGNED: '该用户已被其他 Desktop 企业占用。',
       ORGANIZATION_PROVISIONING_LOCKED: '企业已有成员，不能更换承载用户。',

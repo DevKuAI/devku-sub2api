@@ -684,6 +684,7 @@ func newDesktopRepositoryFixture(t *testing.T, label string, apiKeyLimit int) *d
 	organization, err := repo.CreateOrganization(ctx, service.DesktopCreateOrganizationInput{
 		PublicID: fmt.Sprintf("org_%s_%d", label, suffix), Code: fmt.Sprintf("%c%x", label[0], suffix%100000),
 		Name: "Desktop " + label, GatewayUserID: user.ID, GroupID: group.ID,
+		MemberLimit: &apiKeyLimit,
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() {

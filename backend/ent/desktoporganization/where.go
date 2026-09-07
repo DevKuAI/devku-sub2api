@@ -90,6 +90,11 @@ func Status(v string) predicate.DesktopOrganization {
 	return predicate.DesktopOrganization(sql.FieldEQ(FieldStatus, v))
 }
 
+// MemberLimit applies equality check predicate on the "member_limit" field. It's identical to MemberLimitEQ.
+func MemberLimit(v int) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldEQ(FieldMemberLimit, v))
+}
+
 // AuthVersion applies equality check predicate on the "auth_version" field. It's identical to AuthVersionEQ.
 func AuthVersion(v int64) predicate.DesktopOrganization {
 	return predicate.DesktopOrganization(sql.FieldEQ(FieldAuthVersion, v))
@@ -493,6 +498,46 @@ func StatusEqualFold(v string) predicate.DesktopOrganization {
 // StatusContainsFold applies the ContainsFold predicate on the "status" field.
 func StatusContainsFold(v string) predicate.DesktopOrganization {
 	return predicate.DesktopOrganization(sql.FieldContainsFold(FieldStatus, v))
+}
+
+// MemberLimitEQ applies the EQ predicate on the "member_limit" field.
+func MemberLimitEQ(v int) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldEQ(FieldMemberLimit, v))
+}
+
+// MemberLimitNEQ applies the NEQ predicate on the "member_limit" field.
+func MemberLimitNEQ(v int) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldNEQ(FieldMemberLimit, v))
+}
+
+// MemberLimitIn applies the In predicate on the "member_limit" field.
+func MemberLimitIn(vs ...int) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldIn(FieldMemberLimit, vs...))
+}
+
+// MemberLimitNotIn applies the NotIn predicate on the "member_limit" field.
+func MemberLimitNotIn(vs ...int) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldNotIn(FieldMemberLimit, vs...))
+}
+
+// MemberLimitGT applies the GT predicate on the "member_limit" field.
+func MemberLimitGT(v int) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldGT(FieldMemberLimit, v))
+}
+
+// MemberLimitGTE applies the GTE predicate on the "member_limit" field.
+func MemberLimitGTE(v int) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldGTE(FieldMemberLimit, v))
+}
+
+// MemberLimitLT applies the LT predicate on the "member_limit" field.
+func MemberLimitLT(v int) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldLT(FieldMemberLimit, v))
+}
+
+// MemberLimitLTE applies the LTE predicate on the "member_limit" field.
+func MemberLimitLTE(v int) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldLTE(FieldMemberLimit, v))
 }
 
 // AuthVersionEQ applies the EQ predicate on the "auth_version" field.

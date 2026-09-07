@@ -22630,6 +22630,8 @@ type DesktopOrganizationMutation struct {
 	code                *string
 	name                *string
 	status              *string
+	member_limit        *int
+	addmember_limit     *int
 	auth_version        *int64
 	addauth_version     *int64
 	target_config       *jsontext.Value
@@ -23010,6 +23012,62 @@ func (m *DesktopOrganizationMutation) ResetStatus() {
 	m.status = nil
 }
 
+// SetMemberLimit sets the "member_limit" field.
+func (m *DesktopOrganizationMutation) SetMemberLimit(i int) {
+	m.member_limit = &i
+	m.addmember_limit = nil
+}
+
+// MemberLimit returns the value of the "member_limit" field in the mutation.
+func (m *DesktopOrganizationMutation) MemberLimit() (r int, exists bool) {
+	v := m.member_limit
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMemberLimit returns the old "member_limit" field's value of the DesktopOrganization entity.
+// If the DesktopOrganization object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopOrganizationMutation) OldMemberLimit(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMemberLimit is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMemberLimit requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMemberLimit: %w", err)
+	}
+	return oldValue.MemberLimit, nil
+}
+
+// AddMemberLimit adds i to the "member_limit" field.
+func (m *DesktopOrganizationMutation) AddMemberLimit(i int) {
+	if m.addmember_limit != nil {
+		*m.addmember_limit += i
+	} else {
+		m.addmember_limit = &i
+	}
+}
+
+// AddedMemberLimit returns the value that was added to the "member_limit" field in this mutation.
+func (m *DesktopOrganizationMutation) AddedMemberLimit() (r int, exists bool) {
+	v := m.addmember_limit
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetMemberLimit resets all changes to the "member_limit" field.
+func (m *DesktopOrganizationMutation) ResetMemberLimit() {
+	m.member_limit = nil
+	m.addmember_limit = nil
+}
+
 // SetAuthVersion sets the "auth_version" field.
 func (m *DesktopOrganizationMutation) SetAuthVersion(i int64) {
 	m.auth_version = &i
@@ -23345,7 +23403,7 @@ func (m *DesktopOrganizationMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *DesktopOrganizationMutation) Fields() []string {
-	fields := make([]string, 0, 11)
+	fields := make([]string, 0, 12)
 	if m.created_at != nil {
 		fields = append(fields, desktoporganization.FieldCreatedAt)
 	}
@@ -23366,6 +23424,9 @@ func (m *DesktopOrganizationMutation) Fields() []string {
 	}
 	if m.status != nil {
 		fields = append(fields, desktoporganization.FieldStatus)
+	}
+	if m.member_limit != nil {
+		fields = append(fields, desktoporganization.FieldMemberLimit)
 	}
 	if m.auth_version != nil {
 		fields = append(fields, desktoporganization.FieldAuthVersion)
@@ -23401,6 +23462,8 @@ func (m *DesktopOrganizationMutation) Field(name string) (ent.Value, bool) {
 		return m.Name()
 	case desktoporganization.FieldStatus:
 		return m.Status()
+	case desktoporganization.FieldMemberLimit:
+		return m.MemberLimit()
 	case desktoporganization.FieldAuthVersion:
 		return m.AuthVersion()
 	case desktoporganization.FieldGatewayUserID:
@@ -23432,6 +23495,8 @@ func (m *DesktopOrganizationMutation) OldField(ctx context.Context, name string)
 		return m.OldName(ctx)
 	case desktoporganization.FieldStatus:
 		return m.OldStatus(ctx)
+	case desktoporganization.FieldMemberLimit:
+		return m.OldMemberLimit(ctx)
 	case desktoporganization.FieldAuthVersion:
 		return m.OldAuthVersion(ctx)
 	case desktoporganization.FieldGatewayUserID:
@@ -23498,6 +23563,13 @@ func (m *DesktopOrganizationMutation) SetField(name string, value ent.Value) err
 		}
 		m.SetStatus(v)
 		return nil
+	case desktoporganization.FieldMemberLimit:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMemberLimit(v)
+		return nil
 	case desktoporganization.FieldAuthVersion:
 		v, ok := value.(int64)
 		if !ok {
@@ -23534,6 +23606,9 @@ func (m *DesktopOrganizationMutation) SetField(name string, value ent.Value) err
 // this mutation.
 func (m *DesktopOrganizationMutation) AddedFields() []string {
 	var fields []string
+	if m.addmember_limit != nil {
+		fields = append(fields, desktoporganization.FieldMemberLimit)
+	}
 	if m.addauth_version != nil {
 		fields = append(fields, desktoporganization.FieldAuthVersion)
 	}
@@ -23545,6 +23620,8 @@ func (m *DesktopOrganizationMutation) AddedFields() []string {
 // was not set, or was not defined in the schema.
 func (m *DesktopOrganizationMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
+	case desktoporganization.FieldMemberLimit:
+		return m.AddedMemberLimit()
 	case desktoporganization.FieldAuthVersion:
 		return m.AddedAuthVersion()
 	}
@@ -23556,6 +23633,13 @@ func (m *DesktopOrganizationMutation) AddedField(name string) (ent.Value, bool) 
 // type.
 func (m *DesktopOrganizationMutation) AddField(name string, value ent.Value) error {
 	switch name {
+	case desktoporganization.FieldMemberLimit:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddMemberLimit(v)
+		return nil
 	case desktoporganization.FieldAuthVersion:
 		v, ok := value.(int64)
 		if !ok {
@@ -23625,6 +23709,9 @@ func (m *DesktopOrganizationMutation) ResetField(name string) error {
 		return nil
 	case desktoporganization.FieldStatus:
 		m.ResetStatus()
+		return nil
+	case desktoporganization.FieldMemberLimit:
+		m.ResetMemberLimit()
 		return nil
 	case desktoporganization.FieldAuthVersion:
 		m.ResetAuthVersion()

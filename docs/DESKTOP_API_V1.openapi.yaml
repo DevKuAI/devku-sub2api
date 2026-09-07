@@ -1573,6 +1573,7 @@ components:
         - gateway_user
         - group
         - member_count
+        - member_limit
         - target_config_assigned
         - created_at
         - updated_at
@@ -1596,6 +1597,11 @@ components:
         member_count:
           type: integer
           minimum: 0
+        member_limit:
+          type: integer
+          minimum: 1
+          description: 企业成员上限，个人账号只读；新企业默认为 10
+          example: 10
         target_config_assigned:
           type: boolean
         target_config:
@@ -1692,6 +1698,11 @@ components:
           type: integer
           format: int64
           minimum: 1
+        member_limit:
+          type: integer
+          minimum: 1
+          default: 10
+          description: 成员上限，同时设置承载用户的 API 密钥数量上限
 
     UpdateOrganizationRequest:
       type: object
@@ -1711,6 +1722,10 @@ components:
           type: integer
           format: int64
           minimum: 1
+        member_limit:
+          type: integer
+          minimum: 1
+          description: 仅管理员可修改，不能低于当前未删除成员数；与承载用户 API 密钥数量上限同步更新
 
     UpdateManagedOrganizationRequest:
       type: object

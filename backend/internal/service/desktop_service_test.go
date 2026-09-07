@@ -245,9 +245,10 @@ func TestDesktopManagedOrganizationUsesGatewayUserScope(t *testing.T) {
 	groupID := int64(12)
 	name := "Managed"
 	status := DesktopStatusActive
+	memberLimit := 100
 
 	updated, err := svc.UpdateManagedOrganization(context.Background(), 9, DesktopUpdateOrganizationInput{
-		Name: &name, Status: &status, GatewayUserID: &gatewayUserID, GroupID: &groupID,
+		Name: &name, Status: &status, GatewayUserID: &gatewayUserID, GroupID: &groupID, MemberLimit: &memberLimit,
 	})
 
 	require.NoError(t, err)
@@ -256,6 +257,7 @@ func TestDesktopManagedOrganizationUsesGatewayUserScope(t *testing.T) {
 	require.Len(t, repo.updateOrganizationInputs, 1)
 	require.Nil(t, repo.updateOrganizationInputs[0].GatewayUserID)
 	require.Nil(t, repo.updateOrganizationInputs[0].GroupID)
+	require.Nil(t, repo.updateOrganizationInputs[0].MemberLimit)
 }
 
 func TestDesktopManagedOrganizationRejectsMissingIdentity(t *testing.T) {

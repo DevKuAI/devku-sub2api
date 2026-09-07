@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"strconv"
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
@@ -72,6 +73,13 @@ func (r *desktopRepository) withTx(ctx context.Context, fn func(context.Context,
 }
 
 func (r *desktopRepository) CreateOrganization(ctx context.Context, input service.DesktopCreateOrganizationInput) (*service.DesktopOrganization, error) {
+	memberLimit := service.DesktopDefaultMemberLimit
+	if input.MemberLimit != nil {
+		memberLimit = *input.MemberLimit
+	}
+	if memberLimit < 1 {
+		return nil, service.ErrDesktopValidation.WithMetadata(map[string]string{"field": "member_limit"})
+	}
 	err := r.withTx(ctx, func(txCtx context.Context, client *dbent.Client) error {
 		gatewayUser, err := client.User.Query().Where(user.IDEQ(input.GatewayUserID)).WithAllowedGroups().ForUpdate().Only(txCtx)
 		if err != nil {
@@ -98,12 +106,16 @@ func (r *desktopRepository) CreateOrganization(ctx context.Context, input servic
 		if assigned {
 			return service.ErrDesktopGatewayUserAssigned
 		}
+		if _, err := client.User.UpdateOne(gatewayUser).SetAPIKeyLimit(memberLimit).Save(txCtx); err != nil {
+			return err
+		}
 		_, err = client.DesktopOrganization.Create().
 			SetPublicID(input.PublicID).
 			SetCode(input.Code).
 			SetName(input.Name).
 			SetGatewayUserID(input.GatewayUserID).
 			SetGroupID(input.GroupID).
+			SetMemberLimit(memberLimit).
 			Save(txCtx)
 		return translatePersistenceError(err, nil, service.ErrDesktopGatewayUserAssigned)
 	})
@@ -166,8 +178,11 @@ func (r *desktopRepository) GetOrganizationForGatewayUser(ctx context.Context, u
 }
 
 func (r *desktopRepository) UpdateOrganization(ctx context.Context, publicID string, input service.DesktopUpdateOrganizationInput) (*service.DesktopOrganization, []string, error) {
-	if r.gatewayUserID != nil && (input.GatewayUserID != nil || input.GroupID != nil) {
+	if r.gatewayUserID != nil && (input.GatewayUserID != nil || input.GroupID != nil || input.MemberLimit != nil) {
 		return nil, nil, service.ErrDesktopValidation
+	}
+	if input.MemberLimit != nil && *input.MemberLimit < 1 {
+		return nil, nil, service.ErrDesktopValidation.WithMetadata(map[string]string{"field": "member_limit"})
 	}
 	current, err := r.client.DesktopOrganization.Query().Where(r.organizationPredicates(desktoporganization.PublicIDEQ(publicID))...).Only(ctx)
 	if err != nil {
@@ -233,6 +248,23 @@ func (r *desktopRepository) UpdateOrganization(ctx context.Context, publicID str
 			}
 		}
 		builder := client.DesktopOrganization.UpdateOne(organization)
+		memberLimit := organization.MemberLimit
+		if input.MemberLimit != nil {
+			memberLimit = *input.MemberLimit
+			memberCount, err := client.DesktopMember.Query().Where(desktopmember.OrganizationIDEQ(organization.ID)).Count(txCtx)
+			if err != nil {
+				return err
+			}
+			if memberLimit < memberCount {
+				return service.ErrDesktopMemberLimitTooLow.WithMetadata(map[string]string{"current": strconv.Itoa(memberCount)})
+			}
+			builder.SetMemberLimit(memberLimit)
+		}
+		if gatewayUser.APIKeyLimit != memberLimit {
+			if _, err := client.User.UpdateOne(gatewayUser).SetAPIKeyLimit(memberLimit).Save(txCtx); err != nil {
+				return err
+			}
+		}
 		if input.Name != nil {
 			builder.SetName(*input.Name)
 		}
@@ -425,6 +457,15 @@ func (r *desktopRepository) CreateMember(ctx context.Context, organizationPublic
 		}
 		if lockedOrganization.Status != service.DesktopStatusActive {
 			return service.ErrDesktopOrganizationDisabled
+		}
+		memberCount, err := client.DesktopMember.Query().Where(desktopmember.OrganizationIDEQ(lockedOrganization.ID)).Count(txCtx)
+		if err != nil {
+			return err
+		}
+		if memberCount >= lockedOrganization.MemberLimit {
+			return service.ErrDesktopMemberLimitReached.WithMetadata(map[string]string{
+				"limit": strconv.Itoa(lockedOrganization.MemberLimit), "current": strconv.Itoa(memberCount),
+			})
 		}
 		if err := validateDesktopCarrier(txCtx, client, gatewayUser, groupEntity); err != nil {
 			return err
@@ -881,7 +922,7 @@ func desktopOrganizationEntityToService(row *dbent.DesktopOrganization) (*servic
 		ID: row.ID, PublicID: row.PublicID, Code: row.Code, Name: row.Name, Status: row.Status,
 		AuthVersion: row.AuthVersion, GatewayUserID: row.GatewayUserID, GroupID: row.GroupID,
 		TargetConfig: target, TargetConfigAssigned: target != nil, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
-		MemberCount: len(row.Edges.Members),
+		MemberCount: len(row.Edges.Members), MemberLimit: row.MemberLimit,
 	}
 	if row.Edges.GatewayUser != nil {
 		result.GatewayUserEmail = row.Edges.GatewayUser.Email
