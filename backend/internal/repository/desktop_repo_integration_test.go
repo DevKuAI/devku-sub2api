@@ -82,6 +82,123 @@ func TestDesktopRepositoryLoadsAssignedExclusiveGroup(t *testing.T) {
 	require.Equal(t, group.ID, groupID)
 }
 
+func TestDesktopRepositoryGrantsExclusiveGroupOnCarrierAssignment(t *testing.T) {
+	for _, operation := range []string{"create", "replace_gateway_user"} {
+		t.Run(operation, func(t *testing.T) {
+			ctx := context.Background()
+			suffix := time.Now().UnixNano()
+			group := mustCreateGroup(t, integrationEntClient, &service.Group{
+				Name: fmt.Sprintf("desktop-carrier-exclusive-%d", suffix), RateMultiplier: 1, IsExclusive: true,
+			})
+			existingGroup := mustCreateGroup(t, integrationEntClient, &service.Group{
+				Name: fmt.Sprintf("desktop-carrier-existing-%d", suffix), RateMultiplier: 1, IsExclusive: true,
+			})
+			carrier := mustCreateUser(t, integrationEntClient, &service.User{
+				Email: fmt.Sprintf("desktop-carrier-new-%d@example.com", suffix), APIKeyLimit: 10,
+				AllowedGroups: []int64{existingGroup.ID},
+			})
+			ownerID := carrier.ID
+			if operation == "replace_gateway_user" {
+				owner := mustCreateUser(t, integrationEntClient, &service.User{
+					Email: fmt.Sprintf("desktop-carrier-owner-%d@example.com", suffix), APIKeyLimit: 10,
+					AllowedGroups: []int64{group.ID},
+				})
+				ownerID = owner.ID
+			}
+			t.Cleanup(func() {
+				_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM desktop_organizations WHERE gateway_user_id IN ($1, $2)", carrier.ID, ownerID)
+				_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM user_allowed_groups WHERE user_id IN ($1, $2)", carrier.ID, ownerID)
+				_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM users WHERE id IN ($1, $2)", carrier.ID, ownerID)
+				_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM groups WHERE id IN ($1, $2)", group.ID, existingGroup.ID)
+			})
+			repo := NewDesktopRepository(integrationEntClient, NewAPIKeyRepository(integrationEntClient, integrationDB))
+			organization, err := repo.CreateOrganization(ctx, service.DesktopCreateOrganizationInput{
+				PublicID: fmt.Sprintf("org_carrier_%d", suffix), Code: fmt.Sprintf("c%x", suffix%100000),
+				Name: "Exclusive carrier", GatewayUserID: ownerID, GroupID: group.ID,
+			})
+			require.NoError(t, err)
+			if operation == "replace_gateway_user" {
+				organization, _, err = repo.UpdateOrganization(ctx, organization.PublicID, service.DesktopUpdateOrganizationInput{
+					GatewayUserID: &carrier.ID,
+				})
+				require.NoError(t, err)
+			}
+			require.Equal(t, carrier.ID, organization.GatewayUserID)
+			require.Equal(t, group.ID, organization.GroupID)
+			var grantCount int
+			require.NoError(t, integrationDB.QueryRowContext(ctx,
+				"SELECT COUNT(*) FROM user_allowed_groups WHERE user_id = $1 AND group_id IN ($2, $3)", carrier.ID, group.ID, existingGroup.ID).Scan(&grantCount))
+			require.Equal(t, 2, grantCount)
+		})
+	}
+}
+
+func TestDesktopRepositoryRollsBackExclusiveGroupGrantOnInvalidCarrier(t *testing.T) {
+	for _, operation := range []string{"create", "replace_gateway_user"} {
+		for _, restriction := range []string{"disabled_group", "missing_subscription"} {
+			t.Run(operation+"/"+restriction, func(t *testing.T) {
+				ctx := context.Background()
+				suffix := time.Now().UnixNano()
+				group := mustCreateGroup(t, integrationEntClient, &service.Group{
+					Name: fmt.Sprintf("desktop-invalid-group-%d", suffix), RateMultiplier: 1, IsExclusive: true,
+				})
+				carrier := mustCreateUser(t, integrationEntClient, &service.User{
+					Email: fmt.Sprintf("desktop-invalid-carrier-%d@example.com", suffix), APIKeyLimit: 10,
+				})
+				ownerID := carrier.ID
+				if operation == "replace_gateway_user" {
+					owner := mustCreateUser(t, integrationEntClient, &service.User{
+						Email: fmt.Sprintf("desktop-invalid-owner-%d@example.com", suffix), APIKeyLimit: 10,
+						AllowedGroups: []int64{group.ID},
+					})
+					ownerID = owner.ID
+				}
+				t.Cleanup(func() {
+					_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM desktop_organizations WHERE gateway_user_id IN ($1, $2)", carrier.ID, ownerID)
+					_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM user_allowed_groups WHERE user_id IN ($1, $2)", carrier.ID, ownerID)
+					_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM users WHERE id IN ($1, $2)", carrier.ID, ownerID)
+					_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM groups WHERE id = $1", group.ID)
+				})
+				repo := NewDesktopRepository(integrationEntClient, NewAPIKeyRepository(integrationEntClient, integrationDB))
+				input := service.DesktopCreateOrganizationInput{
+					PublicID: fmt.Sprintf("org_invalid_%d", suffix), Code: fmt.Sprintf("i%x", suffix%100000),
+					Name: "Invalid carrier", GatewayUserID: ownerID, GroupID: group.ID,
+				}
+				if operation == "replace_gateway_user" {
+					_, err := repo.CreateOrganization(ctx, input)
+					require.NoError(t, err)
+				}
+				update := integrationEntClient.Group.UpdateOneID(group.ID)
+				if restriction == "disabled_group" {
+					update.SetStatus(service.StatusDisabled)
+				} else {
+					update.SetSubscriptionType(service.SubscriptionTypeSubscription)
+				}
+				_, err := update.Save(ctx)
+				require.NoError(t, err)
+
+				if operation == "create" {
+					_, err = repo.CreateOrganization(ctx, input)
+				} else {
+					_, _, err = repo.UpdateOrganization(ctx, input.PublicID, service.DesktopUpdateOrganizationInput{GatewayUserID: &carrier.ID})
+				}
+				require.ErrorIs(t, err, service.ErrGroupNotAllowed)
+				var grantCount int
+				require.NoError(t, integrationDB.QueryRowContext(ctx,
+					"SELECT COUNT(*) FROM user_allowed_groups WHERE user_id = $1 AND group_id = $2", carrier.ID, group.ID).Scan(&grantCount))
+				require.Zero(t, grantCount)
+				organization, err := repo.GetOrganization(ctx, input.PublicID)
+				if operation == "create" {
+					require.ErrorIs(t, err, service.ErrDesktopOrganizationNotFound)
+				} else {
+					require.NoError(t, err)
+					require.Equal(t, ownerID, organization.GatewayUserID)
+				}
+			})
+		}
+	}
+}
+
 func TestDesktopRepositoryGatewayUserScopeRejectsCrossOrganizationAccess(t *testing.T) {
 	ctx := context.Background()
 	owner := newDesktopRepositoryFixture(t, "owner-scope", 10)

@@ -168,7 +168,7 @@ import Icon from '@/components/icons/Icon.vue'
 
 type DetailTab = 'members' | 'configuration'
 const { selfManaged = false } = defineProps<{ selfManaged?: boolean }>()
-const { t } = useI18n()
+const { t, te } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const appStore = useAppStore()
@@ -223,7 +223,12 @@ const gatewayUserOptions = computed(() => {
 })
 const groupOptions = computed(() => groups.value.map((group) => ({ value: group.id, label: group.name })))
 
-function errorMessage(error: unknown): string { const reason = (error as { reason?: string })?.reason; return reason ? t(`admin.desktop.errors.${reason}`) : (error as { message?: string })?.message || t('admin.desktop.errors.UNKNOWN') }
+function errorMessage(error: unknown): string {
+  const reason = (error as { reason?: string })?.reason
+  const key = `admin.desktop.errors.${reason}`
+  if (reason && te(key)) return t(key)
+  return (error as { message?: string })?.message || t('admin.desktop.errors.UNKNOWN')
+}
 function statusLabel(value: DesktopStatus): string { return value === 'active' ? t('common.active') : t('common.disabled') }
 function tokenStatusLabel(value: DesktopModelTokenStatus): string { return t(`admin.desktop.tokenStatus.${value}`) }
 function tokenBadge(value: DesktopModelTokenStatus): string { return value === 'active' ? 'badge-success' : value === 'disabled' ? 'badge-warning' : 'badge-gray' }

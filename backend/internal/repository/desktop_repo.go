@@ -81,6 +81,11 @@ func (r *desktopRepository) CreateOrganization(ctx context.Context, input servic
 		if err != nil {
 			return translatePersistenceError(err, service.ErrGroupNotFound, nil)
 		}
+		if groupEntity.IsExclusive {
+			if err := ensureDesktopCarrierGroupAccess(txCtx, client, gatewayUser, groupEntity); err != nil {
+				return err
+			}
+		}
 		if err := validateDesktopCarrier(txCtx, client, gatewayUser, groupEntity); err != nil {
 			return err
 		}
@@ -217,7 +222,7 @@ func (r *desktopRepository) UpdateOrganization(ctx context.Context, publicID str
 				return service.ErrDesktopGatewayUserAssigned
 			}
 		}
-		if groupChanged {
+		if groupChanged || (gatewayUserChanged && groupEntity.IsExclusive) {
 			if err := ensureDesktopCarrierGroupAccess(txCtx, client, gatewayUser, groupEntity); err != nil {
 				return err
 			}

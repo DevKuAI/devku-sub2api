@@ -106,6 +106,7 @@ export default {
       }
     },
     errors: {
+      GROUP_NOT_ALLOWED: 'The gateway user cannot use this group. Check the group status, access permissions, and active subscription.',
       GATEWAY_USER_ALREADY_ASSIGNED: 'This User is already assigned to another Desktop organization.',
       ORGANIZATION_PROVISIONING_LOCKED: 'The Gateway User cannot change after members are provisioned.',
       ORGANIZATION_DISABLED: 'This organization is disabled.',

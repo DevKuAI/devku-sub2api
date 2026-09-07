@@ -106,6 +106,7 @@ export default {
       }
     },
     errors: {
+      GROUP_NOT_ALLOWED: '承载用户无法使用所选分组，请检查分组状态、访问权限和有效订阅。',
       GATEWAY_USER_ALREADY_ASSIGNED: '该用户已被其他 Desktop 企业占用。',
       ORGANIZATION_PROVISIONING_LOCKED: '企业已有成员，不能更换承载用户。',
       ORGANIZATION_DISABLED: '企业已停用，不能执行该操作。',

@@ -104,7 +104,7 @@ import Select from '@/components/common/Select.vue'
 import Input from '@/components/common/Input.vue'
 import Icon from '@/components/icons/Icon.vue'
 
-const { t } = useI18n()
+const { t, te } = useI18n()
 const router = useRouter()
 const appStore = useAppStore()
 const organizations = ref<DesktopOrganization[]>([])
@@ -143,7 +143,9 @@ const groupOptions = computed(() => groups.value.map((group) => ({ value: group.
 
 function errorMessage(error: unknown): string {
   const reason = (error as { reason?: string })?.reason
-  return reason ? t(`admin.desktop.errors.${reason}`) : (error as { message?: string })?.message || t('admin.desktop.errors.UNKNOWN')
+  const key = `admin.desktop.errors.${reason}`
+  if (reason && te(key)) return t(key)
+  return (error as { message?: string })?.message || t('admin.desktop.errors.UNKNOWN')
 }
 function statusLabel(value: DesktopStatus): string { return value === 'active' ? t('common.active') : t('common.disabled') }
 async function loadOrganizations() {
