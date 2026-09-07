@@ -57,7 +57,7 @@ func newAdminUsageRequestTypeTestRouter(repo *adminUsageRepoCapture) *gin.Engine
 }
 
 func TestAdminUsageRequestBody(t *testing.T) {
-	repo := &adminUsageRepoCapture{requestBody: `{"input":"hello"}`}
+	repo := &adminUsageRepoCapture{requestBody: "  First paragraph\n\nSecond paragraph with literal \\n.\n  "}
 	router := newAdminUsageRequestTypeTestRouter(repo)
 
 	req := httptest.NewRequest(http.MethodGet, "/admin/usage/42/request-body", nil)
@@ -73,7 +73,7 @@ func TestAdminUsageRequestBody(t *testing.T) {
 		} `json:"data"`
 	}
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &payload))
-	require.JSONEq(t, repo.requestBody, payload.Data.RequestBody)
+	require.Equal(t, repo.requestBody, payload.Data.RequestBody)
 }
 
 func TestAdminUsageRequestBodyInvalidID(t *testing.T) {

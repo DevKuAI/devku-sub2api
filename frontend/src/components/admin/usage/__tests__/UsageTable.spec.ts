@@ -157,9 +157,15 @@ describe('admin UsageTable tooltip', () => {
     } as DOMRect)
   })
 
-  it('loads an available request body only after the admin opens it', async () => {
+  it.each([
+    { name: 'plain text', prompt: '如果我没有写纠错内容呢，' },
+    { name: 'paragraphs and indentation', prompt: '  First paragraph\n\nSecond paragraph\n\tIndented line\n  ' },
+    { name: 'literal newline escapes', prompt: 'Keep \\n\\n as text.\nUse a real line break here.' },
+    { name: 'user supplied JSON', prompt: '{"prompt":"line one\\n\\nline two"}' },
+    { name: 'user supplied HTML', prompt: '<b>Show this markup as text.</b>\n\nNext paragraph.' },
+  ])('loads $name verbatim only after the admin opens it', async ({ prompt }) => {
     usageApiMocks.getRequestBody.mockResolvedValue({
-      request_body: '{"messages":[{"role":"user","content":"hello"}]}',
+      request_body: prompt,
     })
     const wrapper = mount(UsageTable, {
       props: {
@@ -186,7 +192,9 @@ describe('admin UsageTable tooltip', () => {
     await flushPromises()
 
     expect(usageApiMocks.getRequestBody).toHaveBeenCalledWith(42)
-    expect(wrapper.get('[data-testid="request-body-content"]').text()).toContain('hello')
+    const content = wrapper.get('[data-testid="request-body-content"]')
+    expect(content.element.textContent).toBe(prompt)
+    expect(content.element.children).toHaveLength(0)
   })
 
   it('does not offer request-body access for rows captured while risk control was off', () => {

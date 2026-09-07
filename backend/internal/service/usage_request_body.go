@@ -2,11 +2,12 @@ package service
 
 import (
 	"context"
-	"encoding/json"
+	"sort"
 	"strings"
 	"sync"
 
 	"github.com/tidwall/gjson"
+	"golang.org/x/net/html"
 )
 
 type usageRequestBodyContextKey struct{}
@@ -16,8 +17,8 @@ type usageRequestBodyHolder struct {
 	body *string
 }
 
-// CaptureUsageRequestBody stores the full, redacted current user text while risk
-// control is enabled. The gateway already bounds the incoming request size;
+// CaptureUsageRequestBody stores the full, redacted user input as plain text
+// while risk control is enabled. The gateway already bounds the incoming request size;
 // management audit-body limits must not discard or truncate user messages.
 func (s *ContentModerationService) CaptureUsageRequestBody(ctx context.Context, protocol string, body []byte, _ string) *string {
 	if s == nil || s.settingRepo == nil || len(body) == 0 {
@@ -34,11 +35,7 @@ func (s *ContentModerationService) CaptureUsageRequestBody(ctx context.Context, 
 	if content == "" {
 		return nil
 	}
-	encoded, err := json.Marshal(map[string]string{"prompt": redactAuditString(content, 0)})
-	if err != nil {
-		return nil
-	}
-	snapshot := string(encoded)
+	snapshot := redactAuditString(content, 0)
 	return &snapshot
 }
 
@@ -97,13 +94,19 @@ func collectUsageResponsesText(input gjson.Result, parts *[]string) {
 	if input.IsArray() {
 		// A flat content array is one input, while a message array may contain history.
 		flat := true
+		var last gjson.Result
 		input.ForEach(func(_, item gjson.Result) bool {
 			typ := item.Get("type").String()
-			flat = item.Get("role").String() == "" && (typ == "input_text" || typ == "input_image")
-			return flat
+			role := item.Get("role").String()
+			if role == "" && typ == "compaction_trigger" {
+				return true
+			}
+			last = item
+			flat = flat && role == "" && (typ == "input_text" || typ == "input_image" || typ == "input_file")
+			return true
 		})
 		if !flat {
-			input = lastUsageRequestItem(input)
+			input = last
 		}
 	}
 	collectUsageRequestText(input, parts, 0)
@@ -117,7 +120,7 @@ func collectUsageRequestText(value gjson.Result, parts *[]string, depth int) {
 	}
 	switch {
 	case value.Type == gjson.String:
-		if text := value.String(); strings.TrimSpace(text) != "" {
+		if text := value.String(); strings.TrimSpace(text) != "" && !isUsageCompactionSummary(stripUsageClientPromptBlocks(text)) {
 			*parts = append(*parts, text)
 		}
 	case value.IsArray():
@@ -140,19 +143,12 @@ func collectUsageRequestText(value gjson.Result, parts *[]string, depth int) {
 }
 
 func cleanUsageUserText(content string) string {
-	// Only explicit client wrapper blocks are removed; ordinary user prose is
+	// Only recognized client context is removed; ordinary user prose is
 	// not classified by keywords, and its whitespace is kept when no block is removed.
-	wrappers := [...]struct{ opening, closing string }{
-		{"<system-reminder>", "</system-reminder>"},
-		{"<environment_context>", "</environment_context>"},
-		{"<environment_details>", "</environment_details>"},
-		{"<user_instructions>", "</user_instructions>"},
-		{"# AGENTS.md instructions\n<INSTRUCTIONS>", "</INSTRUCTIONS>"},
-		{"# AGENTS.md instructions\r\n<INSTRUCTIONS>", "</INSTRUCTIONS>"},
-	}
 	original := content
-	for _, wrapper := range wrappers {
-		content = stripUsagePromptBlock(content, wrapper.opening, wrapper.closing)
+	content = stripUsageClientPromptBlocks(content)
+	if isUsageCompactionSummary(content) {
+		return ""
 	}
 	if query, ok := unwrapUsageUserQuery(content); ok {
 		return query
@@ -163,7 +159,37 @@ func cleanUsageUserText(content string) string {
 	return content
 }
 
-func stripUsagePromptBlock(content, opening, closing string) string {
+// Compaction handoffs can arrive as user messages. Match the complete client
+// preamble so ordinary requests about summaries are retained.
+func isUsageCompactionSummary(content string) bool {
+	const preamble = "Another language model started to solve this problem and produced a summary of its thinking process. " +
+		"You also have access to the state of the tools that were used by that language model. " +
+		"Use this to build on the work that has already been done and avoid duplicating work. " +
+		"Here is the summary produced by the other language model, use the information in this summary to assist with your own analysis:"
+	return strings.HasPrefix(strings.TrimSpace(content), preamble)
+}
+
+func stripUsageClientPromptBlocks(content string) string {
+	wrappers := [...]struct{ tag, heading string }{
+		{"system-reminder", ""},
+		{"environment_context", ""},
+		{"environment_details", ""},
+		{"user_instructions", ""},
+		{"in-app-browser-context", ""},
+		{"INSTRUCTIONS", "# AGENTS.md instructions"},
+	}
+	for _, wrapper := range wrappers {
+		content = stripUsagePromptBlock(content, wrapper.tag, wrapper.heading)
+	}
+	return content
+}
+
+func stripUsagePromptBlock(content, tag, heading string) string {
+	opening := "<" + tag
+	if !strings.Contains(content, opening) {
+		return content
+	}
+	codeRanges := usagePromptCodeRanges(content)
 	var out strings.Builder
 	cursor, search := 0, 0
 	for search < len(content) {
@@ -173,6 +199,9 @@ func stripUsagePromptBlock(content, opening, closing string) string {
 		}
 		start += search
 		search = start + len(opening)
+		if usagePromptCodeRangeAt(codeRanges, start) != nil {
+			continue
+		}
 		lineStart := start
 		for lineStart > 0 && (content[lineStart-1] == ' ' || content[lineStart-1] == '\t' || content[lineStart-1] == '\r') {
 			lineStart--
@@ -180,13 +209,21 @@ func stripUsagePromptBlock(content, opening, closing string) string {
 		if lineStart > 0 && content[lineStart-1] != '\n' {
 			continue
 		}
-		_, _ = out.WriteString(content[cursor:start])
-		end := strings.Index(content[search:], closing)
-		if end < 0 {
-			// An unfinished wrapper is not a trustworthy source of user text.
-			return out.String()
+		blockStart := start
+		if heading != "" {
+			prefix := strings.TrimRight(content[:lineStart], " \t\r\n")
+			headingStart := strings.LastIndexByte(prefix, '\n') + 1
+			if prefix[headingStart:] != heading || usagePromptCodeRangeAt(codeRanges, headingStart) != nil {
+				continue
+			}
+			blockStart = headingStart
 		}
-		cursor = search + end + len(closing)
+		end := usagePromptBlockEnd(content, start, tag, codeRanges)
+		if end < 0 {
+			continue
+		}
+		_, _ = out.WriteString(content[cursor:blockStart])
+		cursor = end
 		search = cursor
 	}
 	if cursor == 0 {
@@ -196,15 +233,123 @@ func stripUsagePromptBlock(content, opening, closing string) string {
 	return out.String()
 }
 
+func usagePromptBlockEnd(content string, start int, tag string, codeRanges []usagePromptRange) int {
+	tokenizer := html.NewTokenizer(strings.NewReader(content[start:]))
+	tokenType := tokenizer.Next()
+	if tokenType != html.StartTagToken && tokenType != html.SelfClosingTagToken {
+		return -1
+	}
+	name, _ := tokenizer.TagName()
+	if !strings.EqualFold(string(name), tag) {
+		return -1
+	}
+	offset := start + len(tokenizer.Raw())
+	if tokenType == html.SelfClosingTagToken {
+		return offset
+	}
+	for depth := 1; depth > 0; {
+		tokenType = tokenizer.Next()
+		tokenStart := offset
+		offset += len(tokenizer.Raw())
+		if tokenType == html.ErrorToken {
+			// An unclosed client wrapper must not expose its remaining context.
+			return len(content)
+		}
+		if tokenType != html.StartTagToken && tokenType != html.EndTagToken {
+			continue
+		}
+		// Indented tags still delimit a recognized wrapper; fenced examples do not.
+		if codeRange := usagePromptCodeRangeAt(codeRanges, tokenStart); codeRange != nil && codeRange.fenced {
+			continue
+		}
+		name, _ = tokenizer.TagName()
+		if strings.EqualFold(string(name), tag) {
+			if tokenType == html.StartTagToken {
+				depth++
+			} else {
+				depth--
+			}
+		}
+	}
+	return offset
+}
+
+type usagePromptRange struct {
+	start, end int
+	fenced     bool
+}
+
+// Keep fenced and indented code as literal user text, including unfinished fences.
+func usagePromptCodeRanges(content string) []usagePromptRange {
+	var ranges []usagePromptRange
+	var fence byte
+	fenceLength, fenceStart := 0, 0
+	for start := 0; start < len(content); {
+		end := len(content)
+		if newline := strings.IndexByte(content[start:], '\n'); newline >= 0 {
+			end = start + newline + 1
+		}
+		line := strings.TrimRight(content[start:end], "\r\n")
+		trimmed := strings.TrimLeft(line, " ")
+		indent := len(line) - len(trimmed)
+		marker, length := byte(0), 0
+		if indent <= 3 && len(trimmed) > 0 && (trimmed[0] == '`' || trimmed[0] == '~') {
+			marker = trimmed[0]
+			for length < len(trimmed) && trimmed[length] == marker {
+				length++
+			}
+		}
+		switch {
+		case fence != 0:
+			if marker == fence && length >= fenceLength && strings.TrimSpace(trimmed[length:]) == "" {
+				ranges = append(ranges, usagePromptRange{start: fenceStart, end: end, fenced: true})
+				fence = 0
+			}
+		case length >= 3 && (marker == '~' || !strings.Contains(trimmed[length:], "`")):
+			fence, fenceLength, fenceStart = marker, length, start
+		case indent >= 4 || strings.HasPrefix(trimmed, "\t"):
+			ranges = append(ranges, usagePromptRange{start: start, end: end})
+		}
+		start = end
+	}
+	if fence != 0 {
+		ranges = append(ranges, usagePromptRange{start: fenceStart, end: len(content), fenced: true})
+	}
+	return ranges
+}
+
+func usagePromptCodeRangeAt(ranges []usagePromptRange, position int) *usagePromptRange {
+	index := sort.Search(len(ranges), func(i int) bool { return ranges[i].end > position })
+	if index < len(ranges) && ranges[index].start <= position {
+		return &ranges[index]
+	}
+	return nil
+}
+
+func lastUsagePromptMarker(content, marker string, end int, codeRanges []usagePromptRange) int {
+	for end > 0 {
+		index := strings.LastIndex(content[:end], marker)
+		if index < 0 || usagePromptCodeRangeAt(codeRanges, index) == nil {
+			return index
+		}
+		end = index
+	}
+	return -1
+}
+
 func unwrapUsageUserQuery(content string) (string, bool) {
 	const openingTag = "<user_query>"
 	const closingTag = "</user_query>"
 
-	closingIndex := strings.LastIndex(content, closingTag)
+	if !strings.Contains(content, closingTag) {
+		return "", false
+	}
+	codeRanges := usagePromptCodeRanges(content)
+	closingIndex := lastUsagePromptMarker(content, closingTag, len(content), codeRanges)
 	if closingIndex < 0 {
 		return "", false
 	}
-	openingIndex := strings.LastIndex(content[:closingIndex], openingTag)
+	openingIndex := lastUsagePromptMarker(content, openingTag, closingIndex, codeRanges)
 	if openingIndex < 0 {
 		return "", false
 	}

@@ -339,7 +339,7 @@
     <pre
       v-else
       data-testid="request-body-content"
-      class="max-h-[60vh] overflow-auto whitespace-pre-wrap break-words rounded border border-gray-200 bg-gray-50 p-4 text-xs leading-5 text-gray-800 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-200"
+      class="max-h-[60vh] overflow-auto whitespace-pre-wrap break-words rounded border border-gray-200 bg-gray-50 p-4 font-sans text-sm leading-6 text-gray-800 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-200"
     >{{ requestBody }}</pre>
     <template #footer>
       <button type="button" class="btn btn-secondary" @click="closeRequestBody">

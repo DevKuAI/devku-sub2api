@@ -10,6 +10,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const usageCompactionSummaryPreambleFixture = "Another language model started to solve this problem and produced a summary of its thinking process. " +
+	"You also have access to the state of the tools that were used by that language model. " +
+	"Use this to build on the work that has already been done and avoid duplicating work. " +
+	"Here is the summary produced by the other language model, use the information in this summary to assist with your own analysis:"
+
 func TestCaptureUsageRequestBodyStoresOnlyLatestTaggedUserInput(t *testing.T) {
 	repo := &contentModerationRuntimeSettingRepo{values: map[string]string{
 		SettingKeyRiskControlEnabled:      "true",
@@ -32,7 +37,7 @@ func TestCaptureUsageRequestBodyStoresOnlyLatestTaggedUserInput(t *testing.T) {
 
 	captured := svc.CaptureUsageRequestBody(context.Background(), ContentModerationProtocolOpenAIChat, body, "application/json")
 	require.NotNil(t, captured)
-	require.Equal(t, `{"prompt":"1"}`, *captured)
+	require.Equal(t, "1", *captured)
 	require.NotContains(t, *captured, "system context")
 	require.NotContains(t, *captured, "older input")
 }
@@ -47,7 +52,7 @@ func TestCaptureUsageRequestBodyFollowsRiskControlSwitch(t *testing.T) {
 
 	captured := svc.CaptureUsageRequestBody(context.Background(), ContentModerationProtocolOpenAIChat, body, "application/json")
 	require.NotNil(t, captured)
-	require.JSONEq(t, `{"prompt":"hello"}`, *captured)
+	require.Equal(t, "hello", *captured)
 
 	require.NoError(t, repo.Set(context.Background(), SettingKeyRiskControlEnabled, "false"))
 	require.Nil(t, svc.CaptureUsageRequestBody(context.Background(), ContentModerationProtocolOpenAIChat, body, "application/json"))
@@ -113,14 +118,42 @@ func TestCaptureUsageRequestBodyExtractsCommonUserInputShapes(t *testing.T) {
 			body:     `{"messages":[{"role":"user","content":"Explain these tags: ` + strings.Repeat("<system-reminder> ", 20000) + `"}]}`,
 			want:     "Explain these tags: " + strings.Repeat("<system-reminder> ", 20000),
 		},
+		{
+			name:     "plain Chinese prompt",
+			protocol: ContentModerationProtocolOpenAIResponses,
+			body:     `{"input":"如果我没有写纠错内容呢，"}`,
+			want:     "如果我没有写纠错内容呢，",
+		},
+		{
+			name:     "paragraphs and indentation",
+			protocol: ContentModerationProtocolOpenAIResponses,
+			body:     `{"input":"  First paragraph\n\nSecond paragraph\n\tIndented line\n  "}`,
+			want:     "  First paragraph\n\nSecond paragraph\n\tIndented line\n  ",
+		},
+		{
+			name:     "CRLF paragraphs",
+			protocol: ContentModerationProtocolOpenAIResponses,
+			body:     `{"input":"First paragraph\r\n\r\nSecond paragraph"}`,
+			want:     "First paragraph\r\n\r\nSecond paragraph",
+		},
+		{
+			name:     "literal newline escapes",
+			protocol: ContentModerationProtocolOpenAIResponses,
+			body:     `{"input":"Keep \\n\\n as text.\nUse a real line break here."}`,
+			want:     "Keep \\n\\n as text.\nUse a real line break here.",
+		},
+		{
+			name:     "user supplied JSON remains text",
+			protocol: ContentModerationProtocolOpenAIResponses,
+			body:     `{"input":"{\"prompt\":\"line one\\n\\nline two\"}"}`,
+			want:     `{"prompt":"line one\n\nline two"}`,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			captured := svc.CaptureUsageRequestBody(context.Background(), tt.protocol, []byte(tt.body), "application/json")
 			require.NotNil(t, captured)
-			var result map[string]string
-			require.NoError(t, json.Unmarshal([]byte(*captured), &result))
-			require.Equal(t, tt.want, result["prompt"])
+			require.Equal(t, tt.want, *captured)
 			require.NotContains(t, *captured, "policy")
 			require.NotContains(t, *captured, "answer")
 		})
@@ -161,9 +194,7 @@ func TestCaptureUsageRequestBodyPreservesLongUserInput(t *testing.T) {
 
 		captured := svc.CaptureUsageRequestBody(context.Background(), ContentModerationProtocolOpenAIChat, body, "application/json")
 		require.NotNil(t, captured)
-		var result map[string]string
-		require.NoError(t, json.Unmarshal([]byte(*captured), &result))
-		require.Equal(t, prompt, result["prompt"])
+		require.Equal(t, prompt, *captured)
 	}
 }
 
@@ -176,10 +207,13 @@ func TestCaptureUsageRequestBodyExcludesBuiltInPromptBlocks(t *testing.T) {
 	const prompt = "Please fix the input parser.\nKeep its formatting."
 	const environment = "<environment_context><cwd>/workspace</cwd></environment_context>"
 	const instructions = "# AGENTS.md instructions\n<INSTRUCTIONS>built-in policy</INSTRUCTIONS>"
+	const summary = usageCompactionSummaryPreambleFixture + "\n\n## Active Task\nAutomatically generated context."
 	textBlocks := []map[string]any{
 		{"type": "text", "text": instructions},
 		{"type": "text", "text": environment},
+		{"type": "text", "text": summary},
 		{"type": "text", "text": prompt},
+		{"type": "text", "text": environment + "\n\n" + summary},
 		{"type": "text", "text": "<system-reminder>injected reminder</system-reminder>"},
 		{"type": "image", "source": map[string]string{"type": "base64", "media_type": "image/png", "data": strings.Repeat("a", AuditRequestBodyCaptureLimit)}},
 	}
@@ -234,7 +268,7 @@ func TestCaptureUsageRequestBodyExcludesBuiltInPromptBlocks(t *testing.T) {
 			body: map[string]any{
 				"systemInstruction": map[string]any{"parts": []map[string]string{{"text": "built-in system policy"}}},
 				"contents": []map[string]any{{"role": "user", "parts": []map[string]string{
-					{"text": instructions}, {"text": environment}, {"text": prompt},
+					{"text": instructions}, {"text": environment}, {"text": summary}, {"text": prompt},
 				}}},
 			},
 		},
@@ -272,9 +306,47 @@ func TestCaptureUsageRequestBodyExcludesBuiltInPromptBlocks(t *testing.T) {
 			original := string(body)
 			captured := svc.CaptureUsageRequestBody(context.Background(), tt.protocol, body, "application/json")
 			require.NotNil(t, captured)
-			var result map[string]string
-			require.NoError(t, json.Unmarshal([]byte(*captured), &result))
-			require.Equal(t, map[string]string{"prompt": prompt}, result)
+			require.Equal(t, prompt, *captured)
+			require.Equal(t, original, string(body))
+		})
+	}
+}
+
+func TestCaptureUsageRequestBodyExcludesCompactionSummaries(t *testing.T) {
+	repo := &contentModerationRuntimeSettingRepo{values: map[string]string{
+		SettingKeyRiskControlEnabled: "true",
+	}}
+	svc := runtimeCacheTestService(repo, time.Hour)
+	const summary = usageCompactionSummaryPreambleFixture + "\n\n## Active Task\nAutomatically generated context."
+	const prompt = "  Continue with my change.\n\nKeep the formatting.  "
+	const quoted = "Explain this automatic summary:\n\n" + summary
+	tests := []struct {
+		name  string
+		input any
+		want  string
+	}{
+		{"summary only", summary, ""},
+		{"leading whitespace", "\n\t  " + summary, ""},
+		{"summary containing user query example", summary + "\n<user_query>historical input</user_query>", ""},
+		{"summary after client wrapper", "<environment_context>workspace</environment_context>\n\n" + summary, ""},
+		{"summary after history", []map[string]any{{"role": "user", "content": "older input"}, {"role": "user", "content": summary}}, ""},
+		{"current input after summary", []map[string]any{{"role": "user", "content": summary}, {"role": "user", "content": prompt}}, prompt},
+		{"mixed flat content blocks", []map[string]any{{"type": "input_text", "text": summary}, {"type": "input_text", "text": prompt}}, prompt},
+		{"quoted summary in a question", quoted, quoted},
+		{"ordinary request about summaries", "Another language model started to solve this problem. Please review its summary.", "Another language model started to solve this problem. Please review its summary."},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body, err := json.Marshal(map[string]any{"input": tt.input})
+			require.NoError(t, err)
+			original := string(body)
+			captured := svc.CaptureUsageRequestBody(context.Background(), ContentModerationProtocolOpenAIResponses, body, "application/json")
+			if tt.want == "" {
+				require.Nil(t, captured)
+			} else {
+				require.NotNil(t, captured)
+				require.Equal(t, tt.want, *captured)
+			}
 			require.Equal(t, original, string(body))
 		})
 	}

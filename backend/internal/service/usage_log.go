@@ -186,7 +186,7 @@ type UsageLog struct {
 	// (e.g. the session_id / X-Session-Id headers). Nil when the client sent no
 	// valid session header. It is never derived from prompt_cache_key or content.
 	SessionID *string
-	// RequestBody is the redacted request payload captured only while risk
+	// RequestBody is the redacted user input in plain text captured only while risk
 	// control is enabled. Nil means the payload was not captured.
 	RequestBody *string
 	// RequestBodyAvailable is populated by list queries without loading the

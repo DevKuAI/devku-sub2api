@@ -17,14 +17,15 @@ func TestUsageLogRepositoryGetRequestBody(t *testing.T) {
 	t.Run("found", func(t *testing.T) {
 		db, mock := newSQLMock(t)
 		repo := &usageLogRepository{sql: db}
+		const prompt = "  First paragraph\n\nSecond paragraph with literal \\n.\n  "
 
 		mock.ExpectQuery(query).
 			WithArgs(int64(42)).
-			WillReturnRows(sqlmock.NewRows([]string{"request_body"}).AddRow(`{"input":"hello"}`))
+			WillReturnRows(sqlmock.NewRows([]string{"request_body"}).AddRow(prompt))
 
 		body, err := repo.GetRequestBody(context.Background(), 42)
 		require.NoError(t, err)
-		require.JSONEq(t, `{"input":"hello"}`, body)
+		require.Equal(t, prompt, body)
 		require.NoError(t, mock.ExpectationsWereMet())
 	})
 
@@ -56,7 +57,7 @@ func TestUsageLogRepositoryGetRequestBody(t *testing.T) {
 }
 
 func TestPrepareUsageLogInsertRequestBody(t *testing.T) {
-	body := `{"messages":[{"role":"user","content":"hello"}]}`
+	body := "  First paragraph\n\nSecond paragraph with literal \\n.\n  "
 	log := &service.UsageLog{
 		UserID:      1,
 		APIKeyID:    2,
