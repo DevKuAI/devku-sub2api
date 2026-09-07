@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { flushPromises, mount } from '@vue/test-utils'
+import { flushPromises, mount, shallowMount } from '@vue/test-utils'
 
 import type { AdminUser } from '@/types'
 import UsersView from '../UsersView.vue'
@@ -9,19 +9,24 @@ const {
   getAllGroups,
   getBatchUsersUsage,
   listEnabledDefinitions,
-  getBatchUserAttributes
+  getBatchUserAttributes,
+  impersonate,
+  showError
 } = vi.hoisted(() => ({
   listUsers: vi.fn(),
   getAllGroups: vi.fn(),
   getBatchUsersUsage: vi.fn(),
   listEnabledDefinitions: vi.fn(),
-  getBatchUserAttributes: vi.fn()
+  getBatchUserAttributes: vi.fn(),
+  impersonate: vi.fn(),
+  showError: vi.fn()
 }))
 
 vi.mock('@/api/admin', () => ({
   adminAPI: {
     users: {
       list: listUsers,
+      impersonate,
       toggleStatus: vi.fn(),
       delete: vi.fn()
     },
@@ -40,7 +45,7 @@ vi.mock('@/api/admin', () => ({
 
 vi.mock('@/stores/app', () => ({
   useAppStore: () => ({
-    showError: vi.fn(),
+    showError,
     showSuccess: vi.fn()
   })
 }))
@@ -98,6 +103,7 @@ const DataTableStub = {
       </template>
       <div v-for="row in data" :key="row.id">
         <slot name="cell-last_used_at" :value="row.last_used_at" :row="row" />
+        <slot name="cell-actions" :row="row" />
       </div>
     </div>
   `
@@ -129,6 +135,8 @@ describe('admin UsersView', () => {
     getBatchUsersUsage.mockReset()
     listEnabledDefinitions.mockReset()
     getBatchUserAttributes.mockReset()
+    impersonate.mockReset()
+    showError.mockReset()
 
     listUsers.mockResolvedValue({
       items: [createAdminUser()],
@@ -145,6 +153,42 @@ describe('admin UsersView', () => {
 
   afterEach(() => {
     vi.useRealTimers()
+  })
+
+  it('offers impersonation only for active regular users and preserves the session on failure', async () => {
+    listUsers.mockResolvedValue({
+      items: [createAdminUser(), createAdminUser({ id: 43, role: 'admin' }), createAdminUser({ id: 44, status: 'disabled' })],
+      total: 3, page: 1, page_size: 20, pages: 1
+    })
+    localStorage.setItem('auth_token', 'admin-session')
+    impersonate.mockRejectedValue(new Error('user disabled'))
+    const wrapper = shallowMount(UsersView, {
+      global: {
+        renderStubDefaultSlot: true,
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          TablePageLayout: { template: '<div><slot name="table" /></div>' },
+          DataTable: DataTableStub,
+          Teleport: true
+        }
+      }
+    })
+    await flushPromises()
+    const triggers = wrapper.findAll('.action-menu-trigger')
+    await triggers[0].trigger('click')
+    const action = wrapper.findAll('.action-menu-content button').find(button => button.text() === 'admin.users.impersonation.action')!
+    expect(action).toBeDefined()
+    await action.trigger('click')
+    await flushPromises()
+    expect(impersonate).toHaveBeenCalledWith(42)
+    expect(showError).toHaveBeenCalledWith('admin.users.impersonation.failed')
+    expect(localStorage.getItem('auth_token')).toBe('admin-session')
+
+    for (const trigger of triggers.slice(1)) {
+      await trigger.trigger('click')
+      expect(wrapper.find('.action-menu-content').text()).not.toContain('admin.users.impersonation.action')
+    }
+    wrapper.unmount()
   })
 
   it('shows active, used, and created activity columns in order and requests last_used_at sort', async () => {

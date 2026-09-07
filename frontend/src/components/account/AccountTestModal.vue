@@ -242,6 +242,7 @@
 </template>
 
 <script setup lang="ts">
+import { authStorage } from '@/utils/authStorage'
 import { computed, ref, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
@@ -425,7 +426,7 @@ const startTest = async () => {
     const response = await fetch(url, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
+        Authorization: `Bearer ${authStorage.getItem('auth_token')}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({

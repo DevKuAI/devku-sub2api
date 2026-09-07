@@ -666,12 +666,22 @@
     <Teleport to="body">
       <div
         v-if="activeMenuId !== null && menuPosition"
-        class="action-menu-content fixed z-[9999] w-48 overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-black/5 dark:bg-dark-800 dark:ring-white/10"
+        class="action-menu-content fixed z-[9999] max-h-[calc(100dvh-16px)] w-48 overflow-y-auto rounded-xl bg-white shadow-lg ring-1 ring-black/5 dark:bg-dark-800 dark:ring-white/10"
         :style="{ top: menuPosition.top + 'px', left: menuPosition.left + 'px' }"
       >
         <div class="py-1">
           <template v-for="user in users" :key="user.id">
             <template v-if="user.id === activeMenuId">
+              <button
+                v-if="user.role === 'user' && user.status === 'active'"
+                :disabled="impersonatingUserId !== null"
+                @click="handleImpersonate(user)"
+                class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:cursor-wait disabled:opacity-50 dark:text-gray-300 dark:hover:bg-dark-700"
+              >
+                <Icon name="user" size="sm" class="text-gray-400" :stroke-width="2" />
+                {{ t(impersonatingUserId === user.id ? 'admin.users.impersonation.switching' : 'admin.users.impersonation.action') }}
+              </button>
+
               <!-- View API Keys -->
               <button
                 @click="handleViewApiKeys(user); closeActionMenu()"
@@ -778,6 +788,7 @@ import { useAppStore } from '@/stores/app'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { useTableSelection } from '@/composables/useTableSelection'
 import { formatDateTime } from '@/utils/format'
+import { startImpersonation } from '@/utils/authStorage'
 import Icon from '@/components/icons/Icon.vue'
 
 const { t } = useI18n()
@@ -1429,6 +1440,22 @@ const refreshCurrentPageSecondaryData = () => {
 // Action Menu State
 const activeMenuId = ref<number | null>(null)
 const menuPosition = ref<{ top: number; left: number } | null>(null)
+const impersonatingUserId = ref<number | null>(null)
+
+const handleImpersonate = async (user: AdminUser) => {
+  if (impersonatingUserId.value !== null) return
+  impersonatingUserId.value = user.id
+  try {
+    const response = await adminAPI.users.impersonate(user.id)
+    startImpersonation(response)
+    // Reload to discard all administrator stores and outstanding page requests.
+    window.location.assign('/dashboard')
+  } catch {
+    appStore.showError(t('admin.users.impersonation.failed'))
+  } finally {
+    impersonatingUserId.value = null
+  }
+}
 
 const openActionMenu = (user: AdminUser, e: MouseEvent) => {
   if (activeMenuId.value === user.id) {
@@ -1442,7 +1469,7 @@ const openActionMenu = (user: AdminUser, e: MouseEvent) => {
 
     const rect = target.getBoundingClientRect()
     const menuWidth = 200
-    const menuHeight = 240
+    const menuHeight = Math.min(360, window.innerHeight - 16)
     const padding = 8
     const viewportWidth = window.innerWidth
     const viewportHeight = window.innerHeight

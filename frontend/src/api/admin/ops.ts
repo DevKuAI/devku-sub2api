@@ -4,6 +4,7 @@
  * - Dashboard overview (raw path)
  */
 
+import { authStorage } from '@/utils/authStorage'
 import { apiClient, buildGatewayUrl } from '../client'
 import type { PaginatedResponse } from '@/types'
 
@@ -601,7 +602,7 @@ export function subscribeQPS(onMessage: (data: any) => void, options: SubscribeQ
     // Do NOT put admin JWT in the URL query string (it can leak via access logs, proxies, etc).
     // Browsers cannot set Authorization headers for WebSockets, so we pass the token via
     // Sec-WebSocket-Protocol (subprotocol list): ["sub2api-admin", "jwt.<token>"].
-    const rawToken = String(options.token ?? localStorage.getItem('auth_token') ?? '').trim()
+    const rawToken = String(options.token ?? authStorage.getItem('auth_token') ?? '').trim()
     const protocols: string[] = [OPS_WS_BASE_PROTOCOL]
     if (rawToken) protocols.push(`jwt.${rawToken}`)
 

@@ -433,6 +433,13 @@ export default {
 
     // Users Management
     users: {
+      impersonation: {
+        action: '切换用户',
+        switching: '正在切换...',
+        failed: '切换用户失败，请刷新用户列表后重试',
+        active: '当前代登录：{email}',
+        returnToAdmin: '返回管理员'
+      },
       title: '用户管理',
       description: '管理用户账户和权限',
       createUser: '创建用户',

@@ -4,7 +4,7 @@
  */
 
 import { apiClient } from '../client'
-import type { AdminUser, UpdateUserRequest, PaginatedResponse, ApiKey } from '@/types'
+import type { AdminUser, UpdateUserRequest, PaginatedResponse, ApiKey, AuthResponse } from '@/types'
 
 export interface AdminBindAuthIdentityChannelRequest {
   channel: string
@@ -119,6 +119,11 @@ export async function list(
 export async function getById(id: number, includeDeleted = false): Promise<AdminUser> {
   const url = includeDeleted ? `/admin/users/${id}?include_deleted=true` : `/admin/users/${id}`
   const { data } = await apiClient.get<AdminUser>(url)
+  return data
+}
+
+export async function impersonate(id: number): Promise<AuthResponse> {
+  const { data } = await apiClient.post<AuthResponse>(`/admin/users/${id}/impersonate`)
   return data
 }
 
@@ -403,6 +408,7 @@ export async function resetPlatformQuotaWindow(
 export const usersAPI = {
   list,
   getById,
+  impersonate,
   create,
   update,
   delete: deleteUser,

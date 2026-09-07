@@ -433,6 +433,13 @@ export default {
 
     // Users
     users: {
+      impersonation: {
+        action: 'Switch to user',
+        switching: 'Switching...',
+        failed: 'Could not switch users. Refresh the user list and try again.',
+        active: 'Signed in as: {email}',
+        returnToAdmin: 'Return to admin'
+      },
       title: 'User Management',
       description: 'Manage users and their permissions',
       createUser: 'Create User',

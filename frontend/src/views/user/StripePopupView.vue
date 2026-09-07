@@ -53,6 +53,7 @@
 </template>
 
 <script setup lang="ts">
+import { authStorage } from '@/utils/authStorage'
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
@@ -177,7 +178,7 @@ function startPolling() {
     try {
       // access token 存储在 localStorage 的 'auth_token' 键下（见 api/client.ts），
       // 之前误读 'token' 导致轮询请求不带认证、永远 401，支付成功无法被检测到。
-      const token = localStorage.getItem('auth_token') || ''
+      const token = authStorage.getItem('auth_token') || ''
       const res = await fetch(buildApiUrl(`/payment/orders/${orderId}`), {
         headers: token ? { Authorization: 'Bearer ' + token } : {},
         credentials: 'include',

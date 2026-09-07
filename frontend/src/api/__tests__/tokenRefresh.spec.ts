@@ -34,6 +34,7 @@ function refreshedResponse() {
 describe('refreshAuthTokens', () => {
   beforeEach(() => {
     localStorage.clear()
+    sessionStorage.clear()
     mockedPost.mockReset()
     vi.resetModules()
     Object.defineProperty(navigator, 'locks', {
@@ -44,6 +45,28 @@ describe('refreshAuthTokens', () => {
 
   afterEach(() => {
     vi.useRealTimers()
+    sessionStorage.clear()
+  })
+
+  it('refreshes the impersonated user without overwriting the administrator session', async () => {
+    seedSession()
+    sessionStorage.setItem('sub2api_impersonation', 'target@example.com')
+    sessionStorage.setItem('auth_token', 'target-access')
+    sessionStorage.setItem('refresh_token', 'target-refresh')
+    sessionStorage.setItem('auth_user', JSON.stringify({ id: 8 }))
+    sessionStorage.setItem('token_expires_at', String(Date.now() - 1))
+    mockedPost.mockResolvedValueOnce(refreshedResponse())
+    const { refreshAuthTokens } = await import('@/api/tokenRefresh')
+    await refreshAuthTokens()
+    expect(mockedPost).toHaveBeenCalledWith(
+      expect.stringContaining('/auth/refresh'),
+      { refresh_token: 'target-refresh' },
+      expect.any(Object)
+    )
+    expect(sessionStorage.getItem('auth_token')).toBe('new-access')
+    expect(sessionStorage.getItem('refresh_token')).toBe('new-refresh')
+    expect(localStorage.getItem('auth_token')).toBe('old-access')
+    expect(localStorage.getItem('refresh_token')).toBe('old-refresh')
   })
 
   it('shares one refresh request between concurrent callers in the same document', async () => {
