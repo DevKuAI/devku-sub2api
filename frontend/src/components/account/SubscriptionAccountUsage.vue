@@ -1,5 +1,5 @@
 <template>
-  <div class="min-w-0">
+  <div class="min-w-0 space-y-2">
     <div v-if="bars.length" class="space-y-2">
       <UsageProgressBar
         v-for="bar in bars"
@@ -19,21 +19,78 @@
     <span v-else class="text-sm text-gray-400 dark:text-dark-500">
       {{ t('subscriptionAccounts.noUsage') }}
     </span>
+    <OpenAIQuotaResetCell
+      v-if="account?.platform === 'openai' && account.type === 'oauth'"
+      :account="account"
+      :api="quotaAPI"
+      :busy="querying"
+    >
+      <template #pre-actions="{ busy }">
+        <button
+          type="button"
+          class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-blue-600 transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-blue-400 dark:hover:bg-blue-900/30"
+          :disabled="querying || busy"
+          @click="loadUsage(true)"
+        >
+          <Icon name="refresh" size="xs" :class="{ 'animate-spin': querying }" aria-hidden="true" />
+          {{ t('admin.accounts.usageWindow.activeQuery') }}
+        </button>
+      </template>
+    </OpenAIQuotaResetCell>
+    <p v-if="queryError" role="alert" class="text-xs text-red-600 dark:text-red-400">
+      {{ t('subscriptionAccounts.failedToRefreshUsage') }}
+    </p>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import UsageProgressBar from '@/components/account/UsageProgressBar.vue'
+import OpenAIQuotaResetCell from '@/components/account/OpenAIQuotaResetCell.vue'
+import Icon from '@/components/icons/Icon.vue'
+import subscriptionAccountsAPI from '@/api/subscriptionAccounts'
 import { formatDateTimeToMinute } from '@/utils/format'
-import type { SubscriptionAccountUsage, UsageProgress, WindowStats } from '@/types'
+import type { SubscriptionAccount, SubscriptionAccountUsage, UsageProgress, WindowStats } from '@/types'
 
 const props = defineProps<{
   usage?: SubscriptionAccountUsage | null
+  account?: SubscriptionAccount
+}>()
+
+const emit = defineEmits<{
+  'update:usage': [usage: SubscriptionAccountUsage | null]
 }>()
 
 const { t } = useI18n()
+const querying = ref(false)
+const queryError = ref(false)
+
+async function loadUsage(refresh: boolean): Promise<void> {
+  if (!props.account || querying.value) return
+  querying.value = true
+  queryError.value = false
+  try {
+    const usage = refresh
+      ? await subscriptionAccountsAPI.refreshUsage(props.account.id)
+      : await subscriptionAccountsAPI.getUsage(props.account.id)
+    emit('update:usage', usage)
+  } catch {
+    queryError.value = true
+  } finally {
+    querying.value = false
+  }
+}
+
+const quotaAPI = {
+  refresh: subscriptionAccountsAPI.refreshQuota,
+  reset: async (id: number) => {
+    const result = await subscriptionAccountsAPI.resetQuota(id)
+    // A failed usage read must not turn an already consumed credit into a reset error.
+    void loadUsage(false)
+    return result
+  },
+}
 
 interface UsageBar {
   key: string

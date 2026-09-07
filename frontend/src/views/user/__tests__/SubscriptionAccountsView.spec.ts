@@ -1,11 +1,16 @@
-import { flushPromises, mount } from '@vue/test-utils'
+import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const list = vi.hoisted(() => vi.fn())
+const subscriptionAPI = vi.hoisted(() => ({
+  list: vi.fn(), getUsage: vi.fn(), refreshUsage: vi.fn(), refreshQuota: vi.fn(), resetQuota: vi.fn(),
+}))
+const { list, getUsage, refreshUsage, refreshQuota, resetQuota } = subscriptionAPI
+const adminQuotaAPI = vi.hoisted(() => ({ refreshOpenAIQuota: vi.fn(), resetOpenAIQuota: vi.fn() }))
 const setSubscriptionAccountAccess = vi.hoisted(() => vi.fn())
 const appStore = vi.hoisted(() => ({ showError: vi.fn() }))
 
-vi.mock('@/api/subscriptionAccounts', () => ({ default: { list } }))
+vi.mock('@/api/subscriptionAccounts', () => ({ default: subscriptionAPI }))
+vi.mock('@/api/admin/accounts', () => ({ ...adminQuotaAPI, default: adminQuotaAPI }))
 vi.mock('@/stores/app', () => ({ useAppStore: () => appStore }))
 vi.mock('@/composables/useSubscriptionAccountAccess', () => ({
   useSubscriptionAccountAccess: () => ({ setSubscriptionAccountAccess }),
@@ -16,12 +21,28 @@ vi.mock('vue-i18n', async (importOriginal) => ({
 }))
 
 import SubscriptionAccountsView from '../SubscriptionAccountsView.vue'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import type { SubscriptionAccountUsage } from '@/types'
+
+enableAutoUnmount(afterEach)
+
+function mountView() {
+  return mount(SubscriptionAccountsView, {
+    global: {
+      stubs: {
+        AppLayout: { template: '<main><slot /></main>' },
+        PlatformIcon: true,
+        Icon: true,
+      },
+    },
+  })
+}
 
 describe('SubscriptionAccountsView', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-09-04T00:00:00Z'))
-    vi.clearAllMocks()
+    vi.resetAllMocks()
     list.mockResolvedValue([
       {
         id: 8,
@@ -29,6 +50,15 @@ describe('SubscriptionAccountsView', () => {
         platform: 'openai',
         type: 'oauth',
         status: 'active',
+        plan_type: 'pro',
+        privacy_mode: 'training_off',
+        subscription_expires_at: '2026-09-13T00:00:00Z',
+        openai_compact_state: 'auto',
+        current_concurrency: 1,
+        reset_credits: {
+          available_count: 2,
+          credits: [{ expires_at: '2099-10-04T01:56:00Z' }, { expires_at: '2099-10-05T01:56:00Z' }],
+        },
         last_used_at: null,
         expires_at: null,
         created_at: '2026-09-04T01:02:03Z',
@@ -63,6 +93,7 @@ describe('SubscriptionAccountsView', () => {
         platform: 'anthropic',
         type: 'oauth',
         status: 'active',
+        current_concurrency: 0,
         last_used_at: '2026-09-04T02:03:04Z',
         expires_at: null,
         created_at: '2026-09-03T01:02:03Z',
@@ -75,22 +106,22 @@ describe('SubscriptionAccountsView', () => {
     vi.useRealTimers()
   })
 
-  it('shows assigned subscription information without operation controls', async () => {
-    const wrapper = mount(SubscriptionAccountsView, {
-      global: {
-        stubs: {
-          AppLayout: { template: '<main><slot /></main>' },
-          PlatformTypeBadge: true,
-          Icon: true,
-        },
-      },
-    })
+  it('shows subscription details and quota actions for supported accounts', async () => {
+    const wrapper = mountView()
     await flushPromises()
 
     expect(list).toHaveBeenCalledWith(true)
     expect(wrapper.findAll('article')).toHaveLength(2)
     expect(wrapper.text()).toContain('Read-only subscription')
     expect(wrapper.text()).toContain('Second subscription')
+    expect(wrapper.text()).toContain('Pro')
+    expect(wrapper.text()).toContain('Private')
+    expect(wrapper.text()).toContain('admin.accounts.subscriptionExpires 2026-09-13')
+    expect(wrapper.text()).toContain('subscriptionAccounts.noExpiration')
+    expect(wrapper.text()).toContain('common.time.never')
+    expect(wrapper.text()).toContain('admin.accounts.openai.compactAuto')
+    const capacities = wrapper.findAll('dd[title="subscriptionAccounts.currentConcurrency"]')
+    expect(capacities.map((capacity) => capacity.text())).toEqual(['1', '0'])
     expect(wrapper.text()).toContain('660 req')
     expect(wrapper.text()).toContain('60.1M')
     expect(wrapper.text()).toContain('A $54.82')
@@ -105,7 +136,141 @@ describe('SubscriptionAccountsView', () => {
     expect(wrapper.text()).toContain('7%')
     expect(wrapper.text()).toContain('usage.resetNow')
     expect(wrapper.text()).toContain('4d 19h')
-    expect(wrapper.findAll('button')).toHaveLength(0)
+    const articles = wrapper.findAll('article')
+    expect(articles[0].findAll('button')).toHaveLength(4)
+    expect(articles[1].findAll('button')).toHaveLength(0)
+    expect(articles[0].text()).toContain('admin.accounts.usageWindow.activeQuery')
+    expect(articles[0].text()).toContain('admin.accounts.openaiQuotaReset.expiresAt')
+    expect(articles[0].text()).toContain('+1')
+    expect(refreshQuota).not.toHaveBeenCalled()
+    expect(adminQuotaAPI.refreshOpenAIQuota).not.toHaveBeenCalled()
     expect(setSubscriptionAccountAccess).toHaveBeenCalledWith(true)
+  })
+
+  it('refreshes usage and disables related actions while the query is pending', async () => {
+    let finishQuery!: (usage: SubscriptionAccountUsage) => void
+    refreshUsage.mockReturnValue(new Promise<SubscriptionAccountUsage>((resolve) => { finishQuery = resolve }))
+    const wrapper = mountView()
+    await flushPromises()
+    const buttons = wrapper.find('article').findAll('button')
+
+    await buttons[0].trigger('click')
+    expect(refreshUsage).toHaveBeenCalledWith(8)
+    for (const button of buttons.slice(0, 3)) expect(button.attributes('disabled')).toBeDefined()
+    finishQuery({ five_hour: { utilization: 42, resets_at: null, remaining_seconds: 0 } })
+    await flushPromises()
+
+    expect(wrapper.find('article').text()).toContain('42%')
+    expect(buttons[0].attributes('disabled')).toBeUndefined()
+    expect(adminQuotaAPI.refreshOpenAIQuota).not.toHaveBeenCalled()
+  })
+
+  it('queries reset credits through the user API and expands expiration details', async () => {
+    refreshQuota.mockResolvedValue({
+      fetched_at: 123, cache_persisted: true,
+      rate_limit_reset_credits: {
+        available_count: 3,
+        credits: [
+          { expires_at: '2099-10-04T01:56:00Z' },
+          { expires_at: '2099-10-05T01:56:00Z' },
+          { expires_at: '2099-10-06T01:56:00Z' },
+        ],
+      },
+    })
+    const wrapper = mountView()
+    await flushPromises()
+    const article = wrapper.find('article')
+    await article.findAll('button')[1].trigger('click')
+    await flushPromises()
+
+    expect(refreshQuota).toHaveBeenCalledWith(8)
+    expect(adminQuotaAPI.refreshOpenAIQuota).not.toHaveBeenCalled()
+    expect(article.findAll('button')[1].text()).toMatch(/count\s*3/)
+    const toggle = article.find('[data-testid="reset-credit-expiry-toggle"]')
+    expect(toggle.text()).toBe('+2')
+    await toggle.trigger('click')
+    expect(toggle.attributes('aria-expanded')).toBe('true')
+    expect(article.findAll('[data-testid="reset-credit-expiry-details"] span.truncate')).toHaveLength(3)
+  })
+
+  it('requires confirmation before spending a credit and refreshes usage after success', async () => {
+    resetQuota.mockResolvedValue({
+      code: 'success', windows_reset: 1, cache_refreshed: true, account_state_recovered: true,
+      quota: { fetched_at: 123, rate_limit_reset_credits: { available_count: 1, credits: [{ expires_at: '2099-10-05T01:56:00Z' }] } },
+    })
+    getUsage.mockResolvedValue({ five_hour: { utilization: 0, resets_at: null } })
+    const wrapper = mountView()
+    await flushPromises()
+    const article = wrapper.find('article')
+    const resetButton = article.findAll('button')[2]
+    await resetButton.trigger('click')
+    const dialog = wrapper.findComponent(ConfirmDialog)
+    expect(dialog.props('show')).toBe(true)
+    expect(resetQuota).not.toHaveBeenCalled()
+    dialog.vm.$emit('cancel')
+    await flushPromises()
+    expect(resetQuota).not.toHaveBeenCalled()
+
+    await resetButton.trigger('click')
+    dialog.vm.$emit('confirm')
+    await flushPromises()
+    expect(resetQuota).toHaveBeenCalledTimes(1)
+    expect(resetQuota).toHaveBeenCalledWith(8)
+    expect(adminQuotaAPI.resetOpenAIQuota).not.toHaveBeenCalled()
+    expect(getUsage).toHaveBeenCalledWith(8)
+    expect(article.findAll('button')[1].text()).toMatch(/count\s*1/)
+    expect(article.find('[data-testid="reset-credit-expiry-toggle"]').exists()).toBe(false)
+    expect(article.text()).toContain('admin.accounts.openaiQuotaReset.resetSuccess')
+  })
+
+  it('keeps reset success distinct from a failed cache or usage refresh', async () => {
+    resetQuota.mockResolvedValue({
+      code: 'success', windows_reset: 1, cache_refreshed: false, account_state_recovered: true,
+      warning_code: 'reset_credit_cache_refresh_failed',
+    })
+    getUsage.mockRejectedValue(new Error('Usage read failed'))
+    const wrapper = mountView()
+    await flushPromises()
+    const article = wrapper.find('article')
+    await article.findAll('button')[2].trigger('click')
+    wrapper.findComponent(ConfirmDialog).vm.$emit('confirm')
+    await flushPromises()
+
+    expect(resetQuota).toHaveBeenCalledTimes(1)
+    expect(article.findAll('button')[2].attributes('disabled')).toBeDefined()
+    expect(article.findAll('button')[1].text()).not.toMatch(/\d/)
+    expect(article.text()).toContain('admin.accounts.openaiQuotaReset.resetCacheRefreshFailed')
+    expect(article.text()).toContain('subscriptionAccounts.failedToRefreshUsage')
+  })
+
+  it.each([
+    ['active', 'admin.accounts.openai.compactSupported'],
+    ['blocked', 'admin.accounts.openai.compactUnsupported'],
+    [undefined, undefined],
+  ])('shows compact state %s and unavailable capacity', async (state, label) => {
+    list.mockResolvedValue([{
+      id: 10,
+      name: 'Subscription with unavailable capacity',
+      platform: 'openai',
+      type: 'oauth',
+      status: 'active',
+      openai_compact_state: state,
+      current_concurrency: null,
+      last_used_at: null,
+      expires_at: null,
+      created_at: '2026-09-04T01:02:03Z',
+    }])
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.find('dd[title="subscriptionAccounts.currentConcurrency"]').text()).toBe('-')
+    if (label) {
+      expect(wrapper.text()).toContain(label)
+    } else {
+      expect(wrapper.text()).not.toContain('admin.accounts.openai.compact')
+    }
+    expect(wrapper.text()).not.toContain('admin.accounts.subscriptionExpires')
+    expect(wrapper.text()).not.toContain('Private')
+    expect(wrapper.text()).not.toContain('Pro')
   })
 })

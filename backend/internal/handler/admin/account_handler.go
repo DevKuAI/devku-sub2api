@@ -178,15 +178,23 @@ type subscriptionAccountUsage struct {
 }
 
 type subscriptionAccountResponse struct {
-	ID         int64                     `json:"id"`
-	Name       string                    `json:"name"`
-	Platform   string                    `json:"platform"`
-	Type       string                    `json:"type"`
-	Status     string                    `json:"status"`
-	LastUsedAt *time.Time                `json:"last_used_at"`
-	ExpiresAt  *int64                    `json:"expires_at"`
-	CreatedAt  time.Time                 `json:"created_at"`
-	Usage      *subscriptionAccountUsage `json:"usage,omitempty"`
+	ID                    int64                                `json:"id"`
+	Name                  string                               `json:"name"`
+	Platform              string                               `json:"platform"`
+	Type                  string                               `json:"type"`
+	Status                string                               `json:"status"`
+	AuthMode              string                               `json:"auth_mode,omitempty"`
+	PlanType              string                               `json:"plan_type,omitempty"`
+	PrivacyMode           string                               `json:"privacy_mode,omitempty"`
+	SubscriptionExpiresAt string                               `json:"subscription_expires_at,omitempty"`
+	OpenAICompactState    string                               `json:"openai_compact_state,omitempty"`
+	CurrentConcurrency    *int                                 `json:"current_concurrency"`
+	IsShadow              bool                                 `json:"is_shadow"`
+	ResetCredits          *service.OpenAIRateLimitResetCredits `json:"reset_credits,omitempty"`
+	LastUsedAt            *time.Time                           `json:"last_used_at"`
+	ExpiresAt             *int64                               `json:"expires_at"`
+	CreatedAt             time.Time                            `json:"created_at"`
+	Usage                 *subscriptionAccountUsage            `json:"usage,omitempty"`
 }
 
 // BulkUpdateAccountsRequest represents the payload for bulk editing accounts
@@ -925,10 +933,37 @@ func (h *AccountHandler) ListMySubscriptionAccounts(c *gin.Context) {
 		}
 	}
 
+	accountIDs := make([]int64, 0, len(accounts))
+	parentIDs := make([]int64, 0)
+	seenParents := make(map[int64]bool)
+	for i := range accounts {
+		accountIDs = append(accountIDs, accounts[i].ID)
+		if parentID := accounts[i].ParentAccountID; parentID != nil && !seenParents[*parentID] {
+			parentIDs = append(parentIDs, *parentID)
+			seenParents[*parentID] = true
+		}
+	}
+	var concurrencyCounts map[int64]int
+	if h.concurrencyService != nil && len(accountIDs) > 0 {
+		if counts, countErr := h.concurrencyService.GetAccountConcurrencyBatch(c.Request.Context(), accountIDs); countErr == nil {
+			concurrencyCounts = counts
+		}
+	}
+	parentsByID := make(map[int64]*service.Account)
+	if len(parentIDs) > 0 {
+		if parents, parentErr := h.adminService.GetAccountsByIDs(c.Request.Context(), parentIDs); parentErr == nil {
+			for _, parent := range parents {
+				if parent != nil {
+					parentsByID[parent.ID] = parent
+				}
+			}
+		}
+	}
+
 	result := make([]subscriptionAccountResponse, 0, len(accounts))
 	for i := range accounts {
 		account := &accounts[i]
-		result = append(result, subscriptionAccountResponse{
+		item := subscriptionAccountResponse{
 			ID:         account.ID,
 			Name:       account.Name,
 			Platform:   account.Platform,
@@ -938,9 +973,49 @@ func (h *AccountHandler) ListMySubscriptionAccounts(c *gin.Context) {
 			ExpiresAt:  accountExpiresAtUnix(account.ExpiresAt),
 			CreatedAt:  account.CreatedAt,
 			Usage:      subscriptionAccountUsageFromService(usageByAccount[account.ID]),
-		})
+		}
+		item.PlanType = strings.TrimSpace(account.GetCredential("plan_type"))
+		item.PrivacyMode = account.GetExtraString("privacy_mode")
+		item.SubscriptionExpiresAt = account.GetCredential("subscription_expires_at")
+		if account.ParentAccountID != nil {
+			if parent := parentsByID[*account.ParentAccountID]; parent != nil {
+				if item.PlanType == "" {
+					item.PlanType = strings.TrimSpace(parent.GetCredential("plan_type"))
+				}
+				if item.PrivacyMode == "" {
+					item.PrivacyMode = parent.GetExtraString("privacy_mode")
+				}
+				if item.SubscriptionExpiresAt == "" {
+					item.SubscriptionExpiresAt = parent.GetCredential("subscription_expires_at")
+				}
+			}
+		}
+		if account.IsOpenAI() && account.Type == service.AccountTypeOAuth {
+			item.AuthMode = account.GetCredential("auth_mode")
+		}
+		item.OpenAICompactState = subscriptionAccountCompactState(account)
+		item.IsShadow = account.IsShadow()
+		item.ResetCredits = subscriptionAccountResetCredits(account)
+		if count, ok := concurrencyCounts[account.ID]; ok {
+			item.CurrentConcurrency = &count
+		}
+		result = append(result, item)
 	}
 	response.Success(c, result)
+}
+
+func subscriptionAccountCompactState(account *service.Account) string {
+	if !account.IsOpenAI() || (account.Type != service.AccountTypeOAuth && account.Type != service.AccountTypeAPIKey) {
+		return ""
+	}
+	supported, known := account.OpenAICompactSupportKnown()
+	if !known {
+		return "auto"
+	}
+	if supported {
+		return "active"
+	}
+	return "blocked"
 }
 
 func parseRequiredNullableID(raw json.RawMessage, field string) (*int64, error) {

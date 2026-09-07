@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -25,6 +26,20 @@ type accountBindingAdminService struct {
 	expectedUserID    *int64
 	bindAccountResult *service.Account
 	bindAccountError  error
+	parents           []*service.Account
+	parentIDs         []int64
+}
+
+type accountBindingConcurrencyCache struct {
+	service.ConcurrencyCache
+	counts map[int64]int
+	ids    []int64
+	err    error
+}
+
+func (c *accountBindingConcurrencyCache) GetAccountConcurrencyBatch(_ context.Context, ids []int64) (map[int64]int, error) {
+	c.ids = append(c.ids, ids...)
+	return c.counts, c.err
 }
 
 type accountBindingUsageLogRepo struct {
@@ -41,6 +56,11 @@ func (r *accountBindingUsageLogRepo) GetAccountWindowStats(_ context.Context, _ 
 func (s *accountBindingAdminService) ListAccountsByBoundUserID(_ context.Context, userID int64) ([]service.Account, error) {
 	s.listedUserIDs = append(s.listedUserIDs, userID)
 	return s.accounts, nil
+}
+
+func (s *accountBindingAdminService) GetAccountsByIDs(_ context.Context, ids []int64) ([]*service.Account, error) {
+	s.parentIDs = append(s.parentIDs, ids...)
+	return s.parents, nil
 }
 
 func (s *accountBindingAdminService) BindAccountUser(_ context.Context, accountID int64, userID, expectedUserID *int64) (*service.Account, error) {
@@ -140,19 +160,33 @@ func TestAccountHandlerListMySubscriptionAccountsUsesAuthenticatedUserAndRedacts
 	stub := &accountBindingAdminService{
 		stubAdminService: newStubAdminService(),
 		accounts: []service.Account{{
-			ID:           8,
-			Name:         "Read-only subscription",
-			Platform:     service.PlatformOpenAI,
-			Type:         service.AccountTypeOAuth,
-			Status:       service.StatusActive,
-			Credentials:  map[string]any{"access_token": "secret"},
-			Extra:        map[string]any{"workspace_id": "internal"},
+			ID:       8,
+			Name:     "Read-only subscription",
+			Platform: service.PlatformOpenAI,
+			Type:     service.AccountTypeOAuth,
+			Status:   service.StatusActive,
+			Credentials: map[string]any{
+				"access_token":            "secret",
+				"auth_mode":               "agent_identity",
+				"plan_type":               "pro",
+				"subscription_expires_at": "2026-09-13T00:00:00Z",
+			},
+			Extra: map[string]any{
+				"workspace_id": "internal", "privacy_mode": "training_off",
+				"codex_reset_credit_snapshot": map[string]any{
+					"available_count": 2,
+					"credits":         []any{map[string]any{"id": "secret-credit", "expires_at": "2099-10-04T01:56:00Z"}},
+				},
+			},
+			Concurrency:  100,
 			ProxyID:      &proxyID,
 			ErrorMessage: "internal upstream error",
 			CreatedAt:    now,
 		}},
 	}
 	handler := newAccountBindingHandler(stub)
+	concurrencyCache := &accountBindingConcurrencyCache{counts: map[int64]int{8: 1, 999: 77}}
+	handler.concurrencyService = service.NewConcurrencyService(concurrencyCache)
 	router := gin.New()
 	router.Use(func(c *gin.Context) {
 		c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: 123})
@@ -172,10 +206,147 @@ func TestAccountHandlerListMySubscriptionAccountsUsesAuthenticatedUserAndRedacts
 	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &payload))
 	require.Len(t, payload.Data, 1)
 	require.Equal(t, "Read-only subscription", payload.Data[0]["name"])
-	for _, forbidden := range []string{"credentials", "extra", "proxy_id", "error_message", "bound_user_id", "bound_user"} {
+	require.Equal(t, "agent_identity", payload.Data[0]["auth_mode"])
+	require.Equal(t, "pro", payload.Data[0]["plan_type"])
+	require.Equal(t, "training_off", payload.Data[0]["privacy_mode"])
+	require.Equal(t, "2026-09-13T00:00:00Z", payload.Data[0]["subscription_expires_at"])
+	require.Nil(t, payload.Data[0]["expires_at"])
+	require.Equal(t, "auto", payload.Data[0]["openai_compact_state"])
+	require.Equal(t, float64(1), payload.Data[0]["current_concurrency"])
+	require.Equal(t, []int64{8}, concurrencyCache.ids)
+	require.Equal(t, false, payload.Data[0]["is_shadow"])
+	require.Equal(t, map[string]any{
+		"available_count": float64(2),
+		"credits":         []any{map[string]any{"expires_at": "2099-10-04T01:56:00Z"}},
+	}, payload.Data[0]["reset_credits"])
+	for _, forbidden := range []string{"credentials", "extra", "proxy_id", "error_message", "bound_user_id", "bound_user", "concurrency", "parent_account_id"} {
 		_, exists := payload.Data[0][forbidden]
 		require.False(t, exists, "response must not expose %s", forbidden)
 	}
+	require.NotContains(t, recorder.Body.String(), "secret")
+	require.NotContains(t, recorder.Body.String(), "internal")
+}
+
+func TestAccountHandlerListMySubscriptionAccountsInheritsOnlyMissingSubscriptionFields(t *testing.T) {
+	parentID := int64(7)
+	stub := &accountBindingAdminService{
+		stubAdminService: newStubAdminService(),
+		accounts: []service.Account{
+			{ID: 8, Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth, ParentAccountID: &parentID},
+			{
+				ID: 9, Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth, ParentAccountID: &parentID,
+				Credentials: map[string]any{"plan_type": "plus", "subscription_expires_at": "2026-09-28T00:00:00Z"},
+				Extra:       map[string]any{"privacy_mode": "training_on"},
+			},
+		},
+		parents: []*service.Account{{
+			ID:   parentID,
+			Name: "private parent name",
+			Credentials: map[string]any{
+				"access_token": "parent-secret", "plan_type": "pro", "subscription_expires_at": "2026-09-13T00:00:00Z",
+			},
+			Extra: map[string]any{"privacy_mode": "training_off", "workspace_id": "private workspace"},
+		}},
+	}
+	recorder := requestSubscriptionAccounts(newAccountBindingHandler(stub))
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var payload struct {
+		Data []subscriptionAccountResponse `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &payload))
+	require.Len(t, payload.Data, 2)
+	require.Equal(t, []int64{parentID}, stub.parentIDs)
+	require.Equal(t, "pro", payload.Data[0].PlanType)
+	require.Equal(t, "training_off", payload.Data[0].PrivacyMode)
+	require.Equal(t, "2026-09-13T00:00:00Z", payload.Data[0].SubscriptionExpiresAt)
+	require.Equal(t, "plus", payload.Data[1].PlanType)
+	require.Equal(t, "training_on", payload.Data[1].PrivacyMode)
+	require.Equal(t, "2026-09-28T00:00:00Z", payload.Data[1].SubscriptionExpiresAt)
+	require.NotContains(t, recorder.Body.String(), "parent-secret")
+	require.NotContains(t, recorder.Body.String(), "private")
+}
+
+func TestAccountHandlerListMySubscriptionAccountsCompactStates(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		platform string
+		kind     string
+		extra    map[string]any
+		want     string
+	}{
+		{name: "unknown", platform: service.PlatformOpenAI, kind: service.AccountTypeOAuth, want: "auto"},
+		{name: "supported", platform: service.PlatformOpenAI, kind: service.AccountTypeAPIKey, extra: map[string]any{"openai_compact_supported": true}, want: "active"},
+		{name: "unsupported", platform: service.PlatformOpenAI, kind: service.AccountTypeOAuth, extra: map[string]any{"openai_compact_supported": false}, want: "blocked"},
+		{name: "force_on", platform: service.PlatformOpenAI, kind: service.AccountTypeOAuth, extra: map[string]any{"openai_compact_mode": "force_on", "openai_compact_supported": false}, want: "active"},
+		{name: "force_off", platform: service.PlatformOpenAI, kind: service.AccountTypeOAuth, extra: map[string]any{"openai_compact_mode": "force_off", "openai_compact_supported": true}, want: "blocked"},
+		{name: "other_platform", platform: service.PlatformAnthropic, kind: service.AccountTypeOAuth},
+		{name: "other_type", platform: service.PlatformOpenAI, kind: service.AccountTypeSetupToken},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			stub := &accountBindingAdminService{
+				stubAdminService: newStubAdminService(),
+				accounts:         []service.Account{{ID: 8, Platform: test.platform, Type: test.kind, Extra: test.extra}},
+			}
+			recorder := requestSubscriptionAccounts(newAccountBindingHandler(stub))
+			require.Equal(t, http.StatusOK, recorder.Code)
+			var payload struct {
+				Data []subscriptionAccountResponse `json:"data"`
+			}
+			require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &payload))
+			require.Len(t, payload.Data, 1)
+			require.Equal(t, test.want, payload.Data[0].OpenAICompactState)
+			if test.want == "" {
+				require.NotContains(t, recorder.Body.String(), "openai_compact_state")
+			}
+		})
+	}
+}
+
+func TestAccountHandlerListMySubscriptionAccountsDistinguishesZeroAndUnavailableConcurrency(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		err  error
+	}{
+		{name: "zero"},
+		{name: "unavailable", err: errors.New("cache unavailable")},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			stub := &accountBindingAdminService{
+				stubAdminService: newStubAdminService(),
+				accounts:         []service.Account{{ID: 8, Name: "Subscription"}},
+			}
+			handler := newAccountBindingHandler(stub)
+			handler.concurrencyService = service.NewConcurrencyService(&accountBindingConcurrencyCache{
+				counts: map[int64]int{8: 0}, err: test.err,
+			})
+			recorder := requestSubscriptionAccounts(handler)
+			require.Equal(t, http.StatusOK, recorder.Code)
+			var payload struct {
+				Data []subscriptionAccountResponse `json:"data"`
+			}
+			require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &payload))
+			require.Len(t, payload.Data, 1)
+			require.Equal(t, "Subscription", payload.Data[0].Name)
+			if test.err != nil {
+				require.Nil(t, payload.Data[0].CurrentConcurrency)
+			} else {
+				require.NotNil(t, payload.Data[0].CurrentConcurrency)
+				require.Zero(t, *payload.Data[0].CurrentConcurrency)
+			}
+		})
+	}
+}
+
+func requestSubscriptionAccounts(handler *AccountHandler) *httptest.ResponseRecorder {
+	router := gin.New()
+	router.Use(func(c *gin.Context) {
+		c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: 123})
+		c.Next()
+	})
+	router.GET("/subscription-accounts", handler.ListMySubscriptionAccounts)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/subscription-accounts", nil))
+	return recorder
 }
 
 func TestAccountHandlerListMySubscriptionAccountsIncludesReadOnlyUsageWindows(t *testing.T) {

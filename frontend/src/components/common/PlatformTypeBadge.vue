@@ -1,65 +1,82 @@
 <template>
-  <div class="inline-flex flex-col gap-0.5 text-xs font-medium">
-    <!-- Row 1: Platform + Type -->
-    <div class="inline-flex items-center overflow-hidden rounded-md">
-      <span :class="['inline-flex items-center gap-1 px-2 py-1', platformClass]">
-        <PlatformIcon :platform="platform" size="xs" />
-        <span>{{ platformLabel }}</span>
-      </span>
-      <span :class="['inline-flex items-center gap-1 px-1.5 py-1', typeClass]">
-        <!-- OAuth icon -->
-        <svg
-          v-if="type === 'oauth'"
-          class="h-3 w-3"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          stroke-width="2"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
+  <div
+    class="inline-flex flex-col text-xs font-medium"
+    :class="layout === 'inline' ? 'max-w-full gap-2' : 'gap-0.5'"
+  >
+    <div :class="layout === 'inline' ? 'flex flex-wrap items-center gap-2' : 'contents'">
+      <!-- Platform + Type -->
+      <div class="inline-flex items-center overflow-hidden rounded-md">
+        <span :class="['inline-flex items-center gap-1 px-2 py-1', platformClass]">
+          <PlatformIcon :platform="platform" size="xs" />
+          <span>{{ platformLabel }}</span>
+        </span>
+        <span :class="['inline-flex items-center gap-1 px-1.5 py-1', typeClass]">
+          <!-- OAuth icon -->
+          <svg
+            v-if="type === 'oauth'"
+            class="h-3 w-3"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
+            />
+          </svg>
+          <!-- Setup Token icon -->
+          <Icon v-else-if="type === 'setup-token'" name="shield" size="xs" />
+          <!-- API Key icon -->
+          <Icon v-else-if="type === 'service_account'" name="cloud" size="xs" />
+          <Icon v-else name="key" size="xs" />
+          <span>{{ typeLabel }}</span>
+        </span>
+      </div>
+      <!-- Plan type + Privacy mode (only if either exists) -->
+      <div v-if="planLabel || privacyBadge" class="inline-flex items-center overflow-hidden rounded-md">
+        <span v-if="planLabel" :class="['inline-flex items-center gap-1 px-1.5 py-1', planBadgeClass]">
+          <GrokFreeIcon
+            v-if="isGrokFreePlan"
+            data-testid="grok-free-plan-icon"
           />
-        </svg>
-        <!-- Setup Token icon -->
-        <Icon v-else-if="type === 'setup-token'" name="shield" size="xs" />
-        <!-- API Key icon -->
-        <Icon v-else-if="type === 'service_account'" name="cloud" size="xs" />
-        <Icon v-else name="key" size="xs" />
-        <span>{{ typeLabel }}</span>
-      </span>
+          <Icon
+            v-else-if="planIconName"
+            :name="planIconName"
+            size="xs"
+            data-testid="grok-plan-icon"
+            aria-hidden="true"
+          />
+          <span>{{ planLabel }}</span>
+        </span>
+        <span
+          v-if="privacyBadge"
+          :class="['inline-flex items-center gap-1 px-1.5 py-1', privacyBadge.class]"
+          :title="privacyBadge.title"
+        >
+          <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" :d="privacyBadge.icon" />
+          </svg>
+          <span>{{ privacyBadge.label }}</span>
+        </span>
+      </div>
     </div>
-    <!-- Row 2: Plan type + Privacy mode (only if either exists) -->
-    <div v-if="planLabel || privacyBadge" class="inline-flex items-center overflow-hidden rounded-md">
-      <span v-if="planLabel" :class="['inline-flex items-center gap-1 px-1.5 py-1', planBadgeClass]">
-        <GrokFreeIcon
-          v-if="isGrokFreePlan"
-          data-testid="grok-free-plan-icon"
-        />
-        <Icon
-          v-else-if="planIconName"
-          :name="planIconName"
-          size="xs"
-          data-testid="grok-plan-icon"
-          aria-hidden="true"
-        />
-        <span>{{ planLabel }}</span>
-      </span>
-      <span
-        v-if="privacyBadge"
-        :class="['inline-flex items-center gap-1 px-1.5 py-1', privacyBadge.class]"
-        :title="privacyBadge.title"
+    <div
+      v-if="expiresLabel || $slots.details"
+      :class="layout === 'inline' ? 'flex flex-wrap items-center gap-x-3 gap-y-1' : 'contents'"
+    >
+      <div
+        v-if="expiresLabel"
+        :class="layout === 'inline'
+          ? 'inline-flex items-center gap-1 text-[11px] leading-4 text-gray-500 dark:text-gray-400'
+          : 'text-[10px] leading-tight text-gray-400 dark:text-gray-500 pl-0.5'"
+        :title="subscriptionExpiresAt"
       >
-        <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" :d="privacyBadge.icon" />
-        </svg>
-        <span>{{ privacyBadge.label }}</span>
-      </span>
-    </div>
-    <!-- Row 3: Subscription expiration (non-free paid accounts only) -->
-    <div v-if="expiresLabel" class="text-[10px] leading-tight text-gray-400 dark:text-gray-500 pl-0.5" :title="subscriptionExpiresAt">
-      {{ expiresLabel }}
+        <Icon v-if="layout === 'inline'" name="calendar" size="xs" aria-hidden="true" />
+        <span class="tabular-nums">{{ expiresLabel }}</span>
+      </div>
+      <slot name="details" />
     </div>
   </div>
 </template>
@@ -77,6 +94,7 @@ const { t } = useI18n()
 interface Props {
   platform: AccountPlatform
   type: AccountType
+  layout?: 'stacked' | 'inline'
   authMode?: string
   planType?: string
   privacyMode?: string

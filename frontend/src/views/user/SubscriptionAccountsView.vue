@@ -23,8 +23,8 @@
           :aria-labelledby="`subscription-account-${account.id}`"
           class="min-w-0 overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-gray-200 dark:bg-dark-800 dark:ring-dark-700"
         >
-          <div class="flex flex-wrap items-start justify-between gap-3 border-b border-primary-100 bg-primary-50/80 px-5 py-4 dark:border-primary-900/60 dark:bg-primary-950/30">
-            <div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          <div class="flex flex-col items-start justify-between gap-3 border-b border-primary-100 bg-primary-50/80 px-5 py-4 sm:flex-row sm:items-center dark:border-primary-900/60 dark:bg-primary-950/30">
+            <div class="flex min-w-0 w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-1">
               <h2
                 :id="`subscription-account-${account.id}`"
                 class="min-w-0 break-words text-base font-semibold text-gray-900 dark:text-white"
@@ -35,16 +35,48 @@
                 {{ t(`subscriptionAccounts.status.${account.status}`) }}
               </span>
             </div>
-            <PlatformTypeBadge :platform="account.platform" :type="account.type" />
+            <PlatformTypeBadge
+              class="w-full sm:w-auto sm:max-w-sm sm:shrink-0"
+              layout="inline"
+              :platform="account.platform"
+              :type="account.type"
+              :auth-mode="account.auth_mode"
+              :plan-type="account.plan_type"
+              :privacy-mode="account.privacy_mode"
+              :subscription-expires-at="account.subscription_expires_at"
+            >
+              <template v-if="account.openai_compact_state" #details>
+                <span :class="['inline-flex items-center gap-1.5 text-[11px] font-medium leading-4', compactMeta[account.openai_compact_state].className]">
+                  <span :class="['h-1.5 w-1.5 shrink-0 rounded-full', compactMeta[account.openai_compact_state].dotClass]" aria-hidden="true" />
+                  <span>{{ t(compactMeta[account.openai_compact_state].label) }}</span>
+                </span>
+              </template>
+            </PlatformTypeBadge>
           </div>
 
           <div class="grid min-w-0 lg:grid-cols-[minmax(0,1fr)_18rem]">
             <section class="min-w-0 px-5 py-5">
               <h3 class="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('subscriptionAccounts.usage') }}</h3>
-              <SubscriptionAccountUsage :usage="account.usage" />
+              <SubscriptionAccountUsage :account="account" v-model:usage="account.usage" />
             </section>
 
-            <dl class="grid grid-cols-2 gap-4 border-t border-gray-100 bg-gray-50/70 px-5 py-5 text-sm sm:grid-cols-3 lg:grid-cols-1 lg:border-l lg:border-t-0 dark:border-dark-700 dark:bg-dark-900/30">
+            <dl class="grid grid-cols-2 gap-4 border-t border-gray-100 bg-gray-50/70 px-5 py-5 text-sm lg:grid-cols-1 lg:border-l lg:border-t-0 dark:border-dark-700 dark:bg-dark-900/30">
+              <div class="min-w-0">
+                <dt class="text-xs text-gray-500 dark:text-dark-400">{{ t('subscriptionAccounts.capacity') }}</dt>
+                <dd class="mt-1" :title="t('subscriptionAccounts.currentConcurrency')">
+                  <span
+                    :class="[
+                      'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium',
+                      (account.current_concurrency ?? 0) > 0
+                        ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                        : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                    ]"
+                  >
+                    <Icon name="grid" size="xs" aria-hidden="true" />
+                    <span class="font-mono tabular-nums">{{ account.current_concurrency ?? '-' }}</span>
+                  </span>
+                </dd>
+              </div>
               <div class="min-w-0">
                 <dt class="text-xs text-gray-500 dark:text-dark-400">{{ t('subscriptionAccounts.lastUsed') }}</dt>
                 <dd class="mt-1 break-words tabular-nums text-gray-800 dark:text-gray-200">{{ formatOptionalDate(account.last_used_at) }}</dd>
@@ -84,8 +116,26 @@ const { setSubscriptionAccountAccess } = useSubscriptionAccountAccess()
 const accounts = ref<SubscriptionAccount[]>([])
 const loading = ref(true)
 
+const compactMeta = {
+  active: {
+    label: 'admin.accounts.openai.compactSupported',
+    className: 'text-emerald-600 dark:text-emerald-300',
+    dotClass: 'bg-emerald-500',
+  },
+  blocked: {
+    label: 'admin.accounts.openai.compactUnsupported',
+    className: 'text-rose-600 dark:text-rose-300',
+    dotClass: 'bg-rose-500',
+  },
+  auto: {
+    label: 'admin.accounts.openai.compactAuto',
+    className: 'text-slate-500 dark:text-slate-400',
+    dotClass: 'bg-slate-300 dark:bg-slate-500',
+  },
+}
+
 function formatOptionalDate(value: string | null): string {
-  return value ? formatDateTimeToMinute(value) : t('common.dateTime.never')
+  return value ? formatDateTimeToMinute(value) : t('common.time.never')
 }
 
 function formatExpiration(value: number | null): string {

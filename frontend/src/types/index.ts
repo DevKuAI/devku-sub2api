@@ -1329,6 +1329,17 @@ export interface SubscriptionAccount {
   platform: AccountPlatform
   type: AccountType
   status: 'active' | 'disabled' | 'error'
+  auth_mode?: string
+  plan_type?: string
+  privacy_mode?: string
+  subscription_expires_at?: string
+  openai_compact_state?: 'active' | 'blocked' | 'auto'
+  current_concurrency?: number | null
+  is_shadow?: boolean
+  reset_credits?: {
+    available_count: number
+    credits?: { expires_at?: string }[]
+  } | null
   last_used_at: string | null
   expires_at: number | null
   created_at: string

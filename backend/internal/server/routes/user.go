@@ -29,6 +29,10 @@ func RegisterUserRoutes(
 	{
 		registerDesktopUserRoutesIfEnabled(authenticated, h, cfg)
 		authenticated.GET("/subscription-accounts", panelRateLimiter.Heavy(), h.Admin.Account.ListMySubscriptionAccounts)
+		authenticated.GET("/subscription-accounts/:id/usage", panelRateLimiter.Heavy(), h.Admin.Account.GetMySubscriptionAccountUsage)
+		authenticated.POST("/subscription-accounts/:id/usage/refresh", panelRateLimiter.Heavy(), h.Admin.Account.RefreshMySubscriptionAccountUsage)
+		authenticated.POST("/subscription-accounts/:id/quota/refresh", panelRateLimiter.Heavy(), h.Admin.OpenAIOAuth.RefreshMySubscriptionQuota)
+		authenticated.POST("/subscription-accounts/:id/reset-quota", panelRateLimiter.Heavy(), h.Admin.OpenAIOAuth.ResetMySubscriptionQuota)
 
 		// 用户接口
 		user := authenticated.Group("/user")

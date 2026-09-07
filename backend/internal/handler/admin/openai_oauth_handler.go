@@ -500,6 +500,10 @@ func (h *OpenAIOAuthHandler) QueryQuota(c *gin.Context) {
 // state: the audit middleware only records mutating verbs, so a persisting GET
 // would mutate the database without an audit trail.
 func (h *OpenAIOAuthHandler) RefreshQuota(c *gin.Context) {
+	h.refreshQuota(c, false)
+}
+
+func (h *OpenAIOAuthHandler) refreshQuota(c *gin.Context, subscriptionView bool) {
 	accountID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		response.BadRequest(c, "Invalid account ID")
@@ -521,7 +525,11 @@ func (h *OpenAIOAuthHandler) RefreshQuota(c *gin.Context) {
 	}
 	service.NotifyOpenAIAutoResetCredit(accountID)
 
-	refreshResponse := openAIQuotaRefreshResponse{OpenAIQuotaUsage: *usage}
+	responseUsage := usage
+	if subscriptionView {
+		responseUsage = subscriptionQuotaUsage(usage)
+	}
+	refreshResponse := openAIQuotaRefreshResponse{OpenAIQuotaUsage: *responseUsage}
 	// A failed snapshot write leaves the previous cache intact — report it as a
 	// partial success instead of discarding the usage payload we just fetched,
 	// which would leave the card without a credit count at all.
@@ -574,6 +582,10 @@ func (h *OpenAIOAuthHandler) CreateShadow(c *gin.Context) {
 // ResetQuota consumes one rate-limit reset credit for an OpenAI account.
 // POST /api/v1/admin/openai/accounts/:id/reset-quota
 func (h *OpenAIOAuthHandler) ResetQuota(c *gin.Context) {
+	h.resetQuota(c, false)
+}
+
+func (h *OpenAIOAuthHandler) resetQuota(c *gin.Context, subscriptionView bool) {
 	accountID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		response.BadRequest(c, "Invalid account ID")
@@ -608,7 +620,10 @@ func (h *OpenAIOAuthHandler) ResetQuota(c *gin.Context) {
 	resetResponse.CacheRefreshed = postResult.CacheRefreshed
 	resetResponse.AccountStateRecovered = postResult.AccountStateRecovered
 	resetResponse.WarningCode = postResult.WarningCode
-	if postResult.Account != nil {
+	if subscriptionView {
+		resetResponse.Credit = nil
+		resetResponse.Quota = subscriptionQuotaUsage(postResult.Quota)
+	} else if postResult.Account != nil {
 		resetResponse.Account = dto.AccountFromService(postResult.Account)
 	}
 	response.Success(c, resetResponse)

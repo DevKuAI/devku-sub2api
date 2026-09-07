@@ -12,12 +12,12 @@
       credit: query its count, consume one if needed.
     -->
     <div class="flex flex-wrap items-center gap-1.5">
-      <slot name="pre-actions" />
+      <slot name="pre-actions" :busy="loading || resetting" />
 
       <button
         type="button"
         class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-blue-600 transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-blue-400 dark:hover:bg-blue-900/30"
-        :disabled="loading || resetting"
+        :disabled="busy || loading || resetting"
         :title="countButtonTitle"
         @click="handleQuery()"
       >
@@ -41,7 +41,7 @@
       <button
         type="button"
         class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-orange-600 transition-colors hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-orange-400 dark:hover:bg-orange-900/30"
-        :disabled="resetting || loading || !canReset"
+        :disabled="busy || resetting || loading || !canReset"
         :title="resetButtonTitle"
         @click="openResetConfirm"
       >
@@ -171,12 +171,24 @@ import {
   refreshOpenAIQuota,
   resetOpenAIQuota,
   type OpenAIQuotaUsage,
-  type OpenAIQuotaResetResult
+  type OpenAIQuotaResetResult,
+  type OpenAIQuotaRefreshResult,
+  type OpenAIRateLimitResetCredits
 } from '@/api/admin/accounts'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 
+type QuotaResetAccount = Pick<Account, 'id' | 'platform' | 'type'> & Partial<Pick<Account, 'extra' | 'parent_account_id'>> & {
+  is_shadow?: boolean
+  reset_credits?: OpenAIRateLimitResetCredits | null
+}
+
 const props = defineProps<{
-  account: Account
+  account: QuotaResetAccount
+  busy?: boolean
+  api?: {
+    refresh: (id: number) => Promise<OpenAIQuotaRefreshResult>
+    reset: (id: number) => Promise<OpenAIQuotaResetResult>
+  }
 }>()
 
 const emit = defineEmits<{
@@ -239,8 +251,8 @@ const autoResetStateClass = computed(() => {
 // freshness signal, so an unfiltered read would offer to consume credits that no
 // longer exist. A snapshot claiming credits with no usable expiration left is
 // treated as absent, which keeps the reset button gated on a live query.
-const readCachedResetCredits = (account: Account): OpenAIQuotaUsage | null => {
-  const cached = account.extra?.codex_reset_credit_snapshot
+const readCachedResetCredits = (account: QuotaResetAccount): OpenAIQuotaUsage | null => {
+  const cached = account.reset_credits ?? account.extra?.codex_reset_credit_snapshot
   if (!cached || typeof cached !== 'object' || Array.isArray(cached)) return null
 
   const { available_count: count, credits: rawCredits } = cached as {
@@ -281,7 +293,7 @@ data.value = cachedData.value
 
 // 影子账号的额度查询会 resolve 到母账号,但影子本身不支持重置(后端返回 409);
 // 重置必须在母账号上进行。前端据此禁用影子的重置入口(外审 F6)。
-const isShadow = computed(() => props.account.parent_account_id != null)
+const isShadow = computed(() => props.account.is_shadow === true || props.account.parent_account_id != null)
 
 const availableResetCount = computed(() => data.value?.rate_limit_reset_credits?.available_count ?? 0)
 // Prefer the live payload and fall back to the persisted snapshot only when the
@@ -383,14 +395,14 @@ const toggleResetCreditDetails = () => {
 }
 
 const handleQuery = async () => {
-  if (loading.value) return
+  if (props.busy || loading.value || resetting.value) return
   loading.value = true
   error.value = null
   resetMessage.value = null
   resetWarning.value = null
   showResetCreditDetails.value = false
   try {
-    const result = await refreshOpenAIQuota(props.account.id)
+    const result = await (props.api?.refresh ?? refreshOpenAIQuota)(props.account.id)
     // The upstream read succeeded even when the snapshot write was rejected, so
     // the live count is always adopted. Only the persisted view is left alone,
     // which keeps the displayed expirations consistent with what is stored.
@@ -408,7 +420,7 @@ const handleQuery = async () => {
 }
 
 const openResetConfirm = () => {
-  if (resetting.value || loading.value) return
+  if (props.busy || resetting.value || loading.value) return
   if (!canReset.value) {
     error.value = t('admin.accounts.openaiQuotaReset.noCreditsAvailable')
     return
@@ -418,7 +430,7 @@ const openResetConfirm = () => {
 
 const confirmReset = async () => {
   showResetConfirm.value = false
-  if (resetting.value) return
+  if (props.busy || resetting.value || loading.value) return
   if (!canReset.value) {
     error.value = t('admin.accounts.openaiQuotaReset.noCreditsAvailable')
     return
@@ -428,7 +440,7 @@ const confirmReset = async () => {
   resetMessage.value = null
   resetWarning.value = null
   try {
-    const result: OpenAIQuotaResetResult = await resetOpenAIQuota(props.account.id)
+    const result: OpenAIQuotaResetResult = await (props.api?.reset ?? resetOpenAIQuota)(props.account.id)
     showResetCreditDetails.value = false
     if (result.cache_refreshed && result.quota) {
       data.value = result.quota
