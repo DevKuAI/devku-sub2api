@@ -17,7 +17,7 @@ func TestCaptureUsageRequestBodyStoresOnlyLatestTaggedUserInput(t *testing.T) {
 	}}
 	svc := runtimeCacheTestService(repo, time.Hour)
 	wrappedPrompt := "This conversation is powered by SUBS\n" +
-		strings.Repeat("system context that must not be stored\n", 600) +
+		strings.Repeat("system context that must not be stored\n", 10000) +
 		"<user_query>1</user_query>"
 	body, err := json.Marshal(map[string]any{
 		"messages": []map[string]any{
@@ -28,6 +28,7 @@ func TestCaptureUsageRequestBodyStoresOnlyLatestTaggedUserInput(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
+	require.Greater(t, len(body), AuditRequestBodyCaptureLimit)
 
 	captured := svc.CaptureUsageRequestBody(context.Background(), ContentModerationProtocolOpenAIChat, body, "application/json")
 	require.NotNil(t, captured)
@@ -88,6 +89,30 @@ func TestCaptureUsageRequestBodyExtractsCommonUserInputShapes(t *testing.T) {
 			body:     `{"type":"response.create","response":{"input":"turn input"}}`,
 			want:     "turn input",
 		},
+		{
+			name:     "responses flat content input",
+			protocol: ContentModerationProtocolOpenAIResponses,
+			body:     `{"input":[{"type":"input_text","text":"first block"},{"type":"input_image","image_url":"data:image/png;base64,secret"},{"type":"input_text","text":"second block"}]}`,
+			want:     "first block\n\nsecond block",
+		},
+		{
+			name:     "image generation prompt",
+			protocol: ContentModerationProtocolOpenAIImages,
+			body:     `{"prompt":"draw a lighthouse","instructions":"policy","image":"BASE64SECRET"}`,
+			want:     "draw a lighthouse",
+		},
+		{
+			name:     "literal inline wrapper names",
+			protocol: ContentModerationProtocolOpenAIChat,
+			body:     `{"messages":[{"role":"user","content":"Explain the <system-reminder> wrapper and AGENTS.md instructions."}]}`,
+			want:     "Explain the <system-reminder> wrapper and AGENTS.md instructions.",
+		},
+		{
+			name:     "long inline wrapper examples",
+			protocol: ContentModerationProtocolOpenAIChat,
+			body:     `{"messages":[{"role":"user","content":"Explain these tags: ` + strings.Repeat("<system-reminder> ", 20000) + `"}]}`,
+			want:     "Explain these tags: " + strings.Repeat("<system-reminder> ", 20000),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -108,7 +133,12 @@ func TestCaptureUsageRequestBodyRedactsSecretsInExtractedPrompt(t *testing.T) {
 		SettingKeyContentModerationConfig: runtimeCacheTestConfig(t),
 	}}
 	svc := runtimeCacheTestService(repo, time.Hour)
-	body := []byte(`{"messages":[{"role":"user","content":"Authorization: Bearer abcdefghijklmnop"}]}`)
+	body, err := json.Marshal(map[string]any{"messages": []map[string]string{{
+		"role":    "user",
+		"content": strings.Repeat("plain user text\n", 20000) + "Authorization: Bearer abcdefghijklmnop",
+	}}})
+	require.NoError(t, err)
+	require.Greater(t, len(body), AuditRequestBodyCaptureLimit)
 
 	captured := svc.CaptureUsageRequestBody(context.Background(), ContentModerationProtocolOpenAIChat, body, "application/json")
 	require.NotNil(t, captured)
@@ -116,19 +146,172 @@ func TestCaptureUsageRequestBodyRedactsSecretsInExtractedPrompt(t *testing.T) {
 	require.NotContains(t, *captured, "abcdefghijklmnop")
 }
 
-func TestCaptureUsageRequestBodyKeepsOriginalCaptureLimit(t *testing.T) {
+func TestCaptureUsageRequestBodyPreservesLongUserInput(t *testing.T) {
 	repo := &contentModerationRuntimeSettingRepo{values: map[string]string{
 		SettingKeyRiskControlEnabled:      "true",
 		SettingKeyContentModerationConfig: runtimeCacheTestConfig(t),
 	}}
 	svc := runtimeCacheTestService(repo, time.Hour)
-	body := []byte(`{"messages":[{"role":"user","content":"` +
-		strings.Repeat("a", AuditRequestBodyCaptureLimit) +
-		`"}]}`)
+	for _, size := range []int{auditRequestBodyMaxBytes, AuditRequestBodyCaptureLimit, 1024 * 1024} {
+		prompt := "  first line\n\t" + strings.Repeat("用户输入\n", size/8) + "\n  last line  "
+		body, err := json.Marshal(map[string]any{
+			"messages": []map[string]any{{"role": "user", "content": prompt}},
+		})
+		require.NoError(t, err)
 
-	captured := svc.CaptureUsageRequestBody(context.Background(), ContentModerationProtocolOpenAIChat, body, "application/json")
-	require.NotNil(t, captured)
-	require.Equal(t, "<body omitted: exceeds 262144 bytes>", *captured)
+		captured := svc.CaptureUsageRequestBody(context.Background(), ContentModerationProtocolOpenAIChat, body, "application/json")
+		require.NotNil(t, captured)
+		var result map[string]string
+		require.NoError(t, json.Unmarshal([]byte(*captured), &result))
+		require.Equal(t, prompt, result["prompt"])
+	}
+}
+
+func TestCaptureUsageRequestBodyExcludesBuiltInPromptBlocks(t *testing.T) {
+	repo := &contentModerationRuntimeSettingRepo{values: map[string]string{
+		SettingKeyRiskControlEnabled:      "true",
+		SettingKeyContentModerationConfig: runtimeCacheTestConfig(t),
+	}}
+	svc := runtimeCacheTestService(repo, time.Hour)
+	const prompt = "Please fix the input parser.\nKeep its formatting."
+	const environment = "<environment_context><cwd>/workspace</cwd></environment_context>"
+	const instructions = "# AGENTS.md instructions\n<INSTRUCTIONS>built-in policy</INSTRUCTIONS>"
+	textBlocks := []map[string]any{
+		{"type": "text", "text": instructions},
+		{"type": "text", "text": environment},
+		{"type": "text", "text": prompt},
+		{"type": "text", "text": "<system-reminder>injected reminder</system-reminder>"},
+		{"type": "image", "source": map[string]string{"type": "base64", "media_type": "image/png", "data": strings.Repeat("a", AuditRequestBodyCaptureLimit)}},
+	}
+	tests := []struct {
+		name     string
+		protocol string
+		body     any
+	}{
+		{
+			name:     "anthropic text blocks",
+			protocol: ContentModerationProtocolAnthropicMessages,
+			body: map[string]any{
+				"system": "built-in system policy",
+				"messages": []map[string]any{
+					{"role": "user", "content": "older user input"},
+					{"role": "assistant", "content": "older output"},
+					{"role": "user", "content": textBlocks},
+				},
+			},
+		},
+		{
+			name:     "chat text blocks",
+			protocol: ContentModerationProtocolOpenAIChat,
+			body: map[string]any{"messages": []map[string]any{
+				{"role": "system", "content": "built-in system policy"},
+				{"role": "developer", "content": "built-in developer policy"},
+				{"role": "user", "content": textBlocks},
+			}},
+		},
+		{
+			name:     "responses text blocks",
+			protocol: ContentModerationProtocolOpenAIResponses,
+			body: map[string]any{
+				"instructions": "built-in system policy",
+				"input":        []map[string]any{{"role": "user", "content": textBlocks}},
+			},
+		},
+		{
+			name:     "websocket text blocks",
+			protocol: ContentModerationProtocolOpenAIResponses,
+			body: map[string]any{
+				"type": "response.create",
+				"response": map[string]any{
+					"instructions": "built-in system policy",
+					"input":        []map[string]any{{"role": "user", "content": textBlocks}},
+				},
+			},
+		},
+		{
+			name:     "gemini text parts",
+			protocol: ContentModerationProtocolGemini,
+			body: map[string]any{
+				"systemInstruction": map[string]any{"parts": []map[string]string{{"text": "built-in system policy"}}},
+				"contents": []map[string]any{{"role": "user", "parts": []map[string]string{
+					{"text": instructions}, {"text": environment}, {"text": prompt},
+				}}},
+			},
+		},
+		{
+			name:     "mixed reminder and input",
+			protocol: ContentModerationProtocolAnthropicMessages,
+			body: map[string]any{"messages": []map[string]any{{
+				"role": "user",
+				"content": "<system-reminder>injected prefix</system-reminder>\n\n" + prompt +
+					"\n\n<system-reminder>injected suffix</system-reminder>",
+			}}},
+		},
+		{
+			name:     "tagged input with reminders",
+			protocol: ContentModerationProtocolOpenAIChat,
+			body: map[string]any{"messages": []map[string]any{{
+				"role": "user",
+				"content": "<system-reminder>injected prefix</system-reminder>\n<user_query>" +
+					prompt + "</user_query>\n" + environment,
+			}}},
+		},
+		{
+			name:     "user query example inside built-in reminder",
+			protocol: ContentModerationProtocolOpenAIChat,
+			body: map[string]any{"messages": []map[string]any{{
+				"role":    "user",
+				"content": "<system-reminder>Example: <user_query>built-in example</user_query></system-reminder>\n\n" + prompt,
+			}}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body, err := json.Marshal(tt.body)
+			require.NoError(t, err)
+			original := string(body)
+			captured := svc.CaptureUsageRequestBody(context.Background(), tt.protocol, body, "application/json")
+			require.NotNil(t, captured)
+			var result map[string]string
+			require.NoError(t, json.Unmarshal([]byte(*captured), &result))
+			require.Equal(t, map[string]string{"prompt": prompt}, result)
+			require.Equal(t, original, string(body))
+		})
+	}
+}
+
+func TestCaptureUsageRequestBodyNeverFallsBackToRawPayload(t *testing.T) {
+	repo := &contentModerationRuntimeSettingRepo{values: map[string]string{
+		SettingKeyRiskControlEnabled:      "true",
+		SettingKeyContentModerationConfig: runtimeCacheTestConfig(t),
+	}}
+	svc := runtimeCacheTestService(repo, time.Hour)
+	tests := []struct {
+		name     string
+		protocol string
+		body     string
+	}{
+		{"unknown protocol", "unknown", `{"prompt":"unclassified content","system":"built-in policy"}`},
+		{"invalid json", ContentModerationProtocolOpenAIChat, `{"messages":`},
+		{"non json", ContentModerationProtocolOpenAIChat, "unclassified content"},
+		{"system only", ContentModerationProtocolOpenAIChat, `{"messages":[{"role":"system","content":"built-in policy"}]}`},
+		{"developer only", ContentModerationProtocolOpenAIResponses, `{"input":[{"role":"developer","content":"built-in policy"}]}`},
+		{"reminder only", ContentModerationProtocolAnthropicMessages, `{"messages":[{"role":"user","content":"<system-reminder>built-in policy</system-reminder>"}]}`},
+		{"environment only", ContentModerationProtocolOpenAIResponses, `{"input":"<environment_context><cwd>/workspace</cwd></environment_context>"}`},
+		{"unfinished reminder", ContentModerationProtocolOpenAIResponses, `{"input":"<system-reminder>built-in policy"}`},
+		{"empty user query", ContentModerationProtocolOpenAIResponses, `{"input":"built-in policy\n<user_query>  </user_query>"}`},
+		{"websocket control event", ContentModerationProtocolOpenAIResponses, `{"type":"response.cancel","input":"control metadata"}`},
+		{"anthropic tool result", ContentModerationProtocolAnthropicMessages, `{"messages":[{"role":"user","content":"old input"},{"role":"user","content":[{"type":"tool_result","content":"tool output"}]}]}`},
+		{"responses tool result", ContentModerationProtocolOpenAIResponses, `{"input":[{"role":"user","content":"old input"},{"type":"function_call_output","output":"tool output"}]}`},
+		{"gemini tool result", ContentModerationProtocolGemini, `{"contents":[{"role":"user","parts":[{"text":"old input"}]},{"role":"user","parts":[{"functionResponse":{"response":{"text":"tool output"}}}]}]}`},
+		{"image only", ContentModerationProtocolOpenAIChat, `{"messages":[{"role":"user","content":[{"type":"image_url","image_url":{"url":"data:image/png;base64,aGVsbG8="}}]}]}`},
+		{"large built-in payload", ContentModerationProtocolOpenAIChat, `{"messages":[{"role":"system","content":"` + strings.Repeat("a", AuditRequestBodyCaptureLimit) + `"}]}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Nil(t, svc.CaptureUsageRequestBody(context.Background(), tt.protocol, []byte(tt.body), "application/json"))
+		})
+	}
 }
 
 func TestCaptureUsageRequestBodySkipsKnownProtocolWithoutCurrentUserText(t *testing.T) {
