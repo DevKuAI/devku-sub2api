@@ -7,7 +7,7 @@ REPO_DIR="$(CDPATH= cd -- "$BACKEND_DIR/.." && pwd)"
 VERSION_FILE="$BACKEND_DIR/cmd/server/VERSION"
 
 # Prefer the exact release tag when building from a tagged checkout so
-# source builds from vX.Y.Z don't inherit the previous VERSION file value.
+# source builds from vX.Y.Z or vX.Y.Z.N use their release version.
 if command -v git >/dev/null 2>&1; then
   TAG="$(
     git -C "$REPO_DIR" describe --tags --exact-match --match 'v[0-9]*' 2>/dev/null || \

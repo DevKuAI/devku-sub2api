@@ -4,6 +4,8 @@ Read this reference only after the user explicitly requests publishing or post-r
 
 ## Workflow And Version State
 
+Record the upstream source version and fork release version separately. Upstream `v0.2.2` remains the upstream version; its synchronized fork baseline is `v0.2.2.0`, followed by local iterations `v0.2.2.1`, `v0.2.2.2`, and so on. Verify the complete four-part version across the fork tag, binary, archives, image labels, and VERSION file. Historical three-part releases remain valid for readback and rollback.
+
 Poll GitHub Actions with structured output such as `gh run view <id> --json status,conclusion,jobs`; do not treat streamed watch output or a successful tag push as release completion.
 
 Require successful terminal states for:
@@ -50,6 +52,8 @@ Use `docker buildx imagetools inspect` or an equivalent registry API to confirm:
 - all configured platforms exist, normally `linux/amd64` and `linux/arm64`;
 - version and moving tags use the expected child digests and manifest digest.
 
+For a fork release such as `0.2.2.1`, verify that its exact versioned image is separate from prior releases and that moving aliases are `latest`, `0.2`, and `0`, not the zeroed SemVer aliases `0.0` or an upstream-only `0.2.2` tag.
+
 Registry publication and package visibility are separate. Do not change visibility during a release unless the user explicitly requests it.
 
 If direct registry readback fails, distinguish a registry publication failure from local DNS, TLS, authentication, or network failure. Retry only when the failure is plausibly transient. Completed GoReleaser logs showing image and manifest digests are useful fallback evidence, but report the missing anonymous readback as a verification gap.
@@ -61,7 +65,7 @@ Re-read all of the following before declaring the release complete:
 ```bash
 git status --short --branch -uall
 git rev-parse HEAD origin/main
-git ls-remote origin refs/heads/main "refs/tags/<tag>" "refs/tags/<tag>^{}"
+git ls-remote origin refs/heads/main "refs/tags/<release-tag>" "refs/tags/<release-tag>^{}"
 ```
 
 The completion report must separate:

@@ -49,7 +49,23 @@ npm install -g pnpm
 |----------|----------|----------|
 | **backend-ci.yml** | push, pull_request | 单元测试 + 集成测试 + golangci-lint v2.13 |
 | **security-scan.yml** | push, pull_request, 每周一 | govulncheck + gosec + pnpm audit |
-| **release.yml** | tag `v*` | 构建发布（PR 不触发） |
+| **release.yml** | 四段 tag `vX.Y.Z.N` | 构建发布（PR 不触发） |
+
+### Fork 版本规则
+
+- 三段版本保留为上游版本，例如 `v0.2.2`。同步该版本后，本地基线发布为 `v0.2.2.0`。
+- 本地迭代递增第四段：`v0.2.2.1`、`v0.2.2.2`。
+- 同步下一个上游正式版本时，第四段重置为 `0`，例如上游 `v0.2.3` 对应本地 `v0.2.3.0`。
+- 第四段是本地修订号，属于正式发布。更新检测和回滚按四段数字比较，历史版本缺少第四段时按 `0` 处理：`0.2.1 < 0.2.1.1 < 0.2.1.10 < 0.2.2.0`。
+- 每次迭代创建新的 tag 和 Release，保留已发布的版本与下载文件。完整镜像标签也保留第四段，例如 `ghcr.io/devkuai/devku-sub2api:0.2.1.1`；`latest`、`0.2` 和 `0` 仍是随发布更新的别名。
+
+本地源码构建读取 `backend/cmd/server/VERSION`；在 release tag 上构建时优先使用该 tag。Release workflow 从同一个 tag 构建前后端，并将完整版本写入二进制、归档名称和镜像标签。版本徽标直接显示后端返回的完整版本。
+
+四段版本不属于标准 SemVer。Release workflow 先通过 `backend/scripts/release-version.sh --fork` 校验版本，再沿用 GoReleaser 的 `--skip=validate`；镜像别名从完整版本提取，避免使用解析失败后的 SemVer 字段。新建本地发布只接受四段版本；历史三段版本与 prerelease 格式仍可用于版本读取和历史操作。
+
+`sh backend/scripts/release-version.sh --upstream v0.2.2` 可校验上游版本并得到本地基线版本 `v0.2.2.0`；这个命令只输出版本信息，不创建 tag 或 Release。
+
+修改版本文件只影响后续本地构建。创建、推送 tag 和发布 Release 仍需明确执行发布流程。
 
 ### CI 要求
 

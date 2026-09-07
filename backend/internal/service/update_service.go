@@ -637,12 +637,12 @@ func (s *UpdateService) saveToCache(ctx context.Context, info *UpdateInfo) {
 	_ = s.cache.SetUpdateInfo(ctx, string(data), time.Duration(updateCacheTTL)*time.Second)
 }
 
-// compareVersions compares two semantic versions
+// compareVersions compares upstream versions and optional local revisions.
 func compareVersions(current, latest string) int {
 	currentParts := parseVersion(current)
 	latestParts := parseVersion(latest)
 
-	for i := 0; i < 3; i++ {
+	for i := range currentParts {
 		if currentParts[i] < latestParts[i] {
 			return -1
 		}
@@ -653,14 +653,14 @@ func compareVersions(current, latest string) int {
 	return 0
 }
 
-func parseVersion(v string) [3]int {
+func parseVersion(v string) [4]int {
 	v = strings.TrimPrefix(v, "v")
-	if idx := strings.IndexByte(v, '-'); idx != -1 {
+	if idx := strings.IndexAny(v, "-+"); idx != -1 {
 		v = v[:idx]
 	}
 	parts := strings.Split(v, ".")
-	result := [3]int{0, 0, 0}
-	for i := 0; i < len(parts) && i < 3; i++ {
+	result := [4]int{}
+	for i := 0; i < len(parts) && i < len(result); i++ {
 		if parsed, err := strconv.Atoi(parts[i]); err == nil {
 			result[i] = parsed
 		}

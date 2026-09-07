@@ -1,6 +1,6 @@
 ---
 name: sync-upstream-release
-description: Synchronize DevKuAI/devku-sub2api from Wei-Shaw/sub2api main or an exact tag while preserving fork-only Desktop, API-key, UI, documentation, and release behavior. Validate with the current repository CI, and push or publish only when explicitly requested. Use only in this repository for upstream sync, matching-version release, or post-release verification.
+description: Synchronize DevKuAI/devku-sub2api from Wei-Shaw/sub2api main or an exact tag while preserving fork-only behavior. Reserve three-part versions for upstream and use four-part fork releases, mapping upstream vX.Y.Z to fork vX.Y.Z.0. Validate with current CI, and push or publish only when explicitly requested. Use only in this repository for upstream sync, fork release, or post-release verification.
 ---
 
 # Sync Upstream And Release
@@ -12,7 +12,8 @@ Keep the fork current without losing DevKu behavior or reintroducing upstream pr
 Resolve one source target before changing the release branch:
 
 - "sync latest" or an unversioned sync targets the fetched `upstream/main`.
-- A named version targets the exact namespaced upstream tag `upstream/<tag>`.
+- A named three-part upstream version targets the exact namespaced upstream tag `upstream/<upstream-tag>`. Record the source and release versions separately: upstream `v0.2.2` maps to fork baseline `v0.2.2.0`.
+- A four-part version names a fork release, not an upstream tag. For a local iteration without a sync request, release the current fork source; do not fetch or merge upstream automatically.
 - A release request after a latest-main sync keeps `upstream/main` as the source. Compare it with the upstream version tag and disclose any post-tag commits; do not describe it as an exact-tag sync.
 - A post-release verification request is read-only with respect to remote state and checked-out branch or tag refs. Fetching remote-tracking refs and downloading assets into a new temporary directory are allowed. Read [references/release-verification.md](references/release-verification.md) only for publishing or post-release verification.
 
@@ -24,6 +25,19 @@ Authorization is action-specific:
 - Force-updating a branch or existing tag, changing package visibility, adding release reactions, or deleting files, worktrees, or branches always requires separate authorization.
 
 Never push to `upstream`. Treat staged, modified, and untracked paths as user work. Fetches may proceed for inspection, but stop before integration when the release branch is dirty or unexpected commits are present.
+
+## Fork Version Policy
+
+- Reserve `vX.Y.Z` for upstream. Synchronizing upstream `v0.2.2` produces fork baseline release `v0.2.2.0`; never publish the customized fork under a new three-part upstream version tag.
+- Local iterations increment the fourth component: `v0.2.2.1`, `v0.2.2.2`, and so on. Create a new tag and release for each revision instead of replacing a published one.
+- A four-part release tag is not an upstream ref. Its upstream base is the first three parts; never fetch an upstream `v0.2.2.0` or `v0.2.2.1` tag.
+- Reset the revision to `0` only when adopting a new upstream base, for example upstream `v0.2.3` maps to fork `v0.2.3.0`.
+- Derive a baseline with `sh backend/scripts/release-version.sh --upstream v0.2.2`. It prints `tag=v0.2.2.0` and `version=0.2.2.0` without changing refs. For an unspecified local iteration, inspect both local and origin tags for that base and increment the largest existing fourth component numerically. Do not reuse a pending or published tag.
+- If an explicitly requested fork tag already exists, inspect its object and peeled commit before choosing another version or requesting a replacement. Historical three-part fork releases remain compatible; do not rename, delete, or retag them to apply this policy retroactively.
+- Update `backend/cmd/server/VERSION` for local source builds. The release workflow uses the selected tag for frontend and backend source, binary version, archives, image tags, and the VERSION sync commit.
+- New publication uses `backend/scripts/release-version.sh --fork` and accepts only four-part tags. Three-part versions remain available for historical readback, installation, and rollback.
+- Run `bash deploy/tests/release-version-test.sh` and the update-service tests for version changes. Four-part tags use the workflow's existing GoReleaser `--skip=validate` after our version validation; Docker aliases must derive from `.Version`, not `.Major` or `.Minor`.
+- Preserve exact versioned artifacts. Moving image aliases (`latest`, major, and major/minor) may advance through the normal release workflow. Changing the version file alone does not authorize publication.
 
 ## Establish Current State
 
@@ -48,23 +62,23 @@ Verify by repository owner and name, allowing either SSH or HTTPS transport:
 
 Also inspect current `backend/go.mod`, root and backend Makefiles, `.github/workflows/backend-ci.yml`, `.github/workflows/security-scan.yml`, `.github/workflows/release.yml`, and `.goreleaser.yaml`. Derive toolchains, checks, artifacts, image tags, and release jobs from these files instead of earlier runs.
 
-When the selected sync source is a named release version, synchronize to that exact upstream tag rather than a newer moving `upstream/main`. Inspect the remote tag without overwriting the fork tag namespace:
+When the selected sync source is a named upstream version, synchronize to that exact upstream tag rather than a newer moving `upstream/main`. Keep `<upstream-tag>` (three parts) separate from `<release-tag>` (four parts). Inspect the upstream tag without overwriting the fork tag namespace:
 
 ```bash
-git ls-remote --tags upstream "refs/tags/<tag>" "refs/tags/<tag>^{}"
-git fetch upstream "refs/tags/<tag>:refs/tags/upstream/<tag>"
-git cat-file -t "upstream/<tag>"
-git rev-parse "upstream/<tag>^{}"
+git ls-remote --tags upstream "refs/tags/<upstream-tag>" "refs/tags/<upstream-tag>^{}"
+git fetch upstream "refs/tags/<upstream-tag>:refs/tags/upstream/<upstream-tag>"
+git cat-file -t "upstream/<upstream-tag>"
+git rev-parse "upstream/<upstream-tag>^{}"
 ```
 
-If `upstream/<tag>` already exists locally and differs from the remote, report both tag objects and peeled commits before requesting permission to replace the namespaced ref. If the selected target is `upstream/main`, compare it with the version tag before a same-version release:
+If `upstream/<upstream-tag>` already exists locally and differs from the remote, report both tag objects and peeled commits before requesting permission to replace the namespaced ref. If the selected target is `upstream/main`, compare it with the upstream base tag before a fork release:
 
 ```bash
-git rev-list --count "upstream/<tag>^{}..upstream/main"
-git log --oneline "upstream/<tag>^{}..upstream/main"
+git rev-list --count "upstream/<upstream-tag>^{}..upstream/main"
+git log --oneline "upstream/<upstream-tag>^{}..upstream/main"
 ```
 
-Record the selected target ref and peeled commit in the final ledger.
+Record the selected upstream tag/ref, peeled commit, and separate fork release tag in the final ledger.
 
 ## Rehearse And Integrate
 
@@ -128,7 +142,7 @@ Immediately before any remote write, re-read `HEAD`, full status, tracking refs,
 
 For an authorized version release:
 
-1. Compare local, `origin`, and namespaced `upstream` tag objects and peeled commits. Never overwrite an existing same-name fork tag without confirmation.
+1. Compare the local and `origin` four-part release tag independently of the namespaced three-part upstream source tag. For example, release `v0.2.2.0` uses source `upstream/v0.2.2`. Never overwrite an existing fork tag without confirmation.
 2. Create a new annotated fork tag at the verified clean release source. Reuse the upstream annotation only when it accurately describes the selected source; otherwise write fork-accurate release text.
 3. Push only the requested new tag. Poll tag CI, Security Scan, and every Release workflow job as structured state.
 4. Complete [references/release-verification.md](references/release-verification.md), including assets, checksums, binary metadata, registries, and any workflow-created VERSION commit.

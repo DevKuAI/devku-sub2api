@@ -607,7 +607,7 @@ validate_version() {
 get_current_version() {
     if [ -f "$INSTALL_DIR/sub2api" ]; then
         # Use grep -E for better compatibility (works on macOS and Linux)
-        "$INSTALL_DIR/sub2api" --version 2>/dev/null | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "unknown"
+        "$INSTALL_DIR/sub2api" --version 2>&1 | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1 || echo "unknown"
     else
         echo "not_installed"
     fi
@@ -863,7 +863,7 @@ upgrade() {
     print_info "$(msg 'upgrading')"
 
     # Get current version
-    CURRENT_VERSION=$("$INSTALL_DIR/sub2api" --version 2>/dev/null | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+' || echo "unknown")
+    CURRENT_VERSION=$(get_current_version)
     print_info "$(msg 'current_version'): $CURRENT_VERSION"
 
     # Stop service

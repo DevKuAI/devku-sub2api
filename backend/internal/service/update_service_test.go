@@ -97,6 +97,90 @@ func TestUpdateServiceUsesDevKuReleaseRepository(t *testing.T) {
 	})
 }
 
+func TestUpdateServiceComparesLocalRevisions(t *testing.T) {
+	for _, tc := range []struct {
+		current string
+		latest  string
+		want    int
+	}{
+		{"0.2.1", "0.2.1.1", -1},
+		{"v0.2.1.1", "v0.2.1.2", -1},
+		{"0.2.1.2", "0.2.1.10", -1},
+		{"0.2.1.10", "0.2.1.2", 1},
+		{"0.2.1.1", "0.2.1", 1},
+		{"0.2.1.10", "0.2.2", -1},
+		{"0.2.1.10", "0.2.2.0", -1},
+		{"0.2.2.0", "0.2.2.1", -1},
+		{"0.2.2", "0.2.1.10", 1},
+		{"0.2.1.1", "0.2.1.1", 0},
+		{"0.2.1", "0.2.1.0", 0},
+		{"0.2.1-rc.1", "0.2.1.1", -1},
+		{"0.2.1+build.9", "0.2.1.1", -1},
+	} {
+		t.Run(tc.current+"/"+tc.latest, func(t *testing.T) {
+			require.Equal(t, tc.want, compareVersions(tc.current, tc.latest))
+		})
+	}
+}
+
+func TestUpdateServiceChecksLocalRevisionsAndCachesResults(t *testing.T) {
+	for _, tc := range []struct {
+		current string
+		latest  string
+		update  bool
+	}{
+		{"0.2.1", "0.2.1.1", true},
+		{"0.2.1.1", "0.2.1.2", true},
+		{"0.2.1.2", "0.2.1.10", true},
+		{"0.2.1.10", "0.2.2", true},
+		{"0.2.1.10", "0.2.2.0", true},
+		{"0.2.2.0", "0.2.2.1", true},
+		{"0.2.1.1", "0.2.1", false},
+		{"0.2.2", "0.2.1.10", false},
+	} {
+		t.Run(tc.current+"/"+tc.latest, func(t *testing.T) {
+			svc := NewUpdateService(&updateServiceCacheStub{}, &updateServiceGitHubClientStub{
+				release: &GitHubRelease{TagName: "v" + tc.latest},
+			}, tc.current, "release")
+			for _, force := range []bool{true, false} {
+				info, err := svc.CheckUpdate(context.Background(), force)
+				require.NoError(t, err)
+				require.Equal(t, tc.current, info.CurrentVersion)
+				require.Equal(t, tc.latest, info.LatestVersion)
+				require.Equal(t, tc.update, info.HasUpdate)
+				require.Equal(t, !force, info.Cached)
+			}
+		})
+	}
+}
+
+func TestUpdateServiceRollbackOrdersLocalRevisions(t *testing.T) {
+	releases := []*GitHubRelease{
+		{TagName: "v0.2.1.2"},
+		{TagName: "v0.2.2"},
+		{TagName: "v0.2.1.12"},
+		{TagName: "v0.2.1"},
+		{TagName: "v0.2.1.10"},
+	}
+	for _, tc := range []struct {
+		current string
+		want    []string
+	}{
+		{"0.2.1.12", []string{"0.2.1.10", "0.2.1.2", "0.2.1"}},
+		{"0.2.2", []string{"0.2.1.12", "0.2.1.10", "0.2.1.2"}},
+	} {
+		t.Run(tc.current, func(t *testing.T) {
+			versions, err := newRollbackTestService(tc.current, releases).ListRollbackVersions(context.Background())
+			require.NoError(t, err)
+			actual := make([]string, 0, len(versions))
+			for _, version := range versions {
+				actual = append(actual, version.Version)
+			}
+			require.Equal(t, tc.want, actual)
+		})
+	}
+}
+
 func newRollbackTestService(current string, releases []*GitHubRelease) *UpdateService {
 	return NewUpdateService(
 		&updateServiceCacheStub{},
