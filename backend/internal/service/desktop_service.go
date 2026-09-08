@@ -79,25 +79,6 @@ func (s *DesktopService) GetManagedOrganization(ctx context.Context, userID int6
 	return organization, nil
 }
 
-func (s *DesktopService) UpdateManagedOrganization(ctx context.Context, userID int64, input DesktopUpdateOrganizationInput) (*DesktopOrganization, error) {
-	managed, organization, err := s.managedService(ctx, userID)
-	if err != nil {
-		return nil, err
-	}
-	input.GatewayUserID = nil
-	input.GroupID = nil
-	input.MemberLimit = nil
-	return managed.UpdateOrganization(ctx, organization.PublicID, input)
-}
-
-func (s *DesktopService) UpdateManagedTargetConfig(ctx context.Context, userID int64, target *DesktopTargetConfig) (*DesktopOrganization, error) {
-	managed, organization, err := s.managedService(ctx, userID)
-	if err != nil {
-		return nil, err
-	}
-	return managed.UpdateTargetConfig(ctx, organization.PublicID, target)
-}
-
 func (s *DesktopService) CreateManagedMember(ctx context.Context, userID int64, name, phone string) (*DesktopMember, error) {
 	managed, organization, err := s.managedService(ctx, userID)
 	if err != nil {

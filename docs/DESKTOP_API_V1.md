@@ -215,11 +215,15 @@ Header：`Idempotency-Key` 必填。首次成功返回 `201`；相同 actor、ro
 }
 ```
 
+用户侧企业信息仅支持查看。`PATCH /api/v1/desktop/organization` 返回 `403 ORGANIZATION_READ_ONLY`，企业信息须由管理员通过 Admin API 修改。
+
 字段均可选。管理员修改 `member_limit` 时，不能低于当前未删除成员数；企业限额与承载 User 的 `api_key_limit` 在同一事务中更新，更换承载 User 时也会同步限额。企业已有成员后，`gateway_user_id` 不可变更，返回 `409 ORGANIZATION_PROVISIONING_LOCKED`；修改 `group_id` 会同步成员当前 API Key 的分组。停用企业会立即撤销 Desktop 授权并暂停符合条件的当前 Model Token；重新启用后，旧 Desktop Access Token 不会恢复有效。
 
 ### 5. 更新 Model Configuration
 
 `PUT /organizations/{organization_id}/model-configuration`
+
+仅管理员可以通过此 Admin API 修改模型配置。用户侧企业管理通过 `GET /api/v1/desktop/organization` 查看配置；用户侧 `PUT /api/v1/desktop/organization/model-configuration` 返回 `403 MODEL_CONFIGURATION_READ_ONLY`。
 
 ```json
 {

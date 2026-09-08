@@ -12,7 +12,7 @@
           </div>
           <p v-if="organization" class="mt-1 font-mono text-sm text-gray-500 dark:text-dark-400">{{ organization.code }}</p>
         </div>
-        <button v-if="organization" class="btn btn-secondary" type="button" @click="openEditOrganization">
+        <button v-if="organization && !selfManaged" class="btn btn-secondary" type="button" @click="openEditOrganization">
           <Icon name="edit" size="sm" class="mr-1" />{{ t('common.edit') }}
         </button>
       </div>
@@ -89,7 +89,22 @@
       </section>
 
       <section v-else :id="panelId('configuration')" class="min-w-0" role="tabpanel" :aria-labelledby="tabId('configuration')">
-        <form class="space-y-6" @submit.prevent="saveConfiguration">
+        <div v-if="selfManaged" class="space-y-6">
+          <p class="text-sm text-gray-500 dark:text-dark-400">{{ t('admin.desktop.configurationReadOnly') }}</p>
+          <div v-for="target in configurationTargets" :key="target.name" class="border-b border-gray-200 pb-6 dark:border-dark-700">
+            <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ target.name }}</h2>
+              <span class="text-sm text-gray-500 dark:text-dark-400">{{ target.config ? t(target.config.enabled ? 'common.enabled' : 'common.disabled') : t('admin.desktop.notConfigured') }}</span>
+            </div>
+            <dl v-if="target.config" class="grid grid-cols-1 gap-x-8 gap-y-5 md:grid-cols-2">
+              <div v-for="field in configurationFields(target.config)" :key="field.label" class="min-w-0">
+                <dt class="text-xs text-gray-500 dark:text-dark-400">{{ t(`admin.desktop.${field.label}`) }}</dt>
+                <dd class="mt-1 whitespace-pre-wrap break-words text-sm text-gray-900 dark:text-white">{{ field.value }}</dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+        <form v-else class="space-y-6" @submit.prevent="saveConfiguration">
           <div class="border-b border-gray-200 pb-6 dark:border-dark-700">
             <div class="mb-4 flex flex-wrap items-center justify-between gap-3"><h2 class="text-base font-semibold text-gray-900 dark:text-white">ChatGPT Codex</h2><label class="flex items-center gap-2 text-sm"><input v-model="configForm.chat.enabled" class="h-4 w-4 rounded" type="checkbox" />{{ t('common.enabled') }}</label></div>
             <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -118,7 +133,7 @@
       </section>
     </div>
 
-    <BaseDialog :show="showOrganizationEdit" :title="t('admin.desktop.editOrganization')" width="wide" @close="closeOrganizationEdit">
+    <BaseDialog v-if="!selfManaged" :show="showOrganizationEdit" :title="t('admin.desktop.editOrganization')" width="wide" @close="closeOrganizationEdit">
       <form id="desktop-organization-edit" class="space-y-4" @submit.prevent="submitOrganizationEdit">
         <Input v-model="organizationForm.name" :label="t('admin.desktop.organizationName')" required />
         <div><label class="input-label mb-1.5 block">{{ t('common.status') }}</label><Select v-model="organizationForm.status" :options="editableStatusOptions" /></div>
@@ -153,7 +168,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
 import desktopOrganizationAPI from '@/api/desktopOrganization'
-import type { DesktopMember, DesktopModelTokenStatus, DesktopOrganization, DesktopStatus, DesktopTargetConfig, DesktopWireAPI } from '@/api/admin/desktop'
+import type { DesktopMember, DesktopModelTokenStatus, DesktopOrganization, DesktopStatus, DesktopTarget, DesktopTargetConfig, DesktopWireAPI } from '@/api/admin/desktop'
 import type { AdminGroup, AdminUser } from '@/types'
 import type { Column } from '@/components/common/types'
 import { useAppStore } from '@/stores/app'
@@ -178,6 +193,10 @@ const router = useRouter()
 const appStore = useAppStore()
 const authStore = useAuthStore()
 const organization = ref<DesktopOrganization | null>(null)
+const configurationTargets = computed(() => [
+  { name: 'ChatGPT Codex', config: organization.value?.target_config?.targets.chatgpt_codex },
+  { name: 'Workbuddy', config: organization.value?.target_config?.targets.workbuddy },
+])
 const organizationID = computed(() => selfManaged ? (organization.value?.public_id || '') : String(route.params.organizationId || ''))
 const organizationAPI = computed(() => selfManaged ? desktopOrganizationAPI : adminAPI.desktop)
 const dashboardPath = computed(() => authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
@@ -295,16 +314,16 @@ async function loadGatewayUsers(query = '') {
   finally { gatewayUsersLoading.value = false }
 }
 async function openEditOrganization() {
-  if (!organization.value) return
+  if (selfManaged || !organization.value) return
   Object.assign(organizationForm, { name: organization.value.name, status: organization.value.status, gateway_user_id: organization.value.gateway_user.id, group_id: organization.value.group.id, member_limit: organization.value.member_limit })
   showOrganizationEdit.value = true
-  if (selfManaged) return
   groupsLoading.value = true
   void loadGatewayUsers()
   try { groups.value = await adminAPI.desktop.listActiveGroups() } catch (error) { appStore.showError(errorMessage(error)) } finally { groupsLoading.value = false }
 }
 function closeOrganizationEdit() { if (!organizationSaving.value) showOrganizationEdit.value = false }
 function submitOrganizationEdit() {
+  if (selfManaged) return
   if (!organization.value || !organizationForm.name.trim()) { appStore.showError(t('admin.desktop.errors.VALIDATION_FAILED')); return }
   if (organization.value.status === 'active' && organizationForm.status === 'disabled') {
     openConfirm(t('admin.desktop.disableOrganization'), t('admin.desktop.disableOrganizationImpact', { name: organization.value.name }), t('common.disable'), saveOrganization)
@@ -313,20 +332,20 @@ function submitOrganizationEdit() {
   void saveOrganization()
 }
 async function saveOrganization() {
-  if (!organization.value) return
-  if (!selfManaged && (!Number.isInteger(organizationForm.member_limit) || organizationForm.member_limit < 1)) {
+  if (selfManaged || !organization.value) return
+  if (!Number.isInteger(organizationForm.member_limit) || organizationForm.member_limit < 1) {
     appStore.showError(t('admin.desktop.errors.VALIDATION_FAILED')); return
   }
-  if (!selfManaged && organizationForm.member_limit < organization.value.member_count) {
+  if (organizationForm.member_limit < organization.value.member_count) {
     appStore.showError(t('admin.desktop.errors.MEMBER_LIMIT_BELOW_CURRENT_COUNT')); return
   }
   organizationSaving.value = true
   try {
     const input = { name: organizationForm.name.trim(), status: organizationForm.status } as { name: string; status: DesktopStatus; gateway_user_id?: number; group_id?: number; member_limit?: number }
-    if (!selfManaged) input.member_limit = organizationForm.member_limit
-    if (!selfManaged && !gatewayUserLocked.value && organizationForm.gateway_user_id && organizationForm.gateway_user_id !== organization.value.gateway_user.id) input.gateway_user_id = organizationForm.gateway_user_id
-    if (!selfManaged && organizationForm.group_id && organizationForm.group_id !== organization.value.group.id) input.group_id = organizationForm.group_id
-    organization.value = await organizationAPI.value.updateOrganization(organizationID.value, input)
+    input.member_limit = organizationForm.member_limit
+    if (!gatewayUserLocked.value && organizationForm.gateway_user_id && organizationForm.gateway_user_id !== organization.value.gateway_user.id) input.gateway_user_id = organizationForm.gateway_user_id
+    if (organizationForm.group_id && organizationForm.group_id !== organization.value.group.id) input.group_id = organizationForm.group_id
+    organization.value = await adminAPI.desktop.updateOrganization(organizationID.value, input)
     appStore.showSuccess(t('admin.desktop.organizationUpdated')); showOrganizationEdit.value = false; closeConfirm(); await loadMembers()
   } catch (error) { appStore.showError(errorMessage(error)) } finally { organizationSaving.value = false }
 }
@@ -359,6 +378,16 @@ async function runConfirmedAction() {
   try { await confirmState.action() } finally { confirmPending.value = false }
 }
 
+function configurationFields(target: DesktopTarget) {
+  return [
+    { label: 'providerId', value: target.provider_id },
+    { label: 'displayName', value: target.display_name },
+    { label: 'requestedModel', value: target.requested_model },
+    { label: 'wireApi', value: target.wire_api === 'responses' ? '/responses' : '/chat/completions' },
+    { label: 'minimumAppVersion', value: target.minimum_app_version || '—' },
+    { label: 'restartRequired', value: t(target.restart_required ? 'common.yes' : 'common.no') },
+  ]
+}
 function applyConfiguration(value?: DesktopTargetConfig | null) {
   const chat = value?.targets.chatgpt_codex; const work = value?.targets.workbuddy
   Object.assign(configForm.chat, chat ? { ...chat, minimum_app_version: chat.minimum_app_version || '' } : { ...blankTarget(), enabled: true })
@@ -369,11 +398,12 @@ function buildTarget(target: typeof configForm.chat, wireAPI: DesktopWireAPI, en
 function onWorkbuddyEnabledChange() { if (configForm.work.enabled) configForm.includeWorkbuddy = true }
 function onWorkbuddyIncludedChange() { if (!configForm.includeWorkbuddy) configForm.work.enabled = false }
 async function saveConfiguration() {
+  if (selfManaged) return
   const chat = buildTarget(configForm.chat, 'responses')
   const work = configForm.includeWorkbuddy ? buildTarget(configForm.work, 'chat_completions') : undefined
   if (![chat, work].filter(Boolean).every((target) => target?.provider_id && target.display_name && target.requested_model)) { appStore.showError(t('admin.desktop.errors.VALIDATION_FAILED')); return }
   configSaving.value = true
-  try { organization.value = await organizationAPI.value.updateModelConfiguration(organizationID.value, { schema_version: 1, targets: { chatgpt_codex: chat, ...(work ? { workbuddy: work } : {}) } }); appStore.showSuccess(t('admin.desktop.configurationSaved')) }
+  try { organization.value = await adminAPI.desktop.updateModelConfiguration(organizationID.value, { schema_version: 1, targets: { chatgpt_codex: chat, ...(work ? { workbuddy: work } : {}) } }); appStore.showSuccess(t('admin.desktop.configurationSaved')) }
   catch (error) { appStore.showError(errorMessage(error)) } finally { configSaving.value = false }
 }
 

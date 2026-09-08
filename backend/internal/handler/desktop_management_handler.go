@@ -20,15 +20,6 @@ const (
 	desktopManagedModelTokenRotateIdempotencyScope = "desktop.organization.model_tokens.rotate"
 )
 
-type desktopManagedOrganizationRequest struct {
-	Name   *string `json:"name"`
-	Status *string `json:"status"`
-}
-
-type desktopManagedTargetConfigRequest struct {
-	TargetConfig service.DesktopTargetConfig `json:"target_config" binding:"required"`
-}
-
 type desktopManagedCreateMemberRequest struct {
 	Name  string `json:"name" binding:"required"`
 	Phone string `json:"phone" binding:"required"`
@@ -95,39 +86,17 @@ func (h *DesktopHandler) GetManagedOrganization(c *gin.Context) {
 }
 
 func (h *DesktopHandler) UpdateManagedOrganization(c *gin.Context) {
-	userID, ok := desktopManagedUserID(c)
-	if !ok {
+	if _, ok := desktopManagedUserID(c); !ok {
 		return
 	}
-	var req desktopManagedOrganizationRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		desktopManagedBindingError(c, err)
-		return
-	}
-	organization, err := h.desktop.UpdateManagedOrganization(c.Request.Context(), userID, service.DesktopUpdateOrganizationInput{
-		Name: req.Name, Status: req.Status,
-	})
-	if response.ErrorFrom(c, err) {
-		return
-	}
-	response.Success(c, desktopManagedOrganizationFromService(organization))
+	response.ErrorFrom(c, service.ErrDesktopOrgReadOnly)
 }
 
 func (h *DesktopHandler) UpdateManagedModelConfiguration(c *gin.Context) {
-	userID, ok := desktopManagedUserID(c)
-	if !ok {
+	if _, ok := desktopManagedUserID(c); !ok {
 		return
 	}
-	var req desktopManagedTargetConfigRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		desktopManagedBindingError(c, err)
-		return
-	}
-	organization, err := h.desktop.UpdateManagedTargetConfig(c.Request.Context(), userID, &req.TargetConfig)
-	if response.ErrorFrom(c, err) {
-		return
-	}
-	response.Success(c, desktopManagedOrganizationFromService(organization))
+	response.ErrorFrom(c, service.ErrDesktopConfigReadOnly)
 }
 
 func (h *DesktopHandler) CreateManagedMember(c *gin.Context) {

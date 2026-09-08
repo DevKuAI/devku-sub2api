@@ -78,9 +78,4 @@ func TestDesktopManagedOrganizationDTOExposesReadOnlyMemberLimit(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, string(payload), `"member_count":2`)
 	require.Contains(t, string(payload), `"member_limit":10`)
-	var request desktopManagedOrganizationRequest
-	require.NoError(t, json.Unmarshal([]byte(`{"name":"Managed","member_limit":100}`), &request))
-	writable, err := json.Marshal(request)
-	require.NoError(t, err)
-	require.NotContains(t, string(writable), "member_limit")
 }

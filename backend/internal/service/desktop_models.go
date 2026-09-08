@@ -25,6 +25,8 @@ var (
 	ErrDesktopOrganizationNotFound = infraerrors.NotFound("ORGANIZATION_NOT_FOUND", "organization not found")
 	ErrDesktopMemberNotFound       = infraerrors.NotFound("MEMBER_NOT_FOUND", "member not found")
 	ErrDesktopConfigurationMissing = infraerrors.NotFound("MODEL_CONFIGURATION_NOT_ASSIGNED", "model configuration is not assigned")
+	ErrDesktopConfigReadOnly       = infraerrors.Forbidden("MODEL_CONFIGURATION_READ_ONLY", "model configuration is read-only; contact an administrator to make changes")
+	ErrDesktopOrgReadOnly          = infraerrors.Forbidden("ORGANIZATION_READ_ONLY", "organization information is read-only; contact an administrator to make changes")
 	ErrDesktopValidation           = infraerrors.New(http.StatusUnprocessableEntity, "VALIDATION_FAILED", "validation failed")
 	ErrDesktopUnauthenticated      = infraerrors.Unauthorized("UNAUTHENTICATED", "authentication required")
 	ErrDesktopRefreshInvalid       = infraerrors.Unauthorized("REFRESH_TOKEN_INVALID", "refresh token is invalid")

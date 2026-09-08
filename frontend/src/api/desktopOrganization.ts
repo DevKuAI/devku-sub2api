@@ -5,9 +5,7 @@ import type {
   DesktopMember,
   DesktopOrganization,
   DesktopStatus,
-  DesktopTargetConfig,
   UpdateDesktopMemberRequest,
-  UpdateDesktopOrganizationRequest,
 } from './admin/desktop'
 
 const basePath = '/desktop/organization'
@@ -20,24 +18,6 @@ function idempotencyHeaders(prefix: string): Record<string, string> {
 export async function getOrganization(_publicID = ''): Promise<DesktopOrganization | null> {
   const { data, status } = await apiClient.get<DesktopOrganization | '' | undefined>(basePath)
   return status === 204 || !data ? null : data
-}
-
-export async function updateOrganization(
-  _publicID: string,
-  input: Pick<UpdateDesktopOrganizationRequest, 'name' | 'status'>,
-): Promise<DesktopOrganization> {
-  const { data } = await apiClient.patch<DesktopOrganization>(basePath, input)
-  return data
-}
-
-export async function updateModelConfiguration(
-  _publicID: string,
-  targetConfig: DesktopTargetConfig,
-): Promise<DesktopOrganization> {
-  const { data } = await apiClient.put<DesktopOrganization>(`${basePath}/model-configuration`, {
-    target_config: targetConfig,
-  })
-  return data
 }
 
 export async function listMembers(
@@ -100,8 +80,6 @@ export async function rotateModelToken(
 
 export default {
   getOrganization,
-  updateOrganization,
-  updateModelConfiguration,
   listMembers,
   createMember,
   updateMember,

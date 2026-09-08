@@ -149,6 +149,7 @@ describe('DesktopOrganizationDetailView', () => {
     managedDesktopAPI.getOrganization.mockResolvedValue({ ...organization })
     managedDesktopAPI.listMembers.mockResolvedValue({ items: [{ ...member }], total: 1, page: 1, page_size: 20, pages: 1 })
     managedDesktopAPI.updateOrganization.mockResolvedValue({ ...organization })
+    authStore.isAdmin = false
     route.query.tab = 'members'
   })
 
@@ -245,6 +246,55 @@ describe('DesktopOrganizationDetailView', () => {
 		wrapper.unmount()
 	})
 
+  it.each([false, true])('shows managed model configuration as read-only with isAdmin=%s', async (isAdmin) => {
+    authStore.isAdmin = isAdmin
+    route.query.tab = 'configuration'
+    managedDesktopAPI.getOrganization.mockResolvedValue({
+      ...organization,
+      target_config_assigned: true,
+      target_config: {
+        schema_version: 1,
+        targets: {
+          chatgpt_codex: {
+            enabled: true, provider_id: 'openai', display_name: 'Codex', requested_model: 'codex-model',
+            wire_api: 'responses', minimum_app_version: '1.2.3', restart_required: true,
+          },
+          workbuddy: {
+            enabled: false, provider_id: 'work-provider', display_name: 'Workbuddy', requested_model: 'work-model',
+            wire_api: 'chat_completions', restart_required: false,
+          },
+        },
+      },
+    })
+    const wrapper = mountManagedView()
+    await flushPromises()
+    const panel = wrapper.get('[role="tabpanel"]')
+
+    for (const value of ['Codex', 'openai', 'codex-model', '/responses', '1.2.3', 'Workbuddy', 'work-provider', 'work-model', '/chat/completions', 'common.enabled', 'common.disabled', 'common.yes', 'common.no']) {
+      expect(panel.text()).toContain(value)
+    }
+    expect(panel.find('form, input, input-stub, select, textarea, button').exists()).toBe(false)
+    expect(wrapper.findAll('button').some((button) => button.text() === 'common.edit')).toBe(false)
+    await (wrapper.vm as any).saveConfiguration()
+    expect(managedDesktopAPI.updateModelConfiguration).not.toHaveBeenCalled()
+    expect(desktopAPI.updateModelConfiguration).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('shows unassigned managed targets without editable defaults', async () => {
+    route.query.tab = 'configuration'
+    const wrapper = mountManagedView()
+    await flushPromises()
+    const panel = wrapper.get('[role="tabpanel"]')
+
+    expect(panel.text()).toContain('ChatGPT Codex')
+    expect(panel.text()).toContain('Workbuddy')
+    expect(panel.text()).toContain('admin.desktop.notConfigured')
+    expect(panel.text()).not.toContain('common.enabled')
+    expect(panel.find('form, input, input-stub, select, textarea, button').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
   it('rejects incomplete model configuration before calling the API', async () => {
     const wrapper = mountView()
     await flushPromises()
@@ -260,7 +310,8 @@ describe('DesktopOrganizationDetailView', () => {
     wrapper.unmount()
   })
 
-  it('uses the managed API without exposing carrier or group reassignment', async () => {
+  it.each([false, true])('keeps managed organization details read-only with isAdmin=%s', async (isAdmin) => {
+    authStore.isAdmin = isAdmin
     const wrapper = mountManagedView()
     await flushPromises()
     const vm = wrapper.vm as any
@@ -270,16 +321,21 @@ describe('DesktopOrganizationDetailView', () => {
     expect(desktopAPI.getGatewayUser).not.toHaveBeenCalled()
     expect(desktopAPI.listAvailableGatewayUsers).not.toHaveBeenCalled()
     expect(desktopAPI.listActiveGroups).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain(organization.name)
+    expect(wrapper.findAll('button').some((button) => button.text() === 'common.edit')).toBe(false)
+    expect(wrapper.find('base-dialog-stub[title="admin.desktop.editOrganization"]').exists()).toBe(false)
 
     await vm.openEditOrganization()
+    expect(vm.showOrganizationEdit).toBe(false)
     vm.organizationForm.name = 'Managed Organization'
+    vm.organizationForm.status = 'disabled'
     vm.organizationForm.member_limit = 100
+    vm.submitOrganizationEdit()
     await vm.saveOrganization()
 
-    expect(managedDesktopAPI.updateOrganization).toHaveBeenCalledWith('org_one', {
-      name: 'Managed Organization',
-      status: 'active',
-    })
+    expect(vm.confirmState.show).toBe(false)
+    expect(managedDesktopAPI.updateOrganization).not.toHaveBeenCalled()
+    expect(desktopAPI.updateOrganization).not.toHaveBeenCalled()
     wrapper.unmount()
   })
 
@@ -298,7 +354,11 @@ describe('DesktopOrganizationDetailView', () => {
     const wrapper = mountView()
     await flushPromises()
     const vm = wrapper.vm as any
-    await vm.openEditOrganization()
+    const editButton = wrapper.findAll('button').find((button) => button.text() === 'common.edit')
+    expect(editButton).toBeDefined()
+    await editButton!.trigger('click')
+    await flushPromises()
+    expect(vm.showOrganizationEdit).toBe(true)
     expect(vm.organizationForm.member_limit).toBe(10)
     vm.organizationForm.member_limit = 25
     await vm.saveOrganization()

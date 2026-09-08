@@ -241,23 +241,12 @@ func TestDesktopManagedOrganizationUsesGatewayUserScope(t *testing.T) {
 	organization := &DesktopOrganization{PublicID: "org_one", GatewayUserID: 9}
 	repo := &desktopRepositoryStub{organization: organization}
 	svc := &DesktopService{repo: repo}
-	gatewayUserID := int64(11)
-	groupID := int64(12)
-	name := "Managed"
-	status := DesktopStatusActive
-	memberLimit := 100
-
-	updated, err := svc.UpdateManagedOrganization(context.Background(), 9, DesktopUpdateOrganizationInput{
-		Name: &name, Status: &status, GatewayUserID: &gatewayUserID, GroupID: &groupID, MemberLimit: &memberLimit,
-	})
+	result, err := svc.GetManagedOrganization(context.Background(), 9)
 
 	require.NoError(t, err)
-	require.Same(t, organization, updated)
+	require.Same(t, organization, result)
 	require.Equal(t, []int64{9}, repo.scopedUserIDs)
-	require.Len(t, repo.updateOrganizationInputs, 1)
-	require.Nil(t, repo.updateOrganizationInputs[0].GatewayUserID)
-	require.Nil(t, repo.updateOrganizationInputs[0].GroupID)
-	require.Nil(t, repo.updateOrganizationInputs[0].MemberLimit)
+	require.Empty(t, repo.updateOrganizationInputs)
 }
 
 func TestDesktopManagedOrganizationRejectsMissingIdentity(t *testing.T) {

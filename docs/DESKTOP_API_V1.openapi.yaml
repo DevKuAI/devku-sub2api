@@ -11,7 +11,7 @@ info:
     - Desktop 企业和客户端接口仅在 `DESKTOP_ENABLED=true` 时注册。
     - 软件更新检查和更新发布管理接口不受 `DESKTOP_ENABLED` 影响。
     - Admin 接口使用面板 Admin Bearer Token。
-    - 企业承载用户接口使用普通面板 User Bearer Token，并且只作用于当前账号关联的企业。
+    - 企业承载用户接口使用普通面板 User Bearer Token，并且只作用于当前账号关联的企业。企业信息和模型配置只读，成员仍可管理。
     - Desktop 受保护接口使用登录或刷新接口返回的 Desktop Access Token。
     - Admin 成功响应使用 `{code, message, data}`，Desktop 成功响应使用 `{data}`。
 
@@ -423,65 +423,34 @@ paths:
     patch:
       tags: [Desktop User - Organization]
       operationId: updateManagedDesktopOrganization
-      summary: 修改当前账号关联的 Desktop 企业
-      description: 只能修改企业名称和状态，不能修改承载用户或分组。请求体上限为 16 KiB。
+      summary: 企业信息只读（兼容旧写入路径）
+      description: 企业名称、状态等信息由管理员维护。此路径保留用于拒绝旧客户端写入，已认证请求返回 403 ORGANIZATION_READ_ONLY，包括管理员从用户入口发起的请求。
+      deprecated: true
       security:
         - UserBearer: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateManagedOrganizationRequest'
-            example:
-              name: 东恒锦洋集团
-              status: active
       responses:
-        '200':
-          description: 企业已修改
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AdminOrganizationResponse'
         '401':
           $ref: '#/components/responses/PanelError'
-        '404':
-          $ref: '#/components/responses/PanelError'
-        '409':
+        '403':
           $ref: '#/components/responses/PanelError'
         '413':
-          $ref: '#/components/responses/PanelError'
-        '422':
           $ref: '#/components/responses/PanelError'
 
   /api/v1/desktop/organization/model-configuration:
     put:
       tags: [Desktop User - Organization]
       operationId: updateManagedDesktopModelConfiguration
-      summary: 更新当前账号关联企业的 Model Configuration
-      description: 企业由当前登录账号确定。请求体上限为 64 KiB。
+      summary: 模型配置只读（兼容旧写入路径）
+      description: 模型配置由管理员维护。此路径保留用于拒绝旧客户端写入，已认证请求返回 403 MODEL_CONFIGURATION_READ_ONLY，包括管理员从用户入口发起的请求。
+      deprecated: true
       security:
         - UserBearer: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateTargetConfigRequest'
       responses:
-        '200':
-          description: Model Configuration 已更新
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AdminOrganizationResponse'
         '401':
           $ref: '#/components/responses/PanelError'
-        '404':
+        '403':
           $ref: '#/components/responses/PanelError'
         '413':
-          $ref: '#/components/responses/PanelError'
-        '422':
           $ref: '#/components/responses/PanelError'
 
   /api/v1/desktop/organization/members:
@@ -1726,17 +1695,6 @@ components:
           type: integer
           minimum: 1
           description: 仅管理员可修改，不能低于当前未删除成员数；与承载用户 API 密钥数量上限同步更新
-
-    UpdateManagedOrganizationRequest:
-      type: object
-      additionalProperties: false
-      minProperties: 1
-      properties:
-        name:
-          type: string
-          minLength: 1
-        status:
-          $ref: '#/components/schemas/DesktopStatus'
 
     UpdateTargetConfigRequest:
       type: object
