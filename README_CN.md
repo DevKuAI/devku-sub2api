@@ -43,6 +43,11 @@ Sub2API 是用于分发和管理上游 AI 服务订阅配额的 API 网关。平
 - **复合分组**：在多 Provider 分组中，将请求模型解析到具体的上游 Provider。
 - **外部系统集成**：通过 iframe 将工单等外部系统嵌入管理后台。
 
+## 上游 v0.2.2 兼容性说明
+
+- 分组模型白名单现在同时约束模型列表和请求准入。迁移将 `groups.models_list_config` 重命名为 `model_allowlist`，并保留原有数据。升级前请检查已启用的列表，因为这些配置现在也会限制请求使用的模型。
+- Grok 媒体请求会排除有明确 Free 或禁止访问计费证据的 OAuth 账号。缺失或格式异常的计费信息会在转发前触发探测；探测成功但响应不完整时，账号以 `billing_inconclusive` 状态保留请求资格。可设置 `extra.grok_media_eligible=false` 排除账号，或设为 `true` 强制允许。聊天和视频状态查询不受此规则影响；没有可用账号时返回 HTTP `503`（`grok_media_no_eligible_account`）。
+
 ## 技术栈
 
 | 组件 | 技术 |

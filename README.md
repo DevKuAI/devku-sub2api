@@ -43,6 +43,11 @@ Sub2API is an API gateway for distributing and managing subscription quotas from
 - **Composite groups:** Resolves requested models to concrete upstream providers within multi-provider groups.
 - **External integrations:** Embeds external systems, such as ticketing tools, in the admin dashboard through an iframe.
 
+## Upstream v0.2.2 compatibility
+
+- Group model allowlists now constrain both model listing and request admission. The migration renames `groups.models_list_config` to `model_allowlist` while preserving its data; review existing enabled lists before upgrading because they now restrict requests too.
+- Grok media requests exclude OAuth accounts with explicit Free or forbidden billing evidence. Missing or malformed observations are probed before dispatch; successful but incomplete responses remain eligible as `billing_inconclusive`. Set `extra.grok_media_eligible=false` to exclude an account or `true` to force eligibility. Chat and video status queries are unaffected; no eligible account returns HTTP `503` (`grok_media_no_eligible_account`).
+
 ## Tech Stack
 
 | Component | Technology |
@@ -665,7 +670,7 @@ xAI quota is passive. Sub2API does not invent subscription quota values; it reco
 
 `401` responses temporarily remove accounts with invalid credentials from scheduling. `403` responses are treated as access or entitlement failures instead of token-refresh loops. `429` responses use `Retry-After` or a short cooldown to temporarily remove the account from scheduling.
 
-New Grok image and video generation requests use a media-specific eligibility check. API-key accounts remain eligible. OAuth accounts require positive paid-entitlement evidence from the xAI billing probe; Free, forbidden, missing, malformed, and inconclusive billing observations are excluded from new media generation. Unobserved OAuth accounts are probed before the first media request is forwarded, and imports run the billing-first quota probe proactively. Chat requests and video status lookups are not affected by this media-only quarantine. If no eligible account remains, the media endpoint returns HTTP `503` with error type `grok_media_no_eligible_account`.
+New Grok image and video generation requests use a media-specific eligibility check. API-key accounts remain eligible. OAuth accounts with explicit Free or forbidden billing evidence are excluded from new media generation. Missing or malformed observations are probed before dispatch; a successful but incomplete billing response is treated as `billing_inconclusive` and remains eligible for backwards compatibility, because an unknown billing schema is not proof that the account lacks media entitlement. Operators can quarantine a known-bad account with `extra.grok_media_eligible=false` or force-enable a verified account with `true`. Imports run the billing-first quota probe proactively. Chat requests and video status lookups are not affected by this media-only quarantine. If no eligible account remains, the media endpoint returns HTTP `503` with error type `grok_media_no_eligible_account`.
 
 Administrators can override automatic media eligibility through the account create/update API by setting `extra.grok_media_eligible` to `false` (exclude) or `true` (force eligible). On update, set it to `null` to remove the override and return to automatic probe-based behavior; omitting the field preserves the current override. A weekly allowance period alone is not treated as a paid tier signal. Successful image responses must contain at least one actual image output; empty HTTP `200` responses trigger account failover instead of being counted and returned as successful generations.
 
