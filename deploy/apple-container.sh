@@ -36,6 +36,7 @@ POSTGRES_MAINTENANCE_WORK_MEM=""
 REDIS_PASSWORD=""
 REDIS_MAXCLIENTS=""
 TZ_VALUE=""
+NETWORK_SUBNET=""
 POSTGRES_ADDRESS=""
 REDIS_ADDRESS=""
 APP_ENV_FILE=""
@@ -215,15 +216,28 @@ preflight_stack_ownership() {
 }
 
 ensure_network() {
+    local existing_subnet
+    local -a network_args
+
     if resource_exists network "${NETWORK_NAME}"; then
         assert_resource_owned network "${NETWORK_NAME}"
+        if [[ -n "${NETWORK_SUBNET}" ]]; then
+            existing_subnet="$(inspect_resource network "${NETWORK_NAME}" | \
+                plutil -extract 0.configuration.ipv4Subnet raw -o - -)" || \
+                die "Unable to read the IPv4 subnet for ${NETWORK_NAME}."
+            if [[ "${existing_subnet}" != "${NETWORK_SUBNET}" ]]; then
+                die "Existing network '${NETWORK_NAME}' uses subnet '${existing_subnet}', but APPLE_CONTAINER_NETWORK_SUBNET is '${NETWORK_SUBNET}'. Run './apple-container.sh destroy --yes' to recreate the network while preserving volumes, then run 'up' again."
+            fi
+        fi
         return
     fi
 
     info "Creating network ${NETWORK_NAME}..."
-    container network create \
-        --label "${STACK_LABEL_KEY}=${STACK_LABEL_VALUE}" \
-        "${NETWORK_NAME}" >/dev/null
+    network_args=(--label "${STACK_LABEL_KEY}=${STACK_LABEL_VALUE}")
+    if [[ -n "${NETWORK_SUBNET}" ]]; then
+        network_args+=(--subnet "${NETWORK_SUBNET}")
+    fi
+    container network create "${network_args[@]}" "${NETWORK_NAME}" >/dev/null
 }
 
 ensure_volume() {
@@ -427,6 +441,7 @@ prepare_environment() {
     REDIS_PASSWORD="$(read_env_value REDIS_PASSWORD)"
     REDIS_MAXCLIENTS="$(read_env_value REDIS_MAXCLIENTS 10000)"
     TZ_VALUE="$(read_env_value TZ Asia/Shanghai)"
+    NETWORK_SUBNET="$(read_env_value APPLE_CONTAINER_NETWORK_SUBNET)"
 
     [[ -n "${BIND_HOST}" ]] || die "BIND_HOST must not be empty."
     validate_ipv4_address "${BIND_HOST}"

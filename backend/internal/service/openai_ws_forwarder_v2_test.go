@@ -79,7 +79,7 @@ func TestForwardOpenAIWSV2_KeepsOutboundAndObservedServiceTiersSeparate(t *testi
 			}
 
 			body := []byte(fmt.Sprintf(
-				`{"model":"gpt-5.5","stream":%t,"service_tier":%q,"input":[{"type":"input_text","text":"hi"}]}`,
+				`{"model":"gpt-5.5","stream":%t,"service_tier":%q,"reasoning":{"effort":"high"},"input":[{"type":"input_text","text":"hi"}]}`,
 				tc.stream, tc.requestTier,
 			))
 			result, err := svc.Forward(context.Background(), c, account, body)
@@ -91,6 +91,8 @@ func TestForwardOpenAIWSV2_KeepsOutboundAndObservedServiceTiersSeparate(t *testi
 			require.NotNil(t, result.ServiceTier)
 			require.Equal(t, "priority", *result.ServiceTier)
 			require.Equal(t, "default", result.UpstreamResponseServiceTier)
+			require.NotNil(t, result.RequestedReasoningEffort)
+			require.Equal(t, "high", *result.RequestedReasoningEffort)
 			require.Equal(t, "priority", captureConn.lastWrite["service_tier"],
 				"outbound WS payload still carries the requested Fast tier")
 		})

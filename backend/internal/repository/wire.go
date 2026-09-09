@@ -142,6 +142,7 @@ var ProviderSet = wire.NewSet(
 	NewDesktopLoginLimiter,
 	NewErrorPassthroughCache,
 	NewTLSFingerprintProfileCache,
+	NewChannelCache,
 	NewContentModerationHashCache,
 
 	// Encryptors

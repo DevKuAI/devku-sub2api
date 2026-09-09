@@ -572,6 +572,14 @@ go generate ./cmd/server
 
 ---
 
+## OpenAI Image Models
+
+Supports `gpt-image-2.5-flare`, `gpt-image-2.5-sunburst`, and their `2026-09-08` snapshots through `/v1/images/generations` and `/v1/images/edits`. Supported `quality` values include `xhigh`, `max`, and `auto`. Valid custom sizes and detailed image usage are passed through unchanged.
+
+OAuth / Setup Token image requests use a Responses orchestrator model to call the `image_generation` tool. The default orchestrator is `gpt-5.6-luna`. Set `SUB2API_IMAGES_MAIN_MODEL` to use a text model supported by the account; Docker Compose users must run `docker compose up -d` after changing `.env` to recreate the container. This setting does not replace the selected image model or override a text orchestrator model already provided in a `/v1/responses` request.
+
+After upgrading, accounts without model restrictions support the new models automatically. Existing explicit account mappings or group allowlists must include the two 2.5 models, with dated snapshots added as needed; upgrading does not automatically expand administrator-defined model permissions. Built-in pricing covers the official text input, image input, and image output token rates, and is used for the 2.5 models if the remote pricing table has not been updated. Per-request or per-token billing still follows the existing group/channel configuration.
+
 ## Simple Mode
 
 Simple Mode is designed for individual developers or internal teams who want quick access without full SaaS features.
