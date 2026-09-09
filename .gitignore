@@ -142,6 +142,10 @@ docs/*
 !docs/COMPOSITE_GROUPS.md
 !docs/DESKTOP_API_V1.md
 !docs/DESKTOP_API_V1.openapi.yaml
+!docs/desktop-resources-v1.md
+!docs/openapi/
+docs/openapi/*
+!docs/openapi/desktop-resources-v1.json
 !docs/PLUGIN_DEVELOPMENT.md
 !docs/channel-monitor-v2-safe-defaults.md
 !docs/legal/

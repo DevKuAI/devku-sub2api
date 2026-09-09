@@ -29,6 +29,9 @@ func DesktopAdminBodyLimit() gin.HandlerFunc {
 			return
 		}
 		limit := int64(16 * 1024)
+		if strings.HasSuffix(c.Request.URL.Path, "/desktop/resources") {
+			limit = service.DesktopResourceMaxBytes
+		}
 		if strings.HasSuffix(c.Request.URL.Path, "/model-configuration") {
 			limit = 64 * 1024
 		}

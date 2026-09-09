@@ -1,0 +1,1019 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Devku Desktop Resource Distribution API",
+    "version": "1.0.0",
+    "description": "Local implementation contract for public MCP/Skill publishing and authenticated distribution. Enterprise publishing and remote HTTP MCP are not implemented. No deployment is implied. See ../desktop-resources-v1.md for byte limits, business invariants and Rust/WebView responsibilities."
+  },
+  "tags": [
+    {
+      "name": "Publishing"
+    },
+    {
+      "name": "Distribution"
+    }
+  ],
+  "paths": {
+    "/api/v1/admin/desktop/resources": {
+      "post": {
+        "operationId": "publishPublicDesktopResource",
+        "tags": [
+          "Publishing"
+        ],
+        "summary": "Upload one ZIP and publish it immediately",
+        "description": "Raw ZIP, one version/platform. Atomic database commit. HTTP 200 returns only the artifact from this upload; GET detail returns all current platforms. Duplicate upload is 409, including identical bytes. No idempotency key or draft status. The packaged manifest follows components.schemas.Manifest. Example hashes elsewhere in this specification are illustrative, not release checksums.",
+        "security": [
+          {
+            "adminBearer": []
+          },
+          {
+            "adminApiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/zip": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          },
+          "description": "ZIP <=64 MiB; manifest.json <=128 KiB; <=1024 entries; <=128 MiB uncompressed."
+        },
+        "responses": {
+          "200": {
+            "description": "Published. data.artifacts contains only the uploaded platform.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResourceResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "RESOURCE_PACKAGE_INVALID",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "RESOURCE_VERSION_CONFLICT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Package/ingress body limit exceeded. Proxy responses may not be JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ErrorResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdminErrorResponse"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "VALIDATION_FAILED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Existing administrator authentication failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Existing administrator authorization failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminErrorResponse"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "ADMIN_COMPLIANCE_ACK_REQUIRED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminErrorResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Other upstream or administrator middleware error",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/desktop/v1/resources": {
+      "get": {
+        "operationId": "listDesktopResources",
+        "tags": [
+          "Distribution"
+        ],
+        "summary": "List public or current-organization resources",
+        "security": [
+          {
+            "desktopBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Installation-ID",
+            "in": "header",
+            "required": false,
+            "description": "Desktop sends installation ID; optional for resource reads.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "scope",
+            "in": "query",
+            "required": false,
+            "description": "Never accepts organization ID.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "public",
+                "enterprise"
+              ],
+              "default": "public"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "description": "Empty means all kinds.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "",
+                "mcp",
+                "skill"
+              ],
+              "default": ""
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "description": "Max 200 UTF-8 bytes; case-insensitive name/description ILIKE; % and _ are wildcards.",
+            "schema": {
+              "type": "string",
+              "maxLength": 200,
+              "default": ""
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Desktop sends 20. Out-of-range or nonnumeric currently falls back to 50.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "description": "Out-of-range is 422; nonnumeric currently maps to 0.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000,
+              "default": 0
+            }
+          }
+        ],
+        "description": "Array envelope, no total/hasMore/cursor. Resource-level pagination sorted updated_at DESC,id ASC. Empty array is success. Concurrent publishing can change pagination order. No snapshot guarantee.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResourceListResponse"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "MEMBERSHIP_REVOKED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Upstream/network/service failure; error envelope is not guaranteed outside resource handlers.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "VALIDATION_FAILED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/desktop/v1/resources/{resource_id}": {
+      "get": {
+        "operationId": "getDesktopResource",
+        "tags": [
+          "Distribution"
+        ],
+        "summary": "Get current version and all published platforms",
+        "security": [
+          {
+            "desktopBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Installation-ID",
+            "in": "header",
+            "required": false,
+            "description": "Desktop sends installation ID; optional for resource reads.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "resource_id",
+            "in": "path",
+            "required": true,
+            "description": "Opaque server resource ID.",
+            "schema": {
+              "type": "string",
+              "pattern": "^res_[0-9a-f]{32}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResourceResponse"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "MEMBERSHIP_REVOKED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Upstream/network/service failure; error envelope is not guaranteed outside resource handlers.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "404": {
+            "description": "RESOURCE_NOT_FOUND: missing or invisible resource/version/platform",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/desktop/v1/resources/{resource_id}/versions/{version}/artifacts/{platform}": {
+      "get": {
+        "operationId": "downloadDesktopResourceArtifact",
+        "tags": [
+          "Distribution"
+        ],
+        "summary": "Download immutable authenticated ZIP",
+        "security": [
+          {
+            "desktopBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Installation-ID",
+            "in": "header",
+            "required": false,
+            "description": "Desktop sends installation ID; optional for resource reads.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "resource_id",
+            "in": "path",
+            "required": true,
+            "description": "Opaque server resource ID.",
+            "schema": {
+              "type": "string",
+              "pattern": "^res_[0-9a-f]{32}$"
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "description": "Pinned version; historical artifacts remain downloadable.",
+            "schema": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]{0,5})\\.(0|[1-9][0-9]{0,5})\\.(0|[1-9][0-9]{0,5})$"
+            }
+          },
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "description": "Exact platform from artifact metadata.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "darwin-arm64",
+                "darwin-x64",
+                "windows-x64",
+                "linux-x64",
+                "any"
+              ]
+            }
+          }
+        ],
+        "description": "No public/signed storage URL, redirects, Range, resume or ETag contract. Verify actual size and SHA-256 against pinned metadata, then package manifest and file hashes.",
+        "responses": {
+          "200": {
+            "description": "Raw ZIP bytes",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "private, no-store"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "type": "string",
+                  "const": "nosniff"
+                }
+              },
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string",
+                  "const": "attachment; filename=\"resource.zip\""
+                }
+              },
+              "X-Artifact-SHA256": {
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              }
+            },
+            "content": {
+              "application/zip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "MEMBERSHIP_REVOKED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "RESOURCE_NOT_FOUND: missing or invisible resource/version/platform",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Other upstream/service failure",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "desktopBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Desktop member User Token, never Model Token."
+      },
+      "adminBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Existing administrator access token."
+      },
+      "adminApiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key",
+        "description": "Existing administrator API key, subject to administrator middleware."
+      }
+    },
+    "schemas": {
+      "Manifest": {
+        "type": "object",
+        "properties": {
+          "schemaVersion": {
+            "type": "integer",
+            "const": 1
+          },
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{1,63}$"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "mcp",
+              "skill"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Nonblank. Server limit: 200 UTF-8 bytes."
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "Server limit: 2000 UTF-8 bytes."
+          },
+          "sourceUrl": {
+            "type": "string",
+            "maxLength": 2048,
+            "pattern": "^(https://[^/]+.*)?$",
+            "description": "Empty or HTTPS URL without userinfo. Server limit: 2048 UTF-8 bytes."
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,5})\\.(0|[1-9][0-9]{0,5})\\.(0|[1-9][0-9]{0,5})$"
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "darwin-arm64",
+              "darwin-x64",
+              "windows-x64",
+              "linux-x64",
+              "any"
+            ]
+          },
+          "entry": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240,
+            "description": "Safe relative package file path; must be declared in files."
+          },
+          "args": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "type": "string",
+              "maxLength": 1000,
+              "description": "No NUL; max 1000 UTF-8 bytes. {binding} expands locally, no shell."
+            }
+          },
+          "credentialMode": {
+            "type": "string",
+            "enum": [
+              "",
+              "enterprise_model"
+            ]
+          },
+          "targets": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 2,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "workbuddy",
+                "chatgpt_codex"
+              ]
+            }
+          },
+          "files": {
+            "type": "object",
+            "minProperties": 1,
+            "maxProperties": 1023,
+            "additionalProperties": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "description": "Relative file path to SHA-256; excludes manifest.json. ZIP content validated separately."
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "key",
+          "kind",
+          "name",
+          "description",
+          "sourceUrl",
+          "version",
+          "platform",
+          "entry",
+          "targets",
+          "files"
+        ],
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "skill"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "platform": {
+                  "const": "any"
+                },
+                "entry": {
+                  "const": "skill/SKILL.md"
+                },
+                "args": {
+                  "maxItems": 0
+                },
+                "credentialMode": {
+                  "const": ""
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "platform": {
+                  "enum": [
+                    "darwin-arm64",
+                    "darwin-x64",
+                    "windows-x64",
+                    "linux-x64"
+                  ]
+                }
+              }
+            }
+          }
+        ],
+        "examples": [
+          {
+            "schemaVersion": 1,
+            "key": "devku_image",
+            "kind": "mcp",
+            "name": "Devku 图片生成",
+            "description": "通过企业网关生成图片",
+            "sourceUrl": "https://github.com/hiccup711/devku_imagegen",
+            "version": "0.1.0",
+            "platform": "darwin-arm64",
+            "entry": "bin/devku-image-mcp",
+            "args": [
+              "--mcp-server",
+              "devku_image",
+              "--binding",
+              "{binding}"
+            ],
+            "credentialMode": "enterprise_model",
+            "targets": [
+              "workbuddy",
+              "chatgpt_codex"
+            ],
+            "files": {
+              "bin/devku-image-mcp": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "LICENSE.txt": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            }
+          }
+        ]
+      },
+      "Artifact": {
+        "type": "object",
+        "properties": {
+          "platform": {
+            "type": "string",
+            "enum": [
+              "darwin-arm64",
+              "darwin-x64",
+              "windows-x64",
+              "linux-x64",
+              "any"
+            ]
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 67108864
+          },
+          "manifest": {
+            "$ref": "#/components/schemas/Manifest"
+          }
+        },
+        "required": [
+          "platform",
+          "sha256",
+          "sizeBytes",
+          "manifest"
+        ]
+      },
+      "Resource": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^res_[0-9a-f]{32}$"
+          },
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{1,63}$"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "mcp",
+              "skill"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "sourceUrl": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,5})\\.(0|[1-9][0-9]{0,5})\\.(0|[1-9][0-9]{0,5})$"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "public",
+              "enterprise"
+            ]
+          },
+          "artifacts": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/Artifact"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "key",
+          "kind",
+          "name",
+          "description",
+          "sourceUrl",
+          "version",
+          "scope",
+          "artifacts"
+        ]
+      },
+      "ResourceResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Resource"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "examples": [
+          {
+            "data": {
+              "id": "res_11111111111111111111111111111111",
+              "key": "devku_image",
+              "kind": "mcp",
+              "name": "Devku 图片生成",
+              "description": "通过企业网关生成图片",
+              "sourceUrl": "https://github.com/hiccup711/devku_imagegen",
+              "version": "0.1.0",
+              "scope": "public",
+              "artifacts": [
+                {
+                  "platform": "darwin-arm64",
+                  "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                  "sizeBytes": 123456,
+                  "manifest": {
+                    "schemaVersion": 1,
+                    "key": "devku_image",
+                    "kind": "mcp",
+                    "name": "Devku 图片生成",
+                    "description": "通过企业网关生成图片",
+                    "sourceUrl": "https://github.com/hiccup711/devku_imagegen",
+                    "version": "0.1.0",
+                    "platform": "darwin-arm64",
+                    "entry": "bin/devku-image-mcp",
+                    "args": [
+                      "--mcp-server",
+                      "devku_image",
+                      "--binding",
+                      "{binding}"
+                    ],
+                    "credentialMode": "enterprise_model",
+                    "targets": [
+                      "workbuddy",
+                      "chatgpt_codex"
+                    ],
+                    "files": {
+                      "bin/devku-image-mcp": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "LICENSE.txt": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "ResourceListResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Resource"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "examples": [
+          {
+            "data": [
+              {
+                "id": "res_11111111111111111111111111111111",
+                "key": "devku_image",
+                "kind": "mcp",
+                "name": "Devku 图片生成",
+                "description": "通过企业网关生成图片",
+                "sourceUrl": "https://github.com/hiccup711/devku_imagegen",
+                "version": "0.1.0",
+                "scope": "public",
+                "artifacts": [
+                  {
+                    "platform": "darwin-arm64",
+                    "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                    "sizeBytes": 123456,
+                    "manifest": {
+                      "schemaVersion": 1,
+                      "key": "devku_image",
+                      "kind": "mcp",
+                      "name": "Devku 图片生成",
+                      "description": "通过企业网关生成图片",
+                      "sourceUrl": "https://github.com/hiccup711/devku_imagegen",
+                      "version": "0.1.0",
+                      "platform": "darwin-arm64",
+                      "entry": "bin/devku-image-mcp",
+                      "args": [
+                        "--mcp-server",
+                        "devku_image",
+                        "--binding",
+                        "{binding}"
+                      ],
+                      "credentialMode": "enterprise_model",
+                      "targets": [
+                        "workbuddy",
+                        "chatgpt_codex"
+                      ],
+                      "files": {
+                        "bin/devku-image-mcp": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        "LICENSE.txt": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "data": []
+          }
+        ]
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "request_id": {
+                "type": "string"
+              },
+              "retryable": {
+                "type": "boolean"
+              },
+              "details": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "code",
+              "message",
+              "request_id",
+              "retryable",
+              "details"
+            ]
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "examples": [
+          {
+            "error": {
+              "code": "RESOURCE_NOT_FOUND",
+              "message": "resource not found",
+              "request_id": "",
+              "retryable": false,
+              "details": {}
+            }
+          }
+        ]
+      },
+      "AdminErrorResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ]
+      }
+    }
+  }
+}

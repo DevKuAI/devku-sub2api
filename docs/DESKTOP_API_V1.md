@@ -520,3 +520,9 @@ Content-Type: application/json
 Workbuddy target 仅在 `enabled: true` 时下发给 Desktop 客户端。
 
 成员、企业或承载 User 撤销后，Desktop API 与 Refresh 通过数据库状态立即拒绝；Model Token 通过 API Key 状态、即时缓存失效和 auth cache invalidation outbox 失效。
+
+## 资源目录与独立制品
+
+资源接口独立维护于 [Desktop 资源发布与分发契约 v1](desktop-resources-v1.md)，机器可读定义见 [OpenAPI 3.1](openapi/desktop-resources-v1.json)。该契约覆盖公共发布、双区域目录、详情、鉴权下载、Manifest、版本规则、错误处理及 WebView / Rust 责任边界。
+
+公共 MCP 和 Skill 制品由管理员通过 `POST /api/v1/admin/desktop/resources` 上传；Desktop 通过 `/api/desktop/v1/resources` 系列接口读取。资源元数据及 ZIP 持久化于迁移 `237_desktop_resources.sql` 创建的 PostgreSQL 表，不随 Desktop 安装包打包。企业员工上传共享不属于 v1。

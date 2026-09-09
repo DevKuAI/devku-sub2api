@@ -203,6 +203,7 @@ func ProvideHandlers(
 	batchImageHandler *BatchImageHandler,
 	desktopHandler *DesktopHandler,
 	desktopUpdateHandler *DesktopUpdateHandler,
+	desktopResourceHandler *DesktopResourceHandler,
 	_ *service.IdempotencyCoordinator,
 	_ *service.IdempotencyCleanupService,
 	_ *service.OpenAIQuotaAutoResetService,
@@ -231,6 +232,7 @@ func ProvideHandlers(
 		BatchImage:       batchImageHandler,
 		Desktop:          desktopHandler,
 		DesktopUpdate:    desktopUpdateHandler,
+		DesktopResources: desktopResourceHandler,
 	}
 }
 
@@ -259,6 +261,7 @@ var ProviderSet = wire.NewSet(
 	ProvideBatchImageHandler,
 	NewDesktopHandler,
 	NewDesktopUpdateHandler,
+	NewDesktopResourceHandler,
 
 	// Admin handlers
 	admin.NewDashboardHandler,

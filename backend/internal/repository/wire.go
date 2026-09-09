@@ -100,6 +100,7 @@ var ProviderSet = wire.NewSet(
 	NewPluginRepository,
 	NewDesktopRepository,
 	NewDesktopUpdateRepository,
+	NewDesktopResourceRepository,
 	NewChannelRepository,
 	NewChannelMonitorRepository,
 	NewChannelMonitorV2Repository,

@@ -170,6 +170,7 @@ func registerDesktopAdminRoutesIfEnabled(
 }
 
 func registerDesktopAdminRoutes(desktop *gin.RouterGroup, h *handler.Handlers) {
+	desktop.POST("/resources", h.DesktopResources.PublishPublic)
 	desktop.POST("/organizations", h.Admin.Desktop.CreateOrganization)
 	desktop.GET("/organizations", h.Admin.Desktop.ListOrganizations)
 	desktop.GET("/organizations/:organization_id", h.Admin.Desktop.GetOrganization)

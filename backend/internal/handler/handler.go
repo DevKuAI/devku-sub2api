@@ -72,6 +72,7 @@ type Handlers struct {
 	BatchImage       *BatchImageHandler
 	Desktop          *DesktopHandler
 	DesktopUpdate    *DesktopUpdateHandler
+	DesktopResources *DesktopResourceHandler
 }
 
 // BuildInfo contains build-time information
