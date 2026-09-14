@@ -8,6 +8,7 @@
         :utilization="bar.utilization"
         :resets-at="bar.resetsAt"
         :window-stats="bar.windowStats"
+        :estimated-total-cost="bar.estimatedTotalCost"
         :show-window-stats-when-empty="true"
         :color="bar.color"
         label-width="auto"
@@ -98,10 +99,17 @@ interface UsageBar {
   utilization: number
   resetsAt: string | null
   windowStats?: WindowStats | null
+  estimatedTotalCost?: number | null
   color: 'indigo' | 'emerald' | 'purple' | 'amber'
 }
 
-function progressBar(key: string, label: string, progress: UsageProgress | null | undefined, color: UsageBar['color']): UsageBar | null {
+function progressBar(
+  key: string,
+  label: string,
+  progress: UsageProgress | null | undefined,
+  color: UsageBar['color'],
+  estimatedTotalCost?: number | null,
+): UsageBar | null {
   if (!progress) return null
   return {
     key,
@@ -109,6 +117,7 @@ function progressBar(key: string, label: string, progress: UsageProgress | null 
     utilization: progress.utilization,
     resetsAt: progress.resets_at,
     windowStats: progress.window_stats,
+    estimatedTotalCost,
     color
   }
 }
@@ -125,12 +134,33 @@ function grokBar(key: string, label: string, quota: SubscriptionAccountUsage['gr
   }
 }
 
+const openAISevenDayEstimatedTotalCost = computed(() => {
+  if (props.account?.platform !== 'openai' || props.account.type !== 'oauth') return null
+
+  const sevenDay = props.usage?.seven_day
+  const utilization = sevenDay?.utilization
+  const currentCost = sevenDay?.window_stats?.cost
+  if (
+    typeof utilization !== 'number' ||
+    typeof currentCost !== 'number' ||
+    !Number.isFinite(utilization) ||
+    !Number.isFinite(currentCost) ||
+    utilization <= 0 ||
+    currentCost <= 0
+  ) {
+    return null
+  }
+
+  const estimate = (currentCost * 100) / utilization
+  return Number.isFinite(estimate) && estimate > 0 ? estimate : null
+})
+
 const bars = computed<UsageBar[]>(() => {
   const usage = props.usage
   if (!usage) return []
   const result = [
     progressBar('five_hour', '5h', usage.five_hour, 'indigo'),
-    progressBar('seven_day', '7d', usage.seven_day, 'emerald'),
+    progressBar('seven_day', '7d', usage.seven_day, 'emerald', openAISevenDayEstimatedTotalCost.value),
     progressBar('seven_day_sonnet', '7d S', usage.seven_day_sonnet, 'purple'),
     progressBar('seven_day_fable', '7d F', usage.seven_day_fable, 'amber'),
     progressBar('thirty_day', '30d', usage.thirty_day, 'purple'),

@@ -22,6 +22,7 @@ vi.mock('vue-i18n', async (importOriginal) => ({
 
 import SubscriptionAccountsView from '../SubscriptionAccountsView.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import UsageProgressBar from '@/components/account/UsageProgressBar.vue'
 import type { SubscriptionAccountUsage } from '@/types'
 
 enableAutoUnmount(afterEach)
@@ -136,6 +137,10 @@ describe('SubscriptionAccountsView', () => {
     expect(wrapper.text()).toContain('7%')
     expect(wrapper.text()).toContain('usage.resetNow')
     expect(wrapper.text()).toContain('4d 19h')
+    expect(wrapper.findAll('[data-test="estimated-total-cost"]')).toHaveLength(1)
+    expect(wrapper.find('[data-test="estimated-total-cost"]').text()).toContain('admin.accounts.usageWindow.estimatedTotalCost')
+    const usageBars = wrapper.findAllComponents(UsageProgressBar)
+    expect(usageBars[1].props('estimatedTotalCost')).toBeCloseTo(2501)
     const articles = wrapper.findAll('article')
     expect(articles[0].findAll('button')).toHaveLength(4)
     expect(articles[1].findAll('button')).toHaveLength(0)
