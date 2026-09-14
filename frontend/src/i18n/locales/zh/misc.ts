@@ -151,6 +151,15 @@ export default {
     createdAt: '创建时间',
     expiresAt: '账号过期时间',
     noExpiration: '长期有效',
+    tiboReset: {
+      title: 'Tibo 重置监控',
+      description: 'Codex 额度重置、重置卡发放与原帖记录',
+      updatedAt: '数据更新于 {time}',
+      latest: '最近一次重置',
+      viewPost: '查看原帖',
+      noData: '暂无已确认的重置记录',
+      unknown: '时间未知'
+    },
     status: {
       active: '正常',
       disabled: '停用',

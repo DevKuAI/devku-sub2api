@@ -2,7 +2,7 @@ import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const subscriptionAPI = vi.hoisted(() => ({
-  list: vi.fn(), getUsage: vi.fn(), refreshUsage: vi.fn(), refreshQuota: vi.fn(), resetQuota: vi.fn(),
+  list: vi.fn(), getUsage: vi.fn(), refreshUsage: vi.fn(), refreshQuota: vi.fn(), resetQuota: vi.fn(), getTiboResetMonitor: vi.fn(),
 }))
 const { list, getUsage, refreshUsage, refreshQuota, resetQuota } = subscriptionAPI
 const adminQuotaAPI = vi.hoisted(() => ({ refreshOpenAIQuota: vi.fn(), resetOpenAIQuota: vi.fn() }))
@@ -44,6 +44,20 @@ describe('SubscriptionAccountsView', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-09-04T00:00:00Z'))
     vi.resetAllMocks()
+    subscriptionAPI.getTiboResetMonitor.mockResolvedValue({
+      schemaVersion: 1,
+      timezone: 'Asia/Shanghai',
+      checkedAt: '2026-09-04T00:00:00Z',
+      historyFrom: '2026-06-12T00:00:00Z',
+      count: 1,
+      events: [{
+        id: 'reset-1', type: 'direct_reset', label: '全员重置', status: 'confirmed', title: 'Codex 额度重置已完成',
+        scope: '所有付费订阅', createdAt: '2026-09-03T00:00:00Z', updatedAt: '2026-09-03T00:00:00Z',
+        confirmedAt: '2026-09-03T00:00:00Z', occurredOn: '2026-09-03', confirmationBasis: 'source_post',
+        schedule: null, posts: [{ id: 'post-1', publishedAt: '2026-09-03T00:00:00Z', stage: '确认完成', text: '完成', url: 'https://x.com/post-1' }],
+        url: 'https://aihot.news/codex-reset',
+      }],
+    })
     list.mockResolvedValue([
       {
         id: 8,
@@ -150,6 +164,8 @@ describe('SubscriptionAccountsView', () => {
     expect(refreshQuota).not.toHaveBeenCalled()
     expect(adminQuotaAPI.refreshOpenAIQuota).not.toHaveBeenCalled()
     expect(setSubscriptionAccountAccess).toHaveBeenCalledWith(true)
+    expect(subscriptionAPI.getTiboResetMonitor).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('[data-testid="tibo-reset-monitor"]').text()).toContain('Codex 额度重置已完成')
   })
 
   it('refreshes usage and disables related actions while the query is pending', async () => {

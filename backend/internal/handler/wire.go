@@ -201,6 +201,7 @@ func ProvideHandlers(
 	modelPlazaHandler *ModelPlazaHandler,
 	asyncImageHandler *AsyncImageHandler,
 	batchImageHandler *BatchImageHandler,
+	tiboResetMonitorHandler *TiboResetMonitorHandler,
 	desktopHandler *DesktopHandler,
 	desktopUpdateHandler *DesktopUpdateHandler,
 	_ *service.IdempotencyCoordinator,
@@ -229,6 +230,7 @@ func ProvideHandlers(
 		ModelPlaza:       modelPlazaHandler,
 		AsyncImage:       asyncImageHandler,
 		BatchImage:       batchImageHandler,
+		TiboResetMonitor: tiboResetMonitorHandler,
 		Desktop:          desktopHandler,
 		DesktopUpdate:    desktopUpdateHandler,
 	}
@@ -257,6 +259,7 @@ var ProviderSet = wire.NewSet(
 	NewModelPlazaHandler,
 	NewAsyncImageHandler,
 	ProvideBatchImageHandler,
+	NewTiboResetMonitorHandler,
 	NewDesktopHandler,
 	NewDesktopUpdateHandler,
 

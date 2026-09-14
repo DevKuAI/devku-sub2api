@@ -1,5 +1,5 @@
 import { apiClient } from './client'
-import type { SubscriptionAccount, SubscriptionAccountUsage } from '@/types'
+import type { SubscriptionAccount, SubscriptionAccountUsage, TiboResetMonitor } from '@/types'
 import type { OpenAIQuotaUsage, OpenAIQuotaResetResult } from './admin/accounts'
 
 type SubscriptionQuotaUsage = Pick<OpenAIQuotaUsage, 'fetched_at' | 'rate_limit_reset_credits'>
@@ -39,6 +39,11 @@ export async function resetQuota(id: number): Promise<SubscriptionQuotaResetResu
   return data
 }
 
-export const subscriptionAccountsAPI = { list, getUsage, refreshUsage, refreshQuota, resetQuota }
+export async function getTiboResetMonitor(): Promise<TiboResetMonitor> {
+  const { data } = await apiClient.get<TiboResetMonitor>('/subscription-accounts/tibo-reset-monitor')
+  return data
+}
+
+export const subscriptionAccountsAPI = { list, getUsage, refreshUsage, refreshQuota, resetQuota, getTiboResetMonitor }
 
 export default subscriptionAccountsAPI

@@ -1348,6 +1348,47 @@ export interface SubscriptionAccount {
   usage?: SubscriptionAccountUsage | null
 }
 
+export interface TiboResetMonitorSchedule {
+  precision: string
+  from: string
+  through: string
+  label: string
+}
+
+export interface TiboResetMonitorPost {
+  id: string
+  publishedAt: string
+  stage: string
+  text: string
+  url: string
+}
+
+export interface TiboResetMonitorEvent {
+  id: string
+  type: string
+  label: string
+  status: string
+  title: string
+  scope: string
+  createdAt: string
+  updatedAt: string
+  confirmedAt?: string | null
+  occurredOn?: string | null
+  confirmationBasis: string
+  schedule?: TiboResetMonitorSchedule | null
+  posts: TiboResetMonitorPost[]
+  url: string
+}
+
+export interface TiboResetMonitor {
+  schemaVersion: number
+  timezone: string
+  checkedAt: string
+  historyFrom: string
+  count: number
+  events: TiboResetMonitorEvent[]
+}
+
 // The admin account list may return this compact shape when lite=1. Detail
 // operations still use Account from /admin/accounts/:id.
 export type AccountListItem = Omit<Account, 'groups'>

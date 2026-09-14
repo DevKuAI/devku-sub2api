@@ -70,6 +70,7 @@ type Handlers struct {
 	ModelPlaza       *ModelPlazaHandler
 	AsyncImage       *AsyncImageHandler
 	BatchImage       *BatchImageHandler
+	TiboResetMonitor *TiboResetMonitorHandler
 	Desktop          *DesktopHandler
 	DesktopUpdate    *DesktopUpdateHandler
 }

@@ -154,6 +154,15 @@ export default {
     createdAt: 'Created',
     expiresAt: 'Account Expiration',
     noExpiration: 'No expiration',
+    tiboReset: {
+      title: 'Tibo Reset Monitor',
+      description: 'Codex quota resets, banked reset cards, and source posts',
+      updatedAt: 'Updated {time}',
+      latest: 'Latest reset',
+      viewPost: 'View source post',
+      noData: 'No confirmed reset records',
+      unknown: 'Time unknown'
+    },
     status: {
       active: 'Active',
       disabled: 'Disabled',

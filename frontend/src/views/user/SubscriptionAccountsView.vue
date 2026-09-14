@@ -93,18 +93,20 @@
           </div>
         </article>
       </div>
+      <TiboResetMonitor v-if="hasOpenAISubscriptionAccount" />
     </div>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import subscriptionAccountsAPI from '@/api/subscriptionAccounts'
 import { useSubscriptionAccountAccess } from '@/composables/useSubscriptionAccountAccess'
 import { useAppStore } from '@/stores/app'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import SubscriptionAccountUsage from '@/components/account/SubscriptionAccountUsage.vue'
+import TiboResetMonitor from '@/components/account/TiboResetMonitor.vue'
 import PlatformTypeBadge from '@/components/common/PlatformTypeBadge.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { formatDateTimeToMinute } from '@/utils/format'
@@ -115,6 +117,10 @@ const appStore = useAppStore()
 const { setSubscriptionAccountAccess } = useSubscriptionAccountAccess()
 const accounts = ref<SubscriptionAccount[]>([])
 const loading = ref(true)
+
+const hasOpenAISubscriptionAccount = computed(() =>
+  accounts.value.some((account) => account.platform === 'openai' && account.type === 'oauth'),
+)
 
 const compactMeta = {
   active: {
