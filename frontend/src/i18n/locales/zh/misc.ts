@@ -156,6 +156,9 @@ export default {
       description: 'Codex 额度重置、重置卡发放与原帖记录',
       updatedAt: '数据更新于 {time}',
       latest: '最近一次重置',
+      latestCard: '最近发放重置卡',
+      directReset: '全员重置',
+      resetCard: '发重置卡',
       viewPost: '查看原帖',
       noData: '暂无已确认的重置记录',
       unknown: '时间未知'

@@ -159,6 +159,9 @@ export default {
       description: 'Codex quota resets, banked reset cards, and source posts',
       updatedAt: 'Updated {time}',
       latest: 'Latest reset',
+      latestCard: 'Latest reset card',
+      directReset: 'Global reset',
+      resetCard: 'Reset card issued',
       viewPost: 'View source post',
       noData: 'No confirmed reset records',
       unknown: 'Time unknown'

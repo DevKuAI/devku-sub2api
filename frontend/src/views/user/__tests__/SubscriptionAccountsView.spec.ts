@@ -171,6 +171,9 @@ describe('SubscriptionAccountsView', () => {
     expect(setSubscriptionAccountAccess).toHaveBeenCalledWith(true)
     expect(subscriptionAPI.getTiboResetMonitor).toHaveBeenCalledTimes(1)
     expect(wrapper.find('[data-testid="tibo-reset-monitor"]').text()).toContain('Codex 额度重置已完成')
+    expect(wrapper.find('[data-testid="tibo-reset-monitor"]').text()).toContain('重置卡已发放')
+    expect(wrapper.find('[data-testid="tibo-reset-monitor"]').text()).toContain('subscriptionAccounts.tiboReset.directReset')
+    expect(wrapper.find('[data-testid="tibo-reset-monitor"]').text()).toContain('subscriptionAccounts.tiboReset.resetCard')
   })
 
   it('refreshes usage and disables related actions while the query is pending', async () => {
