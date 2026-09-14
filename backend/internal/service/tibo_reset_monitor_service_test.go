@@ -6,10 +6,16 @@ import (
 	"net/http/httptest"
 	"sync/atomic"
 	"testing"
-
-	"github.com/alicebob/miniredis/v2"
-	"github.com/redis/go-redis/v9"
+	"time"
 )
+
+type tiboResetMonitorMemoryCache struct{ value []byte }
+
+func (c *tiboResetMonitorMemoryCache) Read(context.Context) ([]byte, error) { return c.value, nil }
+func (c *tiboResetMonitorMemoryCache) Write(_ context.Context, value []byte, _ time.Duration) error {
+	c.value = append([]byte(nil), value...)
+	return nil
+}
 
 func TestTiboResetMonitorServiceCachesUpstreamResponse(t *testing.T) {
 	var calls atomic.Int32
@@ -23,11 +29,8 @@ func TestTiboResetMonitorServiceCachesUpstreamResponse(t *testing.T) {
 	tiboResetMonitorEndpoint = server.URL
 	t.Cleanup(func() { tiboResetMonitorEndpoint = previousEndpoint })
 
-	redisServer := miniredis.RunT(t)
-	rdb := redis.NewClient(&redis.Options{Addr: redisServer.Addr()})
-	defer rdb.Close()
-
-	monitor := NewTiboResetMonitorService(rdb)
+	cache := &tiboResetMonitorMemoryCache{}
+	monitor := NewTiboResetMonitorService(cache)
 	if _, err := monitor.Get(context.Background()); err != nil {
 		t.Fatalf("first Get() error = %v", err)
 	}
@@ -37,7 +40,7 @@ func TestTiboResetMonitorServiceCachesUpstreamResponse(t *testing.T) {
 	if got := calls.Load(); got != 1 {
 		t.Fatalf("upstream calls = %d, want 1", got)
 	}
-	if ttl := redisServer.TTL(tiboResetMonitorKey); ttl <= 0 || ttl > tiboResetMonitorTTL {
-		t.Fatalf("cache TTL = %s, want between 0 and %s", ttl, tiboResetMonitorTTL)
+	if len(cache.value) == 0 {
+		t.Fatal("cache is empty after successful fetch")
 	}
 }

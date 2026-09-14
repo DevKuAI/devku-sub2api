@@ -144,6 +144,7 @@ var ProviderSet = wire.NewSet(
 	NewTLSFingerprintProfileCache,
 	NewChannelCache,
 	NewContentModerationHashCache,
+	NewTiboResetMonitorCache,
 
 	// Encryptors
 	NewAESEncryptor,

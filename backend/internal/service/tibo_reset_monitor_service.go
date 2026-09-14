@@ -8,18 +8,20 @@ import (
 	"net/http"
 	"sync"
 	"time"
-
-	"github.com/redis/go-redis/v9"
 )
 
 const (
-	tiboResetMonitorURL   = "https://aihot.news/api/v1/codex-resets"
-	tiboResetMonitorKey   = "sub2api:tibo:codex-resets:v1"
-	tiboResetMonitorTTL   = time.Hour
-	tiboResetMonitorLimit = 2 << 20
+	tiboResetMonitorURL      = "https://aihot.news/api/v1/codex-resets"
+	TiboResetMonitorCacheTTL = time.Hour
+	tiboResetMonitorLimit    = 2 << 20
 )
 
 var tiboResetMonitorEndpoint = tiboResetMonitorURL
+
+type TiboResetMonitorCache interface {
+	Read(ctx context.Context) ([]byte, error)
+	Write(ctx context.Context, value []byte, ttl time.Duration) error
+}
 
 type TiboResetMonitorSchedule struct {
 	Precision string `json:"precision"`
@@ -63,14 +65,14 @@ type TiboResetMonitor struct {
 }
 
 type TiboResetMonitorService struct {
-	rdb        *redis.Client
+	cache      TiboResetMonitorCache
 	httpClient *http.Client
 	mu         sync.Mutex
 }
 
-func NewTiboResetMonitorService(rdb *redis.Client) *TiboResetMonitorService {
+func NewTiboResetMonitorService(cache TiboResetMonitorCache) *TiboResetMonitorService {
 	return &TiboResetMonitorService{
-		rdb:        rdb,
+		cache:      cache,
 		httpClient: &http.Client{Timeout: 15 * time.Second},
 	}
 }
@@ -96,7 +98,7 @@ func (s *TiboResetMonitorService) Get(ctx context.Context) (*TiboResetMonitor, e
 	if err != nil {
 		return nil, fmt.Errorf("fetch tibo reset monitor: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return nil, fmt.Errorf("fetch tibo reset monitor: upstream status %s", resp.Status)
 	}
@@ -108,19 +110,19 @@ func (s *TiboResetMonitorService) Get(ctx context.Context) (*TiboResetMonitor, e
 	if result.SchemaVersion == 0 {
 		return nil, fmt.Errorf("decode tibo reset monitor: missing schema version")
 	}
-	if s.rdb != nil {
+	if s.cache != nil {
 		if raw, err := json.Marshal(result); err == nil {
-			_ = s.rdb.Set(ctx, tiboResetMonitorKey, raw, tiboResetMonitorTTL).Err()
+			_ = s.cache.Write(ctx, raw, TiboResetMonitorCacheTTL)
 		}
 	}
 	return &result, nil
 }
 
 func (s *TiboResetMonitorService) readCache(ctx context.Context) *TiboResetMonitor {
-	if s.rdb == nil {
+	if s.cache == nil {
 		return nil
 	}
-	raw, err := s.rdb.Get(ctx, tiboResetMonitorKey).Bytes()
+	raw, err := s.cache.Read(ctx)
 	if err != nil {
 		return nil
 	}
