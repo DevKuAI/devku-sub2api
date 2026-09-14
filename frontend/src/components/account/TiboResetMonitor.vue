@@ -55,8 +55,9 @@ function eventTime(event: TiboResetMonitorEvent): number {
 
 const latest = computed(() => {
   const events = monitor.value?.events || []
-  return [...events]
-    .filter((event) => event.status === 'confirmed')
+  const confirmed = events.filter((event) => event.status === 'confirmed')
+  const directResets = confirmed.filter((event) => event.type === 'direct_reset')
+  return [...(directResets.length > 0 ? directResets : confirmed)]
     .sort((a, b) => eventTime(b) - eventTime(a))[0] || null
 })
 

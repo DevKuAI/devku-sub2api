@@ -56,6 +56,11 @@ describe('SubscriptionAccountsView', () => {
         confirmedAt: '2026-09-03T00:00:00Z', occurredOn: '2026-09-03', confirmationBasis: 'source_post',
         schedule: null, posts: [{ id: 'post-1', publishedAt: '2026-09-03T00:00:00Z', stage: '确认完成', text: '完成', url: 'https://x.com/post-1' }],
         url: 'https://aihot.news/codex-reset',
+      }, {
+        id: 'credit-1', type: 'reset_credit', label: '发重置卡', status: 'confirmed', title: '重置卡已发放',
+        scope: '', createdAt: '2026-09-04T00:00:00Z', updatedAt: '2026-09-14T00:00:00Z',
+        confirmedAt: null, occurredOn: '2026-09-13', confirmationBasis: 'receipt_review', schedule: null, posts: [],
+        url: 'https://aihot.news/codex-reset',
       }],
     })
     list.mockResolvedValue([
