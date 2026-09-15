@@ -46,8 +46,8 @@ func extractLatestUsageRequestContent(protocol string, body []byte) string {
 	parts := make([]string, 0, 2)
 	switch protocol {
 	case ContentModerationProtocolAnthropicMessages, ContentModerationProtocolOpenAIChat:
-		last := lastUsageRequestItem(gjson.GetBytes(body, "messages"))
-		if last.Get("role").String() == "user" {
+		last := latestUsageRequestItemWithRole(gjson.GetBytes(body, "messages"), "user")
+		if last.Exists() {
 			collectUsageRequestText(last.Get("content"), &parts, 0)
 		}
 	case ContentModerationProtocolOpenAIResponses:
@@ -60,8 +60,8 @@ func extractLatestUsageRequestContent(protocol string, body []byte) string {
 		}
 		collectUsageResponsesText(input, &parts)
 	case ContentModerationProtocolGemini:
-		last := lastUsageRequestItem(gjson.GetBytes(body, "contents"))
-		if role := last.Get("role").String(); role == "" || role == "user" {
+		last := latestUsageRequestItemWithRole(gjson.GetBytes(body, "contents"), "", "user")
+		if last.Exists() {
 			if content := last.Get("parts"); content.IsArray() {
 				content.ForEach(func(_, part gjson.Result) bool {
 					if !part.Get("thought").Bool() {
@@ -79,11 +79,17 @@ func extractLatestUsageRequestContent(protocol string, body []byte) string {
 	return cleanUsageUserText(strings.Join(parts, "\n\n"))
 }
 
-func lastUsageRequestItem(value gjson.Result) gjson.Result {
+func latestUsageRequestItemWithRole(value gjson.Result, roles ...string) gjson.Result {
 	var last gjson.Result
+	allowed := make(map[string]struct{}, len(roles))
+	for _, role := range roles {
+		allowed[role] = struct{}{}
+	}
 	if value.IsArray() {
 		value.ForEach(func(_, item gjson.Result) bool {
-			last = item
+			if _, ok := allowed[item.Get("role").String()]; ok {
+				last = item
+			}
 			return true
 		})
 	}

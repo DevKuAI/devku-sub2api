@@ -160,6 +160,45 @@ func TestCaptureUsageRequestBodyExtractsCommonUserInputShapes(t *testing.T) {
 	}
 }
 
+func TestCaptureUsageRequestBodyFindsLatestUserInputBeforeToolContinuation(t *testing.T) {
+	repo := &contentModerationRuntimeSettingRepo{values: map[string]string{
+		SettingKeyRiskControlEnabled: "true",
+	}}
+	svc := runtimeCacheTestService(repo, time.Hour)
+	tests := []struct {
+		name     string
+		protocol string
+		body     string
+		want     string
+	}{
+		{
+			name:     "workbuddy chat tool result",
+			protocol: ContentModerationProtocolOpenAIChat,
+			body:     `{"messages":[{"role":"user","content":"workbuddy request"},{"role":"assistant","tool_calls":[{"id":"call_1"}]},{"role":"tool","tool_call_id":"call_1","content":"tool result"}]}`,
+			want:     "workbuddy request",
+		},
+		{
+			name:     "anthropic tool result",
+			protocol: ContentModerationProtocolAnthropicMessages,
+			body:     `{"messages":[{"role":"user","content":"anthropic request"},{"role":"assistant","content":[{"type":"tool_use","id":"call_1"}]},{"role":"tool","content":[{"type":"tool_result","tool_use_id":"call_1","content":"tool result"}]}]}`,
+			want:     "anthropic request",
+		},
+		{
+			name:     "gemini model continuation",
+			protocol: ContentModerationProtocolGemini,
+			body:     `{"contents":[{"role":"user","parts":[{"text":"gemini request"}]},{"role":"model","parts":[{"text":"model continuation"}]}]}`,
+			want:     "gemini request",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			captured := svc.CaptureUsageRequestBody(context.Background(), tt.protocol, []byte(tt.body), "application/json")
+			require.NotNil(t, captured)
+			require.Equal(t, tt.want, *captured)
+		})
+	}
+}
+
 func TestCaptureUsageRequestBodyRedactsSecretsInExtractedPrompt(t *testing.T) {
 	repo := &contentModerationRuntimeSettingRepo{values: map[string]string{
 		SettingKeyRiskControlEnabled:      "true",
@@ -374,7 +413,7 @@ func TestCaptureUsageRequestBodyNeverFallsBackToRawPayload(t *testing.T) {
 		{"empty user query", ContentModerationProtocolOpenAIResponses, `{"input":"built-in policy\n<user_query>  </user_query>"}`},
 		{"websocket control event", ContentModerationProtocolOpenAIResponses, `{"type":"response.cancel","input":"control metadata"}`},
 		{"anthropic tool result", ContentModerationProtocolAnthropicMessages, `{"messages":[{"role":"user","content":"old input"},{"role":"user","content":[{"type":"tool_result","content":"tool output"}]}]}`},
-		{"responses tool result", ContentModerationProtocolOpenAIResponses, `{"input":[{"role":"user","content":"old input"},{"type":"function_call_output","output":"tool output"}]}`},
+		{"responses tool result without user input", ContentModerationProtocolOpenAIResponses, `{"input":[{"type":"function_call_output","output":"tool output"}]}`},
 		{"gemini tool result", ContentModerationProtocolGemini, `{"contents":[{"role":"user","parts":[{"text":"old input"}]},{"role":"user","parts":[{"functionResponse":{"response":{"text":"tool output"}}}]}]}`},
 		{"image only", ContentModerationProtocolOpenAIChat, `{"messages":[{"role":"user","content":[{"type":"image_url","image_url":{"url":"data:image/png;base64,aGVsbG8="}}]}]}`},
 		{"large built-in payload", ContentModerationProtocolOpenAIChat, `{"messages":[{"role":"system","content":"` + strings.Repeat("a", AuditRequestBodyCaptureLimit) + `"}]}`},
@@ -392,7 +431,7 @@ func TestCaptureUsageRequestBodySkipsKnownProtocolWithoutCurrentUserText(t *test
 		SettingKeyContentModerationConfig: runtimeCacheTestConfig(t),
 	}}
 	svc := runtimeCacheTestService(repo, time.Hour)
-	body := []byte(`{"messages":[{"role":"user","content":"old input"},{"role":"assistant","content":"tool call"},{"role":"tool","content":"tool output"}]}`)
+	body := []byte(`{"messages":[{"role":"assistant","content":"tool call"},{"role":"tool","content":"tool output"}]}`)
 
 	require.Nil(t, svc.CaptureUsageRequestBody(
 		context.Background(),
