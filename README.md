@@ -71,6 +71,32 @@ Nginx drops headers containing underscores by default (e.g. `session_id`), which
 
 ---
 
+## Codex Fast/Flex Policies
+
+The OpenAI Fast/Flex policy under the admin gateway settings controls `service_tier` in request bodies. It does not change the Codex client model catalog or automatically expose Speed or `/fast` in the UI.
+
+Supported actions:
+
+- `pass`: preserve the client's `service_tier`; normalize `fast` to the upstream value `priority`.
+- `filter`: remove `service_tier` and request normal priority.
+- `block`: reject matching Fast/Flex requests.
+- `force_priority`: set matching requests to `priority`, billed at Priority/Fast rates. To preserve existing rule semantics, `all` only matches an explicitly supplied tier. To upgrade OpenAI requests that omit `service_tier`, add a `service_tier=missing + force_priority` rule. Missing tiers are not injected for other platforms. The request can use Fast even when Codex does not display its Fast status.
+
+The Codex Fast control depends on the client model catalog declaring `additional_speed_tiers: ["fast"]` and the corresponding `service_tiers`. If these fields are absent when connecting through an API Key or a custom provider, configuring `force_priority` and restarting Codex will not make the Speed option appear.
+
+Set the default request tier in `~/.codex/config.toml`:
+
+```toml
+service_tier = "fast"
+
+[features]
+fast_mode = true
+```
+
+`service_tier = "fast"` includes the Fast setting in requests; `features.fast_mode` only enables the client feature. Without Fast capability in the model catalog, `/fast` may remain unavailable. Check Sub2API usage records to confirm whether the final `service_tier` is `priority`.
+
+---
+
 ## Deployment
 
 ### Method 1: Script Installation (Recommended)

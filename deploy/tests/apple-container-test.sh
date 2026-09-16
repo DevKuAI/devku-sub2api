@@ -54,6 +54,16 @@ grep -Fxq 'effective_cache_size=4GB' "${STATE_DIR}/create-args/sub2api-apple-pos
 grep -Fxq 'maintenance_work_mem=128MB' "${STATE_DIR}/create-args/sub2api-apple-postgres" || fail "PostgreSQL maintenance_work_mem tuning was not applied"
 grep -Fxq 'REDIS_MAXCLIENTS=50000' "${STATE_DIR}/env-files/sub2api-apple-redis" || fail "Redis maxclients tuning was not applied"
 grep -Fq -- '--maxclients "$REDIS_MAXCLIENTS"' "${STATE_DIR}/create-args/sub2api-apple-redis" || fail "Redis maxclients command was not applied"
+grep -q '^while true; do$' "${STATE_DIR}/create-args/sub2api-apple" || \
+    fail "app container does not supervise the Sub2API process"
+grep -q '^    su-exec sub2api "$runtime_binary" &$' "${STATE_DIR}/create-args/sub2api-apple" || \
+    fail "app supervisor does not launch the updatable Sub2API binary"
+grep -q '^trap stop TERM INT$' "${STATE_DIR}/create-args/sub2api-apple" || \
+    fail "app supervisor does not handle container stop signals"
+grep -q '^runtime_binary="$runtime_dir/sub2api"$' "${STATE_DIR}/create-args/sub2api-apple" || \
+    fail "app container does not run its updatable binary from persistent storage"
+grep -q '^APPLE_CONTAINER_SUB2API_IMAGE_ID=fake-image-id$' "${STATE_DIR}/env-files/sub2api-apple" || \
+    fail "app container did not receive the inspected base image ID"
 [[ ! -s "${STATE_DIR}/network-subnets/sub2api-apple" ]] || \
     fail "up passed a subnet when APPLE_CONTAINER_NETWORK_SUBNET was unset"
 "${SCRIPT}" status >/dev/null

@@ -71,6 +71,32 @@ Nginx はデフォルトでアンダースコアを含むヘッダー（例: `se
 
 ---
 
+## Codex Fast/Flex ポリシー
+
+管理画面のゲートウェイ設定にある OpenAI Fast/Flex ポリシーは、リクエスト本文の `service_tier` を制御します。Codex クライアントのモデルカタログは変更せず、UI に Speed や `/fast` を自動表示するものではありません。
+
+次の処理に対応しています。
+
+- `pass`：クライアントの `service_tier` を保持し、`fast` を上流で使用する `priority` に正規化します。
+- `filter`：`service_tier` を削除し、通常の優先度でリクエストします。
+- `block`：一致する Fast/Flex リクエストを拒否します。
+- `force_priority`：一致するリクエストを `priority` に設定し、Priority/Fast 料金で課金します。既存ルールの意味を維持するため、`all` は明示された tier のみ対象にします。`service_tier` を省略した OpenAI リクエストも対象にする場合は、`service_tier=missing + force_priority` ルールを追加してください。OpenAI 以外のプラットフォームには省略時の tier を追加しません。実際のリクエストが Fast を使用していても、Codex に Fast の状態が表示されない場合があります。
+
+Codex の Fast 操作には、クライアントのモデルカタログで `additional_speed_tiers: ["fast"]` と対応する `service_tiers` の宣言が必要です。API Key またはカスタムプロバイダーで接続する際にこれらのフィールドがない場合、`force_priority` を設定して Codex を再起動しても Speed は表示されません。
+
+`~/.codex/config.toml` でデフォルトのリクエスト tier を指定できます。
+
+```toml
+service_tier = "fast"
+
+[features]
+fast_mode = true
+```
+
+`service_tier = "fast"` はリクエストに Fast 設定を含めます。`features.fast_mode` はクライアントの Fast 機能のみを有効にします。モデルカタログに Fast の宣言がない場合、`/fast` は表示されないことがあります。Sub2API の使用履歴で、最終的な `service_tier` が `priority` かどうかを確認してください。
+
+---
+
 ## デプロイ
 
 ### 方法1: スクリプトによるインストール（推奨）

@@ -131,14 +131,15 @@ case "${command}" in
     image)
         subcommand=${1-}
         case "${subcommand}" in
-            inspect|pull) exit 0 ;;
+            inspect) printf '[{"id":"fake-image-id"}]\n' ;;
+            pull) exit 0 ;;
             *) exit 1 ;;
         esac
         ;;
     create)
+        create_args=("$@")
         name=""
         env_file=""
-        create_args=("$@")
         while [[ $# -gt 0 ]]; do
             case "$1" in
                 --name)
