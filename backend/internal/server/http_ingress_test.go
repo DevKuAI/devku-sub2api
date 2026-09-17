@@ -108,14 +108,18 @@ func TestConfigureTrustedProxies(t *testing.T) {
 func TestHTTPServerRejectsOversizedHTTP1Header(t *testing.T) {
 	r := gin.New()
 	r.GET("/", func(c *gin.Context) { c.Status(http.StatusOK) })
-	srv := ProvideHTTPServer(ingressTestConfig(), r)
+	cfg := ingressTestConfig()
+	// Isolate the size limit from loopback delivery delays. The read timeout
+	// is checked separately by TestHTTPServerClosesSlowIncompleteHeader.
+	cfg.Server.ReadHeaderTimeout = 5
+	srv := ProvideHTTPServer(cfg, r)
 	addr, stop := serveIngressTestServer(t, srv)
 	defer stop()
 
 	conn, err := net.DialTimeout("tcp", addr, time.Second)
 	require.NoError(t, err)
 	defer func() { _ = conn.Close() }()
-	_ = conn.SetDeadline(time.Now().Add(3 * time.Second))
+	require.NoError(t, conn.SetDeadline(time.Now().Add(10*time.Second)))
 	_, err = io.WriteString(conn, "GET / HTTP/1.1\r\nHost: test\r\nX-Fill: "+strings.Repeat("a", 32*1024)+"\r\n\r\n")
 	require.NoError(t, err)
 	resp, err := http.ReadResponse(bufio.NewReader(conn), nil)
@@ -134,12 +138,13 @@ func TestHTTPServerClosesSlowIncompleteHeader(t *testing.T) {
 	conn, err := net.DialTimeout("tcp", addr, time.Second)
 	require.NoError(t, err)
 	defer func() { _ = conn.Close() }()
+	require.NoError(t, conn.SetDeadline(time.Now().Add(5*time.Second)))
 	_, err = io.WriteString(conn, "GET / HTTP/1.1\r\nHost: test\r\nX-Slow:")
 	require.NoError(t, err)
-	time.Sleep(1200 * time.Millisecond)
-	_ = conn.SetReadDeadline(time.Now().Add(time.Second))
+	// A client-side timeout does not prove the server enforced its deadline.
+	// Wait for the server to close the connection instead of sleeping first.
 	_, err = bufio.NewReader(conn).ReadByte()
-	require.Error(t, err)
+	require.ErrorIs(t, err, io.EOF)
 }
 
 func TestHTTPServerGlobalBodyLimit(t *testing.T) {
