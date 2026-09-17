@@ -31,9 +31,7 @@
               >
                 {{ account.name }}
               </h2>
-              <span :class="['rounded-md px-2 py-0.5 text-xs font-medium', statusClass(account.status)]">
-                {{ t(`subscriptionAccounts.status.${account.status}`) }}
-              </span>
+              <AccountStatusIndicator :account="account" readonly />
             </div>
             <PlatformTypeBadge
               class="w-full sm:w-auto sm:max-w-sm sm:shrink-0"
@@ -57,7 +55,7 @@
           <div class="grid min-w-0 lg:grid-cols-[minmax(0,1fr)_18rem]">
             <section class="min-w-0 px-5 py-5">
               <h3 class="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('subscriptionAccounts.usage') }}</h3>
-              <SubscriptionAccountUsage :account="account" v-model:usage="account.usage" />
+              <SubscriptionAccountUsage :account="account" v-model:usage="account.usage" @status-changed="refreshAccountStatus" />
             </section>
 
             <dl class="grid grid-cols-2 gap-4 border-t border-gray-100 bg-gray-50/70 px-5 py-5 text-sm lg:grid-cols-1 lg:border-l lg:border-t-0 dark:border-dark-700 dark:bg-dark-900/30">
@@ -106,6 +104,7 @@ import { useSubscriptionAccountAccess } from '@/composables/useSubscriptionAccou
 import { useAppStore } from '@/stores/app'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import SubscriptionAccountUsage from '@/components/account/SubscriptionAccountUsage.vue'
+import AccountStatusIndicator from '@/components/account/AccountStatusIndicator.vue'
 import TiboResetMonitor from '@/components/account/TiboResetMonitor.vue'
 import PlatformTypeBadge from '@/components/common/PlatformTypeBadge.vue'
 import Icon from '@/components/icons/Icon.vue'
@@ -148,10 +147,17 @@ function formatExpiration(value: number | null): string {
   return value ? formatDateTimeToMinute(new Date(value * 1000)) : t('subscriptionAccounts.noExpiration')
 }
 
-function statusClass(status: SubscriptionAccount['status']): string {
-  if (status === 'active') return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-  if (status === 'error') return 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
-  return 'bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-gray-300'
+async function refreshAccountStatus(): Promise<void> {
+  try {
+    const refreshed = await subscriptionAccountsAPI.list()
+    accounts.value = refreshed.map((account) => ({
+      ...account,
+      usage: accounts.value.find((current) => current.id === account.id)?.usage,
+    }))
+    setSubscriptionAccountAccess(accounts.value.length > 0)
+  } catch {
+    appStore.showError(t('subscriptionAccounts.failedToLoad'))
+  }
 }
 
 async function loadAccounts(): Promise<void> {

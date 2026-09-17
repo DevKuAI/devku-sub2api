@@ -61,6 +61,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:usage': [usage: SubscriptionAccountUsage | null]
+  'status-changed': []
 }>()
 
 const { t } = useI18n()
@@ -79,6 +80,7 @@ async function loadUsage(refresh: boolean): Promise<void> {
   } catch {
     queryError.value = true
   } finally {
+    emit('status-changed')
     querying.value = false
   }
 }

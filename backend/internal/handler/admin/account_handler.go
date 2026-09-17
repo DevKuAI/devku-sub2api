@@ -180,23 +180,35 @@ type subscriptionAccountUsage struct {
 }
 
 type subscriptionAccountResponse struct {
-	ID                    int64                                `json:"id"`
-	Name                  string                               `json:"name"`
-	Platform              string                               `json:"platform"`
-	Type                  string                               `json:"type"`
-	Status                string                               `json:"status"`
-	AuthMode              string                               `json:"auth_mode,omitempty"`
-	PlanType              string                               `json:"plan_type,omitempty"`
-	PrivacyMode           string                               `json:"privacy_mode,omitempty"`
-	SubscriptionExpiresAt string                               `json:"subscription_expires_at,omitempty"`
-	OpenAICompactState    string                               `json:"openai_compact_state,omitempty"`
-	CurrentConcurrency    *int                                 `json:"current_concurrency"`
-	IsShadow              bool                                 `json:"is_shadow"`
-	ResetCredits          *service.OpenAIRateLimitResetCredits `json:"reset_credits,omitempty"`
-	LastUsedAt            *time.Time                           `json:"last_used_at"`
-	ExpiresAt             *int64                               `json:"expires_at"`
-	CreatedAt             time.Time                            `json:"created_at"`
-	Usage                 *subscriptionAccountUsage            `json:"usage,omitempty"`
+	ID                     int64                                 `json:"id"`
+	Name                   string                                `json:"name"`
+	Platform               string                                `json:"platform"`
+	Type                   string                                `json:"type"`
+	Status                 string                                `json:"status"`
+	Schedulable            bool                                  `json:"schedulable"`
+	RateLimitResetAt       *time.Time                            `json:"rate_limit_reset_at"`
+	OverloadUntil          *time.Time                            `json:"overload_until"`
+	TempUnschedulableUntil *time.Time                            `json:"temp_unschedulable_until"`
+	ModelRateLimits        map[string]subscriptionModelRateLimit `json:"model_rate_limits,omitempty"`
+	AllowOverages          bool                                  `json:"allow_overages"`
+	QuotaLimit             *float64                              `json:"quota_limit,omitempty"`
+	QuotaUsed              *float64                              `json:"quota_used,omitempty"`
+	QuotaDailyLimit        *float64                              `json:"quota_daily_limit,omitempty"`
+	QuotaDailyUsed         *float64                              `json:"quota_daily_used,omitempty"`
+	QuotaWeeklyLimit       *float64                              `json:"quota_weekly_limit,omitempty"`
+	QuotaWeeklyUsed        *float64                              `json:"quota_weekly_used,omitempty"`
+	AuthMode               string                                `json:"auth_mode,omitempty"`
+	PlanType               string                                `json:"plan_type,omitempty"`
+	PrivacyMode            string                                `json:"privacy_mode,omitempty"`
+	SubscriptionExpiresAt  string                                `json:"subscription_expires_at,omitempty"`
+	OpenAICompactState     string                                `json:"openai_compact_state,omitempty"`
+	CurrentConcurrency     *int                                  `json:"current_concurrency"`
+	IsShadow               bool                                  `json:"is_shadow"`
+	ResetCredits           *service.OpenAIRateLimitResetCredits  `json:"reset_credits,omitempty"`
+	LastUsedAt             *time.Time                            `json:"last_used_at"`
+	ExpiresAt              *int64                                `json:"expires_at"`
+	CreatedAt              time.Time                             `json:"created_at"`
+	Usage                  *subscriptionAccountUsage             `json:"usage,omitempty"`
 }
 
 // BulkUpdateAccountsRequest represents the payload for bulk editing accounts
@@ -1080,15 +1092,27 @@ func (h *AccountHandler) ListMySubscriptionAccounts(c *gin.Context) {
 	for i := range accounts {
 		account := &accounts[i]
 		item := subscriptionAccountResponse{
-			ID:         account.ID,
-			Name:       account.Name,
-			Platform:   account.Platform,
-			Type:       account.Type,
-			Status:     account.Status,
-			LastUsedAt: account.LastUsedAt,
-			ExpiresAt:  accountExpiresAtUnix(account.ExpiresAt),
-			CreatedAt:  account.CreatedAt,
-			Usage:      subscriptionAccountUsageFromService(usageByAccount[account.ID]),
+			ID:                     account.ID,
+			Name:                   account.Name,
+			Platform:               account.Platform,
+			Type:                   account.Type,
+			Status:                 account.Status,
+			Schedulable:            account.Schedulable,
+			RateLimitResetAt:       account.RateLimitResetAt,
+			OverloadUntil:          account.OverloadUntil,
+			TempUnschedulableUntil: account.TempUnschedulableUntil,
+			ModelRateLimits:        subscriptionAccountModelRateLimits(account),
+			LastUsedAt:             account.LastUsedAt,
+			ExpiresAt:              accountExpiresAtUnix(account.ExpiresAt),
+			CreatedAt:              account.CreatedAt,
+			Usage:                  subscriptionAccountUsageFromService(usageByAccount[account.ID]),
+		}
+		item.AllowOverages, _ = account.Extra["allow_overages"].(bool)
+		if account.IsAPIKeyOrBedrock() {
+			status := dto.AccountFromServiceShallow(account)
+			item.QuotaLimit, item.QuotaUsed = status.QuotaLimit, status.QuotaUsed
+			item.QuotaDailyLimit, item.QuotaDailyUsed = status.QuotaDailyLimit, status.QuotaDailyUsed
+			item.QuotaWeeklyLimit, item.QuotaWeeklyUsed = status.QuotaWeeklyLimit, status.QuotaWeeklyUsed
 		}
 		item.PlanType = strings.TrimSpace(account.GetCredential("plan_type"))
 		item.PrivacyMode = account.GetExtraString("privacy_mode")

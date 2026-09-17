@@ -16,6 +16,7 @@
     <template v-else>
       <div v-if="isTempUnschedulable" class="flex flex-col items-center gap-1">
         <button
+          v-if="!readonly"
           type="button"
           :class="['badge text-xs', statusClass, 'cursor-pointer']"
           :title="t('admin.accounts.status.viewTempUnschedDetails')"
@@ -23,6 +24,7 @@
         >
           {{ statusText }}
         </button>
+        <span v-else :class="['badge text-xs', statusClass]">{{ statusText }}</span>
         <span class="max-w-[180px] text-center text-[11px] leading-4 text-gray-500 dark:text-gray-400">
           {{ tempUnschedRecoveryText }}
         </span>
@@ -158,21 +160,22 @@
   </div>
 </template>
 
-<script setup lang="ts">
+<script setup lang="ts" generic="T extends AccountStatusInfo & Partial<Pick<Account, 'extra' | 'error_message'>>">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
-import type { Account } from '@/types'
+import type { Account, AccountStatusInfo } from '@/types'
 import { formatCountdown, formatDateTime, formatDateTimeToMinute, formatCountdownWithSuffix, formatTime } from '@/utils/format'
 
 const { t } = useI18n()
 
 const props = defineProps<{
-  account: Account
+  account: T
+  readonly?: boolean
 }>()
 
 const emit = defineEmits<{
-  (e: 'show-temp-unsched', account: Account): void
+  (e: 'show-temp-unsched', account: T): void
 }>()
 
 // Computed: is rate limited (429)
@@ -190,8 +193,8 @@ type AccountModelStatusItem = {
 // Computed: active model statuses (普通模型限流 + 积分耗尽 + 走积分中)
 const activeModelStatuses = computed<AccountModelStatusItem[]>(() => {
   const extra = props.account.extra as Record<string, unknown> | undefined
-  const modelLimits = extra?.model_rate_limits as
-    | Record<string, { rate_limited_at: string; rate_limit_reset_at: string }>
+  const modelLimits = (props.account.model_rate_limits ?? extra?.model_rate_limits) as
+    | Record<string, { rate_limit_reset_at: string }>
     | undefined
   const now = new Date()
   const items: AccountModelStatusItem[] = []
@@ -201,7 +204,7 @@ const activeModelStatuses = computed<AccountModelStatusItem[]>(() => {
   // 检查 AICredits key 是否生效（积分是否耗尽）
   const aiCreditsEntry = modelLimits['AICredits']
   const hasActiveAICredits = aiCreditsEntry && new Date(aiCreditsEntry.rate_limit_reset_at) > now
-  const allowOverages = !!(extra?.allow_overages)
+  const allowOverages = props.account.allow_overages ?? !!extra?.allow_overages
 
   for (const [model, info] of Object.entries(modelLimits)) {
     if (new Date(info.rate_limit_reset_at) <= now) continue
@@ -328,7 +331,7 @@ const statusClass = computed(() => {
   if (isQuotaExceeded.value) {
     return 'badge-warning'
   }
-  if (!props.account.schedulable) {
+  if (props.account.schedulable === false) {
     return 'badge-gray'
   }
   return 'badge-success'
@@ -348,7 +351,7 @@ const statusText = computed(() => {
   if (isQuotaExceeded.value) {
     return t('admin.accounts.status.quotaExceeded')
   }
-  if (!props.account.schedulable) {
+  if (props.account.schedulable === false) {
     return t('admin.accounts.status.paused')
   }
   return t(`admin.accounts.status.${props.account.status}`)

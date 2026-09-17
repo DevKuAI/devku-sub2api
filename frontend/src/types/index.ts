@@ -1330,12 +1330,20 @@ export interface SubscriptionAccountUsage {
   grok_token_quota?: GrokQuotaWindow | null
 }
 
-export interface SubscriptionAccount {
+export type AccountStatusInfo = Pick<Account, 'status'> & Partial<Pick<Account,
+  'schedulable' | 'rate_limit_reset_at' | 'overload_until' | 'temp_unschedulable_until' |
+  'quota_limit' | 'quota_used' | 'quota_daily_limit' | 'quota_daily_used' |
+  'quota_weekly_limit' | 'quota_weekly_used'
+>> & {
+  model_rate_limits?: Record<string, { rate_limit_reset_at: string }>
+  allow_overages?: boolean
+}
+
+export interface SubscriptionAccount extends AccountStatusInfo {
   id: number
   name: string
   platform: AccountPlatform
   type: AccountType
-  status: 'active' | 'disabled' | 'error'
   auth_mode?: string
   plan_type?: string
   privacy_mode?: string

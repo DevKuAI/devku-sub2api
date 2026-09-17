@@ -4,12 +4,31 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
 )
+
+type subscriptionModelRateLimit struct {
+	RateLimitResetAt string `json:"rate_limit_reset_at"`
+}
+
+func subscriptionAccountModelRateLimits(account *service.Account) map[string]subscriptionModelRateLimit {
+	limits, _ := account.Extra["model_rate_limits"].(map[string]any)
+	result := make(map[string]subscriptionModelRateLimit, len(limits))
+	for model, raw := range limits {
+		limit, _ := raw.(map[string]any)
+		resetAt, _ := limit["rate_limit_reset_at"].(string)
+		if _, err := time.Parse(time.RFC3339, resetAt); err != nil {
+			continue
+		}
+		result[model] = subscriptionModelRateLimit{RateLimitResetAt: resetAt}
+	}
+	return result
+}
 
 func boundSubscriptionAccount(c *gin.Context, adminService service.AdminService) (*service.Account, bool) {
 	subject, ok := middleware.GetAuthSubjectFromContext(c)

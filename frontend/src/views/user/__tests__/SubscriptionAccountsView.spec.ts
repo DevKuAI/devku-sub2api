@@ -1,5 +1,6 @@
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { MessageContext } from 'vue-i18n'
 
 const subscriptionAPI = vi.hoisted(() => ({
   list: vi.fn(), getUsage: vi.fn(), refreshUsage: vi.fn(), refreshQuota: vi.fn(), resetQuota: vi.fn(), getTiboResetMonitor: vi.fn(),
@@ -17,13 +18,14 @@ vi.mock('@/composables/useSubscriptionAccountAccess', () => ({
 }))
 vi.mock('vue-i18n', async (importOriginal) => ({
   ...(await importOriginal<typeof import('vue-i18n')>()),
-  useI18n: () => ({ t: (key: string) => key }),
+  useI18n: () => ({ t: (key: string, params?: Record<string, unknown>) => params ? `${key} ${Object.values(params).join(' ')}` : key }),
 }))
 
 import SubscriptionAccountsView from '../SubscriptionAccountsView.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import UsageProgressBar from '@/components/account/UsageProgressBar.vue'
-import type { SubscriptionAccountUsage } from '@/types'
+import { i18n } from '@/i18n'
+import type { SubscriptionAccount, SubscriptionAccountUsage } from '@/types'
 
 enableAutoUnmount(afterEach)
 
@@ -40,6 +42,18 @@ function mountView() {
 }
 
 describe('SubscriptionAccountsView', () => {
+  beforeAll(() => {
+    i18n.global.locale.value = 'en'
+    i18n.global.setLocaleMessage('en', {
+      common: { time: { countdown: {
+        daysHours: ({ named }: MessageContext) => `${named('d')}d ${named('h')}h`,
+        hoursMinutes: ({ named }: MessageContext) => `${named('h')}h ${named('m')}m`,
+        minutes: ({ named }: MessageContext) => `${named('m')}m`,
+        withSuffix: ({ named }: MessageContext) => `${named('time')} remaining`,
+      } } },
+    })
+  })
+
   beforeEach(() => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-09-04T00:00:00Z'))
@@ -126,6 +140,60 @@ describe('SubscriptionAccountsView', () => {
     vi.useRealTimers()
   })
 
+  it('shows an active rate limit instead of normal account status', async () => {
+    const accounts = await list()
+    accounts[0].rate_limit_reset_at = '2026-09-06T00:00:00Z'
+    list.mockResolvedValue(accounts)
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const header = wrapper.find('article').find('h2').element.parentElement!
+    expect(header.textContent).toContain('admin.accounts.status.rateLimited')
+    expect(header.textContent).toContain('2d 0h')
+    expect(header.textContent).toContain('429')
+    expect(header.textContent).not.toContain('subscriptionAccounts.status.active')
+    expect(header.textContent).not.toContain('admin.accounts.status.active')
+  })
+
+  it.each<[Partial<SubscriptionAccount>, string]>([
+    [{ schedulable: true }, 'active'],
+    [{ schedulable: false }, 'paused'],
+    [{ status: 'inactive' }, 'inactive'],
+    [{ status: 'error' }, 'error'],
+    [{ overload_until: '2026-09-06T00:00:00Z' }, 'overloaded'],
+    [{ temp_unschedulable_until: '2026-09-06T00:00:00Z' }, 'tempUnschedulable'],
+    [{ quota_daily_limit: 10, quota_daily_used: 10 }, 'quotaExceeded'],
+    [{ rate_limit_reset_at: '2026-09-03T00:00:00Z', schedulable: true }, 'active'],
+  ])('uses the admin status rules for %j', async (status, expected) => {
+    const accounts = await list()
+    Object.assign(accounts[0], status)
+    list.mockResolvedValue(accounts)
+    const wrapper = mountView()
+    await flushPromises()
+
+    const header = wrapper.find('article').find('h2').element.parentElement!
+    expect(header.textContent).toContain(`admin.accounts.status.${expected}`)
+    expect(header.querySelector('button')).toBeNull()
+    if (expected === 'overloaded') expect(header.textContent).toContain('529')
+    if (expected === 'tempUnschedulable') expect(header.textContent).toContain('admin.accounts.status.tempUnschedulableUntil')
+  })
+
+  it('shows model limits from the public status fields', async () => {
+    const accounts = await list()
+    Object.assign(accounts[0], {
+      model_rate_limits: { 'claude-sonnet-5': { rate_limit_reset_at: '2026-09-06T00:00:00Z' } },
+      allow_overages: true,
+    })
+    list.mockResolvedValue(accounts)
+    const wrapper = mountView()
+    await flushPromises()
+
+    const header = wrapper.find('article').find('h2').element.parentElement!
+    expect(header.textContent).toContain('CSon5')
+    expect(header.textContent).toContain('⚡')
+  })
+
   it('shows subscription details and quota actions for supported accounts', async () => {
     const wrapper = mountView()
     await flushPromises()
@@ -194,6 +262,37 @@ describe('SubscriptionAccountsView', () => {
     expect(adminQuotaAPI.refreshOpenAIQuota).not.toHaveBeenCalled()
   })
 
+  it('refreshes status after an active query without losing the new usage', async () => {
+    const accounts = await list()
+    const wrapper = mountView()
+    await flushPromises()
+    list.mockResolvedValue(accounts.map((account: SubscriptionAccount) => ({
+      ...account, usage: undefined, rate_limit_reset_at: '2026-09-06T00:00:00Z',
+    })))
+    refreshUsage.mockResolvedValue({ five_hour: { utilization: 100, resets_at: null } })
+
+    await wrapper.find('article').find('button').trigger('click')
+    await flushPromises()
+
+    expect(list).toHaveBeenLastCalledWith()
+    expect(wrapper.find('article').text()).toContain('100%')
+    expect(wrapper.find('article').text()).toContain('admin.accounts.status.rateLimited')
+  })
+
+  it('preserves usage when the status refresh fails and reports the failure', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    list.mockRejectedValue(new Error('Status read failed'))
+    refreshUsage.mockResolvedValue({ five_hour: { utilization: 42, resets_at: null } })
+
+    await wrapper.find('article').find('button').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findAll('article')).toHaveLength(2)
+    expect(wrapper.find('article').text()).toContain('42%')
+    expect(appStore.showError).toHaveBeenCalledWith('subscriptionAccounts.failedToLoad')
+  })
+
   it('queries reset credits through the user API and expands expiration details', async () => {
     refreshQuota.mockResolvedValue({
       fetched_at: 123, cache_persisted: true,
@@ -223,6 +322,9 @@ describe('SubscriptionAccountsView', () => {
   })
 
   it('requires confirmation before spending a credit and refreshes usage after success', async () => {
+    const accounts = await list()
+    accounts[0].rate_limit_reset_at = '2026-09-06T00:00:00Z'
+    list.mockResolvedValue(accounts)
     resetQuota.mockResolvedValue({
       code: 'success', windows_reset: 1, cache_refreshed: true, account_state_recovered: true,
       quota: { fetched_at: 123, rate_limit_reset_credits: { available_count: 1, credits: [{ expires_at: '2099-10-05T01:56:00Z' }] } },
@@ -231,6 +333,7 @@ describe('SubscriptionAccountsView', () => {
     const wrapper = mountView()
     await flushPromises()
     const article = wrapper.find('article')
+    expect(article.text()).toContain('admin.accounts.status.rateLimited')
     const resetButton = article.findAll('button')[2]
     await resetButton.trigger('click')
     const dialog = wrapper.findComponent(ConfirmDialog)
@@ -241,6 +344,9 @@ describe('SubscriptionAccountsView', () => {
     expect(resetQuota).not.toHaveBeenCalled()
 
     await resetButton.trigger('click')
+    list.mockResolvedValue(accounts.map((account: SubscriptionAccount) => ({
+      ...account, usage: undefined, rate_limit_reset_at: null,
+    })))
     dialog.vm.$emit('confirm')
     await flushPromises()
     expect(resetQuota).toHaveBeenCalledTimes(1)
@@ -250,9 +356,14 @@ describe('SubscriptionAccountsView', () => {
     expect(article.findAll('button')[1].text()).toMatch(/count\s*1/)
     expect(article.find('[data-testid="reset-credit-expiry-toggle"]').exists()).toBe(false)
     expect(article.text()).toContain('admin.accounts.openaiQuotaReset.resetSuccess')
+    expect(article.text()).toContain('admin.accounts.status.active')
+    expect(article.text()).not.toContain('admin.accounts.status.rateLimited')
   })
 
   it('keeps reset success distinct from a failed cache or usage refresh', async () => {
+    const accounts = await list()
+    accounts[0].rate_limit_reset_at = '2026-09-06T00:00:00Z'
+    list.mockResolvedValue(accounts)
     resetQuota.mockResolvedValue({
       code: 'success', windows_reset: 1, cache_refreshed: false, account_state_recovered: true,
       warning_code: 'reset_credit_cache_refresh_failed',
@@ -261,6 +372,9 @@ describe('SubscriptionAccountsView', () => {
     const wrapper = mountView()
     await flushPromises()
     const article = wrapper.find('article')
+    list.mockResolvedValue(accounts.map((account: SubscriptionAccount) => ({
+      ...account, usage: undefined, rate_limit_reset_at: null,
+    })))
     await article.findAll('button')[2].trigger('click')
     wrapper.findComponent(ConfirmDialog).vm.$emit('confirm')
     await flushPromises()
@@ -270,6 +384,7 @@ describe('SubscriptionAccountsView', () => {
     expect(article.findAll('button')[1].text()).not.toMatch(/\d/)
     expect(article.text()).toContain('admin.accounts.openaiQuotaReset.resetCacheRefreshFailed')
     expect(article.text()).toContain('subscriptionAccounts.failedToRefreshUsage')
+    expect(article.text()).not.toContain('admin.accounts.status.rateLimited')
   })
 
   it.each([

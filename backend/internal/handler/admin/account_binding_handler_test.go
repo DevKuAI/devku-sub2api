@@ -266,6 +266,48 @@ func TestAccountHandlerListMySubscriptionAccountsInheritsOnlyMissingSubscription
 	require.NotContains(t, recorder.Body.String(), "private")
 }
 
+func TestAccountHandlerListMySubscriptionAccountsIncludesSafeSchedulingStatus(t *testing.T) {
+	resetAt := time.Date(2026, 9, 19, 0, 0, 0, 0, time.UTC)
+	stub := &accountBindingAdminService{
+		stubAdminService: newStubAdminService(),
+		accounts: []service.Account{{
+			ID: 8, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey,
+			Status: service.StatusActive, Schedulable: false,
+			RateLimitResetAt: &resetAt, OverloadUntil: &resetAt, TempUnschedulableUntil: &resetAt,
+			ErrorMessage: "private upstream error", TempUnschedulableReason: "private upstream response",
+			Extra: map[string]any{
+				"quota_limit": 10.0, "quota_used": 10.0, "allow_overages": true,
+				"model_rate_limits": map[string]any{
+					"gpt-5": map[string]any{"rate_limit_reset_at": resetAt.Format(time.RFC3339), "debug": "private debug"},
+				},
+			},
+		}},
+	}
+	recorder := requestSubscriptionAccounts(newAccountBindingHandler(stub))
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var payload struct {
+		Data []map[string]any `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &payload))
+	require.Len(t, payload.Data, 1)
+	account := payload.Data[0]
+	require.Equal(t, service.StatusActive, account["status"])
+	require.Equal(t, false, account["schedulable"])
+	for _, field := range []string{"rate_limit_reset_at", "overload_until", "temp_unschedulable_until"} {
+		require.Equal(t, resetAt.Format(time.RFC3339), account[field], field)
+	}
+	require.Equal(t, float64(10), account["quota_limit"])
+	require.Equal(t, float64(10), account["quota_used"])
+	require.Equal(t, true, account["allow_overages"])
+	require.Equal(t, map[string]any{
+		"gpt-5": map[string]any{"rate_limit_reset_at": resetAt.Format(time.RFC3339)},
+	}, account["model_rate_limits"])
+	for _, field := range []string{"credentials", "extra", "error_message", "temp_unschedulable_reason"} {
+		require.NotContains(t, account, field)
+	}
+	require.NotContains(t, recorder.Body.String(), "private")
+}
+
 func TestAccountHandlerListMySubscriptionAccountsCompactStates(t *testing.T) {
 	for _, test := range []struct {
 		name     string
