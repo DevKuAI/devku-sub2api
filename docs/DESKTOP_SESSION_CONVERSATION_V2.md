@@ -12,6 +12,30 @@
 - `/me`、`/model-configuration`、`/usage/summary` 和 `/auth/logout` 同时接受 v1/v2，v2 请求均须携带绑定的安装 ID；校验失败不切换验证器。
 - 新客户端必须确认登录响应的 `auth_version` 为 2，不能将旧 JWT 当成长效凭证，也不能按 `idle_expires_at` 快照定时退出。
 
+## 企业对话上报开关
+
+管理员在「创建企业」和「编辑企业」中勾选「上报对话记录」，对应 `conversation_reporting_enabled`。新企业默认关闭；migration 240 将已有企业也设为关闭，需要管理员明确开启。企业管理账号只读，不能自行修改此开关。
+
+`GET /api/desktop/v1/model-configuration` 的 `data` 增加必返布尔字段：
+
+```json
+{
+  "data": {
+    "configuration_version": "cfg_example",
+    "base_url": "https://gateway.example.com/v1",
+    "model_token": "<Model Token>",
+    "targets": {},
+    "conversation_reporting_enabled": false
+  }
+}
+```
+
+上例仅展示字段位置，`targets` 的实际内容沿用原模型配置合同。Desktop 仅在该字段明确为 `true` 时启用对话采集与上报；缺失视为关闭。开关参与 `configuration_version` 和 ETag，切换后旧 ETag 不会导致误返回 304，不要求用户重新登录。
+
+后端在读取上报正文前拒绝已关闭的企业，并在入库事务内锁定企业行、再次检查开关。正常关闭请求不消耗上报限额、不 touch 会话；并发请求若此前已经 touch，但在入库前遇到关闭，也不会保存记录。
+
+关闭时返回 `403 CONVERSATION_REPORTING_DISABLED`。用户企业管理页隐藏「对话记录」Tab，直接访问用户查询 API 也返回 403。已进入该 Tab 的页面再次加载到关闭配置后回到「成员」。管理员仍可查询历史记录，关闭不删除已存数据。
+
 ## 登录与 15 天滑动会话
 
 ```http
@@ -107,7 +131,7 @@ Cache-Control: no-store
 | HTTP | code |
 | --- | --- |
 | 401 | `UNAUTHENTICATED`、`SESSION_AUTH_REQUIRED` |
-| 403 | `MEMBERSHIP_REVOKED`、`SESSION_INSTALLATION_MISMATCH`、`CONVERSATION_IDENTITY_MISMATCH` |
+| 403 | `MEMBERSHIP_REVOKED`、`SESSION_INSTALLATION_MISMATCH`、`CONVERSATION_IDENTITY_MISMATCH`、`CONVERSATION_REPORTING_DISABLED` |
 | 409 | `CONVERSATION_RECORD_EXISTS` |
 | 413 | `PAYLOAD_TOO_LARGE` |
 | 415 | `UNSUPPORTED_MEDIA_TYPE` |

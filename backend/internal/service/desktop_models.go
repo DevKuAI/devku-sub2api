@@ -47,23 +47,24 @@ var (
 )
 
 type DesktopOrganization struct {
-	ID                   int64
-	PublicID             string
-	Code                 string
-	Name                 string
-	Status               string
-	AuthVersion          int64
-	GatewayUserID        int64
-	GatewayUserEmail     string
-	GatewayUserName      string
-	GroupID              int64
-	GroupName            string
-	TargetConfig         *DesktopTargetConfig
-	MemberCount          int
-	MemberLimit          int
-	TargetConfigAssigned bool
-	CreatedAt            time.Time
-	UpdatedAt            time.Time
+	ConversationReportingEnabled bool
+	ID                           int64
+	PublicID                     string
+	Code                         string
+	Name                         string
+	Status                       string
+	AuthVersion                  int64
+	GatewayUserID                int64
+	GatewayUserEmail             string
+	GatewayUserName              string
+	GroupID                      int64
+	GroupName                    string
+	TargetConfig                 *DesktopTargetConfig
+	MemberCount                  int
+	MemberLimit                  int
+	TargetConfigAssigned         bool
+	CreatedAt                    time.Time
+	UpdatedAt                    time.Time
 }
 
 type DesktopMember struct {
@@ -189,20 +190,22 @@ type DesktopMemberListFilters struct {
 }
 
 type DesktopCreateOrganizationInput struct {
-	PublicID      string
-	Code          string
-	Name          string
-	GatewayUserID int64
-	GroupID       int64
-	MemberLimit   *int
+	ConversationReportingEnabled bool
+	PublicID                     string
+	Code                         string
+	Name                         string
+	GatewayUserID                int64
+	GroupID                      int64
+	MemberLimit                  *int
 }
 
 type DesktopUpdateOrganizationInput struct {
-	Name          *string
-	Status        *string
-	GatewayUserID *int64
-	GroupID       *int64
-	MemberLimit   *int
+	ConversationReportingEnabled *bool
+	Name                         *string
+	Status                       *string
+	GatewayUserID                *int64
+	GroupID                      *int64
+	MemberLimit                  *int
 }
 
 type DesktopCreateMemberInput struct {

@@ -334,3 +334,23 @@ func TestDesktopDependencyGuards(t *testing.T) {
 		})
 	}
 }
+
+func TestDesktopReportingFlagIsReturnedAndInvalidatesConfigurationETag(t *testing.T) {
+	authorized := activeDesktopAuthorization()
+	svc := &DesktopService{config: config.DesktopConfig{PublicGatewayBaseURL: "https://gateway.example.com/v1"}}
+	beforeVersion := authorized.Organization.AuthVersion
+	disabled, disabledTag, err := svc.ModelConfiguration(authorized, nil)
+	require.NoError(t, err)
+	require.False(t, disabled.ConversationReportingEnabled)
+	authorized.Organization.ConversationReportingEnabled = true
+	enabled, enabledTag, err := svc.ModelConfiguration(authorized, nil)
+	require.NoError(t, err)
+	require.True(t, enabled.ConversationReportingEnabled)
+	require.NotEqual(t, disabledTag, enabledTag)
+	require.Equal(t, beforeVersion, authorized.Organization.AuthVersion)
+	authorized.Organization.ConversationReportingEnabled = false
+	disabledAgain, afterTag, err := svc.ModelConfiguration(authorized, nil)
+	require.NoError(t, err)
+	require.False(t, disabledAgain.ConversationReportingEnabled)
+	require.Equal(t, disabledTag, afterTag)
+}

@@ -95,6 +95,11 @@ func MemberLimit(v int) predicate.DesktopOrganization {
 	return predicate.DesktopOrganization(sql.FieldEQ(FieldMemberLimit, v))
 }
 
+// ConversationReportingEnabled applies equality check predicate on the "conversation_reporting_enabled" field. It's identical to ConversationReportingEnabledEQ.
+func ConversationReportingEnabled(v bool) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldEQ(FieldConversationReportingEnabled, v))
+}
+
 // AuthVersion applies equality check predicate on the "auth_version" field. It's identical to AuthVersionEQ.
 func AuthVersion(v int64) predicate.DesktopOrganization {
 	return predicate.DesktopOrganization(sql.FieldEQ(FieldAuthVersion, v))
@@ -538,6 +543,16 @@ func MemberLimitLT(v int) predicate.DesktopOrganization {
 // MemberLimitLTE applies the LTE predicate on the "member_limit" field.
 func MemberLimitLTE(v int) predicate.DesktopOrganization {
 	return predicate.DesktopOrganization(sql.FieldLTE(FieldMemberLimit, v))
+}
+
+// ConversationReportingEnabledEQ applies the EQ predicate on the "conversation_reporting_enabled" field.
+func ConversationReportingEnabledEQ(v bool) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldEQ(FieldConversationReportingEnabled, v))
+}
+
+// ConversationReportingEnabledNEQ applies the NEQ predicate on the "conversation_reporting_enabled" field.
+func ConversationReportingEnabledNEQ(v bool) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldNEQ(FieldConversationReportingEnabled, v))
 }
 
 // AuthVersionEQ applies the EQ predicate on the "auth_version" field.

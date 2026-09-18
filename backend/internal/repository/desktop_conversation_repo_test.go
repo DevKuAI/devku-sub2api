@@ -21,6 +21,7 @@ func TestDesktopConversationCommitFailureNeverReturnsReceipt(t *testing.T) {
 	t.Cleanup(func() { _ = db.Close() })
 	client := dbent.NewClient(dbent.Driver(entsql.OpenDB(dialect.Postgres, db)))
 	mock.ExpectBegin()
+	mock.ExpectQuery(`SELECT .* FROM "desktop_organizations"`).WillReturnRows(sqlmock.NewRows([]string{"id", "conversation_reporting_enabled"}).AddRow(1, true))
 	mock.ExpectQuery(`INSERT INTO "desktop_conversation_records"`).WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
 	mock.ExpectCommit().WillReturnError(errors.New("commit failed"))
 	repo := NewDesktopConversationRepository(client)

@@ -123,11 +123,41 @@ describe('Desktop organization member limit on creation', () => {
     const vm = wrapper.vm as any
     await vm.openCreate()
     expect(vm.form.member_limit).toBe(10)
-    Object.assign(vm.form, { name: 'Desktop', code: 'desktop', gateway_user_id: 42, group_id: 7, member_limit: limit })
+    Object.assign(vm.form, { name: 'Desktop', code: 'desktop', gateway_user_id: 42, group_id: 7, member_limit: limit, conversation_reporting_enabled: false })
     await vm.createOrganization()
 
-    expect(desktopAPI.createOrganization).toHaveBeenCalledWith({ name: 'Desktop', code: 'desktop', gateway_user_id: 42, group_id: 7, member_limit: limit })
+    expect(desktopAPI.createOrganization).toHaveBeenCalledWith({ name: 'Desktop', code: 'desktop', gateway_user_id: 42, group_id: 7, member_limit: limit, conversation_reporting_enabled: false })
     await vm.openCreate()
     expect(vm.form.member_limit).toBe(10)
+  })
+})
+
+describe('Desktop conversation reporting on creation', () => {
+  it.each([false, true])('creates an organization with reporting=%s and resets the next form', async (enabled) => {
+    desktopAPI.createOrganization.mockResolvedValue({ ...organization, conversation_reporting_enabled: enabled })
+    const wrapper = mount(DesktopOrganizationsView, {
+      global: {
+        plugins: [createI18n({ legacy: false, locale: 'en', messages: { en }, messageCompiler: (message) => () => String(message) })],
+        stubs: {
+          AppLayout: { template: '<main><slot /></main>' },
+          TablePageLayout: true,
+          BaseDialog: { props: ['show'], template: '<section v-if="show"><slot /></section>' },
+        },
+      },
+    })
+    await flushPromises()
+    const vm = wrapper.vm as any
+    await vm.openCreate()
+    await flushPromises()
+    const checkbox = wrapper.get('[data-testid="desktop-create-conversation-reporting"]')
+    expect((checkbox.element as HTMLInputElement).checked).toBe(false)
+    await checkbox.setValue(enabled)
+    Object.assign(vm.form, { name: 'Desktop', code: 'desktop', gateway_user_id: 42, group_id: 7 })
+    await wrapper.get('#desktop-organization-create').trigger('submit')
+    await flushPromises()
+    expect(desktopAPI.createOrganization).toHaveBeenCalledWith(expect.objectContaining({ conversation_reporting_enabled: enabled }))
+    await vm.openCreate()
+    await flushPromises()
+    expect((wrapper.get('[data-testid="desktop-create-conversation-reporting"]').element as HTMLInputElement).checked).toBe(false)
   })
 })

@@ -147,3 +147,25 @@ func TestDesktopAdminRejectsInvalidMemberLimit(t *testing.T) {
 		}
 	}
 }
+
+func TestDesktopAdminConversationReportingContract(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		raw, err := json.Marshal(map[string]any{"conversation_reporting_enabled": enabled})
+		require.NoError(t, err)
+		var create desktopCreateOrganizationRequest
+		require.NoError(t, json.Unmarshal(raw, &create))
+		require.Equal(t, enabled, create.ConversationReportingEnabled)
+		var update desktopUpdateOrganizationRequest
+		require.NoError(t, json.Unmarshal(raw, &update))
+		require.NotNil(t, update.ConversationReportingEnabled)
+		require.Equal(t, enabled, *update.ConversationReportingEnabled)
+		output, err := json.Marshal(desktopOrganizationFromService(&service.DesktopOrganization{ConversationReportingEnabled: enabled}, true))
+		require.NoError(t, err)
+		var fields map[string]any
+		require.NoError(t, json.Unmarshal(output, &fields))
+		require.Equal(t, enabled, fields["conversation_reporting_enabled"])
+	}
+	var omitted desktopUpdateOrganizationRequest
+	require.NoError(t, json.Unmarshal([]byte(`{}`), &omitted))
+	require.Nil(t, omitted.ConversationReportingEnabled)
+}

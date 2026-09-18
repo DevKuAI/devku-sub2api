@@ -11,6 +11,12 @@
 - 启用前必须配置 `DESKTOP_JWT_SECRET` 和以 `/v1` 结尾的 HTTPS `DESKTOP_PUBLIC_GATEWAY_BASE_URL`。
 - Admin 不提供 Secret 的读取或编辑入口。
 
+## 企业对话上报
+
+创建企业和编辑企业均支持 `conversation_reporting_enabled`，默认 `false`，仅管理员可修改；PATCH 省略该字段时保留当前值，显式 `false` 关闭。企业列表/详情及企业用户的只读详情均返回此字段。
+
+`GET /api/desktop/v1/model-configuration` 将此字段返回给 Desktop，并将其纳入配置版本和 ETag。Desktop 应仅在明确为 `true` 时启用采集与上报。关闭后后端拒绝新记录及企业用户的对话查询，用户端隐藏「对话记录」Tab；管理员仍能查看已有记录。迁移和错误码见 [Desktop v2](DESKTOP_SESSION_CONVERSATION_V2.md#企业对话上报开关)。
+
 ## 通用约定
 
 ### Admin 鉴权与响应

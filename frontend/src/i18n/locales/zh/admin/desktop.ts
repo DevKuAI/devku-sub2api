@@ -1,5 +1,7 @@
 export default {
   desktop: {
+    conversationReporting: '上报对话记录',
+    conversationReportingHint: '开启后，Desktop 可上报提问和最终回复，用户企业管理页显示「对话记录」。关闭后停止接收新记录，已有记录保留。',
     conversations: {
       title: "对话记录",
       memberSearch: "成员姓名或 ID",
@@ -146,6 +148,7 @@ export default {
       }
     },
     errors: {
+      CONVERSATION_REPORTING_DISABLED: '企业尚未开启对话上报',
       MEMBER_LIMIT_REACHED: '企业成员数已达上限，请联系管理员调整成员上限。',
       MEMBER_LIMIT_BELOW_CURRENT_COUNT: '成员上限不能低于当前成员数，请先删除不再使用的成员。',
       GROUP_NOT_ALLOWED: '承载用户无法使用所选分组，请检查分组状态、访问权限和有效订阅。',

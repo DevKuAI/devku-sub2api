@@ -76,6 +76,10 @@
           <label for="desktop-create-member-limit" class="input-label mb-1.5 block">{{ t('admin.desktop.memberLimit') }} <span class="text-red-500">*</span></label>
           <input id="desktop-create-member-limit" v-model.number="form.member_limit" class="input" type="number" min="1" step="1" required />
         </div>
+        <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 p-3 dark:border-dark-700">
+          <input v-model="form.conversation_reporting_enabled" data-testid="desktop-create-conversation-reporting" type="checkbox" class="mt-0.5 h-4 w-4 rounded" aria-describedby="desktop-create-reporting-hint" />
+          <span class="min-w-0"><span class="text-sm font-medium">{{ t('admin.desktop.conversationReporting') }}</span><span id="desktop-create-reporting-hint" class="mt-1 block text-xs leading-5 text-gray-500 dark:text-dark-400">{{ t('admin.desktop.conversationReportingHint') }}</span></span>
+        </label>
       </form>
       <template #footer>
         <div class="flex justify-end gap-3">
@@ -123,7 +127,7 @@ const usersLoading = ref(false)
 const groupsLoading = ref(false)
 const users = ref<AdminUser[]>([])
 const groups = ref<AdminGroup[]>([])
-const form = reactive({ name: '', code: '', gateway_user_id: null as number | null, group_id: null as number | null, member_limit: 10 })
+const form = reactive({ name: '', code: '', gateway_user_id: null as number | null, group_id: null as number | null, member_limit: 10, conversation_reporting_enabled: false })
 let searchTimer: ReturnType<typeof setTimeout> | undefined
 let listController: AbortController | undefined
 let userController: AbortController | undefined
@@ -177,7 +181,7 @@ async function loadUsers(query = '') {
   finally { usersLoading.value = false }
 }
 async function openCreate() {
-  Object.assign(form, { name: '', code: '', gateway_user_id: null, group_id: null, member_limit: 10 })
+  Object.assign(form, { name: '', code: '', gateway_user_id: null, group_id: null, member_limit: 10, conversation_reporting_enabled: false })
   showCreate.value = true; groupsLoading.value = true
   void loadUsers()
   try { groups.value = await adminAPI.desktop.listActiveGroups() }
@@ -191,7 +195,7 @@ async function createOrganization() {
   }
   creating.value = true
   try {
-    const created = await adminAPI.desktop.createOrganization({ name: form.name.trim(), code: form.code.trim().toLowerCase(), gateway_user_id: form.gateway_user_id, group_id: form.group_id, member_limit: form.member_limit })
+    const created = await adminAPI.desktop.createOrganization({ name: form.name.trim(), code: form.code.trim().toLowerCase(), gateway_user_id: form.gateway_user_id, group_id: form.group_id, member_limit: form.member_limit, conversation_reporting_enabled: form.conversation_reporting_enabled })
     appStore.showSuccess(t('admin.desktop.organizationCreated')); showCreate.value = false
     await router.push(`/admin/desktop/organizations/${encodeURIComponent(created.public_id)}`)
   } catch (error) { appStore.showError(errorMessage(error)) }

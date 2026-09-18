@@ -132,14 +132,14 @@ func (s *desktopConversationRepositoryStub) List(_ context.Context, organization
 }
 
 func TestDesktopConversationActivityOrdering(t *testing.T) {
-	for _, scenario := range []string{"ok", "identity", "invalid", "limited", "expired", "storage", "duplicate", "v1"} {
+	for _, scenario := range []string{"ok", "identity", "invalid", "limited", "expired", "storage", "duplicate", "v1", "disabled"} {
 		t.Run(scenario, func(t *testing.T) {
 			input := validDesktopConversationInput()
 			sessions := &desktopSessionStub{}
 			limiter := &desktopConversationLimiterStub{}
 			repo := &desktopConversationRepositoryStub{}
 			svc := &DesktopService{sessions: sessions, conversationLimiter: limiter, conversations: repo}
-			auth := &DesktopAuthorization{Session: &DesktopSession{InstallationID: input.InstallationID}, Member: &DesktopAuthorizedMember{Member: &DesktopMember{ID: 1, PublicID: input.MemberID}, Organization: &DesktopOrganization{ID: 2, PublicID: input.OrganizationID}}}
+			auth := &DesktopAuthorization{Session: &DesktopSession{InstallationID: input.InstallationID}, Member: &DesktopAuthorizedMember{Member: &DesktopMember{ID: 1, PublicID: input.MemberID}, Organization: &DesktopOrganization{ID: 2, PublicID: input.OrganizationID, ConversationReportingEnabled: true}}}
 			switch scenario {
 			case "identity":
 				input.MemberID = "mem_other"
@@ -155,6 +155,8 @@ func TestDesktopConversationActivityOrdering(t *testing.T) {
 				repo.err = ErrDesktopConversationExists
 			case "v1":
 				auth.Session = nil
+			case "disabled":
+				auth.Member.Organization.ConversationReportingEnabled = false
 			}
 			_, err := svc.CreateConversation(context.Background(), auth, input)
 			if scenario == "ok" {
@@ -201,10 +203,50 @@ func TestDesktopV2RechecksIdentityAndInstallation(t *testing.T) {
 
 func TestDesktopManagedConversationScopeComesFromUser(t *testing.T) {
 	repo := &desktopConversationRepositoryStub{}
-	identityRepo := &desktopRepositoryStub{organization: &DesktopOrganization{ID: 7, PublicID: "org_owned"}}
+	identityRepo := &desktopRepositoryStub{organization: &DesktopOrganization{ID: 7, PublicID: "org_owned", ConversationReportingEnabled: true}}
 	svc := &DesktopService{repo: identityRepo, conversations: repo}
 	_, _, err := svc.ListConversations(context.Background(), "org_other", 42, pagination.DefaultPagination(), DesktopConversationFilters{})
 	require.NoError(t, err)
 	require.Equal(t, []int64{42}, identityRepo.scopedUserIDs)
 	require.EqualValues(t, 7, repo.organizationID)
+}
+
+func TestDesktopConversationReportingRequiresOptInBeforeActivity(t *testing.T) {
+	input := validDesktopConversationInput()
+	sessions := &desktopSessionStub{}
+	limiter := &desktopConversationLimiterStub{}
+	records := &desktopConversationRepositoryStub{}
+	svc := &DesktopService{sessions: sessions, conversationLimiter: limiter, conversations: records}
+	auth := &DesktopAuthorization{Session: &DesktopSession{InstallationID: input.InstallationID}, Member: &DesktopAuthorizedMember{Member: &DesktopMember{ID: 1, PublicID: input.MemberID}, Organization: &DesktopOrganization{ID: 2, PublicID: input.OrganizationID}}}
+	_, err := svc.CreateConversation(context.Background(), auth, input)
+	require.ErrorIs(t, err, ErrDesktopConversationReportingDisabled)
+	require.Zero(t, limiter.calls)
+	require.Zero(t, sessions.touches)
+	require.Zero(t, records.writes)
+}
+
+func (s *desktopConversationRepositoryStub) Get(_ context.Context, organizationID int64, recordID string) (*DesktopConversationDetail, error) {
+	s.organizationID = organizationID
+	return &DesktopConversationDetail{DesktopConversationMetadata: DesktopConversationMetadata{RecordID: recordID}}, nil
+}
+
+func TestDesktopConversationReportingControlsManagedHistoryOnly(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		for _, managerID := range []int64{0, 42} {
+			records := &desktopConversationRepositoryStub{}
+			identity := &desktopRepositoryStub{organization: &DesktopOrganization{ID: 7, PublicID: "org_one", ConversationReportingEnabled: enabled}}
+			svc := &DesktopService{repo: identity, conversations: records}
+			_, _, listErr := svc.ListConversations(context.Background(), "org_one", managerID, pagination.DefaultPagination(), DesktopConversationFilters{})
+			_, getErr := svc.GetConversation(context.Background(), "org_one", managerID, uuid.NewString())
+			if managerID > 0 && !enabled {
+				require.ErrorIs(t, listErr, ErrDesktopConversationReportingDisabled)
+				require.ErrorIs(t, getErr, ErrDesktopConversationReportingDisabled)
+				require.Zero(t, records.organizationID)
+			} else {
+				require.NoError(t, listErr)
+				require.NoError(t, getErr)
+				require.EqualValues(t, 7, records.organizationID)
+			}
+		}
+	}
 }

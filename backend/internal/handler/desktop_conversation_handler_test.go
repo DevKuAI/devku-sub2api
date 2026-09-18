@@ -92,7 +92,7 @@ func (conversationRefreshStore) Create(context.Context, string, service.DesktopR
 	return nil
 }
 
-func conversationRouter(t *testing.T) (*gin.Engine, *conversationSessions, *conversationWriteRepo, *conversationRateLimiter) {
+func conversationRouter(t *testing.T, reporting ...bool) (*gin.Engine, *conversationSessions, *conversationWriteRepo, *conversationRateLimiter) {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	cfg := &config.Config{Desktop: config.DesktopConfig{JWTSecret: base64.StdEncoding.EncodeToString(make([]byte, 32)), AccessTokenTTLMinutes: 15, RefreshFamilyTTLDays: 30}}
@@ -102,6 +102,7 @@ func conversationRouter(t *testing.T) (*gin.Engine, *conversationSessions, *conv
 		Member:       &service.DesktopMember{ID: 1, PublicID: "mem_one", Name: "Member", NameNormalized: "Member", Status: "active", AuthVersion: 1},
 		Organization: &service.DesktopOrganization{ID: 2, PublicID: "org_one", Status: "active", AuthVersion: 1}, GatewayUser: &service.User{Status: "active"},
 	}}
+	repo.authorized.Organization.ConversationReportingEnabled = len(reporting) == 0 || reporting[0]
 	keyID := int64(7)
 	repo.authorized.Member.CurrentAPIKeyID = &keyID
 	repo.authorized.Member.CurrentAPIKey = "sk-model-canary"
@@ -277,4 +278,47 @@ func TestDesktopV2ConfigurationNotModifiedTouchesSession(t *testing.T) {
 	invalid := fetch("/configuration?targets=unknown", "")
 	require.Equal(t, 422, invalid.Code)
 	require.Equal(t, 2, sessions.touches)
+}
+
+func TestDesktopReportingDisabledRejectsUploadBeforeReadingBody(t *testing.T) {
+	router, sessions, records, _ := conversationRouter(t, false)
+	request := httptest.NewRequest(http.MethodPost, "/conversation-records", strings.NewReader("invalid JSON"))
+	request.Header.Set("Authorization", "Bearer "+conversationTestToken)
+	request.Header.Set("X-Installation-ID", conversationTestInstallation)
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+	require.Equal(t, 403, response.Code)
+	require.Contains(t, response.Body.String(), "CONVERSATION_REPORTING_DISABLED")
+	require.Equal(t, "no-store", response.Header().Get("Cache-Control"))
+	require.Zero(t, sessions.touches)
+	require.Zero(t, records.writes)
+
+	configRequest := httptest.NewRequest(http.MethodGet, "/configuration", nil)
+	configRequest.Header = request.Header.Clone()
+	result := httptest.NewRecorder()
+	router.ServeHTTP(result, configRequest)
+	require.Equal(t, 200, result.Code)
+	require.Contains(t, result.Body.String(), `"conversation_reporting_enabled":false`)
+}
+
+func TestDesktopReportingChangeReturnsFreshConfigurationInsteadOf304(t *testing.T) {
+	fetch := func(enabled bool, etag string) *httptest.ResponseRecorder {
+		router, _, _, _ := conversationRouter(t, enabled)
+		request := httptest.NewRequest(http.MethodGet, "/configuration", nil)
+		request.Header.Set("Authorization", "Bearer "+conversationTestToken)
+		request.Header.Set("X-Installation-ID", conversationTestInstallation)
+		request.Header.Set("If-None-Match", etag)
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, request)
+		return response
+	}
+	disabled := fetch(false, "")
+	require.Equal(t, 200, disabled.Code)
+	require.Contains(t, disabled.Body.String(), `"conversation_reporting_enabled":false`)
+	enabled := fetch(true, disabled.Header().Get("ETag"))
+	require.Equal(t, 200, enabled.Code)
+	require.Contains(t, enabled.Body.String(), `"conversation_reporting_enabled":true`)
+	require.NotEqual(t, disabled.Header().Get("ETag"), enabled.Header().Get("ETag"))
+	require.Equal(t, 304, fetch(true, enabled.Header().Get("ETag")).Code)
+	require.Equal(t, 200, fetch(false, enabled.Header().Get("ETag")).Code)
 }

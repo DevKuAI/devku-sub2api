@@ -79,6 +79,7 @@ export interface DesktopOrganization {
   group: DesktopGroup
   member_count: number
   member_limit: number
+  conversation_reporting_enabled: boolean
   target_config_assigned: boolean
   target_config?: DesktopTargetConfig | null
   created_at: string
@@ -111,6 +112,7 @@ export interface CreateDesktopOrganizationRequest {
   gateway_user_id: number
   group_id: number
   member_limit?: number
+  conversation_reporting_enabled?: boolean
 }
 
 export interface UpdateDesktopOrganizationRequest {
@@ -119,6 +121,7 @@ export interface UpdateDesktopOrganizationRequest {
   gateway_user_id?: number
   group_id?: number
   member_limit?: number
+  conversation_reporting_enabled?: boolean
 }
 
 export interface CreateDesktopMemberRequest {

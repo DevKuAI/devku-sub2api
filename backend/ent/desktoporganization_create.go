@@ -114,6 +114,20 @@ func (_c *DesktopOrganizationCreate) SetNillableMemberLimit(v *int) *DesktopOrga
 	return _c
 }
 
+// SetConversationReportingEnabled sets the "conversation_reporting_enabled" field.
+func (_c *DesktopOrganizationCreate) SetConversationReportingEnabled(v bool) *DesktopOrganizationCreate {
+	_c.mutation.SetConversationReportingEnabled(v)
+	return _c
+}
+
+// SetNillableConversationReportingEnabled sets the "conversation_reporting_enabled" field if the given value is not nil.
+func (_c *DesktopOrganizationCreate) SetNillableConversationReportingEnabled(v *bool) *DesktopOrganizationCreate {
+	if v != nil {
+		_c.SetConversationReportingEnabled(*v)
+	}
+	return _c
+}
+
 // SetAuthVersion sets the "auth_version" field.
 func (_c *DesktopOrganizationCreate) SetAuthVersion(v int64) *DesktopOrganizationCreate {
 	_c.mutation.SetAuthVersion(v)
@@ -230,6 +244,10 @@ func (_c *DesktopOrganizationCreate) defaults() error {
 		v := desktoporganization.DefaultMemberLimit
 		_c.mutation.SetMemberLimit(v)
 	}
+	if _, ok := _c.mutation.ConversationReportingEnabled(); !ok {
+		v := desktoporganization.DefaultConversationReportingEnabled
+		_c.mutation.SetConversationReportingEnabled(v)
+	}
 	if _, ok := _c.mutation.AuthVersion(); !ok {
 		v := desktoporganization.DefaultAuthVersion
 		_c.mutation.SetAuthVersion(v)
@@ -284,6 +302,9 @@ func (_c *DesktopOrganizationCreate) check() error {
 		if err := desktoporganization.MemberLimitValidator(v); err != nil {
 			return &ValidationError{Name: "member_limit", err: fmt.Errorf(`ent: validator failed for field "DesktopOrganization.member_limit": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.ConversationReportingEnabled(); !ok {
+		return &ValidationError{Name: "conversation_reporting_enabled", err: errors.New(`ent: missing required field "DesktopOrganization.conversation_reporting_enabled"`)}
 	}
 	if _, ok := _c.mutation.AuthVersion(); !ok {
 		return &ValidationError{Name: "auth_version", err: errors.New(`ent: missing required field "DesktopOrganization.auth_version"`)}
@@ -363,6 +384,10 @@ func (_c *DesktopOrganizationCreate) createSpec() (*DesktopOrganization, *sqlgra
 	if value, ok := _c.mutation.MemberLimit(); ok {
 		_spec.SetField(desktoporganization.FieldMemberLimit, field.TypeInt, value)
 		_node.MemberLimit = value
+	}
+	if value, ok := _c.mutation.ConversationReportingEnabled(); ok {
+		_spec.SetField(desktoporganization.FieldConversationReportingEnabled, field.TypeBool, value)
+		_node.ConversationReportingEnabled = value
 	}
 	if value, ok := _c.mutation.AuthVersion(); ok {
 		_spec.SetField(desktoporganization.FieldAuthVersion, field.TypeInt64, value)
@@ -555,6 +580,18 @@ func (u *DesktopOrganizationUpsert) UpdateMemberLimit() *DesktopOrganizationUpse
 // AddMemberLimit adds v to the "member_limit" field.
 func (u *DesktopOrganizationUpsert) AddMemberLimit(v int) *DesktopOrganizationUpsert {
 	u.Add(desktoporganization.FieldMemberLimit, v)
+	return u
+}
+
+// SetConversationReportingEnabled sets the "conversation_reporting_enabled" field.
+func (u *DesktopOrganizationUpsert) SetConversationReportingEnabled(v bool) *DesktopOrganizationUpsert {
+	u.Set(desktoporganization.FieldConversationReportingEnabled, v)
+	return u
+}
+
+// UpdateConversationReportingEnabled sets the "conversation_reporting_enabled" field to the value that was provided on create.
+func (u *DesktopOrganizationUpsert) UpdateConversationReportingEnabled() *DesktopOrganizationUpsert {
+	u.SetExcluded(desktoporganization.FieldConversationReportingEnabled)
 	return u
 }
 
@@ -761,6 +798,20 @@ func (u *DesktopOrganizationUpsertOne) AddMemberLimit(v int) *DesktopOrganizatio
 func (u *DesktopOrganizationUpsertOne) UpdateMemberLimit() *DesktopOrganizationUpsertOne {
 	return u.Update(func(s *DesktopOrganizationUpsert) {
 		s.UpdateMemberLimit()
+	})
+}
+
+// SetConversationReportingEnabled sets the "conversation_reporting_enabled" field.
+func (u *DesktopOrganizationUpsertOne) SetConversationReportingEnabled(v bool) *DesktopOrganizationUpsertOne {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.SetConversationReportingEnabled(v)
+	})
+}
+
+// UpdateConversationReportingEnabled sets the "conversation_reporting_enabled" field to the value that was provided on create.
+func (u *DesktopOrganizationUpsertOne) UpdateConversationReportingEnabled() *DesktopOrganizationUpsertOne {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.UpdateConversationReportingEnabled()
 	})
 }
 
@@ -1143,6 +1194,20 @@ func (u *DesktopOrganizationUpsertBulk) AddMemberLimit(v int) *DesktopOrganizati
 func (u *DesktopOrganizationUpsertBulk) UpdateMemberLimit() *DesktopOrganizationUpsertBulk {
 	return u.Update(func(s *DesktopOrganizationUpsert) {
 		s.UpdateMemberLimit()
+	})
+}
+
+// SetConversationReportingEnabled sets the "conversation_reporting_enabled" field.
+func (u *DesktopOrganizationUpsertBulk) SetConversationReportingEnabled(v bool) *DesktopOrganizationUpsertBulk {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.SetConversationReportingEnabled(v)
+	})
+}
+
+// UpdateConversationReportingEnabled sets the "conversation_reporting_enabled" field to the value that was provided on create.
+func (u *DesktopOrganizationUpsertBulk) UpdateConversationReportingEnabled() *DesktopOrganizationUpsertBulk {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.UpdateConversationReportingEnabled()
 	})
 }
 

@@ -1039,6 +1039,7 @@ var (
 		{Name: "name", Type: field.TypeString, Size: 200},
 		{Name: "status", Type: field.TypeString, Size: 20, Default: "active"},
 		{Name: "member_limit", Type: field.TypeInt, Default: 10},
+		{Name: "conversation_reporting_enabled", Type: field.TypeBool, Default: false},
 		{Name: "auth_version", Type: field.TypeInt64, Default: 1},
 		{Name: "target_config", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
 		{Name: "group_id", Type: field.TypeInt64},
@@ -1052,13 +1053,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "desktop_organizations_groups_desktop_organizations",
-				Columns:    []*schema.Column{DesktopOrganizationsColumns[11]},
+				Columns:    []*schema.Column{DesktopOrganizationsColumns[12]},
 				RefColumns: []*schema.Column{GroupsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "desktop_organizations_users_desktop_organizations",
-				Columns:    []*schema.Column{DesktopOrganizationsColumns[12]},
+				Columns:    []*schema.Column{DesktopOrganizationsColumns[13]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -1075,7 +1076,7 @@ var (
 			{
 				Name:    "idx_desktop_organizations_gateway_user_active",
 				Unique:  true,
-				Columns: []*schema.Column{DesktopOrganizationsColumns[12]},
+				Columns: []*schema.Column{DesktopOrganizationsColumns[13]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "deleted_at IS NULL",
 				},
@@ -1083,7 +1084,7 @@ var (
 			{
 				Name:    "idx_desktop_organizations_group_active",
 				Unique:  false,
-				Columns: []*schema.Column{DesktopOrganizationsColumns[11]},
+				Columns: []*schema.Column{DesktopOrganizationsColumns[12]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "deleted_at IS NULL",
 				},

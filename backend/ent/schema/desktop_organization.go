@@ -34,6 +34,7 @@ func (DesktopOrganization) Fields() []ent.Field {
 		field.String("name").MaxLen(200).NotEmpty(),
 		field.String("status").MaxLen(20).Default("active"),
 		field.Int("member_limit").Positive().Default(10),
+		field.Bool("conversation_reporting_enabled").Default(false),
 		field.Int64("auth_version").Positive().Default(1),
 		field.Int64("gateway_user_id"),
 		field.Int64("group_id"),

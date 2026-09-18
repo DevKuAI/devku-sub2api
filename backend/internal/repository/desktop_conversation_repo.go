@@ -7,6 +7,7 @@ import (
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/desktopconversationrecord"
 	"github.com/Wei-Shaw/sub2api/ent/desktopmember"
+	"github.com/Wei-Shaw/sub2api/ent/desktoporganization"
 	"github.com/Wei-Shaw/sub2api/ent/schema/mixins"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -29,6 +30,20 @@ func (r *desktopConversationRepository) Create(ctx context.Context, organization
 		return nil, service.ErrDesktopConversationStorage
 	}
 	defer func() { _ = tx.Rollback() }()
+	// Serialize the opt-in check with organization updates so disabling reporting
+	// cannot commit before a later conversation insert using a stale auth snapshot.
+	organization, err := tx.DesktopOrganization.Query().Where(desktoporganization.IDEQ(organizationID)).
+		Select(desktoporganization.FieldID, desktoporganization.FieldConversationReportingEnabled).ForShare().Only(ctx)
+	if dbent.IsNotFound(err) {
+		return nil, service.ErrDesktopMembershipRevoked
+	}
+	if err != nil {
+		return nil, service.ErrDesktopConversationStorage
+	}
+	if !organization.ConversationReportingEnabled {
+		return nil, service.ErrDesktopConversationReportingDisabled
+	}
+
 	builder := tx.DesktopConversationRecord.Create().
 		SetRecordID(uuid.MustParse(input.RecordID)).SetOrganizationID(organizationID).SetMemberID(memberID).
 		SetInstallationID(uuid.MustParse(input.InstallationID)).SetClient(input.Client).

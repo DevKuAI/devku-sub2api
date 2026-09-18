@@ -17,6 +17,16 @@ import (
 )
 
 func (h *DesktopHandler) CreateConversation(c *gin.Context) {
+	auth, ok := middleware.GetDesktopAuthorization(c)
+	if !ok || auth.Session == nil {
+		desktopError(c, service.ErrDesktopSessionRequired)
+		return
+	}
+	if !auth.Member.Organization.ConversationReportingEnabled {
+		desktopError(c, service.ErrDesktopConversationReportingDisabled)
+		return
+	}
+
 	start := time.Now()
 	var bodySize int
 	var recordID string
@@ -47,7 +57,6 @@ func (h *DesktopHandler) CreateConversation(c *gin.Context) {
 		return
 	}
 	recordID = input.RecordID
-	auth, _ := middleware.GetDesktopAuthorization(c)
 	result, err := h.desktop.CreateConversation(c.Request.Context(), auth, input)
 	if err != nil {
 		desktopError(c, err)

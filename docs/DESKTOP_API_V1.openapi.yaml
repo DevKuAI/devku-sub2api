@@ -1544,10 +1544,15 @@ components:
         - group
         - member_count
         - member_limit
+        - conversation_reporting_enabled
         - target_config_assigned
         - created_at
         - updated_at
       properties:
+        conversation_reporting_enabled:
+          type: boolean
+          default: false
+          description: 企业是否允许上报对话；默认 false，仅管理员可配置。
         public_id:
           type: string
           example: org_e8YpYvP3lQ8z4WkTWYx9Rw
@@ -1654,6 +1659,10 @@ components:
       additionalProperties: false
       required: [code, name, gateway_user_id, group_id]
       properties:
+        conversation_reporting_enabled:
+          type: boolean
+          default: false
+          description: 企业是否允许上报对话；默认 false，仅管理员可配置。
         code:
           type: string
           pattern: '^[a-z0-9]{2,16}$'
@@ -1679,6 +1688,10 @@ components:
       additionalProperties: false
       minProperties: 1
       properties:
+        conversation_reporting_enabled:
+          type: boolean
+          default: false
+          description: 企业是否允许上报对话；默认 false，仅管理员可配置。
         name:
           type: string
           minLength: 1
@@ -1935,8 +1948,12 @@ components:
 
     DesktopModelConfiguration:
       type: object
-      required: [configuration_version, base_url, model_token, targets]
+      required: [configuration_version, base_url, model_token, targets, conversation_reporting_enabled]
       properties:
+        conversation_reporting_enabled:
+          type: boolean
+          default: false
+          description: 企业对话上报开关。Desktop 仅在该字段明确为 true 时采集并上报；缺失按 false 处理。此字段参与 ETag。
         configuration_version:
           type: string
           example: cfg_5bd012371b9db10a0e8c

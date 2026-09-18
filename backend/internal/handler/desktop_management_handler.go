@@ -32,18 +32,19 @@ type desktopManagedUpdateMemberRequest struct {
 }
 
 type desktopManagedOrganizationDTO struct {
-	PublicID             string                       `json:"public_id"`
-	Code                 string                       `json:"code"`
-	Name                 string                       `json:"name"`
-	Status               string                       `json:"status"`
-	GatewayUser          desktopManagedGatewayUserDTO `json:"gateway_user"`
-	Group                desktopManagedGroupDTO       `json:"group"`
-	MemberCount          int                          `json:"member_count"`
-	MemberLimit          int                          `json:"member_limit"`
-	TargetConfigAssigned bool                         `json:"target_config_assigned"`
-	TargetConfig         *service.DesktopTargetConfig `json:"target_config,omitempty"`
-	CreatedAt            time.Time                    `json:"created_at"`
-	UpdatedAt            time.Time                    `json:"updated_at"`
+	ConversationReportingEnabled bool                         `json:"conversation_reporting_enabled"`
+	PublicID                     string                       `json:"public_id"`
+	Code                         string                       `json:"code"`
+	Name                         string                       `json:"name"`
+	Status                       string                       `json:"status"`
+	GatewayUser                  desktopManagedGatewayUserDTO `json:"gateway_user"`
+	Group                        desktopManagedGroupDTO       `json:"group"`
+	MemberCount                  int                          `json:"member_count"`
+	MemberLimit                  int                          `json:"member_limit"`
+	TargetConfigAssigned         bool                         `json:"target_config_assigned"`
+	TargetConfig                 *service.DesktopTargetConfig `json:"target_config,omitempty"`
+	CreatedAt                    time.Time                    `json:"created_at"`
+	UpdatedAt                    time.Time                    `json:"updated_at"`
 }
 
 type desktopManagedGatewayUserDTO struct {
@@ -198,7 +199,8 @@ func desktopManagedUserID(c *gin.Context) (int64, bool) {
 
 func desktopManagedOrganizationFromService(value *service.DesktopOrganization) desktopManagedOrganizationDTO {
 	return desktopManagedOrganizationDTO{
-		PublicID: value.PublicID, Code: value.Code, Name: value.Name, Status: value.Status,
+		ConversationReportingEnabled: value.ConversationReportingEnabled,
+		PublicID:                     value.PublicID, Code: value.Code, Name: value.Name, Status: value.Status,
 		GatewayUser: desktopManagedGatewayUserDTO{ID: value.GatewayUserID, Email: value.GatewayUserEmail, Username: value.GatewayUserName},
 		Group:       desktopManagedGroupDTO{ID: value.GroupID, Name: value.GroupName}, MemberCount: value.MemberCount,
 		MemberLimit:          value.MemberLimit,

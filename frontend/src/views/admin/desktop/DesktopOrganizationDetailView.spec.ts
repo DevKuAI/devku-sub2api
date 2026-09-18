@@ -58,6 +58,7 @@ const organization = {
   group: { id: 7, name: 'Responses' },
   member_count: 1,
   member_limit: 10,
+  conversation_reporting_enabled: false,
   target_config_assigned: false,
   target_config: null,
   created_at: '2026-08-26T00:00:00Z',
@@ -88,6 +89,7 @@ function mountView() {
       stubs: {
         AppLayout: { template: '<main><slot /></main>' },
         DataTable: true,
+        DesktopConversationRecords: true,
         Pagination: true,
         BaseDialog: true,
         ConfirmDialog: true,
@@ -107,6 +109,7 @@ function mountManagedView() {
       stubs: {
         AppLayout: { template: '<main><slot /></main>' },
         DataTable: true,
+        DesktopConversationRecords: true,
         Pagination: true,
         BaseDialog: true,
         ConfirmDialog: true,
@@ -349,6 +352,60 @@ describe('DesktopOrganizationDetailView', () => {
     wrapper.unmount()
   })
 
+  it.each([false, true])('submits the edit checkbox value %s explicitly', async (enabled) => {
+    desktopAPI.getOrganization.mockResolvedValue({ ...organization, conversation_reporting_enabled: !enabled })
+    desktopAPI.updateOrganization.mockResolvedValue({ ...organization, conversation_reporting_enabled: enabled })
+    const wrapper = mountViewWithRealMemberForm()
+    await flushPromises()
+    await (wrapper.vm as any).openEditOrganization()
+    await flushPromises()
+    const checkbox = wrapper.get('[data-testid="desktop-edit-conversation-reporting"]')
+    expect((checkbox.element as HTMLInputElement).checked).toBe(!enabled)
+    await checkbox.setValue(enabled)
+    await wrapper.get('#desktop-organization-edit').trigger('submit')
+    await flushPromises()
+    expect(desktopAPI.updateOrganization).toHaveBeenCalledWith('org_one', expect.objectContaining({ conversation_reporting_enabled: enabled }))
+    wrapper.unmount()
+  })
+
+  it.each([false, true, undefined])('gates the managed conversation tab for reporting=%s', async (enabled) => {
+    managedDesktopAPI.getOrganization.mockResolvedValue({ ...organization, conversation_reporting_enabled: enabled })
+    route.query.tab = 'conversations'
+    const wrapper = mountManagedView()
+    await flushPromises()
+    const tab = wrapper.find('#desktop-organization-tab-conversations')
+    expect(tab.exists()).toBe(enabled === true)
+    expect(wrapper.find('desktop-conversation-records-stub').exists()).toBe(enabled === true)
+    if (enabled !== true) {
+      expect(router.replace).toHaveBeenCalledWith({ query: { tab: 'members' } })
+      expect(wrapper.find('#desktop-organization-panel-members').exists()).toBe(true)
+    }
+    wrapper.unmount()
+  })
+
+  it('unmounts managed conversation data after the organization turns reporting off', async () => {
+    managedDesktopAPI.getOrganization.mockResolvedValue({ ...organization, conversation_reporting_enabled: true })
+    route.query.tab = 'conversations'
+    const wrapper = mountManagedView()
+    await flushPromises()
+    expect(wrapper.find('desktop-conversation-records-stub').exists()).toBe(true)
+    managedDesktopAPI.getOrganization.mockResolvedValue({ ...organization, conversation_reporting_enabled: false })
+    await (wrapper.vm as any).loadOrganization()
+    await flushPromises()
+    expect(wrapper.find('desktop-conversation-records-stub').exists()).toBe(false)
+    expect(wrapper.find('#desktop-organization-tab-conversations').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('keeps administrator history visible when reporting is disabled', async () => {
+    route.query.tab = 'conversations'
+    const wrapper = mountView()
+    await flushPromises()
+    expect(wrapper.find('#desktop-organization-tab-conversations').exists()).toBe(true)
+    expect(wrapper.find('desktop-conversation-records-stub').exists()).toBe(true)
+    wrapper.unmount()
+  })
+
   it('allows administrators to change the member limit', async () => {
     desktopAPI.updateOrganization.mockResolvedValue({ ...organization, member_limit: 25 })
     const wrapper = mountView()
@@ -364,7 +421,7 @@ describe('DesktopOrganizationDetailView', () => {
     await vm.saveOrganization()
 
     expect(desktopAPI.updateOrganization).toHaveBeenCalledWith('org_one', {
-      name: organization.name, status: 'active', member_limit: 25,
+      name: organization.name, status: 'active', member_limit: 25, conversation_reporting_enabled: false,
     })
     expect(wrapper.text()).toContain('1 / 25')
     wrapper.unmount()

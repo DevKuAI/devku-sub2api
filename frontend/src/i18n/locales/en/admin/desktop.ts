@@ -1,5 +1,7 @@
 export default {
   desktop: {
+    conversationReporting: 'Report conversation records',
+    conversationReportingHint: 'Allow Desktop to report prompts and final responses, and show Conversation records in organization management. Turning this off stops new uploads and retains existing records.',
     conversations: {
       title: "Conversation records",
       memberSearch: "Member name or ID",
@@ -146,6 +148,7 @@ export default {
       }
     },
     errors: {
+      CONVERSATION_REPORTING_DISABLED: 'Conversation reporting is disabled for this organization',
       MEMBER_LIMIT_REACHED: 'The organization member limit has been reached. Contact an administrator to increase it.',
       MEMBER_LIMIT_BELOW_CURRENT_COUNT: 'The member limit cannot be lower than the current member count. Remove unused members first.',
       GROUP_NOT_ALLOWED: 'The gateway user cannot use this group. Check the group status, access permissions, and active subscription.',

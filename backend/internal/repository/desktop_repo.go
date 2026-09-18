@@ -116,6 +116,7 @@ func (r *desktopRepository) CreateOrganization(ctx context.Context, input servic
 			SetGatewayUserID(input.GatewayUserID).
 			SetGroupID(input.GroupID).
 			SetMemberLimit(memberLimit).
+			SetConversationReportingEnabled(input.ConversationReportingEnabled).
 			Save(txCtx)
 		return translatePersistenceError(err, nil, service.ErrDesktopGatewayUserAssigned)
 	})
@@ -178,7 +179,7 @@ func (r *desktopRepository) GetOrganizationForGatewayUser(ctx context.Context, u
 }
 
 func (r *desktopRepository) UpdateOrganization(ctx context.Context, publicID string, input service.DesktopUpdateOrganizationInput) (*service.DesktopOrganization, []string, error) {
-	if r.gatewayUserID != nil && (input.GatewayUserID != nil || input.GroupID != nil || input.MemberLimit != nil) {
+	if r.gatewayUserID != nil && (input.GatewayUserID != nil || input.GroupID != nil || input.MemberLimit != nil || input.ConversationReportingEnabled != nil) {
 		return nil, nil, service.ErrDesktopValidation
 	}
 	if input.MemberLimit != nil && *input.MemberLimit < 1 {
@@ -248,6 +249,9 @@ func (r *desktopRepository) UpdateOrganization(ctx context.Context, publicID str
 			}
 		}
 		builder := client.DesktopOrganization.UpdateOne(organization)
+		if input.ConversationReportingEnabled != nil {
+			builder.SetConversationReportingEnabled(*input.ConversationReportingEnabled)
+		}
 		memberLimit := organization.MemberLimit
 		if input.MemberLimit != nil {
 			memberLimit = *input.MemberLimit
@@ -923,6 +927,7 @@ func desktopOrganizationEntityToService(row *dbent.DesktopOrganization) (*servic
 		AuthVersion: row.AuthVersion, GatewayUserID: row.GatewayUserID, GroupID: row.GroupID,
 		TargetConfig: target, TargetConfigAssigned: target != nil, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 		MemberCount: len(row.Edges.Members), MemberLimit: row.MemberLimit,
+		ConversationReportingEnabled: row.ConversationReportingEnabled,
 	}
 	if row.Edges.GatewayUser != nil {
 		result.GatewayUserEmail = row.Edges.GatewayUser.Email

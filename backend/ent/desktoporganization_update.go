@@ -122,6 +122,20 @@ func (_u *DesktopOrganizationUpdate) AddMemberLimit(v int) *DesktopOrganizationU
 	return _u
 }
 
+// SetConversationReportingEnabled sets the "conversation_reporting_enabled" field.
+func (_u *DesktopOrganizationUpdate) SetConversationReportingEnabled(v bool) *DesktopOrganizationUpdate {
+	_u.mutation.SetConversationReportingEnabled(v)
+	return _u
+}
+
+// SetNillableConversationReportingEnabled sets the "conversation_reporting_enabled" field if the given value is not nil.
+func (_u *DesktopOrganizationUpdate) SetNillableConversationReportingEnabled(v *bool) *DesktopOrganizationUpdate {
+	if v != nil {
+		_u.SetConversationReportingEnabled(*v)
+	}
+	return _u
+}
+
 // SetAuthVersion sets the "auth_version" field.
 func (_u *DesktopOrganizationUpdate) SetAuthVersion(v int64) *DesktopOrganizationUpdate {
 	_u.mutation.ResetAuthVersion()
@@ -366,6 +380,9 @@ func (_u *DesktopOrganizationUpdate) sqlSave(ctx context.Context) (_node int, er
 	if value, ok := _u.mutation.AddedMemberLimit(); ok {
 		_spec.AddField(desktoporganization.FieldMemberLimit, field.TypeInt, value)
 	}
+	if value, ok := _u.mutation.ConversationReportingEnabled(); ok {
+		_spec.SetField(desktoporganization.FieldConversationReportingEnabled, field.TypeBool, value)
+	}
 	if value, ok := _u.mutation.AuthVersion(); ok {
 		_spec.SetField(desktoporganization.FieldAuthVersion, field.TypeInt64, value)
 	}
@@ -592,6 +609,20 @@ func (_u *DesktopOrganizationUpdateOne) SetNillableMemberLimit(v *int) *DesktopO
 // AddMemberLimit adds value to the "member_limit" field.
 func (_u *DesktopOrganizationUpdateOne) AddMemberLimit(v int) *DesktopOrganizationUpdateOne {
 	_u.mutation.AddMemberLimit(v)
+	return _u
+}
+
+// SetConversationReportingEnabled sets the "conversation_reporting_enabled" field.
+func (_u *DesktopOrganizationUpdateOne) SetConversationReportingEnabled(v bool) *DesktopOrganizationUpdateOne {
+	_u.mutation.SetConversationReportingEnabled(v)
+	return _u
+}
+
+// SetNillableConversationReportingEnabled sets the "conversation_reporting_enabled" field if the given value is not nil.
+func (_u *DesktopOrganizationUpdateOne) SetNillableConversationReportingEnabled(v *bool) *DesktopOrganizationUpdateOne {
+	if v != nil {
+		_u.SetConversationReportingEnabled(*v)
+	}
 	return _u
 }
 
@@ -868,6 +899,9 @@ func (_u *DesktopOrganizationUpdateOne) sqlSave(ctx context.Context) (_node *Des
 	}
 	if value, ok := _u.mutation.AddedMemberLimit(); ok {
 		_spec.AddField(desktoporganization.FieldMemberLimit, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ConversationReportingEnabled(); ok {
+		_spec.SetField(desktoporganization.FieldConversationReportingEnabled, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.AuthVersion(); ok {
 		_spec.SetField(desktoporganization.FieldAuthVersion, field.TypeInt64, value)

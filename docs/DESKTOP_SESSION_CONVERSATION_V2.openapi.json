@@ -4,7 +4,7 @@
   "info": {
     "title": "得酷滑动会话与对话上报 API",
     "version": "2.0.0",
-    "description": "Desktop v2 滑动会话、完整对话写入，以及平台管理员和所属企业的对话查询合同。其他现有 Desktop 路由同时接受 v1 JWT 和 v2 会话；v1 合同见 DESKTOP_API_V1.openapi.yaml。后台查询使用 Web 认证及其原有响应格式。",
+    "description": "Desktop v2 滑动会话、完整对话写入，以及平台管理员和所属企业的对话查询合同。其他现有 Desktop 路由同时接受 v1 JWT 和 v2 会话；v1 合同见 DESKTOP_API_V1.openapi.yaml。后台查询使用 Web 认证及其原有响应格式。 企业上报默认关闭，由管理员在创建或编辑企业时设置 conversation_reporting_enabled，并通过 GET /api/desktop/v1/model-configuration 下发（完整响应见 DESKTOP_API_V1.openapi.yaml）。",
     "license": {
       "name": "LGPL-3.0",
       "url": "https://www.gnu.org/licenses/lgpl-3.0.html"
@@ -450,7 +450,7 @@
           "Conversation records"
         ],
         "summary": "写入一轮提问与最终可见响应",
-        "description": "仅接受 v2 会话。校验正文、身份及独立限流后原子续期，再执行数据库事务；提交成功才返回 200。每成员默认每分钟 60 次，可通过 DESKTOP_CONVERSATION_MEMBER_PER_MINUTE 配置，同一成员的设备和客户端共用限额。客户端仅发送一次，不刷新、重试或补传。保存全部收到且合法的记录，不自动清理；不记录正文或凭证到日志。",
+        "description": "企业 conversation_reporting_enabled 必须为 true；关闭时返回 403 CONVERSATION_REPORTING_DISABLED，不保存正文。仅接受 v2 会话。校验正文、身份及独立限流后原子续期，再执行数据库事务；提交成功才返回 200。每成员默认每分钟 60 次，可通过 DESKTOP_CONVERSATION_MEMBER_PER_MINUTE 配置，同一成员的设备和客户端共用限额。客户端仅发送一次，不刷新、重试或补传。保存全部收到且合法的记录，不自动清理；不记录正文或凭证到日志。",
         "security": [
           {
             "DesktopSession": []
@@ -571,7 +571,7 @@
             ]
           },
           "403": {
-            "description": "成员/企业/承载 User 撤销、auth version 变化或安装/身份不匹配；不续期。",
+            "description": "成员/企业/承载 User 撤销、auth version 变化或安装/身份不匹配；不续期。 企业未开启对话上报时返回 CONVERSATION_REPORTING_DISABLED。",
             "headers": {
               "Cache-Control": {
                 "description": "所有响应必须为 no-store。",
@@ -598,7 +598,8 @@
             "x-error-codes": [
               "MEMBERSHIP_REVOKED",
               "SESSION_INSTALLATION_MISMATCH",
-              "CONVERSATION_IDENTITY_MISMATCH"
+              "CONVERSATION_IDENTITY_MISMATCH",
+              "CONVERSATION_REPORTING_DISABLED"
             ]
           },
           "409": {
@@ -1111,7 +1112,7 @@
           "Desktop Organization Conversations"
         ],
         "summary": "分页查询对话元数据",
-        "description": "企业范围由当前角色和服务端授权确定，跨企业读取返回 404。历史成员删除后仍可回看。列表不含 prompts/response。排序按 received_at、内部 ID；回看时固定企业、member_id、client、installation_id、source_session_id 并使用 asc。",
+        "description": "企业范围由当前角色和服务端授权确定，跨企业读取返回 404。历史成员删除后仍可回看。列表不含 prompts/response。排序按 received_at、内部 ID；回看时固定企业、member_id、client、installation_id、source_session_id 并使用 asc。 企业上报开关关闭时，用户查询返回 403 CONVERSATION_REPORTING_DISABLED；管理员查询不受此开关限制，历史记录保留。",
         "security": [
           {
             "WebBearer": []
@@ -1251,7 +1252,7 @@
             }
           },
           "403": {
-            "description": "权限不足",
+            "description": "权限不足，或企业未开启对话上报（CONVERSATION_REPORTING_DISABLED）",
             "content": {
               "application/json": {
                 "schema": {
@@ -1310,7 +1311,7 @@
           "Desktop Organization Conversations"
         ],
         "summary": "读取完整一轮问答",
-        "description": "企业范围由当前角色和服务端授权确定，跨企业读取返回 404。历史成员删除后仍可回看。正文仅以文本展示，访问审计不复制正文。",
+        "description": "企业范围由当前角色和服务端授权确定，跨企业读取返回 404。历史成员删除后仍可回看。正文仅以文本展示，访问审计不复制正文。 企业上报开关关闭时，用户查询返回 403 CONVERSATION_REPORTING_DISABLED；管理员查询不受此开关限制，历史记录保留。",
         "security": [
           {
             "WebBearer": []
@@ -1348,7 +1349,7 @@
             }
           },
           "403": {
-            "description": "权限不足",
+            "description": "权限不足，或企业未开启对话上报（CONVERSATION_REPORTING_DISABLED）",
             "content": {
               "application/json": {
                 "schema": {

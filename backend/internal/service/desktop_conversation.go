@@ -23,11 +23,12 @@ const DesktopConversationMaxTextBytes = 2 << 20
 var desktopUTCTimestamp = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$`)
 
 var (
-	ErrDesktopConversationIdentity = infraerrors.Forbidden("CONVERSATION_IDENTITY_MISMATCH", "conversation identity does not match the session")
-	ErrDesktopConversationExists   = infraerrors.Conflict("CONVERSATION_RECORD_EXISTS", "conversation record already exists")
-	ErrDesktopConversationNotFound = infraerrors.NotFound("CONVERSATION_RECORD_NOT_FOUND", "conversation record not found")
-	ErrDesktopConversationStorage  = infraerrors.New(http.StatusServiceUnavailable, "CONVERSATION_STORAGE_UNAVAILABLE", "conversation storage is unavailable")
-	ErrDesktopMediaType            = infraerrors.New(http.StatusUnsupportedMediaType, "UNSUPPORTED_MEDIA_TYPE", "uncompressed application/json is required")
+	ErrDesktopConversationReportingDisabled = infraerrors.Forbidden("CONVERSATION_REPORTING_DISABLED", "conversation reporting is disabled for this organization")
+	ErrDesktopConversationIdentity          = infraerrors.Forbidden("CONVERSATION_IDENTITY_MISMATCH", "conversation identity does not match the session")
+	ErrDesktopConversationExists            = infraerrors.Conflict("CONVERSATION_RECORD_EXISTS", "conversation record already exists")
+	ErrDesktopConversationNotFound          = infraerrors.NotFound("CONVERSATION_RECORD_NOT_FOUND", "conversation record not found")
+	ErrDesktopConversationStorage           = infraerrors.New(http.StatusServiceUnavailable, "CONVERSATION_STORAGE_UNAVAILABLE", "conversation storage is unavailable")
+	ErrDesktopMediaType                     = infraerrors.New(http.StatusUnsupportedMediaType, "UNSUPPORTED_MEDIA_TYPE", "uncompressed application/json is required")
 )
 
 type DesktopTextSegment struct {
@@ -242,6 +243,9 @@ func (s *DesktopService) CreateConversation(ctx context.Context, auth *DesktopAu
 	if input.OrganizationID != auth.Member.Organization.PublicID || input.MemberID != auth.Member.Member.PublicID || input.InstallationID != auth.Session.InstallationID {
 		return nil, ErrDesktopConversationIdentity
 	}
+	if !auth.Member.Organization.ConversationReportingEnabled {
+		return nil, ErrDesktopConversationReportingDisabled
+	}
 	if s.conversationLimiter == nil || s.conversations == nil {
 		return nil, ErrDesktopConversationStorage
 	}
@@ -285,7 +289,14 @@ func (f DesktopConversationFilters) Validate() error {
 // A positive manager ID always resolves the organization from the web identity.
 func (s *DesktopService) conversationOrganization(ctx context.Context, organizationID string, managerID int64) (*DesktopOrganization, error) {
 	if managerID > 0 {
-		return s.GetManagedOrganization(ctx, managerID)
+		organization, err := s.GetManagedOrganization(ctx, managerID)
+		if err != nil {
+			return nil, err
+		}
+		if !organization.ConversationReportingEnabled {
+			return nil, ErrDesktopConversationReportingDisabled
+		}
+		return organization, nil
 	}
 	return s.GetOrganization(ctx, organizationID)
 }

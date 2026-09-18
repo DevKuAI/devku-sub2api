@@ -37,6 +37,8 @@ type DesktopOrganization struct {
 	Status string `json:"status,omitempty"`
 	// MemberLimit holds the value of the "member_limit" field.
 	MemberLimit int `json:"member_limit,omitempty"`
+	// ConversationReportingEnabled holds the value of the "conversation_reporting_enabled" field.
+	ConversationReportingEnabled bool `json:"conversation_reporting_enabled,omitempty"`
 	// AuthVersion holds the value of the "auth_version" field.
 	AuthVersion int64 `json:"auth_version,omitempty"`
 	// GatewayUserID holds the value of the "gateway_user_id" field.
@@ -102,6 +104,8 @@ func (*DesktopOrganization) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case desktoporganization.FieldTargetConfig:
 			values[i] = new([]byte)
+		case desktoporganization.FieldConversationReportingEnabled:
+			values[i] = new(sql.NullBool)
 		case desktoporganization.FieldID, desktoporganization.FieldMemberLimit, desktoporganization.FieldAuthVersion, desktoporganization.FieldGatewayUserID, desktoporganization.FieldGroupID:
 			values[i] = new(sql.NullInt64)
 		case desktoporganization.FieldPublicID, desktoporganization.FieldCode, desktoporganization.FieldName, desktoporganization.FieldStatus:
@@ -177,6 +181,12 @@ func (_m *DesktopOrganization) assignValues(columns []string, values []any) erro
 				return fmt.Errorf("unexpected type %T for field member_limit", values[i])
 			} else if value.Valid {
 				_m.MemberLimit = int(value.Int64)
+			}
+		case desktoporganization.FieldConversationReportingEnabled:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field conversation_reporting_enabled", values[i])
+			} else if value.Valid {
+				_m.ConversationReportingEnabled = value.Bool
 			}
 		case desktoporganization.FieldAuthVersion:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -280,6 +290,9 @@ func (_m *DesktopOrganization) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("member_limit=")
 	builder.WriteString(fmt.Sprintf("%v", _m.MemberLimit))
+	builder.WriteString(", ")
+	builder.WriteString("conversation_reporting_enabled=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ConversationReportingEnabled))
 	builder.WriteString(", ")
 	builder.WriteString("auth_version=")
 	builder.WriteString(fmt.Sprintf("%v", _m.AuthVersion))

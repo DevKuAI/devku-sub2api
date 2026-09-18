@@ -1184,8 +1184,12 @@ func init() {
 	desktoporganization.DefaultMemberLimit = desktoporganizationDescMemberLimit.Default.(int)
 	// desktoporganization.MemberLimitValidator is a validator for the "member_limit" field. It is called by the builders before save.
 	desktoporganization.MemberLimitValidator = desktoporganizationDescMemberLimit.Validators[0].(func(int) error)
+	// desktoporganizationDescConversationReportingEnabled is the schema descriptor for conversation_reporting_enabled field.
+	desktoporganizationDescConversationReportingEnabled := desktoporganizationFields[5].Descriptor()
+	// desktoporganization.DefaultConversationReportingEnabled holds the default value on creation for the conversation_reporting_enabled field.
+	desktoporganization.DefaultConversationReportingEnabled = desktoporganizationDescConversationReportingEnabled.Default.(bool)
 	// desktoporganizationDescAuthVersion is the schema descriptor for auth_version field.
-	desktoporganizationDescAuthVersion := desktoporganizationFields[5].Descriptor()
+	desktoporganizationDescAuthVersion := desktoporganizationFields[6].Descriptor()
 	// desktoporganization.DefaultAuthVersion holds the default value on creation for the auth_version field.
 	desktoporganization.DefaultAuthVersion = desktoporganizationDescAuthVersion.Default.(int64)
 	// desktoporganization.AuthVersionValidator is a validator for the "auth_version" field. It is called by the builders before save.

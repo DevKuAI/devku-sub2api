@@ -31,6 +31,8 @@ const (
 	FieldStatus = "status"
 	// FieldMemberLimit holds the string denoting the member_limit field in the database.
 	FieldMemberLimit = "member_limit"
+	// FieldConversationReportingEnabled holds the string denoting the conversation_reporting_enabled field in the database.
+	FieldConversationReportingEnabled = "conversation_reporting_enabled"
 	// FieldAuthVersion holds the string denoting the auth_version field in the database.
 	FieldAuthVersion = "auth_version"
 	// FieldGatewayUserID holds the string denoting the gateway_user_id field in the database.
@@ -81,6 +83,7 @@ var Columns = []string{
 	FieldName,
 	FieldStatus,
 	FieldMemberLimit,
+	FieldConversationReportingEnabled,
 	FieldAuthVersion,
 	FieldGatewayUserID,
 	FieldGroupID,
@@ -125,6 +128,8 @@ var (
 	DefaultMemberLimit int
 	// MemberLimitValidator is a validator for the "member_limit" field. It is called by the builders before save.
 	MemberLimitValidator func(int) error
+	// DefaultConversationReportingEnabled holds the default value on creation for the "conversation_reporting_enabled" field.
+	DefaultConversationReportingEnabled bool
 	// DefaultAuthVersion holds the default value on creation for the "auth_version" field.
 	DefaultAuthVersion int64
 	// AuthVersionValidator is a validator for the "auth_version" field. It is called by the builders before save.
@@ -177,6 +182,11 @@ func ByStatus(opts ...sql.OrderTermOption) OrderOption {
 // ByMemberLimit orders the results by the member_limit field.
 func ByMemberLimit(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldMemberLimit, opts...).ToFunc()
+}
+
+// ByConversationReportingEnabled orders the results by the conversation_reporting_enabled field.
+func ByConversationReportingEnabled(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldConversationReportingEnabled, opts...).ToFunc()
 }
 
 // ByAuthVersion orders the results by the auth_version field.

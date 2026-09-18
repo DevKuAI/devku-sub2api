@@ -80,3 +80,13 @@ func TestDesktopManagedOrganizationDTOExposesReadOnlyMemberLimit(t *testing.T) {
 	require.Contains(t, string(payload), `"member_count":2`)
 	require.Contains(t, string(payload), `"member_limit":10`)
 }
+
+func TestDesktopManagedOrganizationExposesReportingFlag(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		raw, err := json.Marshal(desktopManagedOrganizationFromService(&service.DesktopOrganization{ConversationReportingEnabled: enabled}))
+		require.NoError(t, err)
+		var fields map[string]any
+		require.NoError(t, json.Unmarshal(raw, &fields))
+		require.Equal(t, enabled, fields["conversation_reporting_enabled"])
+	}
+}

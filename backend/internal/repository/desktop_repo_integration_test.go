@@ -669,7 +669,7 @@ type desktopRepositoryFixture struct {
 	suffix       int64
 }
 
-func newDesktopRepositoryFixture(t *testing.T, label string, apiKeyLimit int) *desktopRepositoryFixture {
+func newDesktopRepositoryFixture(t *testing.T, label string, apiKeyLimit int, reporting ...bool) *desktopRepositoryFixture {
 	t.Helper()
 	ctx := context.Background()
 	suffix := time.Now().UnixNano()
@@ -684,7 +684,8 @@ func newDesktopRepositoryFixture(t *testing.T, label string, apiKeyLimit int) *d
 	organization, err := repo.CreateOrganization(ctx, service.DesktopCreateOrganizationInput{
 		PublicID: fmt.Sprintf("org_%s_%d", label, suffix), Code: fmt.Sprintf("%c%x", label[0], suffix%100000),
 		Name: "Desktop " + label, GatewayUserID: user.ID, GroupID: group.ID,
-		MemberLimit: &apiKeyLimit,
+		ConversationReportingEnabled: len(reporting) > 0 && reporting[0],
+		MemberLimit:                  &apiKeyLimit,
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() {

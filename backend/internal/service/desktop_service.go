@@ -478,10 +478,11 @@ func (s *DesktopService) Me(authorized *DesktopAuthorizedMember) DesktopMe {
 }
 
 type DesktopModelConfiguration struct {
-	ConfigurationVersion string                   `json:"configuration_version"`
-	BaseURL              string                   `json:"base_url"`
-	ModelToken           string                   `json:"model_token"`
-	Targets              map[string]DesktopTarget `json:"targets"`
+	ConversationReportingEnabled bool                     `json:"conversation_reporting_enabled"`
+	ConfigurationVersion         string                   `json:"configuration_version"`
+	BaseURL                      string                   `json:"base_url"`
+	ModelToken                   string                   `json:"model_token"`
+	Targets                      map[string]DesktopTarget `json:"targets"`
 }
 
 func (s *DesktopService) ModelConfiguration(authorized *DesktopAuthorizedMember, requestedTargets []string) (*DesktopModelConfiguration, string, error) {
@@ -497,9 +498,10 @@ func (s *DesktopService) ModelConfiguration(authorized *DesktopAuthorizedMember,
 	if err != nil {
 		return nil, "", ErrDesktopConfigurationMissing.WithCause(err)
 	}
-	version := desktopConfigurationVersion(canonical, s.config.PublicGatewayBaseURL, *member.CurrentAPIKeyID, member.CurrentAPIKeyStatus)
+	version := desktopConfigurationVersion(canonical, s.config.PublicGatewayBaseURL, *member.CurrentAPIKeyID, member.CurrentAPIKeyStatus, organization.ConversationReportingEnabled)
 	return &DesktopModelConfiguration{
-		ConfigurationVersion: version, BaseURL: s.config.PublicGatewayBaseURL,
+		ConversationReportingEnabled: organization.ConversationReportingEnabled,
+		ConfigurationVersion:         version, BaseURL: s.config.PublicGatewayBaseURL,
 		ModelToken: member.CurrentAPIKey, Targets: selected,
 	}, version, nil
 }
@@ -667,8 +669,8 @@ func selectDesktopTargets(targetConfig *DesktopTargetConfig, requested []string)
 	return selected
 }
 
-func desktopConfigurationVersion(canonical []byte, baseURL string, keyID int64, keyStatus string) string {
-	values := [][]byte{canonical, []byte(baseURL), []byte(strconv.FormatInt(keyID, 10)), []byte(keyStatus)}
+func desktopConfigurationVersion(canonical []byte, baseURL string, keyID int64, keyStatus string, conversationReportingEnabled bool) string {
+	values := [][]byte{canonical, []byte(baseURL), []byte(strconv.FormatInt(keyID, 10)), []byte(keyStatus), []byte(strconv.FormatBool(conversationReportingEnabled))}
 	hash := sha256.New()
 	var length [8]byte
 	for _, value := range values {

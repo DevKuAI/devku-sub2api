@@ -23934,33 +23934,34 @@ func (m *DesktopMemberAPIKeyMutation) ResetEdge(name string) error {
 // DesktopOrganizationMutation represents an operation that mutates the DesktopOrganization nodes in the graph.
 type DesktopOrganizationMutation struct {
 	config
-	op                  Op
-	typ                 string
-	id                  *int64
-	created_at          *time.Time
-	updated_at          *time.Time
-	deleted_at          *time.Time
-	public_id           *string
-	code                *string
-	name                *string
-	status              *string
-	member_limit        *int
-	addmember_limit     *int
-	auth_version        *int64
-	addauth_version     *int64
-	target_config       *jsontext.Value
-	appendtarget_config jsontext.Value
-	clearedFields       map[string]struct{}
-	gateway_user        *int64
-	clearedgateway_user bool
-	group               *int64
-	clearedgroup        bool
-	members             map[int64]struct{}
-	removedmembers      map[int64]struct{}
-	clearedmembers      bool
-	done                bool
-	oldValue            func(context.Context) (*DesktopOrganization, error)
-	predicates          []predicate.DesktopOrganization
+	op                             Op
+	typ                            string
+	id                             *int64
+	created_at                     *time.Time
+	updated_at                     *time.Time
+	deleted_at                     *time.Time
+	public_id                      *string
+	code                           *string
+	name                           *string
+	status                         *string
+	member_limit                   *int
+	addmember_limit                *int
+	conversation_reporting_enabled *bool
+	auth_version                   *int64
+	addauth_version                *int64
+	target_config                  *jsontext.Value
+	appendtarget_config            jsontext.Value
+	clearedFields                  map[string]struct{}
+	gateway_user                   *int64
+	clearedgateway_user            bool
+	group                          *int64
+	clearedgroup                   bool
+	members                        map[int64]struct{}
+	removedmembers                 map[int64]struct{}
+	clearedmembers                 bool
+	done                           bool
+	oldValue                       func(context.Context) (*DesktopOrganization, error)
+	predicates                     []predicate.DesktopOrganization
 }
 
 var _ ent.Mutation = (*DesktopOrganizationMutation)(nil)
@@ -24382,6 +24383,42 @@ func (m *DesktopOrganizationMutation) ResetMemberLimit() {
 	m.addmember_limit = nil
 }
 
+// SetConversationReportingEnabled sets the "conversation_reporting_enabled" field.
+func (m *DesktopOrganizationMutation) SetConversationReportingEnabled(b bool) {
+	m.conversation_reporting_enabled = &b
+}
+
+// ConversationReportingEnabled returns the value of the "conversation_reporting_enabled" field in the mutation.
+func (m *DesktopOrganizationMutation) ConversationReportingEnabled() (r bool, exists bool) {
+	v := m.conversation_reporting_enabled
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldConversationReportingEnabled returns the old "conversation_reporting_enabled" field's value of the DesktopOrganization entity.
+// If the DesktopOrganization object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopOrganizationMutation) OldConversationReportingEnabled(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldConversationReportingEnabled is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldConversationReportingEnabled requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldConversationReportingEnabled: %w", err)
+	}
+	return oldValue.ConversationReportingEnabled, nil
+}
+
+// ResetConversationReportingEnabled resets all changes to the "conversation_reporting_enabled" field.
+func (m *DesktopOrganizationMutation) ResetConversationReportingEnabled() {
+	m.conversation_reporting_enabled = nil
+}
+
 // SetAuthVersion sets the "auth_version" field.
 func (m *DesktopOrganizationMutation) SetAuthVersion(i int64) {
 	m.auth_version = &i
@@ -24717,7 +24754,7 @@ func (m *DesktopOrganizationMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *DesktopOrganizationMutation) Fields() []string {
-	fields := make([]string, 0, 12)
+	fields := make([]string, 0, 13)
 	if m.created_at != nil {
 		fields = append(fields, desktoporganization.FieldCreatedAt)
 	}
@@ -24741,6 +24778,9 @@ func (m *DesktopOrganizationMutation) Fields() []string {
 	}
 	if m.member_limit != nil {
 		fields = append(fields, desktoporganization.FieldMemberLimit)
+	}
+	if m.conversation_reporting_enabled != nil {
+		fields = append(fields, desktoporganization.FieldConversationReportingEnabled)
 	}
 	if m.auth_version != nil {
 		fields = append(fields, desktoporganization.FieldAuthVersion)
@@ -24778,6 +24818,8 @@ func (m *DesktopOrganizationMutation) Field(name string) (ent.Value, bool) {
 		return m.Status()
 	case desktoporganization.FieldMemberLimit:
 		return m.MemberLimit()
+	case desktoporganization.FieldConversationReportingEnabled:
+		return m.ConversationReportingEnabled()
 	case desktoporganization.FieldAuthVersion:
 		return m.AuthVersion()
 	case desktoporganization.FieldGatewayUserID:
@@ -24811,6 +24853,8 @@ func (m *DesktopOrganizationMutation) OldField(ctx context.Context, name string)
 		return m.OldStatus(ctx)
 	case desktoporganization.FieldMemberLimit:
 		return m.OldMemberLimit(ctx)
+	case desktoporganization.FieldConversationReportingEnabled:
+		return m.OldConversationReportingEnabled(ctx)
 	case desktoporganization.FieldAuthVersion:
 		return m.OldAuthVersion(ctx)
 	case desktoporganization.FieldGatewayUserID:
@@ -24883,6 +24927,13 @@ func (m *DesktopOrganizationMutation) SetField(name string, value ent.Value) err
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetMemberLimit(v)
+		return nil
+	case desktoporganization.FieldConversationReportingEnabled:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetConversationReportingEnabled(v)
 		return nil
 	case desktoporganization.FieldAuthVersion:
 		v, ok := value.(int64)
@@ -25026,6 +25077,9 @@ func (m *DesktopOrganizationMutation) ResetField(name string) error {
 		return nil
 	case desktoporganization.FieldMemberLimit:
 		m.ResetMemberLimit()
+		return nil
+	case desktoporganization.FieldConversationReportingEnabled:
+		m.ResetConversationReportingEnabled()
 		return nil
 	case desktoporganization.FieldAuthVersion:
 		m.ResetAuthVersion()

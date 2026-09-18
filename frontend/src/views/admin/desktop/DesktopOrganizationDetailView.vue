@@ -146,6 +146,10 @@
             <label for="desktop-edit-member-limit" class="input-label mb-1.5 block">{{ t('admin.desktop.memberLimit') }} <span class="text-red-500">*</span></label>
             <input id="desktop-edit-member-limit" v-model.number="organizationForm.member_limit" class="input" type="number" :min="Math.max(1, organization?.member_count || 0)" step="1" required />
           </div>
+          <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 p-3 dark:border-dark-700">
+            <input v-model="organizationForm.conversation_reporting_enabled" data-testid="desktop-edit-conversation-reporting" type="checkbox" class="mt-0.5 h-4 w-4 rounded" aria-describedby="desktop-edit-reporting-hint" />
+            <span class="min-w-0"><span class="text-sm font-medium">{{ t('admin.desktop.conversationReporting') }}</span><span id="desktop-edit-reporting-hint" class="mt-1 block text-xs leading-5 text-gray-500 dark:text-dark-400">{{ t('admin.desktop.conversationReportingHint') }}</span></span>
+          </label>
           <div><label class="input-label mb-1.5 block">{{ t('admin.desktop.gatewayUser') }}</label><Select v-model="organizationForm.gateway_user_id" :options="gatewayUserOptions" searchable remote :loading="gatewayUsersLoading" :disabled="gatewayUserLocked" @search="loadGatewayUsers" /></div>
           <div><label class="input-label mb-1.5 block">{{ t('admin.desktop.group') }}</label><Select v-model="organizationForm.group_id" :options="groupOptions" searchable :loading="groupsLoading" /></div>
           <p v-if="gatewayUserLocked" class="text-sm text-gray-500 dark:text-dark-400">{{ t('admin.desktop.provisioningLockedHint') }}</p>
@@ -205,8 +209,13 @@ const configurationTargets = computed(() => [
 const organizationID = computed(() => selfManaged ? (organization.value?.public_id || '') : String(route.params.organizationId || ''))
 const organizationAPI = computed(() => selfManaged ? desktopOrganizationAPI : adminAPI.desktop)
 const dashboardPath = computed(() => authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
-const activeTab = computed<DetailTab>(() => route.query.tab === 'configuration' ? 'configuration' : route.query.tab === 'conversations' ? 'conversations' : 'members')
-const tabs = computed(() => [{ value: 'members' as const, label: t('admin.desktop.members') }, { value: 'configuration' as const, label: t('admin.desktop.configuration') }, { value: 'conversations' as const, label: t('admin.desktop.conversations.title') }])
+const canViewConversations = computed(() => !selfManaged || organization.value?.conversation_reporting_enabled === true)
+const activeTab = computed<DetailTab>(() => route.query.tab === 'configuration' ? 'configuration' : route.query.tab === 'conversations' && canViewConversations.value ? 'conversations' : 'members')
+const tabs = computed(() => {
+  const result: { value: DetailTab; label: string }[] = [{ value: 'members', label: t('admin.desktop.members') }, { value: 'configuration', label: t('admin.desktop.configuration') }]
+  if (canViewConversations.value) result.push({ value: 'conversations', label: t('admin.desktop.conversations.title') })
+  return result
+})
 const members = ref<DesktopMember[]>([])
 const membersLoading = ref(false)
 const memberSearch = ref('')
@@ -219,7 +228,7 @@ const gatewayUsers = ref<AdminUser[]>([])
 const gatewayUsersLoading = ref(false)
 const groups = ref<AdminGroup[]>([])
 const groupsLoading = ref(false)
-const organizationForm = reactive({ name: '', status: 'active' as DesktopStatus, gateway_user_id: null as number | null, group_id: null as number | null, member_limit: 10 })
+const organizationForm = reactive({ name: '', status: 'active' as DesktopStatus, gateway_user_id: null as number | null, group_id: null as number | null, member_limit: 10, conversation_reporting_enabled: false })
 const showMemberDialog = ref(false)
 const editingMember = ref<DesktopMember | null>(null)
 const memberSaving = ref(false)
@@ -320,7 +329,7 @@ async function loadGatewayUsers(query = '') {
 }
 async function openEditOrganization() {
   if (selfManaged || !organization.value) return
-  Object.assign(organizationForm, { name: organization.value.name, status: organization.value.status, gateway_user_id: organization.value.gateway_user.id, group_id: organization.value.group.id, member_limit: organization.value.member_limit })
+  Object.assign(organizationForm, { name: organization.value.name, status: organization.value.status, gateway_user_id: organization.value.gateway_user.id, group_id: organization.value.group.id, member_limit: organization.value.member_limit, conversation_reporting_enabled: organization.value.conversation_reporting_enabled === true })
   showOrganizationEdit.value = true
   groupsLoading.value = true
   void loadGatewayUsers()
@@ -346,8 +355,9 @@ async function saveOrganization() {
   }
   organizationSaving.value = true
   try {
-    const input = { name: organizationForm.name.trim(), status: organizationForm.status } as { name: string; status: DesktopStatus; gateway_user_id?: number; group_id?: number; member_limit?: number }
+    const input = { name: organizationForm.name.trim(), status: organizationForm.status } as { name: string; status: DesktopStatus; gateway_user_id?: number; group_id?: number; member_limit?: number; conversation_reporting_enabled?: boolean }
     input.member_limit = organizationForm.member_limit
+    input.conversation_reporting_enabled = organizationForm.conversation_reporting_enabled
     if (!gatewayUserLocked.value && organizationForm.gateway_user_id && organizationForm.gateway_user_id !== organization.value.gateway_user.id) input.gateway_user_id = organizationForm.gateway_user_id
     if (organizationForm.group_id && organizationForm.group_id !== organization.value.group.id) input.group_id = organizationForm.group_id
     organization.value = await adminAPI.desktop.updateOrganization(organizationID.value, input)
@@ -411,6 +421,10 @@ async function saveConfiguration() {
   try { organization.value = await adminAPI.desktop.updateModelConfiguration(organizationID.value, { schema_version: 1, targets: { chatgpt_codex: chat, ...(work ? { workbuddy: work } : {}) } }); appStore.showSuccess(t('admin.desktop.configurationSaved')) }
   catch (error) { appStore.showError(errorMessage(error)) } finally { configSaving.value = false }
 }
+
+watch([canViewConversations, () => organization.value?.public_id], () => {
+  if (selfManaged && organization.value && !canViewConversations.value && route.query.tab === 'conversations') setTab('members')
+})
 
 watch(() => route.params.organizationId, async () => {
   if (!selfManaged) await Promise.all([loadOrganization(), loadMembers()])
