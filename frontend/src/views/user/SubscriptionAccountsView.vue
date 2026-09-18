@@ -1,13 +1,19 @@
 <template>
   <AppLayout>
-    <div class="mx-auto max-w-6xl space-y-5">
-      <header class="border-b border-gray-200 pb-5 dark:border-dark-700">
+    <div class="mx-auto min-w-0 max-w-6xl space-y-6">
+      <header class="space-y-2">
         <h1 class="text-xl font-semibold text-gray-900 dark:text-white">{{ t('subscriptionAccounts.title') }}</h1>
-        <p class="mt-1 text-sm text-gray-500 dark:text-dark-400">{{ t('subscriptionAccounts.description') }}</p>
+        <p class="max-w-2xl text-sm leading-6 text-gray-600 dark:text-dark-300">{{ t('subscriptionAccounts.description') }}</p>
       </header>
 
-      <div v-if="loading" class="flex justify-center py-16" role="status">
-        <div class="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"></div>
+      <div v-if="loading" class="flex items-center justify-center gap-3 py-16 text-sm text-gray-600 dark:text-dark-300" role="status">
+        <div class="h-6 w-6 rounded-full border-2 border-primary-500 border-t-transparent motion-safe:animate-spin" aria-hidden="true"></div>
+        <span>{{ t('common.loading') }}</span>
+      </div>
+
+      <div v-else-if="loadError" class="rounded-xl border border-red-200 bg-red-50 p-6 dark:border-red-900/60 dark:bg-red-900/10" role="alert">
+        <p class="text-sm text-red-800 dark:text-red-300">{{ t('subscriptionAccounts.failedToLoad') }}</p>
+        <button type="button" class="btn btn-secondary mt-4" @click="loadAccounts">{{ t('subscriptionAccounts.retry') }}</button>
       </div>
 
       <div v-else-if="accounts.length === 0" class="border-y border-gray-200 py-12 text-center dark:border-dark-700">
@@ -21,20 +27,20 @@
           v-for="account in accounts"
           :key="account.id"
           :aria-labelledby="`subscription-account-${account.id}`"
-          class="min-w-0 overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-gray-200 dark:bg-dark-800 dark:ring-dark-700"
+          class="min-w-0 rounded-xl bg-white shadow-sm ring-1 ring-gray-200 dark:bg-dark-800 dark:ring-dark-700"
         >
-          <div class="flex flex-col items-start justify-between gap-3 border-b border-primary-100 bg-primary-50/80 px-5 py-4 sm:flex-row sm:items-center dark:border-primary-900/60 dark:bg-primary-950/30">
-            <div class="flex min-w-0 w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-1">
+          <header class="grid min-w-0 gap-4 rounded-t-xl border-b border-primary-100 bg-primary-50/50 px-5 py-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start sm:px-6 dark:border-dark-700 dark:bg-primary-950/20">
+            <div class="min-w-0 space-y-3">
               <h2
                 :id="`subscription-account-${account.id}`"
-                class="min-w-0 break-words text-base font-semibold text-gray-900 dark:text-white"
+                class="break-words text-base font-semibold leading-6 text-gray-900 dark:text-white [overflow-wrap:anywhere]"
               >
                 {{ account.name }}
               </h2>
-              <AccountStatusIndicator :account="account" readonly />
+              <AccountStatusIndicator :account="account" readonly layout="inline" />
             </div>
             <PlatformTypeBadge
-              class="w-full sm:w-auto sm:max-w-sm sm:shrink-0"
+              class="min-w-0 max-w-full sm:max-w-xs sm:items-end"
               layout="inline"
               :platform="account.platform"
               :type="account.type"
@@ -44,21 +50,21 @@
               :subscription-expires-at="account.subscription_expires_at"
             >
               <template v-if="account.openai_compact_state" #details>
-                <span :class="['inline-flex items-center gap-1.5 text-[11px] font-medium leading-4', compactMeta[account.openai_compact_state].className]">
+                <span :class="['inline-flex items-center gap-1.5 text-xs font-medium leading-5', compactMeta[account.openai_compact_state].className]">
                   <span :class="['h-1.5 w-1.5 shrink-0 rounded-full', compactMeta[account.openai_compact_state].dotClass]" aria-hidden="true" />
                   <span>{{ t(compactMeta[account.openai_compact_state].label) }}</span>
                 </span>
               </template>
             </PlatformTypeBadge>
-          </div>
+          </header>
 
-          <div class="grid min-w-0 lg:grid-cols-[minmax(0,1fr)_18rem]">
-            <section class="min-w-0 px-5 py-5">
+          <div class="min-w-0">
+            <section class="min-w-0 px-5 py-5 sm:px-6">
               <h3 class="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('subscriptionAccounts.usage') }}</h3>
               <SubscriptionAccountUsage :account="account" v-model:usage="account.usage" @status-changed="refreshAccountStatus" />
             </section>
 
-            <dl class="grid grid-cols-2 gap-4 border-t border-gray-100 bg-gray-50/70 px-5 py-5 text-sm lg:grid-cols-1 lg:border-l lg:border-t-0 dark:border-dark-700 dark:bg-dark-900/30">
+            <dl class="grid min-w-0 grid-cols-2 gap-x-6 gap-y-4 rounded-b-xl border-t border-gray-100 bg-gray-50/70 px-5 py-4 text-sm sm:px-6 xl:grid-cols-4 dark:border-dark-700 dark:bg-dark-900/30">
               <div class="min-w-0">
                 <dt class="text-xs text-gray-500 dark:text-dark-400">{{ t('subscriptionAccounts.capacity') }}</dt>
                 <dd class="mt-1" :title="t('subscriptionAccounts.currentConcurrency')">
@@ -116,6 +122,7 @@ const appStore = useAppStore()
 const { setSubscriptionAccountAccess } = useSubscriptionAccountAccess()
 const accounts = ref<SubscriptionAccount[]>([])
 const loading = ref(true)
+const loadError = ref(false)
 
 const hasOpenAISubscriptionAccount = computed(() =>
   accounts.value.some((account) => account.platform === 'openai' && account.type === 'oauth'),
@@ -162,11 +169,12 @@ async function refreshAccountStatus(): Promise<void> {
 
 async function loadAccounts(): Promise<void> {
   loading.value = true
+  loadError.value = false
   try {
     accounts.value = await subscriptionAccountsAPI.list(true)
     setSubscriptionAccountAccess(accounts.value.length > 0)
   } catch {
-    appStore.showError(t('subscriptionAccounts.failedToLoad'))
+    loadError.value = true
   } finally {
     loading.value = false
   }

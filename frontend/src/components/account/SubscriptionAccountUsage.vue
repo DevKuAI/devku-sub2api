@@ -1,6 +1,6 @@
 <template>
-  <div class="min-w-0 space-y-2">
-    <div v-if="bars.length" class="space-y-2">
+  <div class="min-w-0 space-y-4">
+    <div v-if="bars.length" class="space-y-5">
       <UsageProgressBar
         v-for="bar in bars"
         :key="bar.key"
@@ -12,15 +12,17 @@
         :show-window-stats-when-empty="true"
         :color="bar.color"
         label-width="auto"
+        density="comfortable"
       />
-      <p v-if="usage?.updated_at" class="text-xs text-gray-400 dark:text-dark-500">
+      <p v-if="usage?.updated_at" class="text-xs text-gray-500 dark:text-dark-400">
         {{ t('subscriptionAccounts.usageUpdatedAt', { time: formatDateTimeToMinute(usage.updated_at) }) }}
       </p>
     </div>
-    <span v-else class="text-sm text-gray-400 dark:text-dark-500">
+    <span v-else class="text-sm text-gray-500 dark:text-dark-400">
       {{ t('subscriptionAccounts.noUsage') }}
     </span>
     <OpenAIQuotaResetCell
+      class="subscription-usage-actions"
       v-if="account?.platform === 'openai' && account.type === 'oauth'"
       :account="account"
       :api="quotaAPI"
@@ -33,7 +35,7 @@
           :disabled="querying || busy"
           @click="loadUsage(true)"
         >
-          <Icon name="refresh" size="xs" :class="{ 'animate-spin': querying }" aria-hidden="true" />
+          <Icon name="refresh" size="xs" :class="{ 'motion-safe:animate-spin': querying }" aria-hidden="true" />
           {{ t('admin.accounts.usageWindow.activeQuery') }}
         </button>
       </template>
@@ -188,3 +190,9 @@ const bars = computed<UsageBar[]>(() => {
   return result
 })
 </script>
+
+<style scoped>
+.subscription-usage-actions :deep(button) {
+  @apply min-h-8 rounded-lg px-2.5 py-1.5 text-xs leading-5;
+}
+</style>

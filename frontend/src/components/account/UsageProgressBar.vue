@@ -1,11 +1,11 @@
 <template>
-  <div>
+  <div :class="density === 'comfortable' ? 'flex min-w-0 flex-col gap-2' : ''">
     <!-- Window stats row (above progress bar) -->
     <div
       v-if="shouldShowWindowStats"
-      class="mb-0.5 flex items-center"
+      :class="density === 'comfortable' ? 'order-2 flex min-w-0 items-center' : 'mb-0.5 flex items-center'"
     >
-      <div class="flex items-center gap-1.5 text-[9px] text-gray-500 dark:text-gray-400">
+      <div :class="density === 'comfortable' ? 'flex min-w-0 flex-wrap items-center gap-2 text-xs leading-5 text-gray-600 dark:text-gray-300' : 'flex items-center gap-1.5 text-[9px] text-gray-500 dark:text-gray-400'">
         <span class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">
           {{ formatRequests }} req
         </span>
@@ -34,27 +34,27 @@
     </div>
 
     <!-- Progress bar row -->
-    <div class="flex items-center gap-1">
+    <div :class="density === 'comfortable' ? 'grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 sm:grid-cols-[minmax(0,auto)_minmax(4rem,1fr)_auto_auto]' : 'flex items-center gap-1'">
       <!-- Label badge (label-width: fixed = 定宽居中, auto = 限宽截断左对齐) -->
-      <span :class="[labelSizeClass, labelClass]">
+      <span :class="[density === 'comfortable' ? 'min-w-0 justify-self-start break-words rounded-md px-2 py-1 text-xs font-medium [overflow-wrap:anywhere]' : labelSizeClass, labelClass]" :title="label">
         {{ label }}
       </span>
 
       <!-- Progress bar container -->
-      <div class="h-1.5 w-8 shrink-0 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+      <div :class="['overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700', density === 'comfortable' ? 'col-span-2 row-start-2 h-2 w-full sm:col-span-1 sm:col-start-2 sm:row-start-1' : 'h-1.5 w-8 shrink-0']">
         <div
-          :class="['h-full transition-all duration-300', barClass]"
+          :class="['h-full motion-safe:transition-[width] motion-safe:duration-150', barClass]"
           :style="{ width: barWidth }"
         ></div>
       </div>
 
       <!-- Percentage -->
-      <span :class="['w-[32px] shrink-0 text-right text-[10px] font-medium', textClass]">
+      <span :class="[density === 'comfortable' ? 'col-start-2 row-start-1 text-right text-sm font-semibold tabular-nums sm:col-start-3' : 'w-[32px] shrink-0 text-right text-[10px] font-medium', textClass]">
         {{ displayPercent }}
       </span>
 
       <!-- Reset time -->
-      <span v-if="shouldShowResetTime" class="shrink-0 text-[10px] text-gray-400">
+      <span v-if="shouldShowResetTime" :class="density === 'comfortable' ? 'col-span-2 text-xs leading-5 tabular-nums text-gray-600 sm:col-span-1 sm:col-start-4 sm:row-start-1 dark:text-gray-300' : 'shrink-0 text-[10px] text-gray-400'">
         {{ formatResetTime }}
       </span>
     </div>
@@ -81,8 +81,9 @@ const props = withDefaults(
     remainingCapacity?: boolean
     /** fixed: 定宽居中徽章（账号页纵向对齐）；auto: 限宽截断左对齐（监控页组合标签） */
     labelWidth?: 'fixed' | 'auto'
+    density?: 'compact' | 'comfortable'
   }>(),
-  { labelWidth: 'fixed' }
+  { labelWidth: 'fixed', density: 'compact' }
 )
 
 const { t } = useI18n()
@@ -160,14 +161,14 @@ const textClass = computed(() => {
     if (props.utilization <= 20) {
       return 'text-red-600 dark:text-red-400'
     } else if (props.utilization <= 50) {
-      return 'text-amber-600 dark:text-amber-400'
+      return props.density === 'comfortable' ? 'text-amber-700 dark:text-amber-400' : 'text-amber-600 dark:text-amber-400'
     }
     return 'text-gray-600 dark:text-gray-400'
   }
   if (props.utilization >= 90) {
     return 'text-red-600 dark:text-red-400'
   } else if (props.utilization >= 75) {
-    return 'text-amber-600 dark:text-amber-400'
+    return props.density === 'comfortable' ? 'text-amber-700 dark:text-amber-400' : 'text-amber-600 dark:text-amber-400'
   } else {
     return 'text-gray-600 dark:text-gray-400'
   }

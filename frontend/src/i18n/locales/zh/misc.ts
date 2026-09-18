@@ -143,6 +143,7 @@ export default {
     empty: '暂无关联的订阅账户',
     emptyDescription: '管理员关联订阅账户后，相关信息将显示在这里。',
     failedToLoad: '加载订阅账户失败',
+    retry: '重新加载',
     failedToRefreshUsage: '刷新用量失败',
     usage: '用量窗口',
     noUsage: '暂无用量数据',

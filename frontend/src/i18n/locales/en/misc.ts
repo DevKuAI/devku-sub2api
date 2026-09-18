@@ -146,6 +146,7 @@ export default {
     empty: 'No linked subscription accounts',
     emptyDescription: 'Linked subscription accounts will appear here after an administrator assigns them.',
     failedToLoad: 'Failed to load subscription accounts',
+    retry: 'Reload',
     failedToRefreshUsage: 'Failed to refresh usage',
     usage: 'Usage Windows',
     noUsage: 'No usage data',

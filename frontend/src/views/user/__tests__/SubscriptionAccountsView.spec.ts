@@ -24,6 +24,7 @@ vi.mock('vue-i18n', async (importOriginal) => ({
 import SubscriptionAccountsView from '../SubscriptionAccountsView.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import UsageProgressBar from '@/components/account/UsageProgressBar.vue'
+import SubscriptionAccountUsage from '@/components/account/SubscriptionAccountUsage.vue'
 import { i18n } from '@/i18n'
 import type { SubscriptionAccount, SubscriptionAccountUsage } from '@/types'
 
@@ -140,6 +141,20 @@ describe('SubscriptionAccountsView', () => {
     vi.useRealTimers()
   })
 
+  it('shows a recoverable load error and retries without reporting an empty account list', async () => {
+    const accounts = await list()
+    list.mockRejectedValueOnce(new Error('offline'))
+    const wrapper = mountView()
+    await flushPromises()
+    expect(wrapper.find('[role="alert"]').text()).toContain('subscriptionAccounts.failedToLoad')
+    expect(wrapper.text()).not.toContain('subscriptionAccounts.empty')
+    list.mockResolvedValue(accounts)
+    await wrapper.find('[role="alert"] button').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    expect(wrapper.findAll('article')).toHaveLength(2)
+  })
+
   it('shows an active rate limit instead of normal account status', async () => {
     const accounts = await list()
     accounts[0].rate_limit_reset_at = '2026-09-06T00:00:00Z'
@@ -174,7 +189,7 @@ describe('SubscriptionAccountsView', () => {
 
     const header = wrapper.find('article').find('h2').element.parentElement!
     expect(header.textContent).toContain(`admin.accounts.status.${expected}`)
-    expect(header.querySelector('button')).toBeNull()
+    expect(header.querySelector('button[title="admin.accounts.status.viewTempUnschedDetails"]')).toBeNull()
     if (expected === 'overloaded') expect(header.textContent).toContain('529')
     if (expected === 'tempUnschedulable') expect(header.textContent).toContain('admin.accounts.status.tempUnschedulableUntil')
   })
@@ -249,7 +264,7 @@ describe('SubscriptionAccountsView', () => {
     refreshUsage.mockReturnValue(new Promise<SubscriptionAccountUsage>((resolve) => { finishQuery = resolve }))
     const wrapper = mountView()
     await flushPromises()
-    const buttons = wrapper.find('article').findAll('button')
+    const buttons = wrapper.find('article').findComponent(SubscriptionAccountUsage).findAll('button')
 
     await buttons[0].trigger('click')
     expect(refreshUsage).toHaveBeenCalledWith(8)
@@ -271,7 +286,7 @@ describe('SubscriptionAccountsView', () => {
     })))
     refreshUsage.mockResolvedValue({ five_hour: { utilization: 100, resets_at: null } })
 
-    await wrapper.find('article').find('button').trigger('click')
+    await wrapper.find('article').findComponent(SubscriptionAccountUsage).find('button').trigger('click')
     await flushPromises()
 
     expect(list).toHaveBeenLastCalledWith()
@@ -285,7 +300,7 @@ describe('SubscriptionAccountsView', () => {
     list.mockRejectedValue(new Error('Status read failed'))
     refreshUsage.mockResolvedValue({ five_hour: { utilization: 42, resets_at: null } })
 
-    await wrapper.find('article').find('button').trigger('click')
+    await wrapper.find('article').findComponent(SubscriptionAccountUsage).find('button').trigger('click')
     await flushPromises()
 
     expect(wrapper.findAll('article')).toHaveLength(2)
@@ -308,12 +323,12 @@ describe('SubscriptionAccountsView', () => {
     const wrapper = mountView()
     await flushPromises()
     const article = wrapper.find('article')
-    await article.findAll('button')[1].trigger('click')
+    await article.findComponent(SubscriptionAccountUsage).findAll('button')[1].trigger('click')
     await flushPromises()
 
     expect(refreshQuota).toHaveBeenCalledWith(8)
     expect(adminQuotaAPI.refreshOpenAIQuota).not.toHaveBeenCalled()
-    expect(article.findAll('button')[1].text()).toMatch(/count\s*3/)
+    expect(article.findComponent(SubscriptionAccountUsage).findAll('button')[1].text()).toMatch(/count\s*3/)
     const toggle = article.find('[data-testid="reset-credit-expiry-toggle"]')
     expect(toggle.text()).toBe('+2')
     await toggle.trigger('click')
@@ -334,7 +349,7 @@ describe('SubscriptionAccountsView', () => {
     await flushPromises()
     const article = wrapper.find('article')
     expect(article.text()).toContain('admin.accounts.status.rateLimited')
-    const resetButton = article.findAll('button')[2]
+    const resetButton = article.findComponent(SubscriptionAccountUsage).findAll('button')[2]
     await resetButton.trigger('click')
     const dialog = wrapper.findComponent(ConfirmDialog)
     expect(dialog.props('show')).toBe(true)
@@ -353,7 +368,7 @@ describe('SubscriptionAccountsView', () => {
     expect(resetQuota).toHaveBeenCalledWith(8)
     expect(adminQuotaAPI.resetOpenAIQuota).not.toHaveBeenCalled()
     expect(getUsage).toHaveBeenCalledWith(8)
-    expect(article.findAll('button')[1].text()).toMatch(/count\s*1/)
+    expect(article.findComponent(SubscriptionAccountUsage).findAll('button')[1].text()).toMatch(/count\s*1/)
     expect(article.find('[data-testid="reset-credit-expiry-toggle"]').exists()).toBe(false)
     expect(article.text()).toContain('admin.accounts.openaiQuotaReset.resetSuccess')
     expect(article.text()).toContain('admin.accounts.status.active')
@@ -375,13 +390,13 @@ describe('SubscriptionAccountsView', () => {
     list.mockResolvedValue(accounts.map((account: SubscriptionAccount) => ({
       ...account, usage: undefined, rate_limit_reset_at: null,
     })))
-    await article.findAll('button')[2].trigger('click')
+    await article.findComponent(SubscriptionAccountUsage).findAll('button')[2].trigger('click')
     wrapper.findComponent(ConfirmDialog).vm.$emit('confirm')
     await flushPromises()
 
     expect(resetQuota).toHaveBeenCalledTimes(1)
-    expect(article.findAll('button')[2].attributes('disabled')).toBeDefined()
-    expect(article.findAll('button')[1].text()).not.toMatch(/\d/)
+    expect(article.findComponent(SubscriptionAccountUsage).findAll('button')[2].attributes('disabled')).toBeDefined()
+    expect(article.findComponent(SubscriptionAccountUsage).findAll('button')[1].text()).not.toMatch(/\d/)
     expect(article.text()).toContain('admin.accounts.openaiQuotaReset.resetCacheRefreshFailed')
     expect(article.text()).toContain('subscriptionAccounts.failedToRefreshUsage')
     expect(article.text()).not.toContain('admin.accounts.status.rateLimited')

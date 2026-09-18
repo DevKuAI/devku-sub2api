@@ -1,6 +1,6 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
-import { nextTick } from 'vue'
+import { h, nextTick } from 'vue'
 import HelpTooltip from '@/components/common/HelpTooltip.vue'
 
 function getTooltipElement(): HTMLDivElement {
@@ -14,6 +14,8 @@ function getTooltipElement(): HTMLDivElement {
 describe('HelpTooltip', () => {
   afterEach(() => {
     document.body.innerHTML = ''
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
   })
 
   it('keeps the existing hover interaction by default', async () => {
@@ -67,6 +69,49 @@ describe('HelpTooltip', () => {
     await nextTick()
     expect(tooltip.style.display).toBe('none')
 
+    wrapper.unmount()
+  })
+
+  it('escapes a clipped ancestor, stays in the viewport, and uses viewport coordinates when scrolled', async () => {
+    vi.stubGlobal('innerWidth', 320)
+    vi.stubGlobal('innerHeight', 640)
+    vi.stubGlobal('scrollX', 400)
+    vi.stubGlobal('scrollY', 600)
+    const host = document.createElement('div')
+    host.style.overflow = 'hidden'
+    document.body.append(host)
+    const wrapper = mount(HelpTooltip, { attachTo: host, props: { content: 'recovery date' } })
+    const trigger = wrapper.get('.group')
+    const tooltip = getTooltipElement()
+    vi.spyOn(trigger.element, 'getBoundingClientRect').mockReturnValue(new DOMRect(300, 12, 20, 24))
+    vi.spyOn(tooltip, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 224, 60))
+    await trigger.trigger('mouseenter')
+    await nextTick()
+    expect(tooltip.parentElement).toBe(document.body)
+    expect(host.contains(tooltip)).toBe(false)
+    expect(parseFloat(tooltip.style.left)).toBeGreaterThanOrEqual(8)
+    expect(parseFloat(tooltip.style.left) + 224).toBeLessThanOrEqual(320)
+    expect(parseFloat(tooltip.style.top)).toBeGreaterThanOrEqual(36)
+    expect(parseFloat(tooltip.style.top) + 60).toBeLessThanOrEqual(640)
+    wrapper.unmount()
+  })
+
+  it('shows the associated description on focus, retains it on pointer leave, and dismisses on Escape', async () => {
+    const wrapper = mount(HelpTooltip, {
+      attachTo: document.body,
+      props: { content: 'recovery date' },
+      slots: { trigger: ({ tooltipId }) => h('button', { type: 'button', 'aria-describedby': tooltipId }, '429') },
+    })
+    const button = wrapper.get('button')
+    button.element.focus()
+    await nextTick()
+    const tooltip = getTooltipElement()
+    expect(button.attributes('aria-describedby')).toBe(tooltip.id)
+    expect(tooltip.style.display).not.toBe('none')
+    await wrapper.get('.group').trigger('mouseleave')
+    expect(tooltip.style.display).not.toBe('none')
+    await button.trigger('keydown', { key: 'Escape' })
+    expect(tooltip.style.display).toBe('none')
     wrapper.unmount()
   })
 
