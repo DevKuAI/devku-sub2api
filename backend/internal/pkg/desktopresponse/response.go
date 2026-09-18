@@ -1,6 +1,7 @@
 package desktopresponse
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -9,6 +10,7 @@ import (
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type successEnvelope struct {
@@ -28,10 +30,12 @@ type desktopError struct {
 }
 
 func Success(c *gin.Context, data any) {
+	SetHeaders(c)
 	c.JSON(http.StatusOK, successEnvelope{Data: data})
 }
 
 func Error(c *gin.Context, err error) {
+	SetHeaders(c)
 	statusCode, status := infraerrors.ToHTTP(err)
 	details := status.Metadata
 	if details == nil {
@@ -55,4 +59,14 @@ func SetRetryAfter(c *gin.Context, err error) {
 			c.Header("Retry-After", strconv.Itoa(seconds))
 		}
 	}
+}
+
+func SetHeaders(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
+	requestID, _ := c.Request.Context().Value(ctxkey.RequestID).(string)
+	if requestID == "" {
+		requestID = uuid.NewString()
+		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), ctxkey.RequestID, requestID))
+	}
+	c.Header("X-Request-ID", requestID)
 }

@@ -86,7 +86,17 @@ api.sub2api.com {
 	# =========================================================================
 	# 请求大小限制 (防止大文件攻击)
 	# =========================================================================
-	request_body {
+	@desktopConversation path /api/desktop/v1/conversation-records
+	request_header @desktopConversation X-Request-ID {http.request.uuid}
+	header @desktopConversation {
+		Cache-Control no-store
+		X-Request-ID {http.request.uuid}
+	}
+	request_body @desktopConversation {
+		max_size 33554432
+	}
+	@otherRequests not path /api/desktop/v1/conversation-records
+	request_body @otherRequests {
 		max_size 256MB
 	}
 
@@ -107,6 +117,18 @@ api.sub2api.com {
 	# 错误处理
 	# =========================================================================
 	handle_errors {
-		respond "{err.status_code} {err.status_text}"
+		@conversationTooLarge {
+			path /api/desktop/v1/conversation-records
+			expression {err.status_code} == 413
+		}
+		handle @conversationTooLarge {
+			header Content-Type application/json
+			header Cache-Control no-store
+			header X-Request-ID {http.request.uuid}
+			respond `{"error":{"code":"PAYLOAD_TOO_LARGE","message":"request body is too large","request_id":"{http.request.uuid}","retryable":false,"details":{}}}` 413
+		}
+		handle {
+			respond "{err.status_code} {err.status_text}"
+		}
 	}
 }

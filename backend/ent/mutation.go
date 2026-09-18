@@ -27,6 +27,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
 	"github.com/Wei-Shaw/sub2api/ent/compositemodelroute"
+	"github.com/Wei-Shaw/sub2api/ent/desktopconversationrecord"
 	"github.com/Wei-Shaw/sub2api/ent/desktopmember"
 	"github.com/Wei-Shaw/sub2api/ent/desktopmemberapikey"
 	"github.com/Wei-Shaw/sub2api/ent/desktoporganization"
@@ -57,6 +58,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/userplatformquota"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
+	"github.com/google/uuid"
 )
 
 const (
@@ -83,6 +85,7 @@ const (
 	TypeChannelMonitorHistory         = "ChannelMonitorHistory"
 	TypeChannelMonitorRequestTemplate = "ChannelMonitorRequestTemplate"
 	TypeCompositeModelRoute           = "CompositeModelRoute"
+	TypeDesktopConversationRecord     = "DesktopConversationRecord"
 	TypeDesktopMember                 = "DesktopMember"
 	TypeDesktopMemberAPIKey           = "DesktopMemberAPIKey"
 	TypeDesktopOrganization           = "DesktopOrganization"
@@ -20939,6 +20942,1317 @@ func (m *CompositeModelRouteMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown CompositeModelRoute edge %s", name)
+}
+
+// DesktopConversationRecordMutation represents an operation that mutates the DesktopConversationRecord nodes in the graph.
+type DesktopConversationRecordMutation struct {
+	config
+	op                  Op
+	typ                 string
+	id                  *int64
+	record_id           *uuid.UUID
+	installation_id     *uuid.UUID
+	client              *string
+	source_session_id   *string
+	source_turn_id      *string
+	started_at          *time.Time
+	stopped_at          *time.Time
+	received_at         *time.Time
+	cwd                 *string
+	prompts             *jsontext.Value
+	appendprompts       jsontext.Value
+	response            *jsontext.Value
+	appendresponse      jsontext.Value
+	capture_status      *string
+	prompt_count        *int
+	addprompt_count     *int
+	clearedFields       map[string]struct{}
+	organization        *int64
+	clearedorganization bool
+	member              *int64
+	clearedmember       bool
+	done                bool
+	oldValue            func(context.Context) (*DesktopConversationRecord, error)
+	predicates          []predicate.DesktopConversationRecord
+}
+
+var _ ent.Mutation = (*DesktopConversationRecordMutation)(nil)
+
+// desktopconversationrecordOption allows management of the mutation configuration using functional options.
+type desktopconversationrecordOption func(*DesktopConversationRecordMutation)
+
+// newDesktopConversationRecordMutation creates new mutation for the DesktopConversationRecord entity.
+func newDesktopConversationRecordMutation(c config, op Op, opts ...desktopconversationrecordOption) *DesktopConversationRecordMutation {
+	m := &DesktopConversationRecordMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeDesktopConversationRecord,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withDesktopConversationRecordID sets the ID field of the mutation.
+func withDesktopConversationRecordID(id int64) desktopconversationrecordOption {
+	return func(m *DesktopConversationRecordMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *DesktopConversationRecord
+		)
+		m.oldValue = func(ctx context.Context) (*DesktopConversationRecord, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().DesktopConversationRecord.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withDesktopConversationRecord sets the old DesktopConversationRecord of the mutation.
+func withDesktopConversationRecord(node *DesktopConversationRecord) desktopconversationrecordOption {
+	return func(m *DesktopConversationRecordMutation) {
+		m.oldValue = func(context.Context) (*DesktopConversationRecord, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m DesktopConversationRecordMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m DesktopConversationRecordMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *DesktopConversationRecordMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *DesktopConversationRecordMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().DesktopConversationRecord.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetRecordID sets the "record_id" field.
+func (m *DesktopConversationRecordMutation) SetRecordID(u uuid.UUID) {
+	m.record_id = &u
+}
+
+// RecordID returns the value of the "record_id" field in the mutation.
+func (m *DesktopConversationRecordMutation) RecordID() (r uuid.UUID, exists bool) {
+	v := m.record_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRecordID returns the old "record_id" field's value of the DesktopConversationRecord entity.
+// If the DesktopConversationRecord object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopConversationRecordMutation) OldRecordID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRecordID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRecordID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRecordID: %w", err)
+	}
+	return oldValue.RecordID, nil
+}
+
+// ResetRecordID resets all changes to the "record_id" field.
+func (m *DesktopConversationRecordMutation) ResetRecordID() {
+	m.record_id = nil
+}
+
+// SetOrganizationID sets the "organization_id" field.
+func (m *DesktopConversationRecordMutation) SetOrganizationID(i int64) {
+	m.organization = &i
+}
+
+// OrganizationID returns the value of the "organization_id" field in the mutation.
+func (m *DesktopConversationRecordMutation) OrganizationID() (r int64, exists bool) {
+	v := m.organization
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOrganizationID returns the old "organization_id" field's value of the DesktopConversationRecord entity.
+// If the DesktopConversationRecord object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopConversationRecordMutation) OldOrganizationID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOrganizationID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOrganizationID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOrganizationID: %w", err)
+	}
+	return oldValue.OrganizationID, nil
+}
+
+// ResetOrganizationID resets all changes to the "organization_id" field.
+func (m *DesktopConversationRecordMutation) ResetOrganizationID() {
+	m.organization = nil
+}
+
+// SetMemberID sets the "member_id" field.
+func (m *DesktopConversationRecordMutation) SetMemberID(i int64) {
+	m.member = &i
+}
+
+// MemberID returns the value of the "member_id" field in the mutation.
+func (m *DesktopConversationRecordMutation) MemberID() (r int64, exists bool) {
+	v := m.member
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMemberID returns the old "member_id" field's value of the DesktopConversationRecord entity.
+// If the DesktopConversationRecord object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopConversationRecordMutation) OldMemberID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMemberID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMemberID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMemberID: %w", err)
+	}
+	return oldValue.MemberID, nil
+}
+
+// ResetMemberID resets all changes to the "member_id" field.
+func (m *DesktopConversationRecordMutation) ResetMemberID() {
+	m.member = nil
+}
+
+// SetInstallationID sets the "installation_id" field.
+func (m *DesktopConversationRecordMutation) SetInstallationID(u uuid.UUID) {
+	m.installation_id = &u
+}
+
+// InstallationID returns the value of the "installation_id" field in the mutation.
+func (m *DesktopConversationRecordMutation) InstallationID() (r uuid.UUID, exists bool) {
+	v := m.installation_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldInstallationID returns the old "installation_id" field's value of the DesktopConversationRecord entity.
+// If the DesktopConversationRecord object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopConversationRecordMutation) OldInstallationID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldInstallationID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldInstallationID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldInstallationID: %w", err)
+	}
+	return oldValue.InstallationID, nil
+}
+
+// ResetInstallationID resets all changes to the "installation_id" field.
+func (m *DesktopConversationRecordMutation) ResetInstallationID() {
+	m.installation_id = nil
+}
+
+// SetClient sets the "client" field.
+func (m *DesktopConversationRecordMutation) SetClient(s string) {
+	m.client = &s
+}
+
+// GetClient returns the value of the "client" field in the mutation.
+func (m *DesktopConversationRecordMutation) GetClient() (r string, exists bool) {
+	v := m.client
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldClient returns the old "client" field's value of the DesktopConversationRecord entity.
+// If the DesktopConversationRecord object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopConversationRecordMutation) OldClient(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldClient is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldClient requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldClient: %w", err)
+	}
+	return oldValue.Client, nil
+}
+
+// ResetClient resets all changes to the "client" field.
+func (m *DesktopConversationRecordMutation) ResetClient() {
+	m.client = nil
+}
+
+// SetSourceSessionID sets the "source_session_id" field.
+func (m *DesktopConversationRecordMutation) SetSourceSessionID(s string) {
+	m.source_session_id = &s
+}
+
+// SourceSessionID returns the value of the "source_session_id" field in the mutation.
+func (m *DesktopConversationRecordMutation) SourceSessionID() (r string, exists bool) {
+	v := m.source_session_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSourceSessionID returns the old "source_session_id" field's value of the DesktopConversationRecord entity.
+// If the DesktopConversationRecord object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopConversationRecordMutation) OldSourceSessionID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSourceSessionID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSourceSessionID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSourceSessionID: %w", err)
+	}
+	return oldValue.SourceSessionID, nil
+}
+
+// ResetSourceSessionID resets all changes to the "source_session_id" field.
+func (m *DesktopConversationRecordMutation) ResetSourceSessionID() {
+	m.source_session_id = nil
+}
+
+// SetSourceTurnID sets the "source_turn_id" field.
+func (m *DesktopConversationRecordMutation) SetSourceTurnID(s string) {
+	m.source_turn_id = &s
+}
+
+// SourceTurnID returns the value of the "source_turn_id" field in the mutation.
+func (m *DesktopConversationRecordMutation) SourceTurnID() (r string, exists bool) {
+	v := m.source_turn_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSourceTurnID returns the old "source_turn_id" field's value of the DesktopConversationRecord entity.
+// If the DesktopConversationRecord object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopConversationRecordMutation) OldSourceTurnID(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSourceTurnID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSourceTurnID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSourceTurnID: %w", err)
+	}
+	return oldValue.SourceTurnID, nil
+}
+
+// ClearSourceTurnID clears the value of the "source_turn_id" field.
+func (m *DesktopConversationRecordMutation) ClearSourceTurnID() {
+	m.source_turn_id = nil
+	m.clearedFields[desktopconversationrecord.FieldSourceTurnID] = struct{}{}
+}
+
+// SourceTurnIDCleared returns if the "source_turn_id" field was cleared in this mutation.
+func (m *DesktopConversationRecordMutation) SourceTurnIDCleared() bool {
+	_, ok := m.clearedFields[desktopconversationrecord.FieldSourceTurnID]
+	return ok
+}
+
+// ResetSourceTurnID resets all changes to the "source_turn_id" field.
+func (m *DesktopConversationRecordMutation) ResetSourceTurnID() {
+	m.source_turn_id = nil
+	delete(m.clearedFields, desktopconversationrecord.FieldSourceTurnID)
+}
+
+// SetStartedAt sets the "started_at" field.
+func (m *DesktopConversationRecordMutation) SetStartedAt(t time.Time) {
+	m.started_at = &t
+}
+
+// StartedAt returns the value of the "started_at" field in the mutation.
+func (m *DesktopConversationRecordMutation) StartedAt() (r time.Time, exists bool) {
+	v := m.started_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStartedAt returns the old "started_at" field's value of the DesktopConversationRecord entity.
+// If the DesktopConversationRecord object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopConversationRecordMutation) OldStartedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStartedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStartedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStartedAt: %w", err)
+	}
+	return oldValue.StartedAt, nil
+}
+
+// ResetStartedAt resets all changes to the "started_at" field.
+func (m *DesktopConversationRecordMutation) ResetStartedAt() {
+	m.started_at = nil
+}
+
+// SetStoppedAt sets the "stopped_at" field.
+func (m *DesktopConversationRecordMutation) SetStoppedAt(t time.Time) {
+	m.stopped_at = &t
+}
+
+// StoppedAt returns the value of the "stopped_at" field in the mutation.
+func (m *DesktopConversationRecordMutation) StoppedAt() (r time.Time, exists bool) {
+	v := m.stopped_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStoppedAt returns the old "stopped_at" field's value of the DesktopConversationRecord entity.
+// If the DesktopConversationRecord object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopConversationRecordMutation) OldStoppedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStoppedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStoppedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStoppedAt: %w", err)
+	}
+	return oldValue.StoppedAt, nil
+}
+
+// ResetStoppedAt resets all changes to the "stopped_at" field.
+func (m *DesktopConversationRecordMutation) ResetStoppedAt() {
+	m.stopped_at = nil
+}
+
+// SetReceivedAt sets the "received_at" field.
+func (m *DesktopConversationRecordMutation) SetReceivedAt(t time.Time) {
+	m.received_at = &t
+}
+
+// ReceivedAt returns the value of the "received_at" field in the mutation.
+func (m *DesktopConversationRecordMutation) ReceivedAt() (r time.Time, exists bool) {
+	v := m.received_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldReceivedAt returns the old "received_at" field's value of the DesktopConversationRecord entity.
+// If the DesktopConversationRecord object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopConversationRecordMutation) OldReceivedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldReceivedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldReceivedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldReceivedAt: %w", err)
+	}
+	return oldValue.ReceivedAt, nil
+}
+
+// ResetReceivedAt resets all changes to the "received_at" field.
+func (m *DesktopConversationRecordMutation) ResetReceivedAt() {
+	m.received_at = nil
+}
+
+// SetCwd sets the "cwd" field.
+func (m *DesktopConversationRecordMutation) SetCwd(s string) {
+	m.cwd = &s
+}
+
+// Cwd returns the value of the "cwd" field in the mutation.
+func (m *DesktopConversationRecordMutation) Cwd() (r string, exists bool) {
+	v := m.cwd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCwd returns the old "cwd" field's value of the DesktopConversationRecord entity.
+// If the DesktopConversationRecord object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopConversationRecordMutation) OldCwd(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCwd is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCwd requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCwd: %w", err)
+	}
+	return oldValue.Cwd, nil
+}
+
+// ClearCwd clears the value of the "cwd" field.
+func (m *DesktopConversationRecordMutation) ClearCwd() {
+	m.cwd = nil
+	m.clearedFields[desktopconversationrecord.FieldCwd] = struct{}{}
+}
+
+// CwdCleared returns if the "cwd" field was cleared in this mutation.
+func (m *DesktopConversationRecordMutation) CwdCleared() bool {
+	_, ok := m.clearedFields[desktopconversationrecord.FieldCwd]
+	return ok
+}
+
+// ResetCwd resets all changes to the "cwd" field.
+func (m *DesktopConversationRecordMutation) ResetCwd() {
+	m.cwd = nil
+	delete(m.clearedFields, desktopconversationrecord.FieldCwd)
+}
+
+// SetPrompts sets the "prompts" field.
+func (m *DesktopConversationRecordMutation) SetPrompts(j jsontext.Value) {
+	m.prompts = &j
+	m.appendprompts = nil
+}
+
+// Prompts returns the value of the "prompts" field in the mutation.
+func (m *DesktopConversationRecordMutation) Prompts() (r jsontext.Value, exists bool) {
+	v := m.prompts
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPrompts returns the old "prompts" field's value of the DesktopConversationRecord entity.
+// If the DesktopConversationRecord object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopConversationRecordMutation) OldPrompts(ctx context.Context) (v jsontext.Value, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPrompts is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPrompts requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPrompts: %w", err)
+	}
+	return oldValue.Prompts, nil
+}
+
+// AppendPrompts adds j to the "prompts" field.
+func (m *DesktopConversationRecordMutation) AppendPrompts(j jsontext.Value) {
+	m.appendprompts = append(m.appendprompts, j...)
+}
+
+// AppendedPrompts returns the list of values that were appended to the "prompts" field in this mutation.
+func (m *DesktopConversationRecordMutation) AppendedPrompts() (jsontext.Value, bool) {
+	if len(m.appendprompts) == 0 {
+		return nil, false
+	}
+	return m.appendprompts, true
+}
+
+// ResetPrompts resets all changes to the "prompts" field.
+func (m *DesktopConversationRecordMutation) ResetPrompts() {
+	m.prompts = nil
+	m.appendprompts = nil
+}
+
+// SetResponse sets the "response" field.
+func (m *DesktopConversationRecordMutation) SetResponse(j jsontext.Value) {
+	m.response = &j
+	m.appendresponse = nil
+}
+
+// Response returns the value of the "response" field in the mutation.
+func (m *DesktopConversationRecordMutation) Response() (r jsontext.Value, exists bool) {
+	v := m.response
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldResponse returns the old "response" field's value of the DesktopConversationRecord entity.
+// If the DesktopConversationRecord object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopConversationRecordMutation) OldResponse(ctx context.Context) (v jsontext.Value, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldResponse is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldResponse requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldResponse: %w", err)
+	}
+	return oldValue.Response, nil
+}
+
+// AppendResponse adds j to the "response" field.
+func (m *DesktopConversationRecordMutation) AppendResponse(j jsontext.Value) {
+	m.appendresponse = append(m.appendresponse, j...)
+}
+
+// AppendedResponse returns the list of values that were appended to the "response" field in this mutation.
+func (m *DesktopConversationRecordMutation) AppendedResponse() (jsontext.Value, bool) {
+	if len(m.appendresponse) == 0 {
+		return nil, false
+	}
+	return m.appendresponse, true
+}
+
+// ClearResponse clears the value of the "response" field.
+func (m *DesktopConversationRecordMutation) ClearResponse() {
+	m.response = nil
+	m.appendresponse = nil
+	m.clearedFields[desktopconversationrecord.FieldResponse] = struct{}{}
+}
+
+// ResponseCleared returns if the "response" field was cleared in this mutation.
+func (m *DesktopConversationRecordMutation) ResponseCleared() bool {
+	_, ok := m.clearedFields[desktopconversationrecord.FieldResponse]
+	return ok
+}
+
+// ResetResponse resets all changes to the "response" field.
+func (m *DesktopConversationRecordMutation) ResetResponse() {
+	m.response = nil
+	m.appendresponse = nil
+	delete(m.clearedFields, desktopconversationrecord.FieldResponse)
+}
+
+// SetCaptureStatus sets the "capture_status" field.
+func (m *DesktopConversationRecordMutation) SetCaptureStatus(s string) {
+	m.capture_status = &s
+}
+
+// CaptureStatus returns the value of the "capture_status" field in the mutation.
+func (m *DesktopConversationRecordMutation) CaptureStatus() (r string, exists bool) {
+	v := m.capture_status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCaptureStatus returns the old "capture_status" field's value of the DesktopConversationRecord entity.
+// If the DesktopConversationRecord object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopConversationRecordMutation) OldCaptureStatus(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCaptureStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCaptureStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCaptureStatus: %w", err)
+	}
+	return oldValue.CaptureStatus, nil
+}
+
+// ResetCaptureStatus resets all changes to the "capture_status" field.
+func (m *DesktopConversationRecordMutation) ResetCaptureStatus() {
+	m.capture_status = nil
+}
+
+// SetPromptCount sets the "prompt_count" field.
+func (m *DesktopConversationRecordMutation) SetPromptCount(i int) {
+	m.prompt_count = &i
+	m.addprompt_count = nil
+}
+
+// PromptCount returns the value of the "prompt_count" field in the mutation.
+func (m *DesktopConversationRecordMutation) PromptCount() (r int, exists bool) {
+	v := m.prompt_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPromptCount returns the old "prompt_count" field's value of the DesktopConversationRecord entity.
+// If the DesktopConversationRecord object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopConversationRecordMutation) OldPromptCount(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPromptCount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPromptCount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPromptCount: %w", err)
+	}
+	return oldValue.PromptCount, nil
+}
+
+// AddPromptCount adds i to the "prompt_count" field.
+func (m *DesktopConversationRecordMutation) AddPromptCount(i int) {
+	if m.addprompt_count != nil {
+		*m.addprompt_count += i
+	} else {
+		m.addprompt_count = &i
+	}
+}
+
+// AddedPromptCount returns the value that was added to the "prompt_count" field in this mutation.
+func (m *DesktopConversationRecordMutation) AddedPromptCount() (r int, exists bool) {
+	v := m.addprompt_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetPromptCount resets all changes to the "prompt_count" field.
+func (m *DesktopConversationRecordMutation) ResetPromptCount() {
+	m.prompt_count = nil
+	m.addprompt_count = nil
+}
+
+// ClearOrganization clears the "organization" edge to the DesktopOrganization entity.
+func (m *DesktopConversationRecordMutation) ClearOrganization() {
+	m.clearedorganization = true
+	m.clearedFields[desktopconversationrecord.FieldOrganizationID] = struct{}{}
+}
+
+// OrganizationCleared reports if the "organization" edge to the DesktopOrganization entity was cleared.
+func (m *DesktopConversationRecordMutation) OrganizationCleared() bool {
+	return m.clearedorganization
+}
+
+// OrganizationIDs returns the "organization" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// OrganizationID instead. It exists only for internal usage by the builders.
+func (m *DesktopConversationRecordMutation) OrganizationIDs() (ids []int64) {
+	if id := m.organization; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetOrganization resets all changes to the "organization" edge.
+func (m *DesktopConversationRecordMutation) ResetOrganization() {
+	m.organization = nil
+	m.clearedorganization = false
+}
+
+// ClearMember clears the "member" edge to the DesktopMember entity.
+func (m *DesktopConversationRecordMutation) ClearMember() {
+	m.clearedmember = true
+	m.clearedFields[desktopconversationrecord.FieldMemberID] = struct{}{}
+}
+
+// MemberCleared reports if the "member" edge to the DesktopMember entity was cleared.
+func (m *DesktopConversationRecordMutation) MemberCleared() bool {
+	return m.clearedmember
+}
+
+// MemberIDs returns the "member" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// MemberID instead. It exists only for internal usage by the builders.
+func (m *DesktopConversationRecordMutation) MemberIDs() (ids []int64) {
+	if id := m.member; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetMember resets all changes to the "member" edge.
+func (m *DesktopConversationRecordMutation) ResetMember() {
+	m.member = nil
+	m.clearedmember = false
+}
+
+// Where appends a list predicates to the DesktopConversationRecordMutation builder.
+func (m *DesktopConversationRecordMutation) Where(ps ...predicate.DesktopConversationRecord) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the DesktopConversationRecordMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *DesktopConversationRecordMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.DesktopConversationRecord, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *DesktopConversationRecordMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *DesktopConversationRecordMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (DesktopConversationRecord).
+func (m *DesktopConversationRecordMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *DesktopConversationRecordMutation) Fields() []string {
+	fields := make([]string, 0, 15)
+	if m.record_id != nil {
+		fields = append(fields, desktopconversationrecord.FieldRecordID)
+	}
+	if m.organization != nil {
+		fields = append(fields, desktopconversationrecord.FieldOrganizationID)
+	}
+	if m.member != nil {
+		fields = append(fields, desktopconversationrecord.FieldMemberID)
+	}
+	if m.installation_id != nil {
+		fields = append(fields, desktopconversationrecord.FieldInstallationID)
+	}
+	if m.client != nil {
+		fields = append(fields, desktopconversationrecord.FieldClient)
+	}
+	if m.source_session_id != nil {
+		fields = append(fields, desktopconversationrecord.FieldSourceSessionID)
+	}
+	if m.source_turn_id != nil {
+		fields = append(fields, desktopconversationrecord.FieldSourceTurnID)
+	}
+	if m.started_at != nil {
+		fields = append(fields, desktopconversationrecord.FieldStartedAt)
+	}
+	if m.stopped_at != nil {
+		fields = append(fields, desktopconversationrecord.FieldStoppedAt)
+	}
+	if m.received_at != nil {
+		fields = append(fields, desktopconversationrecord.FieldReceivedAt)
+	}
+	if m.cwd != nil {
+		fields = append(fields, desktopconversationrecord.FieldCwd)
+	}
+	if m.prompts != nil {
+		fields = append(fields, desktopconversationrecord.FieldPrompts)
+	}
+	if m.response != nil {
+		fields = append(fields, desktopconversationrecord.FieldResponse)
+	}
+	if m.capture_status != nil {
+		fields = append(fields, desktopconversationrecord.FieldCaptureStatus)
+	}
+	if m.prompt_count != nil {
+		fields = append(fields, desktopconversationrecord.FieldPromptCount)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *DesktopConversationRecordMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case desktopconversationrecord.FieldRecordID:
+		return m.RecordID()
+	case desktopconversationrecord.FieldOrganizationID:
+		return m.OrganizationID()
+	case desktopconversationrecord.FieldMemberID:
+		return m.MemberID()
+	case desktopconversationrecord.FieldInstallationID:
+		return m.InstallationID()
+	case desktopconversationrecord.FieldClient:
+		return m.GetClient()
+	case desktopconversationrecord.FieldSourceSessionID:
+		return m.SourceSessionID()
+	case desktopconversationrecord.FieldSourceTurnID:
+		return m.SourceTurnID()
+	case desktopconversationrecord.FieldStartedAt:
+		return m.StartedAt()
+	case desktopconversationrecord.FieldStoppedAt:
+		return m.StoppedAt()
+	case desktopconversationrecord.FieldReceivedAt:
+		return m.ReceivedAt()
+	case desktopconversationrecord.FieldCwd:
+		return m.Cwd()
+	case desktopconversationrecord.FieldPrompts:
+		return m.Prompts()
+	case desktopconversationrecord.FieldResponse:
+		return m.Response()
+	case desktopconversationrecord.FieldCaptureStatus:
+		return m.CaptureStatus()
+	case desktopconversationrecord.FieldPromptCount:
+		return m.PromptCount()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *DesktopConversationRecordMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case desktopconversationrecord.FieldRecordID:
+		return m.OldRecordID(ctx)
+	case desktopconversationrecord.FieldOrganizationID:
+		return m.OldOrganizationID(ctx)
+	case desktopconversationrecord.FieldMemberID:
+		return m.OldMemberID(ctx)
+	case desktopconversationrecord.FieldInstallationID:
+		return m.OldInstallationID(ctx)
+	case desktopconversationrecord.FieldClient:
+		return m.OldClient(ctx)
+	case desktopconversationrecord.FieldSourceSessionID:
+		return m.OldSourceSessionID(ctx)
+	case desktopconversationrecord.FieldSourceTurnID:
+		return m.OldSourceTurnID(ctx)
+	case desktopconversationrecord.FieldStartedAt:
+		return m.OldStartedAt(ctx)
+	case desktopconversationrecord.FieldStoppedAt:
+		return m.OldStoppedAt(ctx)
+	case desktopconversationrecord.FieldReceivedAt:
+		return m.OldReceivedAt(ctx)
+	case desktopconversationrecord.FieldCwd:
+		return m.OldCwd(ctx)
+	case desktopconversationrecord.FieldPrompts:
+		return m.OldPrompts(ctx)
+	case desktopconversationrecord.FieldResponse:
+		return m.OldResponse(ctx)
+	case desktopconversationrecord.FieldCaptureStatus:
+		return m.OldCaptureStatus(ctx)
+	case desktopconversationrecord.FieldPromptCount:
+		return m.OldPromptCount(ctx)
+	}
+	return nil, fmt.Errorf("unknown DesktopConversationRecord field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *DesktopConversationRecordMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case desktopconversationrecord.FieldRecordID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRecordID(v)
+		return nil
+	case desktopconversationrecord.FieldOrganizationID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOrganizationID(v)
+		return nil
+	case desktopconversationrecord.FieldMemberID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMemberID(v)
+		return nil
+	case desktopconversationrecord.FieldInstallationID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetInstallationID(v)
+		return nil
+	case desktopconversationrecord.FieldClient:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetClient(v)
+		return nil
+	case desktopconversationrecord.FieldSourceSessionID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSourceSessionID(v)
+		return nil
+	case desktopconversationrecord.FieldSourceTurnID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSourceTurnID(v)
+		return nil
+	case desktopconversationrecord.FieldStartedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStartedAt(v)
+		return nil
+	case desktopconversationrecord.FieldStoppedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStoppedAt(v)
+		return nil
+	case desktopconversationrecord.FieldReceivedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetReceivedAt(v)
+		return nil
+	case desktopconversationrecord.FieldCwd:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCwd(v)
+		return nil
+	case desktopconversationrecord.FieldPrompts:
+		v, ok := value.(jsontext.Value)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPrompts(v)
+		return nil
+	case desktopconversationrecord.FieldResponse:
+		v, ok := value.(jsontext.Value)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetResponse(v)
+		return nil
+	case desktopconversationrecord.FieldCaptureStatus:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCaptureStatus(v)
+		return nil
+	case desktopconversationrecord.FieldPromptCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPromptCount(v)
+		return nil
+	}
+	return fmt.Errorf("unknown DesktopConversationRecord field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *DesktopConversationRecordMutation) AddedFields() []string {
+	var fields []string
+	if m.addprompt_count != nil {
+		fields = append(fields, desktopconversationrecord.FieldPromptCount)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *DesktopConversationRecordMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case desktopconversationrecord.FieldPromptCount:
+		return m.AddedPromptCount()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *DesktopConversationRecordMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case desktopconversationrecord.FieldPromptCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPromptCount(v)
+		return nil
+	}
+	return fmt.Errorf("unknown DesktopConversationRecord numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *DesktopConversationRecordMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(desktopconversationrecord.FieldSourceTurnID) {
+		fields = append(fields, desktopconversationrecord.FieldSourceTurnID)
+	}
+	if m.FieldCleared(desktopconversationrecord.FieldCwd) {
+		fields = append(fields, desktopconversationrecord.FieldCwd)
+	}
+	if m.FieldCleared(desktopconversationrecord.FieldResponse) {
+		fields = append(fields, desktopconversationrecord.FieldResponse)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *DesktopConversationRecordMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *DesktopConversationRecordMutation) ClearField(name string) error {
+	switch name {
+	case desktopconversationrecord.FieldSourceTurnID:
+		m.ClearSourceTurnID()
+		return nil
+	case desktopconversationrecord.FieldCwd:
+		m.ClearCwd()
+		return nil
+	case desktopconversationrecord.FieldResponse:
+		m.ClearResponse()
+		return nil
+	}
+	return fmt.Errorf("unknown DesktopConversationRecord nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *DesktopConversationRecordMutation) ResetField(name string) error {
+	switch name {
+	case desktopconversationrecord.FieldRecordID:
+		m.ResetRecordID()
+		return nil
+	case desktopconversationrecord.FieldOrganizationID:
+		m.ResetOrganizationID()
+		return nil
+	case desktopconversationrecord.FieldMemberID:
+		m.ResetMemberID()
+		return nil
+	case desktopconversationrecord.FieldInstallationID:
+		m.ResetInstallationID()
+		return nil
+	case desktopconversationrecord.FieldClient:
+		m.ResetClient()
+		return nil
+	case desktopconversationrecord.FieldSourceSessionID:
+		m.ResetSourceSessionID()
+		return nil
+	case desktopconversationrecord.FieldSourceTurnID:
+		m.ResetSourceTurnID()
+		return nil
+	case desktopconversationrecord.FieldStartedAt:
+		m.ResetStartedAt()
+		return nil
+	case desktopconversationrecord.FieldStoppedAt:
+		m.ResetStoppedAt()
+		return nil
+	case desktopconversationrecord.FieldReceivedAt:
+		m.ResetReceivedAt()
+		return nil
+	case desktopconversationrecord.FieldCwd:
+		m.ResetCwd()
+		return nil
+	case desktopconversationrecord.FieldPrompts:
+		m.ResetPrompts()
+		return nil
+	case desktopconversationrecord.FieldResponse:
+		m.ResetResponse()
+		return nil
+	case desktopconversationrecord.FieldCaptureStatus:
+		m.ResetCaptureStatus()
+		return nil
+	case desktopconversationrecord.FieldPromptCount:
+		m.ResetPromptCount()
+		return nil
+	}
+	return fmt.Errorf("unknown DesktopConversationRecord field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *DesktopConversationRecordMutation) AddedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.organization != nil {
+		edges = append(edges, desktopconversationrecord.EdgeOrganization)
+	}
+	if m.member != nil {
+		edges = append(edges, desktopconversationrecord.EdgeMember)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *DesktopConversationRecordMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case desktopconversationrecord.EdgeOrganization:
+		if id := m.organization; id != nil {
+			return []ent.Value{*id}
+		}
+	case desktopconversationrecord.EdgeMember:
+		if id := m.member; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *DesktopConversationRecordMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 2)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *DesktopConversationRecordMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *DesktopConversationRecordMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.clearedorganization {
+		edges = append(edges, desktopconversationrecord.EdgeOrganization)
+	}
+	if m.clearedmember {
+		edges = append(edges, desktopconversationrecord.EdgeMember)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *DesktopConversationRecordMutation) EdgeCleared(name string) bool {
+	switch name {
+	case desktopconversationrecord.EdgeOrganization:
+		return m.clearedorganization
+	case desktopconversationrecord.EdgeMember:
+		return m.clearedmember
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *DesktopConversationRecordMutation) ClearEdge(name string) error {
+	switch name {
+	case desktopconversationrecord.EdgeOrganization:
+		m.ClearOrganization()
+		return nil
+	case desktopconversationrecord.EdgeMember:
+		m.ClearMember()
+		return nil
+	}
+	return fmt.Errorf("unknown DesktopConversationRecord unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *DesktopConversationRecordMutation) ResetEdge(name string) error {
+	switch name {
+	case desktopconversationrecord.EdgeOrganization:
+		m.ResetOrganization()
+		return nil
+	case desktopconversationrecord.EdgeMember:
+		m.ResetMember()
+		return nil
+	}
+	return fmt.Errorf("unknown DesktopConversationRecord edge %s", name)
 }
 
 // DesktopMemberMutation represents an operation that mutates the DesktopMember nodes in the graph.

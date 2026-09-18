@@ -875,6 +875,69 @@ var (
 			},
 		},
 	}
+	// DesktopConversationRecordsColumns holds the columns for the "desktop_conversation_records" table.
+	DesktopConversationRecordsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "record_id", Type: field.TypeUUID},
+		{Name: "installation_id", Type: field.TypeUUID},
+		{Name: "client", Type: field.TypeString, Size: 32},
+		{Name: "source_session_id", Type: field.TypeString, Size: 512, SchemaType: map[string]string{"postgres": "varchar(512)"}},
+		{Name: "source_turn_id", Type: field.TypeString, Nullable: true, Size: 512, SchemaType: map[string]string{"postgres": "varchar(512)"}},
+		{Name: "started_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "stopped_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "received_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "cwd", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "prompts", Type: field.TypeJSON},
+		{Name: "response", Type: field.TypeJSON, Nullable: true},
+		{Name: "capture_status", Type: field.TypeString, Size: 32},
+		{Name: "prompt_count", Type: field.TypeInt},
+		{Name: "organization_id", Type: field.TypeInt64},
+		{Name: "member_id", Type: field.TypeInt64},
+	}
+	// DesktopConversationRecordsTable holds the schema information for the "desktop_conversation_records" table.
+	DesktopConversationRecordsTable = &schema.Table{
+		Name:       "desktop_conversation_records",
+		Columns:    DesktopConversationRecordsColumns,
+		PrimaryKey: []*schema.Column{DesktopConversationRecordsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "desktop_conversation_records_desktop_organizations_organization",
+				Columns:    []*schema.Column{DesktopConversationRecordsColumns[14]},
+				RefColumns: []*schema.Column{DesktopOrganizationsColumns[0]},
+				OnDelete:   schema.Restrict,
+			},
+			{
+				Symbol:     "desktop_conversation_records_desktop_members_member",
+				Columns:    []*schema.Column{DesktopConversationRecordsColumns[15]},
+				RefColumns: []*schema.Column{DesktopMembersColumns[0]},
+				OnDelete:   schema.Restrict,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "idx_desktop_conversation_record_unique",
+				Unique:  true,
+				Columns: []*schema.Column{DesktopConversationRecordsColumns[14], DesktopConversationRecordsColumns[1]},
+			},
+			{
+				Name:    "idx_desktop_conversation_received",
+				Unique:  false,
+				Columns: []*schema.Column{DesktopConversationRecordsColumns[14], DesktopConversationRecordsColumns[8], DesktopConversationRecordsColumns[0]},
+				Annotation: &entsql.IndexAnnotation{
+					DescColumns: map[string]bool{
+						DesktopConversationRecordsColumns[0].Name: true,
+
+						DesktopConversationRecordsColumns[8].Name: true,
+					},
+				},
+			},
+			{
+				Name:    "idx_desktop_conversation_thread",
+				Unique:  false,
+				Columns: []*schema.Column{DesktopConversationRecordsColumns[14], DesktopConversationRecordsColumns[15], DesktopConversationRecordsColumns[3], DesktopConversationRecordsColumns[2], DesktopConversationRecordsColumns[4], DesktopConversationRecordsColumns[8], DesktopConversationRecordsColumns[0]},
+			},
+		},
+	}
 	// DesktopMembersColumns holds the columns for the "desktop_members" table.
 	DesktopMembersColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -2312,6 +2375,7 @@ var (
 		ChannelMonitorHistoriesTable,
 		ChannelMonitorRequestTemplatesTable,
 		CompositeModelRoutesTable,
+		DesktopConversationRecordsTable,
 		DesktopMembersTable,
 		DesktopMemberAPIKeysTable,
 		DesktopOrganizationsTable,
@@ -2403,6 +2467,11 @@ func init() {
 	CompositeModelRoutesTable.ForeignKeys[0].RefTable = GroupsTable
 	CompositeModelRoutesTable.Annotation = &entsql.Annotation{
 		Table: "composite_model_routes",
+	}
+	DesktopConversationRecordsTable.ForeignKeys[0].RefTable = DesktopOrganizationsTable
+	DesktopConversationRecordsTable.ForeignKeys[1].RefTable = DesktopMembersTable
+	DesktopConversationRecordsTable.Annotation = &entsql.Annotation{
+		Table: "desktop_conversation_records",
 	}
 	DesktopMembersTable.ForeignKeys[0].RefTable = DesktopOrganizationsTable
 	DesktopMembersTable.Annotation = &entsql.Annotation{

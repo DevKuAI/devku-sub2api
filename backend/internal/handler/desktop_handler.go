@@ -1,8 +1,11 @@
 package handler
 
 import (
+	"encoding/json"
+	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/desktopresponse"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
@@ -56,6 +59,16 @@ func (h *DesktopHandler) OrganizationLookup(c *gin.Context) {
 }
 
 func (h *DesktopHandler) Login(c *gin.Context) {
+	version := c.GetHeader("X-Desktop-Auth-Version")
+	if version != "" && version != "1" && version != "2" {
+		desktopError(c, service.ErrDesktopAuthVersionUnsupported)
+		return
+	}
+	if version == "2" {
+		h.loginV2(c)
+		return
+	}
+
 	installationID, ok := desktopInstallationID(c)
 	if !ok {
 		return
@@ -90,7 +103,8 @@ func (h *DesktopHandler) Refresh(c *gin.Context) {
 }
 
 func (h *DesktopHandler) Logout(c *gin.Context) {
-	if err := h.desktop.Logout(c.Request.Context(), desktopBearerToken(c)); err != nil {
+	auth, _ := middleware2.GetDesktopAuthorization(c)
+	if err := h.desktop.LogoutAuthorized(c.Request.Context(), auth, desktopBearerToken(c)); err != nil {
 		desktopError(c, err)
 		return
 	}
@@ -105,6 +119,9 @@ func (h *DesktopHandler) Me(c *gin.Context) {
 		return
 	}
 	c.Header("Cache-Control", "no-store")
+	if !h.touchDesktopSession(c) {
+		return
+	}
 	desktopresponse.Success(c, h.desktop.Me(authorized))
 }
 
@@ -115,6 +132,17 @@ func (h *DesktopHandler) ModelConfiguration(c *gin.Context) {
 		return
 	}
 	requested := splitDesktopTargets(c.Query("targets"))
+	if auth, ok := middleware2.GetDesktopAuthorization(c); ok && auth.Session != nil {
+		for _, target := range requested {
+			if target != "workbuddy" && target != "chatgpt_codex" {
+				desktopError(c, service.ErrDesktopValidation)
+				return
+			}
+		}
+	}
+	if !h.touchDesktopSession(c) {
+		return
+	}
 	configuration, version, err := h.desktop.ModelConfiguration(authorized, requested)
 	if err != nil {
 		desktopError(c, err)
@@ -134,6 +162,13 @@ func (h *DesktopHandler) UsageSummary(c *gin.Context) {
 	authorized, ok := middleware2.GetDesktopAuthorizedMember(c)
 	if !ok {
 		desktopError(c, service.ErrDesktopUnauthenticated)
+		return
+	}
+	if _, err := time.LoadLocation(c.Query("timezone")); err != nil || c.Query("timezone") == "Local" {
+		desktopError(c, service.ErrDesktopValidation.WithMetadata(map[string]string{"field": "timezone"}))
+		return
+	}
+	if !h.touchDesktopSession(c) {
 		return
 	}
 	result, err := h.desktop.UsageSummary(c.Request.Context(), authorized, c.Query("timezone"))
@@ -188,4 +223,45 @@ func splitDesktopTargets(raw string) []string {
 		}
 	}
 	return result
+}
+
+func (h *DesktopHandler) loginV2(c *gin.Context) {
+	installationID := c.GetHeader("X-Installation-ID")
+	if err := service.ValidateDesktopInstallationID(installationID); err != nil {
+		desktopError(c, err)
+		return
+	}
+	raw, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		desktopBindingError(c, err)
+		return
+	}
+	if _, err := service.DecodeDesktopJSONObject(raw, []string{"organization_code", "name", "phone"}, nil, nil); err != nil {
+		desktopError(c, err)
+		return
+	}
+	var req desktopLoginRequest
+	if json.Unmarshal(raw, &req) != nil || req.OrganizationCode == "" || req.Name == "" || req.Phone == "" {
+		desktopError(c, service.ErrDesktopValidation)
+		return
+	}
+	result, err := h.desktop.LoginV2(c.Request.Context(), req.OrganizationCode, req.Name, req.Phone, middleware2.SecurityClientIP(c), installationID)
+	if err != nil {
+		desktopError(c, err)
+		return
+	}
+	desktopresponse.Success(c, result)
+}
+
+func (h *DesktopHandler) touchDesktopSession(c *gin.Context) bool {
+	auth, ok := middleware2.GetDesktopAuthorization(c)
+	if !ok {
+		desktopError(c, service.ErrDesktopUnauthenticated)
+		return false
+	}
+	if err := h.desktop.TouchSession(c.Request.Context(), auth); err != nil {
+		desktopError(c, err)
+		return false
+	}
+	return true
 }

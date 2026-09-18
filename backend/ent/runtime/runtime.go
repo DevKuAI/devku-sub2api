@@ -20,6 +20,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
 	"github.com/Wei-Shaw/sub2api/ent/compositemodelroute"
+	"github.com/Wei-Shaw/sub2api/ent/desktopconversationrecord"
 	"github.com/Wei-Shaw/sub2api/ent/desktopmember"
 	"github.com/Wei-Shaw/sub2api/ent/desktopmemberapikey"
 	"github.com/Wei-Shaw/sub2api/ent/desktoporganization"
@@ -931,6 +932,60 @@ func init() {
 	compositemodelrouteDescEnabled := compositemodelrouteFields[7].Descriptor()
 	// compositemodelroute.DefaultEnabled holds the default value on creation for the enabled field.
 	compositemodelroute.DefaultEnabled = compositemodelrouteDescEnabled.Default.(bool)
+	desktopconversationrecordFields := schema.DesktopConversationRecord{}.Fields()
+	_ = desktopconversationrecordFields
+	// desktopconversationrecordDescClient is the schema descriptor for client field.
+	desktopconversationrecordDescClient := desktopconversationrecordFields[4].Descriptor()
+	// desktopconversationrecord.ClientValidator is a validator for the "client" field. It is called by the builders before save.
+	desktopconversationrecord.ClientValidator = desktopconversationrecordDescClient.Validators[0].(func(string) error)
+	// desktopconversationrecordDescSourceSessionID is the schema descriptor for source_session_id field.
+	desktopconversationrecordDescSourceSessionID := desktopconversationrecordFields[5].Descriptor()
+	// desktopconversationrecord.SourceSessionIDValidator is a validator for the "source_session_id" field. It is called by the builders before save.
+	desktopconversationrecord.SourceSessionIDValidator = func() func(string) error {
+		validators := desktopconversationrecordDescSourceSessionID.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(source_session_id string) error {
+			for _, fn := range fns {
+				if err := fn(source_session_id); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// desktopconversationrecordDescSourceTurnID is the schema descriptor for source_turn_id field.
+	desktopconversationrecordDescSourceTurnID := desktopconversationrecordFields[6].Descriptor()
+	// desktopconversationrecord.SourceTurnIDValidator is a validator for the "source_turn_id" field. It is called by the builders before save.
+	desktopconversationrecord.SourceTurnIDValidator = desktopconversationrecordDescSourceTurnID.Validators[0].(func(string) error)
+	// desktopconversationrecordDescReceivedAt is the schema descriptor for received_at field.
+	desktopconversationrecordDescReceivedAt := desktopconversationrecordFields[9].Descriptor()
+	// desktopconversationrecord.DefaultReceivedAt holds the default value on creation for the received_at field.
+	desktopconversationrecord.DefaultReceivedAt = desktopconversationrecordDescReceivedAt.Default.(func() time.Time)
+	// desktopconversationrecordDescCaptureStatus is the schema descriptor for capture_status field.
+	desktopconversationrecordDescCaptureStatus := desktopconversationrecordFields[13].Descriptor()
+	// desktopconversationrecord.CaptureStatusValidator is a validator for the "capture_status" field. It is called by the builders before save.
+	desktopconversationrecord.CaptureStatusValidator = desktopconversationrecordDescCaptureStatus.Validators[0].(func(string) error)
+	// desktopconversationrecordDescPromptCount is the schema descriptor for prompt_count field.
+	desktopconversationrecordDescPromptCount := desktopconversationrecordFields[14].Descriptor()
+	// desktopconversationrecord.PromptCountValidator is a validator for the "prompt_count" field. It is called by the builders before save.
+	desktopconversationrecord.PromptCountValidator = func() func(int) error {
+		validators := desktopconversationrecordDescPromptCount.Validators
+		fns := [...]func(int) error{
+			validators[0].(func(int) error),
+			validators[1].(func(int) error),
+		}
+		return func(prompt_count int) error {
+			for _, fn := range fns {
+				if err := fn(prompt_count); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
 	desktopmemberMixin := schema.DesktopMember{}.Mixin()
 	desktopmemberMixinHooks1 := desktopmemberMixin[1].Hooks()
 	desktopmember.Hooks[0] = desktopmemberMixinHooks1[0]

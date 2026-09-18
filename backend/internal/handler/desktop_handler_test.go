@@ -52,10 +52,11 @@ func TestDesktopMeReturnsFullPhone(t *testing.T) {
 		Member:       &service.DesktopMember{PublicID: "mem_one", Name: "Member", Phone: "+8613800000000"},
 		Organization: &service.DesktopOrganization{PublicID: "org_one", Code: "desktop", Name: "Desktop"},
 	}
-	desktop := service.NewDesktopService(nil, nil, nil, nil, nil, nil, cfg)
+	desktop := service.NewDesktopService(nil, nil, nil, nil, nil, nil, cfg, nil, nil, nil)
 	router := gin.New()
 	router.GET("/api/desktop/v1/me", func(c *gin.Context) {
 		c.Set("desktop_authorized_member", authorized)
+		c.Set("desktop_authorization", &service.DesktopAuthorization{Member: authorized})
 		NewDesktopHandler(desktop).Me(c)
 	})
 

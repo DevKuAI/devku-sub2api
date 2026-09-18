@@ -292,7 +292,10 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	if err != nil {
 		return nil, err
 	}
-	desktopService := service.NewDesktopService(desktopRepository, desktopUsageRepository, desktopRefreshStore, desktopLoginLimiter, desktopTokenManager, apiKeyService, configConfig)
+	desktopSessionStore := repository.NewDesktopSessionStore(redisClient)
+	desktopConversationRepository := repository.NewDesktopConversationRepository(client)
+	desktopConversationLimiter := repository.NewDesktopConversationLimiter(redisClient, configConfig)
+	desktopService := service.NewDesktopService(desktopRepository, desktopUsageRepository, desktopRefreshStore, desktopLoginLimiter, desktopTokenManager, apiKeyService, configConfig, desktopSessionStore, desktopConversationRepository, desktopConversationLimiter)
 	desktopHandler := admin.NewDesktopHandler(desktopService)
 	desktopUpdateRepository := repository.NewDesktopUpdateRepository(client)
 	desktopUpdateArtifactStorageFactory := repository.ProvideDesktopUpdateArtifactStorageFactory()

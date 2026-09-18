@@ -2,6 +2,7 @@ package routes
 
 import (
 	"github.com/Wei-Shaw/sub2api/internal/handler"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/desktopresponse"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
@@ -9,6 +10,8 @@ import (
 
 func RegisterDesktopRoutes(root *gin.Engine, h *handler.Handlers, desktop *service.DesktopService, auditLog middleware.AuditLogMiddleware) {
 	api := root.Group("/api/desktop/v1")
+	api.Use(func(c *gin.Context) { desktopresponse.SetHeaders(c); c.Next() })
+	api.POST("/conversation-records", middleware.StrictBodyLimit(service.DesktopConversationMaxBodyBytes), middleware.DesktopSessionAuth(desktop), h.Desktop.CreateConversation)
 	auth := api.Group("/auth")
 	auth.Use(middleware.StrictBodyLimit(8 * 1024))
 	auth.Use(gin.HandlerFunc(auditLog))

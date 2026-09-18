@@ -44,6 +44,8 @@ type Tx struct {
 	ChannelMonitorRequestTemplate *ChannelMonitorRequestTemplateClient
 	// CompositeModelRoute is the client for interacting with the CompositeModelRoute builders.
 	CompositeModelRoute *CompositeModelRouteClient
+	// DesktopConversationRecord is the client for interacting with the DesktopConversationRecord builders.
+	DesktopConversationRecord *DesktopConversationRecordClient
 	// DesktopMember is the client for interacting with the DesktopMember builders.
 	DesktopMember *DesktopMemberClient
 	// DesktopMemberAPIKey is the client for interacting with the DesktopMemberAPIKey builders.
@@ -246,6 +248,7 @@ func (tx *Tx) init() {
 	tx.ChannelMonitorHistory = NewChannelMonitorHistoryClient(tx.config)
 	tx.ChannelMonitorRequestTemplate = NewChannelMonitorRequestTemplateClient(tx.config)
 	tx.CompositeModelRoute = NewCompositeModelRouteClient(tx.config)
+	tx.DesktopConversationRecord = NewDesktopConversationRecordClient(tx.config)
 	tx.DesktopMember = NewDesktopMemberClient(tx.config)
 	tx.DesktopMemberAPIKey = NewDesktopMemberAPIKeyClient(tx.config)
 	tx.DesktopOrganization = NewDesktopOrganizationClient(tx.config)

@@ -175,6 +175,8 @@ func registerDesktopUserRoutesIfEnabled(authenticated *gin.RouterGroup, h *handl
 	desktop := authenticated.Group("/desktop/organization")
 	desktop.Use(middleware.DesktopAdminBodyLimit())
 	{
+		desktop.GET("/conversation-records", h.Desktop.ListManagedConversations)
+		desktop.GET("/conversation-records/:record_id", h.Desktop.GetManagedConversation)
 		desktop.GET("", h.Desktop.GetManagedOrganization)
 		desktop.PATCH("", h.Desktop.UpdateManagedOrganization)
 		desktop.PUT("/model-configuration", h.Desktop.UpdateManagedModelConfiguration)

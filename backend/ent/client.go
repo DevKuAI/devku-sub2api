@@ -30,6 +30,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
 	"github.com/Wei-Shaw/sub2api/ent/compositemodelroute"
+	"github.com/Wei-Shaw/sub2api/ent/desktopconversationrecord"
 	"github.com/Wei-Shaw/sub2api/ent/desktopmember"
 	"github.com/Wei-Shaw/sub2api/ent/desktopmemberapikey"
 	"github.com/Wei-Shaw/sub2api/ent/desktoporganization"
@@ -97,6 +98,8 @@ type Client struct {
 	ChannelMonitorRequestTemplate *ChannelMonitorRequestTemplateClient
 	// CompositeModelRoute is the client for interacting with the CompositeModelRoute builders.
 	CompositeModelRoute *CompositeModelRouteClient
+	// DesktopConversationRecord is the client for interacting with the DesktopConversationRecord builders.
+	DesktopConversationRecord *DesktopConversationRecordClient
 	// DesktopMember is the client for interacting with the DesktopMember builders.
 	DesktopMember *DesktopMemberClient
 	// DesktopMemberAPIKey is the client for interacting with the DesktopMemberAPIKey builders.
@@ -179,6 +182,7 @@ func (c *Client) init() {
 	c.ChannelMonitorHistory = NewChannelMonitorHistoryClient(c.config)
 	c.ChannelMonitorRequestTemplate = NewChannelMonitorRequestTemplateClient(c.config)
 	c.CompositeModelRoute = NewCompositeModelRouteClient(c.config)
+	c.DesktopConversationRecord = NewDesktopConversationRecordClient(c.config)
 	c.DesktopMember = NewDesktopMemberClient(c.config)
 	c.DesktopMemberAPIKey = NewDesktopMemberAPIKeyClient(c.config)
 	c.DesktopOrganization = NewDesktopOrganizationClient(c.config)
@@ -314,6 +318,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		ChannelMonitorHistory:         NewChannelMonitorHistoryClient(cfg),
 		ChannelMonitorRequestTemplate: NewChannelMonitorRequestTemplateClient(cfg),
 		CompositeModelRoute:           NewCompositeModelRouteClient(cfg),
+		DesktopConversationRecord:     NewDesktopConversationRecordClient(cfg),
 		DesktopMember:                 NewDesktopMemberClient(cfg),
 		DesktopMemberAPIKey:           NewDesktopMemberAPIKeyClient(cfg),
 		DesktopOrganization:           NewDesktopOrganizationClient(cfg),
@@ -376,6 +381,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		ChannelMonitorHistory:         NewChannelMonitorHistoryClient(cfg),
 		ChannelMonitorRequestTemplate: NewChannelMonitorRequestTemplateClient(cfg),
 		CompositeModelRoute:           NewCompositeModelRouteClient(cfg),
+		DesktopConversationRecord:     NewDesktopConversationRecordClient(cfg),
 		DesktopMember:                 NewDesktopMemberClient(cfg),
 		DesktopMemberAPIKey:           NewDesktopMemberAPIKeyClient(cfg),
 		DesktopOrganization:           NewDesktopOrganizationClient(cfg),
@@ -437,13 +443,14 @@ func (c *Client) Use(hooks ...Hook) {
 		c.AuthIdentity, c.AuthIdentityChannel, c.BatchImageEvent, c.BatchImageItem,
 		c.BatchImageJob, c.ChannelMonitor, c.ChannelMonitorDailyRollup,
 		c.ChannelMonitorHistory, c.ChannelMonitorRequestTemplate,
-		c.CompositeModelRoute, c.DesktopMember, c.DesktopMemberAPIKey,
-		c.DesktopOrganization, c.DesktopUpdateRelease, c.ErrorPassthroughRule, c.Group,
-		c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
-		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
-		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting,
-		c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog,
-		c.User, c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
+		c.CompositeModelRoute, c.DesktopConversationRecord, c.DesktopMember,
+		c.DesktopMemberAPIKey, c.DesktopOrganization, c.DesktopUpdateRelease,
+		c.ErrorPassthroughRule, c.Group, c.IdempotencyRecord,
+		c.IdentityAdoptionDecision, c.PaymentAuditLog, c.PaymentOrder,
+		c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage,
+		c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting, c.SubscriptionPlan,
+		c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog, c.User,
+		c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
 		c.UserPlatformQuota, c.UserSubscription,
 	} {
 		n.Use(hooks...)
@@ -458,13 +465,14 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.AuthIdentity, c.AuthIdentityChannel, c.BatchImageEvent, c.BatchImageItem,
 		c.BatchImageJob, c.ChannelMonitor, c.ChannelMonitorDailyRollup,
 		c.ChannelMonitorHistory, c.ChannelMonitorRequestTemplate,
-		c.CompositeModelRoute, c.DesktopMember, c.DesktopMemberAPIKey,
-		c.DesktopOrganization, c.DesktopUpdateRelease, c.ErrorPassthroughRule, c.Group,
-		c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
-		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
-		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting,
-		c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog,
-		c.User, c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
+		c.CompositeModelRoute, c.DesktopConversationRecord, c.DesktopMember,
+		c.DesktopMemberAPIKey, c.DesktopOrganization, c.DesktopUpdateRelease,
+		c.ErrorPassthroughRule, c.Group, c.IdempotencyRecord,
+		c.IdentityAdoptionDecision, c.PaymentAuditLog, c.PaymentOrder,
+		c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage,
+		c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting, c.SubscriptionPlan,
+		c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog, c.User,
+		c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
 		c.UserPlatformQuota, c.UserSubscription,
 	} {
 		n.Intercept(interceptors...)
@@ -504,6 +512,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.ChannelMonitorRequestTemplate.mutate(ctx, m)
 	case *CompositeModelRouteMutation:
 		return c.CompositeModelRoute.mutate(ctx, m)
+	case *DesktopConversationRecordMutation:
+		return c.DesktopConversationRecord.mutate(ctx, m)
 	case *DesktopMemberMutation:
 		return c.DesktopMember.mutate(ctx, m)
 	case *DesktopMemberAPIKeyMutation:
@@ -2946,6 +2956,171 @@ func (c *CompositeModelRouteClient) mutate(ctx context.Context, m *CompositeMode
 		return (&CompositeModelRouteDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown CompositeModelRoute mutation op: %q", m.Op())
+	}
+}
+
+// DesktopConversationRecordClient is a client for the DesktopConversationRecord schema.
+type DesktopConversationRecordClient struct {
+	config
+}
+
+// NewDesktopConversationRecordClient returns a client for the DesktopConversationRecord from the given config.
+func NewDesktopConversationRecordClient(c config) *DesktopConversationRecordClient {
+	return &DesktopConversationRecordClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `desktopconversationrecord.Hooks(f(g(h())))`.
+func (c *DesktopConversationRecordClient) Use(hooks ...Hook) {
+	c.hooks.DesktopConversationRecord = append(c.hooks.DesktopConversationRecord, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `desktopconversationrecord.Intercept(f(g(h())))`.
+func (c *DesktopConversationRecordClient) Intercept(interceptors ...Interceptor) {
+	c.inters.DesktopConversationRecord = append(c.inters.DesktopConversationRecord, interceptors...)
+}
+
+// Create returns a builder for creating a DesktopConversationRecord entity.
+func (c *DesktopConversationRecordClient) Create() *DesktopConversationRecordCreate {
+	mutation := newDesktopConversationRecordMutation(c.config, OpCreate)
+	return &DesktopConversationRecordCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of DesktopConversationRecord entities.
+func (c *DesktopConversationRecordClient) CreateBulk(builders ...*DesktopConversationRecordCreate) *DesktopConversationRecordCreateBulk {
+	return &DesktopConversationRecordCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *DesktopConversationRecordClient) MapCreateBulk(slice any, setFunc func(*DesktopConversationRecordCreate, int)) *DesktopConversationRecordCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &DesktopConversationRecordCreateBulk{err: fmt.Errorf("calling to DesktopConversationRecordClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*DesktopConversationRecordCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &DesktopConversationRecordCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for DesktopConversationRecord.
+func (c *DesktopConversationRecordClient) Update() *DesktopConversationRecordUpdate {
+	mutation := newDesktopConversationRecordMutation(c.config, OpUpdate)
+	return &DesktopConversationRecordUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *DesktopConversationRecordClient) UpdateOne(_m *DesktopConversationRecord) *DesktopConversationRecordUpdateOne {
+	mutation := newDesktopConversationRecordMutation(c.config, OpUpdateOne, withDesktopConversationRecord(_m))
+	return &DesktopConversationRecordUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *DesktopConversationRecordClient) UpdateOneID(id int64) *DesktopConversationRecordUpdateOne {
+	mutation := newDesktopConversationRecordMutation(c.config, OpUpdateOne, withDesktopConversationRecordID(id))
+	return &DesktopConversationRecordUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for DesktopConversationRecord.
+func (c *DesktopConversationRecordClient) Delete() *DesktopConversationRecordDelete {
+	mutation := newDesktopConversationRecordMutation(c.config, OpDelete)
+	return &DesktopConversationRecordDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *DesktopConversationRecordClient) DeleteOne(_m *DesktopConversationRecord) *DesktopConversationRecordDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *DesktopConversationRecordClient) DeleteOneID(id int64) *DesktopConversationRecordDeleteOne {
+	builder := c.Delete().Where(desktopconversationrecord.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &DesktopConversationRecordDeleteOne{builder}
+}
+
+// Query returns a query builder for DesktopConversationRecord.
+func (c *DesktopConversationRecordClient) Query() *DesktopConversationRecordQuery {
+	return &DesktopConversationRecordQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeDesktopConversationRecord},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a DesktopConversationRecord entity by its id.
+func (c *DesktopConversationRecordClient) Get(ctx context.Context, id int64) (*DesktopConversationRecord, error) {
+	return c.Query().Where(desktopconversationrecord.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *DesktopConversationRecordClient) GetX(ctx context.Context, id int64) *DesktopConversationRecord {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryOrganization queries the organization edge of a DesktopConversationRecord.
+func (c *DesktopConversationRecordClient) QueryOrganization(_m *DesktopConversationRecord) *DesktopOrganizationQuery {
+	query := (&DesktopOrganizationClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(desktopconversationrecord.Table, desktopconversationrecord.FieldID, id),
+			sqlgraph.To(desktoporganization.Table, desktoporganization.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, desktopconversationrecord.OrganizationTable, desktopconversationrecord.OrganizationColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryMember queries the member edge of a DesktopConversationRecord.
+func (c *DesktopConversationRecordClient) QueryMember(_m *DesktopConversationRecord) *DesktopMemberQuery {
+	query := (&DesktopMemberClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(desktopconversationrecord.Table, desktopconversationrecord.FieldID, id),
+			sqlgraph.To(desktopmember.Table, desktopmember.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, desktopconversationrecord.MemberTable, desktopconversationrecord.MemberColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *DesktopConversationRecordClient) Hooks() []Hook {
+	return c.hooks.DesktopConversationRecord
+}
+
+// Interceptors returns the client interceptors.
+func (c *DesktopConversationRecordClient) Interceptors() []Interceptor {
+	return c.inters.DesktopConversationRecord
+}
+
+func (c *DesktopConversationRecordClient) mutate(ctx context.Context, m *DesktopConversationRecordMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&DesktopConversationRecordCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&DesktopConversationRecordUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&DesktopConversationRecordUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&DesktopConversationRecordDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown DesktopConversationRecord mutation op: %q", m.Op())
 	}
 }
 
@@ -7606,8 +7781,8 @@ type (
 		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
 		AuthIdentityChannel, BatchImageEvent, BatchImageItem, BatchImageJob,
 		ChannelMonitor, ChannelMonitorDailyRollup, ChannelMonitorHistory,
-		ChannelMonitorRequestTemplate, CompositeModelRoute, DesktopMember,
-		DesktopMemberAPIKey, DesktopOrganization, DesktopUpdateRelease,
+		ChannelMonitorRequestTemplate, CompositeModelRoute, DesktopConversationRecord,
+		DesktopMember, DesktopMemberAPIKey, DesktopOrganization, DesktopUpdateRelease,
 		ErrorPassthroughRule, Group, IdempotencyRecord, IdentityAdoptionDecision,
 		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
 		PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
@@ -7619,8 +7794,8 @@ type (
 		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
 		AuthIdentityChannel, BatchImageEvent, BatchImageItem, BatchImageJob,
 		ChannelMonitor, ChannelMonitorDailyRollup, ChannelMonitorHistory,
-		ChannelMonitorRequestTemplate, CompositeModelRoute, DesktopMember,
-		DesktopMemberAPIKey, DesktopOrganization, DesktopUpdateRelease,
+		ChannelMonitorRequestTemplate, CompositeModelRoute, DesktopConversationRecord,
+		DesktopMember, DesktopMemberAPIKey, DesktopOrganization, DesktopUpdateRelease,
 		ErrorPassthroughRule, Group, IdempotencyRecord, IdentityAdoptionDecision,
 		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
 		PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,

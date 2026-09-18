@@ -88,6 +88,10 @@
         </div>
       </section>
 
+      <section v-else-if="activeTab === 'conversations'" :id="panelId('conversations')" role="tabpanel" :aria-labelledby="tabId('conversations')">
+        <DesktopConversationRecords :organization-id="organizationID" :self-managed="selfManaged" />
+      </section>
+
       <section v-else :id="panelId('configuration')" class="min-w-0" role="tabpanel" :aria-labelledby="tabId('configuration')">
         <div v-if="selfManaged" class="space-y-6">
           <p class="text-sm text-gray-500 dark:text-dark-400">{{ t('admin.desktop.configurationReadOnly') }}</p>
@@ -184,8 +188,9 @@ import StatusBadge from '@/components/common/StatusBadge.vue'
 import Select from '@/components/common/Select.vue'
 import Input from '@/components/common/Input.vue'
 import Icon from '@/components/icons/Icon.vue'
+import DesktopConversationRecords from '@/components/desktop/DesktopConversationRecords.vue'
 
-type DetailTab = 'members' | 'configuration'
+type DetailTab = 'members' | 'configuration' | 'conversations'
 const { selfManaged = false } = defineProps<{ selfManaged?: boolean }>()
 const { t, te } = useI18n()
 const route = useRoute()
@@ -200,8 +205,8 @@ const configurationTargets = computed(() => [
 const organizationID = computed(() => selfManaged ? (organization.value?.public_id || '') : String(route.params.organizationId || ''))
 const organizationAPI = computed(() => selfManaged ? desktopOrganizationAPI : adminAPI.desktop)
 const dashboardPath = computed(() => authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
-const activeTab = computed<DetailTab>(() => route.query.tab === 'configuration' ? 'configuration' : 'members')
-const tabs = computed(() => [{ value: 'members' as const, label: t('admin.desktop.members') }, { value: 'configuration' as const, label: t('admin.desktop.configuration') }])
+const activeTab = computed<DetailTab>(() => route.query.tab === 'configuration' ? 'configuration' : route.query.tab === 'conversations' ? 'conversations' : 'members')
+const tabs = computed(() => [{ value: 'members' as const, label: t('admin.desktop.members') }, { value: 'configuration' as const, label: t('admin.desktop.configuration') }, { value: 'conversations' as const, label: t('admin.desktop.conversations.title') }])
 const members = ref<DesktopMember[]>([])
 const membersLoading = ref(false)
 const memberSearch = ref('')

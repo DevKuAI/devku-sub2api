@@ -189,6 +189,18 @@ func (f CompositeModelRouteFunc) Mutate(ctx context.Context, m ent.Mutation) (en
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.CompositeModelRouteMutation", m)
 }
 
+// The DesktopConversationRecordFunc type is an adapter to allow the use of ordinary
+// function as DesktopConversationRecord mutator.
+type DesktopConversationRecordFunc func(context.Context, *ent.DesktopConversationRecordMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f DesktopConversationRecordFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.DesktopConversationRecordMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.DesktopConversationRecordMutation", m)
+}
+
 // The DesktopMemberFunc type is an adapter to allow the use of ordinary
 // function as DesktopMember mutator.
 type DesktopMemberFunc func(context.Context, *ent.DesktopMemberMutation) (ent.Value, error)

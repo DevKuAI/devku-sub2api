@@ -1,0 +1,2074 @@
+{
+  "openapi": "3.1.0",
+  "jsonSchemaDialect": "https://spec.openapis.org/oas/3.1/dialect/base",
+  "info": {
+    "title": "得酷滑动会话与对话上报 API",
+    "version": "2.0.0",
+    "description": "Desktop v2 滑动会话、完整对话写入，以及平台管理员和所属企业的对话查询合同。其他现有 Desktop 路由同时接受 v1 JWT 和 v2 会话；v1 合同见 DESKTOP_API_V1.openapi.yaml。后台查询使用 Web 认证及其原有响应格式。",
+    "license": {
+      "name": "LGPL-3.0",
+      "url": "https://www.gnu.org/licenses/lgpl-3.0.html"
+    }
+  },
+  "servers": [
+    {
+      "url": "{baseUrl}",
+      "description": "Sub2API 服务地址；联调时设置实际地址",
+      "variables": {
+        "baseUrl": {
+          "default": "http://localhost:8080"
+        }
+      }
+    }
+  ],
+  "tags": [
+    {
+      "name": "Desktop session",
+      "description": "Desktop session"
+    },
+    {
+      "name": "Conversation records",
+      "description": "Conversation records"
+    },
+    {
+      "name": "Desktop Admin Conversations",
+      "description": "平台管理员在所选企业内查询"
+    },
+    {
+      "name": "Desktop Organization Conversations",
+      "description": "企业账号在所属企业内查询"
+    }
+  ],
+  "x-implementation-status": "draft-not-implemented",
+  "x-session-policy": {
+    "idleTimeoutSeconds": 1296000,
+    "absoluteTimeoutSeconds": null,
+    "credentialRotationOnActivity": false,
+    "refreshRequired": false,
+    "clock": "server/Redis"
+  },
+  "paths": {
+    "/api/desktop/v1/auth/login": {
+      "post": {
+        "operationId": "loginDesktopSessionV2",
+        "tags": [
+          "Desktop session"
+        ],
+        "summary": "名单匹配登录并签发 v2 稳定会话凭证",
+        "description": "本操作 schema 仅描述 X-Desktop-Auth-Version: 2。未带头或版本 1 走旧合同；其他版本返回 422 AUTH_VERSION_UNSUPPORTED。新客户端必须确认 auth_version=2，不接受旧服务忽略版本头后返回的 JWT 作为长效凭证。登录验证及限流沿用现有流程；原文凭证只返回一次。",
+        "security": [],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/InstallationId"
+          },
+          {
+            "name": "X-Desktop-Auth-Version",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "const": "2"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              },
+              "example": {
+                "organization_code": "example",
+                "name": "测试员工",
+                "phone": "+8613800000000"
+              }
+            }
+          }
+        },
+        "x-max-request-body-bytes": 8192,
+        "responses": {
+          "200": {
+            "description": "创建会话成功；TTL 为 15 天，不返回 refresh_token 或 expires_in。",
+            "headers": {
+              "Cache-Control": {
+                "description": "所有响应必须为 no-store。",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "description": "服务端生成的请求标识，与错误体 request_id 一致。",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                },
+                "example": {
+                  "data": {
+                    "auth_version": 2,
+                    "token_type": "Bearer",
+                    "access_token": "dks_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                    "session_id": "session_example",
+                    "idle_timeout_seconds": 1296000,
+                    "idle_expires_at": "2026-10-02T10:00:00Z"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "沿用现有统一名单匹配失败响应，不暴露具体失败字段。",
+            "headers": {
+              "Cache-Control": {
+                "description": "所有响应必须为 no-store。",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "description": "服务端生成的请求标识，与错误体 request_id 一致。",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-error-codes": [
+              "MEMBER_INFORMATION_MISMATCH"
+            ]
+          },
+          "413": {
+            "description": "登录请求体超过 8 KiB。",
+            "headers": {
+              "Cache-Control": {
+                "description": "所有响应必须为 no-store。",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "description": "服务端生成的请求标识，与错误体 request_id 一致。",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-error-codes": [
+              "PAYLOAD_TOO_LARGE"
+            ]
+          },
+          "422": {
+            "description": "输入或版本头不合法。",
+            "headers": {
+              "Cache-Control": {
+                "description": "所有响应必须为 no-store。",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "description": "服务端生成的请求标识，与错误体 request_id 一致。",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-error-codes": [
+              "VALIDATION_FAILED",
+              "AUTH_VERSION_UNSUPPORTED"
+            ]
+          },
+          "429": {
+            "description": "触发登录保护限流。",
+            "headers": {
+              "Cache-Control": {
+                "description": "所有响应必须为 no-store。",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "description": "服务端生成的请求标识，与错误体 request_id 一致。",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-error-codes": [
+              "RATE_LIMITED"
+            ]
+          },
+          "503": {
+            "description": "会话存储不可用。",
+            "headers": {
+              "Cache-Control": {
+                "description": "所有响应必须为 no-store。",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "description": "服务端生成的请求标识，与错误体 request_id 一致。",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-error-codes": [
+              "DESKTOP_AUTH_STORE_UNAVAILABLE"
+            ]
+          }
+        }
+      }
+    },
+    "/api/desktop/v1/auth/logout": {
+      "post": {
+        "operationId": "logoutDesktopSessionV2",
+        "tags": [
+          "Desktop session"
+        ],
+        "summary": "撤销当前 v2 会话",
+        "description": "无需请求正文；删除当前会话，不延长 TTL。删除后开始认证的请求必须失败，并发 touch 不能重建已注销 key；已通过鉴权的在途请求可完成。客户端无论请求结果如何均清理本地凭证。",
+        "security": [
+          {
+            "DesktopSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/InstallationId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "会话已删除。",
+            "headers": {
+              "Cache-Control": {
+                "description": "所有响应必须为 no-store。",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "description": "服务端生成的请求标识，与错误体 request_id 一致。",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogoutResponse"
+                },
+                "example": {
+                  "data": {
+                    "logged_out": true
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "凭证未知、已到期或已注销。",
+            "headers": {
+              "Cache-Control": {
+                "description": "所有响应必须为 no-store。",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "description": "服务端生成的请求标识，与错误体 request_id 一致。",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-error-codes": [
+              "UNAUTHENTICATED"
+            ]
+          },
+          "403": {
+            "description": "当前身份已撤销或安装 ID 不匹配。",
+            "headers": {
+              "Cache-Control": {
+                "description": "所有响应必须为 no-store。",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "description": "服务端生成的请求标识，与错误体 request_id 一致。",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-error-codes": [
+              "MEMBERSHIP_REVOKED",
+              "SESSION_INSTALLATION_MISMATCH"
+            ]
+          },
+          "422": {
+            "description": "安装 ID 缺失或格式不合法。",
+            "headers": {
+              "Cache-Control": {
+                "description": "所有响应必须为 no-store。",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "description": "服务端生成的请求标识，与错误体 request_id 一致。",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-error-codes": [
+              "VALIDATION_FAILED"
+            ]
+          },
+          "503": {
+            "description": "会话存储不可用。",
+            "headers": {
+              "Cache-Control": {
+                "description": "所有响应必须为 no-store。",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "description": "服务端生成的请求标识，与错误体 request_id 一致。",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-error-codes": [
+              "DESKTOP_AUTH_STORE_UNAVAILABLE"
+            ]
+          }
+        }
+      }
+    },
+    "/api/desktop/v1/conversation-records": {
+      "post": {
+        "operationId": "createDesktopConversationRecord",
+        "tags": [
+          "Conversation records"
+        ],
+        "summary": "写入一轮提问与最终可见响应",
+        "description": "仅接受 v2 会话。校验正文、身份及独立限流后原子续期，再执行数据库事务；提交成功才返回 200。每成员默认每分钟 60 次，可通过 DESKTOP_CONVERSATION_MEMBER_PER_MINUTE 配置，同一成员的设备和客户端共用限额。客户端仅发送一次，不刷新、重试或补传。保存全部收到且合法的记录，不自动清理；不记录正文或凭证到日志。",
+        "security": [
+          {
+            "DesktopSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/InstallationId"
+          },
+          {
+            "name": "Cache-Control",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "const": "no-store"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "完整未压缩 JSON（含转义）最多 32 MiB；每段 text 最多 2 MiB UTF-8。仅 Content-Encoding 缺省或 identity；代理和应用对分块请求同样限流量，不依赖 Content-Length。",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConversationRecord"
+              },
+              "example": {
+                "schemaVersion": 2,
+                "recordId": "0fbf4d44-2fc6-4e94-99f3-beb6bf40a656",
+                "client": "workbuddy",
+                "installationId": "4cd825ab-f923-4515-9d0f-a2a9c968fbaf",
+                "organizationId": "org_example",
+                "memberId": "mem_example",
+                "sessionId": "784efb42-c3ad-4904-b235-8fb66bc9bf3d",
+                "sourceTurnId": null,
+                "startedAt": "2026-09-17T06:20:05.000Z",
+                "stoppedAt": "2026-09-17T06:21:25.000Z",
+                "cwd": "/workspace/example",
+                "prompts": [
+                  {
+                    "text": "帮我解释一下这个函数",
+                    "truncated": false
+                  }
+                ],
+                "response": {
+                  "text": "这个函数用于……",
+                  "truncated": false
+                },
+                "captureStatus": "captured"
+              }
+            }
+          }
+        },
+        "x-max-request-body-bytes": 33554432,
+        "x-client-retry": false,
+        "responses": {
+          "200": {
+            "description": "完整记录已提交数据库；received_at 来自服务端。",
+            "headers": {
+              "Cache-Control": {
+                "description": "所有响应必须为 no-store。",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "description": "服务端生成的请求标识，与错误体 request_id 一致。",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationResponse"
+                },
+                "example": {
+                  "data": {
+                    "record_id": "0fbf4d44-2fc6-4e94-99f3-beb6bf40a656",
+                    "received_at": "2026-09-17T06:21:26.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "凭证缺失、未知、到期、注销，或仍使用 v1 JWT。",
+            "headers": {
+              "Cache-Control": {
+                "description": "所有响应必须为 no-store。",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "description": "服务端生成的请求标识，与错误体 request_id 一致。",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-error-codes": [
+              "UNAUTHENTICATED",
+              "SESSION_AUTH_REQUIRED"
+            ]
+          },
+          "403": {
+            "description": "成员/企业/承载 User 撤销、auth version 变化或安装/身份不匹配；不续期。",
+            "headers": {
+              "Cache-Control": {
+                "description": "所有响应必须为 no-store。",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "description": "服务端生成的请求标识，与错误体 request_id 一致。",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-error-codes": [
+              "MEMBERSHIP_REVOKED",
+              "SESSION_INSTALLATION_MISMATCH",
+              "CONVERSATION_IDENTITY_MISMATCH"
+            ]
+          },
+          "409": {
+            "description": "同一企业下 recordId 已存在；不覆盖，不保存重试回执。",
+            "headers": {
+              "Cache-Control": {
+                "description": "所有响应必须为 no-store。",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "description": "服务端生成的请求标识，与错误体 request_id 一致。",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-error-codes": [
+              "CONVERSATION_RECORD_EXISTS"
+            ]
+          },
+          "413": {
+            "description": "完整序列化请求超过 33,554,432 字节。",
+            "headers": {
+              "Cache-Control": {
+                "description": "所有响应必须为 no-store。",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "description": "服务端生成的请求标识，与错误体 request_id 一致。",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-error-codes": [
+              "PAYLOAD_TOO_LARGE"
+            ]
+          },
+          "415": {
+            "description": "非 application/json，或 Content-Encoding 非缺省/identity。",
+            "headers": {
+              "Cache-Control": {
+                "description": "所有响应必须为 no-store。",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "description": "服务端生成的请求标识，与错误体 request_id 一致。",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-error-codes": [
+              "UNSUPPORTED_MEDIA_TYPE"
+            ]
+          },
+          "422": {
+            "description": "JSON、字段、时间、UTF-8 字节数、数组数量或未知字段验证失败。",
+            "headers": {
+              "Cache-Control": {
+                "description": "所有响应必须为 no-store。",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "description": "服务端生成的请求标识，与错误体 request_id 一致。",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-error-codes": [
+              "VALIDATION_FAILED"
+            ]
+          },
+          "429": {
+            "description": "超过上报限流策略；不续期；Hook 不重试。",
+            "headers": {
+              "Cache-Control": {
+                "description": "所有响应必须为 no-store。",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "description": "服务端生成的请求标识，与错误体 request_id 一致。",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "Retry-After": {
+                "description": "可选的等待秒数；Hook 忽略重试提示。",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]*$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-error-codes": [
+              "RATE_LIMITED"
+            ]
+          },
+          "503": {
+            "description": "会话存储或问答入库失败；后者若已通过有效活动校验，可已续期。",
+            "headers": {
+              "Cache-Control": {
+                "description": "所有响应必须为 no-store。",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "description": "服务端生成的请求标识，与错误体 request_id 一致。",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "x-error-codes": [
+              "DESKTOP_AUTH_STORE_UNAVAILABLE",
+              "CONVERSATION_STORAGE_UNAVAILABLE"
+            ]
+          }
+        },
+        "x-rate-limit": {
+          "scope": "member",
+          "default_requests": 60,
+          "window_seconds": 60,
+          "configuration": "DESKTOP_CONVERSATION_MEMBER_PER_MINUTE"
+        }
+      }
+    },
+    "/api/v1/admin/desktop/organizations/{organization_id}/conversation-records": {
+      "get": {
+        "operationId": "listAdminDesktopConversations",
+        "tags": [
+          "Desktop Admin Conversations"
+        ],
+        "summary": "分页查询对话元数据",
+        "description": "企业范围由当前角色和服务端授权确定，跨企业读取返回 404。历史成员删除后仍可回看。列表不含 prompts/response。排序按 received_at、内部 ID；回看时固定企业、member_id、client、installation_id、source_session_id 并使用 asc。",
+        "security": [
+          {
+            "AdminBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "sort_order",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "default": "desc"
+            }
+          },
+          {
+            "name": "member_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "member_search",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "source_session_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "record_id",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/RecordId"
+            }
+          },
+          {
+            "name": "installation_id",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/InstallationId"
+            }
+          },
+          {
+            "name": "client",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "workbuddy",
+                "chatgpt_codex"
+              ]
+            }
+          },
+          {
+            "name": "capture_status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "captured",
+                "response_missing"
+              ]
+            }
+          },
+          {
+            "name": "received_from",
+            "in": "query",
+            "description": "服务端接收时间；起点包含、终点不含，RFC 3339。",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "received_to",
+            "in": "query",
+            "description": "服务端接收时间；起点包含、终点不含，RFC 3339。",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "查询成功，Cache-Control: no-store",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationPageEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Web 登录失效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "权限不足",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "企业或记录不可见",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "筛选参数不合法",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Web 面板限流",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "存储不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/desktop/organizations/{organization_id}/conversation-records/{record_id}": {
+      "get": {
+        "operationId": "getAdminDesktopConversations",
+        "tags": [
+          "Desktop Admin Conversations"
+        ],
+        "summary": "读取完整一轮问答",
+        "description": "企业范围由当前角色和服务端授权确定，跨企业读取返回 404。历史成员删除后仍可回看。正文仅以文本展示，访问审计不复制正文。",
+        "security": [
+          {
+            "AdminBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/RecordId"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "查询成功，Cache-Control: no-store",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationDetailEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Web 登录失效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "权限不足",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "企业或记录不可见",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "筛选参数不合法",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Web 面板限流",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "存储不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/desktop/organization/conversation-records": {
+      "get": {
+        "operationId": "listManagedDesktopConversations",
+        "tags": [
+          "Desktop Organization Conversations"
+        ],
+        "summary": "分页查询对话元数据",
+        "description": "企业范围由当前角色和服务端授权确定，跨企业读取返回 404。历史成员删除后仍可回看。列表不含 prompts/response。排序按 received_at、内部 ID；回看时固定企业、member_id、client、installation_id、source_session_id 并使用 asc。",
+        "security": [
+          {
+            "WebBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "sort_order",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "default": "desc"
+            }
+          },
+          {
+            "name": "member_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "member_search",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "source_session_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "record_id",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/RecordId"
+            }
+          },
+          {
+            "name": "installation_id",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/InstallationId"
+            }
+          },
+          {
+            "name": "client",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "workbuddy",
+                "chatgpt_codex"
+              ]
+            }
+          },
+          {
+            "name": "capture_status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "captured",
+                "response_missing"
+              ]
+            }
+          },
+          {
+            "name": "received_from",
+            "in": "query",
+            "description": "服务端接收时间；起点包含、终点不含，RFC 3339。",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "received_to",
+            "in": "query",
+            "description": "服务端接收时间；起点包含、终点不含，RFC 3339。",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "查询成功，Cache-Control: no-store",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationPageEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Web 登录失效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "权限不足",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "企业或记录不可见",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "筛选参数不合法",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Web 面板限流",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "存储不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/desktop/organization/conversation-records/{record_id}": {
+      "get": {
+        "operationId": "getManagedDesktopConversations",
+        "tags": [
+          "Desktop Organization Conversations"
+        ],
+        "summary": "读取完整一轮问答",
+        "description": "企业范围由当前角色和服务端授权确定，跨企业读取返回 404。历史成员删除后仍可回看。正文仅以文本展示，访问审计不复制正文。",
+        "security": [
+          {
+            "WebBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/RecordId"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "查询成功，Cache-Control: no-store",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationDetailEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Web 登录失效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "权限不足",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "企业或记录不可见",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "筛选参数不合法",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Web 面板限流",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "存储不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "DesktopSession": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "opaque dks_ session token",
+        "description": "与得酷 v2 登录一致，不使用 Model Token。服务端存 SHA-256 摘要；有效业务请求滑动续期，连续 15 天无活动失效。"
+      },
+      "AdminBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "现有平台管理员凭证"
+      },
+      "WebBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "现有 Web 登录凭证；必须关联 Desktop 企业"
+      }
+    },
+    "parameters": {
+      "InstallationId": {
+        "name": "X-Installation-ID",
+        "in": "header",
+        "required": true,
+        "description": "本次安装的稳定 UUID；受保护请求必须与会话匹配。",
+        "schema": {
+          "$ref": "#/components/schemas/InstallationId"
+        }
+      }
+    },
+    "schemas": {
+      "InstallationId": {
+        "type": "string",
+        "format": "uuid",
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        "description": "小写、带连字符 UUID；请求头、正文、会话中的值必须一致。"
+      },
+      "RecordId": {
+        "type": "string",
+        "format": "uuid",
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+      },
+      "UtcTimestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+        "description": "UTC RFC 3339，必须以大写 Z 结尾。"
+      },
+      "LoginRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "organization_code",
+          "name",
+          "phone"
+        ],
+        "properties": {
+          "organization_code": {
+            "type": "string",
+            "minLength": 1,
+            "description": "沿用现有企业简码规范化和名单匹配校验。"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "沿用现有姓名 Unicode NFC 规范化及匹配规则。"
+          },
+          "phone": {
+            "type": "string",
+            "minLength": 1,
+            "description": "沿用现有中国大陆 11 位或 +86 手机号规范化及匹配规则。"
+          }
+        },
+        "description": "v2 登录严格拒绝未知字段、重复字段、null 必填字段和尾随 JSON。"
+      },
+      "LoginResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "auth_version",
+              "token_type",
+              "access_token",
+              "session_id",
+              "idle_timeout_seconds",
+              "idle_expires_at"
+            ],
+            "properties": {
+              "auth_version": {
+                "type": "integer",
+                "const": 2
+              },
+              "token_type": {
+                "type": "string",
+                "const": "Bearer"
+              },
+              "access_token": {
+                "type": "string",
+                "pattern": "^dks_[A-Za-z0-9_-]{43}$",
+                "description": "稳定不透明会话凭证；随机部分为 32 字节 CSPRNG 的无填充 Base64URL。客户端不可解码为 JWT。"
+              },
+              "session_id": {
+                "type": "string",
+                "minLength": 1,
+                "description": "登录会话标识，与上报的 AI 对话 sessionId 不同。"
+              },
+              "idle_timeout_seconds": {
+                "type": "integer",
+                "const": 1296000
+              },
+              "idle_expires_at": {
+                "$ref": "#/components/schemas/UtcTimestamp",
+                "description": "仅是登录时的到期快照；后续有效请求会延长，客户端不可依此定时清除会话。"
+              }
+            }
+          }
+        }
+      },
+      "LogoutResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "logged_out"
+            ],
+            "properties": {
+              "logged_out": {
+                "type": "boolean",
+                "const": true
+              }
+            }
+          }
+        }
+      },
+      "TextSegment": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "text",
+          "truncated"
+        ],
+        "properties": {
+          "text": {
+            "type": "string",
+            "x-max-utf8-bytes": 2097152,
+            "description": "允许空串；UTF-8 编码后最多 2 MiB，必须在应用层按字节验证，不等同于 maxLength。 拒绝 NUL（U+0000）；不替换或删减正文。"
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "客户端是否截断过该段正文。"
+          }
+        }
+      },
+      "ConversationRecord": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schemaVersion",
+          "recordId",
+          "client",
+          "installationId",
+          "organizationId",
+          "memberId",
+          "sessionId",
+          "startedAt",
+          "stoppedAt",
+          "prompts",
+          "response",
+          "captureStatus"
+        ],
+        "properties": {
+          "schemaVersion": {
+            "type": "integer",
+            "const": 2
+          },
+          "recordId": {
+            "$ref": "#/components/schemas/RecordId"
+          },
+          "client": {
+            "type": "string",
+            "enum": [
+              "workbuddy",
+              "chatgpt_codex"
+            ]
+          },
+          "installationId": {
+            "$ref": "#/components/schemas/InstallationId"
+          },
+          "organizationId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "必须匹配鉴权身份；后端入库归属来自会话。"
+          },
+          "memberId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "必须匹配鉴权身份；后端入库归属来自会话。"
+          },
+          "sessionId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512,
+            "description": "原始 AI 对话标识，不是登录 session_id。"
+          },
+          "sourceTurnId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 512,
+            "description": "原客户端轮次标识；无法取得时省略或传 null。"
+          },
+          "startedAt": {
+            "$ref": "#/components/schemas/UtcTimestamp"
+          },
+          "stoppedAt": {
+            "$ref": "#/components/schemas/UtcTimestamp"
+          },
+          "cwd": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 4096,
+            "description": "工作目录文本；后端不访问此路径。"
+          },
+          "prompts": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 64,
+            "items": {
+              "$ref": "#/components/schemas/TextSegment"
+            },
+            "description": "本轮提问及补充提问，按原顺序保存。"
+          },
+          "response": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TextSegment"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "captureStatus": {
+            "type": "string",
+            "enum": [
+              "captured",
+              "response_missing"
+            ]
+          }
+        },
+        "oneOf": [
+          {
+            "properties": {
+              "captureStatus": {
+                "const": "captured"
+              },
+              "response": {
+                "$ref": "#/components/schemas/TextSegment"
+              }
+            },
+            "required": [
+              "captureStatus",
+              "response"
+            ]
+          },
+          {
+            "properties": {
+              "captureStatus": {
+                "const": "response_missing"
+              },
+              "response": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "captureStatus",
+              "response"
+            ]
+          }
+        ],
+        "x-cross-field-rules": [
+          "startedAt <= stoppedAt；客户端时间不用于鉴权 TTL，服务端 received_at 用于可信排序。",
+          "installationId == X-Installation-ID == session.installation_id。",
+          "organizationId 和 memberId 必须匹配认证会话及当前有效成员。"
+        ],
+        "description": "所有对象拒绝未知、重复或大小写不一致的字段名。拒绝无效 Unicode、NUL（U+0000）、尾随 JSON；字符数和 UTF-8 字节数分别按字段合同校验。"
+      },
+      "ConversationResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "record_id",
+              "received_at"
+            ],
+            "properties": {
+              "record_id": {
+                "$ref": "#/components/schemas/RecordId"
+              },
+              "received_at": {
+                "$ref": "#/components/schemas/UtcTimestamp"
+              }
+            }
+          }
+        }
+      },
+      "ErrorEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "code",
+              "message",
+              "request_id",
+              "retryable",
+              "details"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "minLength": 1
+              },
+              "message": {
+                "type": "string",
+                "description": "仅用于说明，客户端不能解析 message 判断业务状态。"
+              },
+              "request_id": {
+                "type": "string"
+              },
+              "retryable": {
+                "type": "boolean",
+                "description": "沿用现有 Desktop 含义；Hook 无论此值如何均不重试、刷新重发或补传。"
+              },
+              "details": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "脱敏错误元信息；不得包含凭证或问答正文。"
+              }
+            }
+          }
+        },
+        "examples": [
+          {
+            "error": {
+              "code": "UNAUTHENTICATED",
+              "message": "登录已失效",
+              "request_id": "req_example",
+              "retryable": false,
+              "details": {}
+            }
+          }
+        ]
+      },
+      "ConversationMetadata": {
+        "type": "object",
+        "required": [
+          "record_id",
+          "organization_id",
+          "member_id",
+          "member_name",
+          "member_deleted",
+          "client",
+          "installation_id",
+          "source_session_id",
+          "source_turn_id",
+          "started_at",
+          "stopped_at",
+          "received_at",
+          "cwd",
+          "capture_status",
+          "prompt_count"
+        ],
+        "properties": {
+          "record_id": {
+            "$ref": "#/components/schemas/RecordId"
+          },
+          "organization_id": {
+            "type": "string"
+          },
+          "member_id": {
+            "type": "string"
+          },
+          "member_name": {
+            "type": "string"
+          },
+          "member_deleted": {
+            "type": "boolean"
+          },
+          "client": {
+            "type": "string",
+            "enum": [
+              "workbuddy",
+              "chatgpt_codex"
+            ]
+          },
+          "installation_id": {
+            "$ref": "#/components/schemas/InstallationId"
+          },
+          "source_session_id": {
+            "type": "string"
+          },
+          "source_turn_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "started_at": {
+            "$ref": "#/components/schemas/UtcTimestamp"
+          },
+          "stopped_at": {
+            "$ref": "#/components/schemas/UtcTimestamp"
+          },
+          "received_at": {
+            "$ref": "#/components/schemas/UtcTimestamp"
+          },
+          "cwd": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "capture_status": {
+            "type": "string",
+            "enum": [
+              "captured",
+              "response_missing"
+            ]
+          },
+          "prompt_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 64
+          }
+        },
+        "additionalProperties": false
+      },
+      "ConversationDetail": {
+        "type": "object",
+        "required": [
+          "record_id",
+          "organization_id",
+          "member_id",
+          "member_name",
+          "member_deleted",
+          "client",
+          "installation_id",
+          "source_session_id",
+          "source_turn_id",
+          "started_at",
+          "stopped_at",
+          "received_at",
+          "cwd",
+          "capture_status",
+          "prompt_count",
+          "schema_version",
+          "prompts",
+          "response"
+        ],
+        "properties": {
+          "record_id": {
+            "$ref": "#/components/schemas/RecordId"
+          },
+          "organization_id": {
+            "type": "string"
+          },
+          "member_id": {
+            "type": "string"
+          },
+          "member_name": {
+            "type": "string"
+          },
+          "member_deleted": {
+            "type": "boolean"
+          },
+          "client": {
+            "type": "string",
+            "enum": [
+              "workbuddy",
+              "chatgpt_codex"
+            ]
+          },
+          "installation_id": {
+            "$ref": "#/components/schemas/InstallationId"
+          },
+          "source_session_id": {
+            "type": "string"
+          },
+          "source_turn_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "started_at": {
+            "$ref": "#/components/schemas/UtcTimestamp"
+          },
+          "stopped_at": {
+            "$ref": "#/components/schemas/UtcTimestamp"
+          },
+          "received_at": {
+            "$ref": "#/components/schemas/UtcTimestamp"
+          },
+          "cwd": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "capture_status": {
+            "type": "string",
+            "enum": [
+              "captured",
+              "response_missing"
+            ]
+          },
+          "prompt_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 64
+          },
+          "schema_version": {
+            "type": "integer",
+            "const": 2
+          },
+          "prompts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TextSegment"
+            }
+          },
+          "response": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TextSegment"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "ConversationPage": {
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size",
+          "pages"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConversationMetadata"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "page_size": {
+            "type": "integer"
+          },
+          "pages": {
+            "type": "integer"
+          }
+        }
+      },
+      "ConversationPageEnvelope": {
+        "type": "object",
+        "required": [
+          "code",
+          "message",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer",
+            "const": 0
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ConversationPage"
+          }
+        }
+      },
+      "ConversationDetailEnvelope": {
+        "type": "object",
+        "required": [
+          "code",
+          "message",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer",
+            "const": 0
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ConversationDetail"
+          }
+        }
+      },
+      "WebErrorEnvelope": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "message": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  }
+}

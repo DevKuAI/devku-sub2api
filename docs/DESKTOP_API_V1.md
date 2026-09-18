@@ -1,5 +1,7 @@
 # Desktop API v1
 
+新增的稳定会话、对话上报及后台回看见 [Desktop v2](DESKTOP_SESSION_CONVERSATION_V2.md)。本页登录/refresh 说明保留用于无版本头或版本 1 的旧客户端；现有受保护 Desktop 业务接口也接受 v2 会话凭证，并要求绑定的 `X-Installation-ID`。
+
 本文档定义 `devku-sub2api` 的 Desktop 管理接口和 Desktop 客户端接口。Desktop 企业、成员与普通面板 User 属于不同认证域；企业仅通过 `gateway_user_id` 绑定一个现有 active User，作为结算、Group 权限和成员 Model Token owner。
 
 ## 启用条件

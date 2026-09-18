@@ -12,6 +12,7 @@ import (
 )
 
 const desktopAuthorizedMemberContextKey = "desktop_authorized_member"
+const desktopAuthorizationContextKey = "desktop_authorization"
 
 func StrictBodyLimit(maxBytes int64) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -55,13 +56,14 @@ func IsBodyTooLarge(err error) bool {
 func DesktopAuth(desktop *service.DesktopService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token := bearerToken(c.GetHeader("Authorization"))
-		authorized, _, err := desktop.Authorize(c.Request.Context(), token)
+		authorized, err := desktop.AuthorizeRequest(c.Request.Context(), token, c.GetHeader("X-Installation-ID"))
 		if err != nil {
 			desktopresponse.Error(c, err)
 			c.Abort()
 			return
 		}
-		c.Set(desktopAuthorizedMemberContextKey, authorized)
+		c.Set(desktopAuthorizedMemberContextKey, authorized.Member)
+		c.Set(desktopAuthorizationContextKey, authorized)
 		c.Next()
 	}
 }
@@ -78,4 +80,27 @@ func bearerToken(header string) string {
 		return ""
 	}
 	return parts[1]
+}
+
+func GetDesktopAuthorization(c *gin.Context) (*service.DesktopAuthorization, bool) {
+	value, exists := c.Get(desktopAuthorizationContextKey)
+	auth, ok := value.(*service.DesktopAuthorization)
+	return auth, exists && ok
+}
+
+func DesktopSessionAuth(desktop *service.DesktopService) gin.HandlerFunc {
+	auth := DesktopAuth(desktop)
+	return func(c *gin.Context) {
+		token := bearerToken(c.GetHeader("Authorization"))
+		if !service.IsDesktopSessionToken(token) {
+			err := service.ErrDesktopUnauthenticated
+			if strings.Count(token, ".") == 2 {
+				err = service.ErrDesktopSessionRequired
+			}
+			desktopresponse.Error(c, err)
+			c.Abort()
+			return
+		}
+		auth(c)
+	}
 }

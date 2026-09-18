@@ -116,6 +116,7 @@ desktop:
   login_organization_per_minute: 30
   login_phone_failure_limit: 5
   login_phone_freeze_minutes: 15
+  conversation_member_per_minute: 60
 
 # =============================================================================
 # Desktop Update Artifact Storage (Aliyun OSS through its S3-compatible API)

@@ -15,6 +15,7 @@ info:
     - Desktop 受保护接口使用登录或刷新接口返回的 Desktop Access Token。
     - Admin 成功响应使用 `{code, message, data}`，Desktop 成功响应使用 `{data}`。
 
+    本文件的登录和刷新描述兼容 v1 客户端；v2 会话及对话管理合同见 DESKTOP_SESSION_CONVERSATION_V2.openapi.json。
     本文件兼容 Postman 和 Apifox 的 OpenAPI 导入。
 servers:
   - url: '{baseUrl}'

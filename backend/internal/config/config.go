@@ -111,16 +111,17 @@ type Config struct {
 
 // DesktopConfig controls the isolated Desktop authentication domain.
 type DesktopConfig struct {
-	Enabled                    bool   `mapstructure:"enabled"`
-	JWTSecret                  string `mapstructure:"jwt_secret"`
-	PublicGatewayBaseURL       string `mapstructure:"public_gateway_base_url"`
-	AccessTokenTTLMinutes      int    `mapstructure:"access_token_ttl_minutes"`
-	RefreshFamilyTTLDays       int    `mapstructure:"refresh_family_ttl_days"`
-	LookupIPPerMinute          int    `mapstructure:"lookup_ip_per_minute"`
-	LoginIPPerMinute           int    `mapstructure:"login_ip_per_minute"`
-	LoginOrganizationPerMinute int    `mapstructure:"login_organization_per_minute"`
-	LoginPhoneFailureLimit     int    `mapstructure:"login_phone_failure_limit"`
-	LoginPhoneFreezeMinutes    int    `mapstructure:"login_phone_freeze_minutes"`
+	ConversationMemberPerMinute int    `mapstructure:"conversation_member_per_minute"`
+	Enabled                     bool   `mapstructure:"enabled"`
+	JWTSecret                   string `mapstructure:"jwt_secret"`
+	PublicGatewayBaseURL        string `mapstructure:"public_gateway_base_url"`
+	AccessTokenTTLMinutes       int    `mapstructure:"access_token_ttl_minutes"`
+	RefreshFamilyTTLDays        int    `mapstructure:"refresh_family_ttl_days"`
+	LookupIPPerMinute           int    `mapstructure:"lookup_ip_per_minute"`
+	LoginIPPerMinute            int    `mapstructure:"login_ip_per_minute"`
+	LoginOrganizationPerMinute  int    `mapstructure:"login_organization_per_minute"`
+	LoginPhoneFailureLimit      int    `mapstructure:"login_phone_failure_limit"`
+	LoginPhoneFreezeMinutes     int    `mapstructure:"login_phone_freeze_minutes"`
 }
 
 // DesktopUpdateStorageConfig configures stable Desktop updater artifacts in S3-compatible storage.
@@ -2031,6 +2032,7 @@ func setDefaults() {
 	viper.SetDefault("run_mode", RunModeStandard)
 
 	// Desktop authentication domain
+	viper.SetDefault("desktop.conversation_member_per_minute", 60)
 	viper.SetDefault("desktop.enabled", false)
 	viper.SetDefault("desktop.jwt_secret", "")
 	viper.SetDefault("desktop.public_gateway_base_url", "")
@@ -3800,6 +3802,7 @@ func (c *Config) validateDesktop() error {
 		{name: "desktop.access_token_ttl_minutes", value: c.Desktop.AccessTokenTTLMinutes},
 		{name: "desktop.refresh_family_ttl_days", value: c.Desktop.RefreshFamilyTTLDays},
 		{name: "desktop.lookup_ip_per_minute", value: c.Desktop.LookupIPPerMinute},
+		{name: "desktop.conversation_member_per_minute", value: c.Desktop.ConversationMemberPerMinute},
 		{name: "desktop.login_ip_per_minute", value: c.Desktop.LoginIPPerMinute},
 		{name: "desktop.login_organization_per_minute", value: c.Desktop.LoginOrganizationPerMinute},
 		{name: "desktop.login_phone_failure_limit", value: c.Desktop.LoginPhoneFailureLimit},

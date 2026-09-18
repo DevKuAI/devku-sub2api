@@ -10,16 +10,17 @@ import (
 func validDesktopConfig() DesktopConfig {
 	secret := base64.StdEncoding.EncodeToString(make([]byte, 32))
 	return DesktopConfig{
-		Enabled:                    true,
-		JWTSecret:                  secret,
-		PublicGatewayBaseURL:       "https://gateway.example.com/v1",
-		AccessTokenTTLMinutes:      15,
-		RefreshFamilyTTLDays:       30,
-		LookupIPPerMinute:          10,
-		LoginIPPerMinute:           10,
-		LoginOrganizationPerMinute: 30,
-		LoginPhoneFailureLimit:     5,
-		LoginPhoneFreezeMinutes:    15,
+		Enabled:                     true,
+		ConversationMemberPerMinute: 60,
+		JWTSecret:                   secret,
+		PublicGatewayBaseURL:        "https://gateway.example.com/v1",
+		AccessTokenTTLMinutes:       15,
+		RefreshFamilyTTLDays:        30,
+		LookupIPPerMinute:           10,
+		LoginIPPerMinute:            10,
+		LoginOrganizationPerMinute:  30,
+		LoginPhoneFailureLimit:      5,
+		LoginPhoneFreezeMinutes:     15,
 	}
 }
 

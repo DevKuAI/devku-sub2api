@@ -51,6 +51,9 @@ type ChannelMonitorRequestTemplate func(*sql.Selector)
 // CompositeModelRoute is the predicate function for compositemodelroute builders.
 type CompositeModelRoute func(*sql.Selector)
 
+// DesktopConversationRecord is the predicate function for desktopconversationrecord builders.
+type DesktopConversationRecord func(*sql.Selector)
+
 // DesktopMember is the predicate function for desktopmember builders.
 type DesktopMember func(*sql.Selector)
 

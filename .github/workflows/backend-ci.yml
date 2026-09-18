@@ -43,6 +43,8 @@ jobs:
       - name: Integration tests
         working-directory: backend
         run: make test-integration
+      - name: Desktop conversation proxy limits
+        run: python3 deploy/tests/desktop-conversation-proxy-test.py
 
   frontend:
     runs-on: ubuntu-latest

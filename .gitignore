@@ -142,6 +142,8 @@ docs/*
 !docs/COMPOSITE_GROUPS.md
 !docs/DESKTOP_API_V1.md
 !docs/DESKTOP_API_V1.openapi.yaml
+!docs/DESKTOP_SESSION_CONVERSATION_V2.md
+!docs/DESKTOP_SESSION_CONVERSATION_V2.openapi.json
 !docs/PLUGIN_DEVELOPMENT.md
 !docs/channel-monitor-v2-safe-defaults.md
 !docs/legal/

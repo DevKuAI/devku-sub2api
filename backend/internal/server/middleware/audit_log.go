@@ -54,6 +54,7 @@ func SkipAudit(c *gin.Context) {
 // scalar, non-secret operation summaries. Request bodies and arbitrary maps
 // are never accepted through this channel.
 var auditExtraAllowedKeys = map[string]struct{}{
+	"record_id": {}, "organization_id": {},
 	"result": {}, "error_code": {}, "enabled": {}, "blocking_enabled": {},
 	"config_version": {}, "endpoint_count": {}, "scanner_count": {},
 	"all_groups": {}, "group_count": {}, "guard_endpoint_id": {},
@@ -111,16 +112,18 @@ func truncateAuditExtraString(value string, limit int) string {
 
 // auditSensitiveReads 需要审计的敏感 GET 读取（method+FullPath → 动作名）。
 var auditSensitiveReads = map[string]string{
-	"GET /api/v1/admin/accounts/data":             "admin.accounts.export",
-	"GET /api/v1/admin/proxies/data":              "admin.proxies.export",
-	"GET /api/v1/admin/redeem-codes/export":       "admin.redeem_codes.export",
-	"GET /api/v1/admin/backups/:id/download-url":  "admin.backups.download",
-	"GET /api/v1/admin/settings/admin-api-key":    "admin.admin_api_key.read",
-	"GET /api/v1/admin/users/:id/api-keys":        "admin.users.api_keys.read",
-	"GET /api/v1/admin/groups/:id/api-keys":       "admin.groups.api_keys.read",
-	"GET /api/v1/admin/usage/:id/request-body":    "admin.usage.request_body.read",
-	"GET /api/v1/admin/backups/s3-config":         "admin.backups.s3_config.read",
-	"GET /api/v1/admin/data-management/s3/config": "admin.data_management.s3_config.read",
+	"GET /api/v1/admin/desktop/organizations/:organization_id/conversation-records/:record_id": "admin.desktop.conversation.read",
+	"GET /api/v1/desktop/organization/conversation-records/:record_id":                         "desktop.organization.conversation.read",
+	"GET /api/v1/admin/accounts/data":                                                          "admin.accounts.export",
+	"GET /api/v1/admin/proxies/data":                                                           "admin.proxies.export",
+	"GET /api/v1/admin/redeem-codes/export":                                                    "admin.redeem_codes.export",
+	"GET /api/v1/admin/backups/:id/download-url":                                               "admin.backups.download",
+	"GET /api/v1/admin/settings/admin-api-key":                                                 "admin.admin_api_key.read",
+	"GET /api/v1/admin/users/:id/api-keys":                                                     "admin.users.api_keys.read",
+	"GET /api/v1/admin/groups/:id/api-keys":                                                    "admin.groups.api_keys.read",
+	"GET /api/v1/admin/usage/:id/request-body":                                                 "admin.usage.request_body.read",
+	"GET /api/v1/admin/backups/s3-config":                                                      "admin.backups.s3_config.read",
+	"GET /api/v1/admin/data-management/s3/config":                                              "admin.data_management.s3_config.read",
 }
 
 const auditDurableRequestBodyReadRoute = "GET /api/v1/admin/usage/:id/request-body"

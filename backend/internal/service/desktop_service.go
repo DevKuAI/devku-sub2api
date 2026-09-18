@@ -17,14 +17,17 @@ import (
 )
 
 type DesktopService struct {
-	repo    DesktopRepository
-	usage   DesktopUsageRepository
-	refresh DesktopRefreshStore
-	limiter DesktopLoginLimiter
-	tokens  *DesktopTokenManager
-	apiKeys *APIKeyService
-	config  config.DesktopConfig
-	now     func() time.Time
+	sessions            DesktopSessionStore
+	conversations       DesktopConversationRepository
+	conversationLimiter DesktopConversationLimiter
+	repo                DesktopRepository
+	usage               DesktopUsageRepository
+	refresh             DesktopRefreshStore
+	limiter             DesktopLoginLimiter
+	tokens              *DesktopTokenManager
+	apiKeys             *APIKeyService
+	config              config.DesktopConfig
+	now                 func() time.Time
 }
 
 func NewDesktopService(
@@ -35,9 +38,13 @@ func NewDesktopService(
 	tokens *DesktopTokenManager,
 	apiKeys *APIKeyService,
 	cfg *config.Config,
+	sessions DesktopSessionStore,
+	conversations DesktopConversationRepository,
+	conversationLimiter DesktopConversationLimiter,
 ) *DesktopService {
 	return &DesktopService{
 		repo: repo, usage: usage, refresh: refresh, limiter: limiter,
+		sessions: sessions, conversations: conversations, conversationLimiter: conversationLimiter,
 		tokens: tokens, apiKeys: apiKeys, config: cfg.Desktop, now: time.Now,
 	}
 }
@@ -361,6 +368,14 @@ type DesktopTokenPair struct {
 }
 
 func (s *DesktopService) Login(ctx context.Context, organizationCode, name, phone, ip, installationID string) (*DesktopTokenPair, error) {
+	authorized, err := s.authenticateLogin(ctx, organizationCode, name, phone, ip, installationID)
+	if err != nil {
+		return nil, err
+	}
+	return s.issueNewSession(ctx, authorized)
+}
+
+func (s *DesktopService) authenticateLogin(ctx context.Context, organizationCode, name, phone, ip, installationID string) (*DesktopAuthorizedMember, error) {
 	code := strings.ToLower(strings.TrimSpace(organizationCode))
 	e164, phoneErr := NormalizeDesktopPhone(phone)
 	phoneHashInput := strings.TrimSpace(phone)
@@ -397,7 +412,7 @@ func (s *DesktopService) Login(ctx context.Context, organizationCode, name, phon
 	if err := s.limiter.ClearLoginFailures(ctx, code, phoneHash); err != nil {
 		return nil, err
 	}
-	return s.issueNewSession(ctx, authorized)
+	return authorized, nil
 }
 
 func (s *DesktopService) Refresh(ctx context.Context, refreshToken string) (*DesktopTokenPair, error) {
