@@ -43,6 +43,12 @@ Sub2API is an API gateway for distributing and managing subscription quotas from
 - **Composite groups:** Resolves requested models to concrete upstream providers within multi-provider groups.
 - **External integrations:** Embeds external systems, such as ticketing tools, in the admin dashboard through an iframe.
 
+## Upstream v0.2.7 features and compatibility
+
+- **Seedance (Ark) video tasks:** Supports native task creation, status queries, and deletion. Enable the Seedance endpoint capability on an OpenAI API key account and the group's media permission before use. Billing occurs when a query first observes `succeeded`, using upstream `usage.completion_tokens`; there is no background polling or automatic callback settlement. Preserve Redis task bindings and query completed tasks within their lifetime. See the [configuration, access restrictions, and billing guide](docs/seedance-api.md).
+- **Plugin host services:** Adds Redis-backed KV storage isolated by plugin identity, an account directory limited to declared capabilities, and the read-only `plugin.status` UI channel. Host-service negotiation is optional and remains compatible with older plugins. See the [Plugin API](backend/pkg/pluginapi/README.md) and [UI bridge](backend/pkg/pluginapi/docs/ui-bridge.md).
+- **Antigravity compatibility:** Removes leading Claude attribution metadata only in the Anthropic Messages-to-Antigravity conversion. Native Anthropic forwarding is unchanged; do not globally disable attribution to address this issue. See the [429 investigation and scope](docs/ANTIGRAVITY_ATTRIBUTION_429.md).
+
 ## Upstream v0.2.2 compatibility
 
 - Group model allowlists now constrain both model listing and request admission. The migration renames `groups.models_list_config` to `model_allowlist` while preserving its data; review existing enabled lists before upgrading because they now restrict requests too.

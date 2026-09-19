@@ -43,6 +43,12 @@ Sub2APIは、上流AIサービスのサブスクリプションクォータを�
 - **複合グループ**：複数Providerのグループ内で、リクエストされたモデルを具体的な上流Providerに割り当てます。
 - **外部システム連携**：チケット管理などの外部システムをiframeで管理ダッシュボードに埋め込めます。
 
+## 上流 v0.2.7 の機能と互換性について
+
+- **Seedance (Ark) 動画タスク**：ネイティブ形式でのタスク作成・照会・削除に対応します。利用前に、OpenAI プラットフォームの API Key アカウントで Seedance エンドポイント機能を有効にし、グループのメディア権限を許可してください。照会で初めて `succeeded` を確認した時点で、上流の `usage.completion_tokens` に基づき課金します。バックグラウンドでのポーリングやコールバックによる自動精算は行いません。Redis のタスク紐付けを保持し、有効期間内に完了結果を照会してください。設定・アクセス制限・課金規則は [Seedance API ガイド](docs/seedance-api.md) を参照してください。
+- **プラグイン宿主サービス**：プラグインの識別情報で分離された Redis KV ストレージ、宣言済みの機能範囲に限定されたアカウントディレクトリ、読み取り専用の `plugin.status` UI チャネルを追加します。宿主サービスのネゴシエーションは任意で、既存のプラグインとの互換性を維持します。[Plugin API](backend/pkg/pluginapi/README.md) と [UI bridge](backend/pkg/pluginapi/docs/ui-bridge.md) を参照してください。
+- **Antigravity の互換性**：Anthropic Messages から Antigravity への変換時に限り、先頭の Claude attribution メタデータを除去します。ネイティブ Anthropic 転送は変更しません。この問題への対処として attribution を全体で無効にしないでください。[429 の調査記録と適用範囲](docs/ANTIGRAVITY_ATTRIBUTION_429.md) を参照してください。
+
 ## 上流 v0.2.2 の互換性について
 
 - グループのモデル許可リストは、モデル一覧とリクエストの受け入れの両方に適用されます。マイグレーションは既存データを保持したまま `groups.models_list_config` を `model_allowlist` に変更します。有効なリストがリクエストのモデルも制限するため、アップグレード前に設定を確認してください。

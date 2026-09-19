@@ -1,9 +1,15 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import PaymentProviderDialog from '@/components/payment/PaymentProviderDialog.vue'
 import { STRIPE_SDK_API_VERSION } from '@/components/payment/providerConfig'
 import type { ProviderInstance } from '@/types/payment'
+
+const { showError } = vi.hoisted(() => ({ showError: vi.fn() }))
+
+vi.mock('@/stores', () => ({
+  useAppStore: () => ({ showError }),
+}))
 
 const messages: Record<string, string> = {
   'admin.settings.payment.providerConfig': 'Credentials',
@@ -96,6 +102,10 @@ function mountDialog(options: { editing?: ProviderInstance | null } = {}) {
 }
 
 describe('PaymentProviderDialog payment guide', () => {
+  beforeEach(() => {
+    showError.mockClear()
+  })
+
   it('shows no payment guide for providers without a flow guide', () => {
     const wrapper = mountDialog()
 
@@ -210,10 +220,10 @@ describe('PaymentProviderDialog payment guide', () => {
   })
 
   it.each([
-    ['alipay_hk', 'hkpay'],
-    ['usdt.trc20', 'usdt.trc20'],
-    ['usdt_trc20', 'usdt/trc20'],
-  ])('rejects invalid EasyPay mapping %s to %s', async (type, upstreamType) => {
+    ['alipay_hk', 'hkpay', 'validationEasyPayCustomMethodPrefixReserved'],
+    ['usdt.trc20', 'usdt.trc20', 'validationEasyPayCustomMethodTypeInvalid'],
+    ['usdt_trc20', 'usdt/trc20', 'validationEasyPayCustomMethodUpstreamTypeInvalid'],
+  ])('rejects invalid EasyPay mapping %s to %s', async (type, upstreamType, errorKey) => {
     const provider = providerFactory({
       provider_key: 'easypay',
       name: 'EasyPay',
@@ -247,7 +257,10 @@ describe('PaymentProviderDialog payment guide', () => {
     await upstreamTypeInput.setValue(upstreamType)
     await displayNameInput.setValue('Custom payment')
     await wrapper.find('form').trigger('submit.prevent')
+    await vi.dynamicImportSettled()
 
     expect(wrapper.emitted('save')).toBeUndefined()
+    expect(showError).toHaveBeenCalledTimes(1)
+    expect(showError).toHaveBeenCalledWith(`admin.settings.payment.${errorKey}`)
   })
 })

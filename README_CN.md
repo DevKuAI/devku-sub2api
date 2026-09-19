@@ -43,6 +43,12 @@ Sub2API 是用于分发和管理上游 AI 服务订阅配额的 API 网关。平
 - **复合分组**：在多 Provider 分组中，将请求模型解析到具体的上游 Provider。
 - **外部系统集成**：通过 iframe 将工单等外部系统嵌入管理后台。
 
+## 上游 v0.2.7 功能与兼容性说明
+
+- **Seedance (Ark) 视频任务**：支持原生任务创建、查询和删除。使用前需为 OpenAI 平台的 API Key 账号启用 Seedance 端点能力，并开启分组的媒体权限。首次查询到 `succeeded` 时，按上游 `usage.completion_tokens` 计费；当前不后台轮询，也不通过回调自动结算。需保留 Redis 任务绑定，并在有效期内查询完成结果。配置、访问限制和计费规则见 [Seedance API 指南](docs/seedance-api.md)。
+- **插件宿主服务**：新增按插件身份隔离的 Redis KV 存储、受已声明能力限制的账号目录，以及只读 `plugin.status` UI 通道。宿主服务协商为可选功能，兼容旧插件。详见 [Plugin API](backend/pkg/pluginapi/README.md) 和 [UI bridge](backend/pkg/pluginapi/docs/ui-bridge.md)。
+- **Antigravity 兼容性**：仅在 Anthropic Messages 转换到 Antigravity 时移除开头的 Claude attribution 元数据。原生 Anthropic 转发行为不变，不应为此问题全局禁用 attribution。详见 [429 排查记录与适用范围](docs/ANTIGRAVITY_ATTRIBUTION_429.md)。
+
 ## 上游 v0.2.2 兼容性说明
 
 - 分组模型白名单现在同时约束模型列表和请求准入。迁移将 `groups.models_list_config` 重命名为 `model_allowlist`，并保留原有数据。升级前请检查已启用的列表，因为这些配置现在也会限制请求使用的模型。
