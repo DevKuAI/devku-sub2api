@@ -55,6 +55,7 @@ func SkipAudit(c *gin.Context) {
 // are never accepted through this channel.
 var auditExtraAllowedKeys = map[string]struct{}{
 	"record_id": {}, "organization_id": {},
+	"resource_id": {}, "version": {}, "platform": {}, "sha256": {}, "status": {},
 	"result": {}, "error_code": {}, "enabled": {}, "blocking_enabled": {},
 	"config_version": {}, "endpoint_count": {}, "scanner_count": {},
 	"all_groups": {}, "group_count": {}, "guard_endpoint_id": {},
@@ -130,6 +131,10 @@ const auditDurableRequestBodyReadRoute = "GET /api/v1/admin/usage/:id/request-bo
 
 // auditActionOverrides 变更类请求的动作名精确映射（未命中时自动推导）。
 var auditActionOverrides = map[string]string{
+	"POST /api/v1/admin/desktop/resources/:resource_id/versions/:version/artifacts/:platform/download-url": "admin.desktop.resources.download_url",
+	"POST /api/v1/admin/desktop/resources":                               "admin.desktop.resources.publish",
+	"POST /api/v1/admin/desktop/resources/validate":                      "admin.desktop.resources.validate",
+	"PATCH /api/v1/admin/desktop/resources/:resource_id/status":          "admin.desktop.resources.status",
 	"POST /api/desktop/v1/auth/organization-lookup":                      "desktop.auth.organization_lookup",
 	"POST /api/desktop/v1/auth/login":                                    "desktop.auth.login",
 	"POST /api/desktop/v1/auth/refresh":                                  "desktop.auth.refresh",
@@ -180,6 +185,8 @@ var auditBodyOmittedRoutes = map[string]struct{}{
 }
 
 var auditBinaryBodyOmittedRoutes = map[string]struct{}{
+	"POST /api/v1/admin/desktop/resources":                               {},
+	"POST /api/v1/admin/desktop/resources/validate":                      {},
 	"POST /api/v1/admin/desktop/updates/:release_id/artifacts/:platform": {},
 }
 

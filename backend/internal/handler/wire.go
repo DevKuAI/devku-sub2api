@@ -49,6 +49,7 @@ func ProvideAdminHandlers(
 	auditLogHandler *admin.AuditLogHandler,
 	desktopHandler *admin.DesktopHandler,
 	desktopUpdateHandler *admin.DesktopUpdateHandler,
+	desktopResourceHandler *admin.DesktopResourceHandler,
 	desktopService *service.DesktopService,
 	upstreamBillingProbe *service.UpstreamBillingProbeService,
 	ollamaCloudUsage *service.OllamaCloudUsageService,
@@ -96,6 +97,7 @@ func ProvideAdminHandlers(
 		AuditLog:               auditLogHandler,
 		Desktop:                desktopHandler,
 		DesktopUpdate:          desktopUpdateHandler,
+		DesktopResource:        desktopResourceHandler,
 	}
 }
 
@@ -204,6 +206,7 @@ func ProvideHandlers(
 	tiboResetMonitorHandler *TiboResetMonitorHandler,
 	desktopHandler *DesktopHandler,
 	desktopUpdateHandler *DesktopUpdateHandler,
+	desktopResourceHandler *DesktopResourceHandler,
 	_ *service.IdempotencyCoordinator,
 	_ *service.IdempotencyCleanupService,
 	_ *service.OpenAIQuotaAutoResetService,
@@ -233,6 +236,7 @@ func ProvideHandlers(
 		TiboResetMonitor: tiboResetMonitorHandler,
 		Desktop:          desktopHandler,
 		DesktopUpdate:    desktopUpdateHandler,
+		DesktopResource:  desktopResourceHandler,
 	}
 }
 
@@ -262,6 +266,7 @@ var ProviderSet = wire.NewSet(
 	NewTiboResetMonitorHandler,
 	NewDesktopHandler,
 	NewDesktopUpdateHandler,
+	NewDesktopResourceHandler,
 
 	// Admin handlers
 	admin.NewDashboardHandler,
@@ -301,6 +306,7 @@ var ProviderSet = wire.NewSet(
 	admin.NewAuditLogHandler,
 	admin.NewDesktopHandler,
 	admin.NewDesktopUpdateHandler,
+	admin.NewDesktopResourceHandler,
 
 	// AdminHandlers and Handlers constructors
 	ProvideAdminHandlers,

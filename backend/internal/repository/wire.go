@@ -104,6 +104,8 @@ var ProviderSet = wire.NewSet(
 	NewDesktopConversationRepository,
 	NewDesktopConversationLimiter,
 	NewDesktopUpdateRepository,
+	NewDesktopResourceRepository,
+	NewDesktopResourceStorage,
 	NewChannelRepository,
 	NewChannelMonitorRepository,
 	NewChannelMonitorV2Repository,

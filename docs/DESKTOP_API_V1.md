@@ -528,3 +528,7 @@ Content-Type: application/json
 Workbuddy target 仅在 `enabled: true` 时下发给 Desktop 客户端。
 
 成员、企业或承载 User 撤销后，Desktop API 与 Refresh 通过数据库状态立即拒绝；Model Token 通过 API Key 状态、即时缓存失效和 auth cache invalidation outbox 失效。
+
+## MCP / Skill 资源
+
+资源发布、管理、启停和分发接口见 [资源契约](desktop-resources-v1.md) 与 [OpenAPI 3.1](openapi/desktop-resources-v1.json)。资源 ZIP 复用 Desktop 更新存储连接和凭据，通过 `resource_bucket` 指定私有桶；鉴权后签发有效期为 5 分钟的 S3 presigned URL，停用后停止签发。v2 Session 访问资源接口必须携带 `X-Installation-ID`。

@@ -513,6 +513,19 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/desktop/resources',
+    name: 'AdminDesktopResources',
+    component: () => import('@/views/admin/desktop/DesktopResourcesView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      requiresDesktop: true,
+      title: 'Desktop Resources',
+      titleKey: 'admin.desktop.resources.title',
+      descriptionKey: 'admin.desktop.resources.description'
+    }
+  },
+  {
     path: '/admin/desktop/updates',
     name: 'AdminDesktopUpdates',
     component: () => import('@/views/admin/desktop/DesktopUpdatesView.vue'),

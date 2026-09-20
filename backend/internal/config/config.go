@@ -126,6 +126,7 @@ type DesktopConfig struct {
 
 // DesktopUpdateStorageConfig configures stable Desktop updater artifacts in S3-compatible storage.
 type DesktopUpdateStorageConfig struct {
+	ResourceBucket  string `mapstructure:"resource_bucket"` // Private bucket for MCP and Skill packages; shares the connection credentials.
 	Endpoint        string `mapstructure:"endpoint"`
 	Region          string `mapstructure:"region"`
 	Bucket          string `mapstructure:"bucket"`
@@ -2304,6 +2305,7 @@ func setDefaults() {
 	viper.SetDefault("desktop_update_storage.endpoint", "")
 	viper.SetDefault("desktop_update_storage.region", "cn-hangzhou")
 	viper.SetDefault("desktop_update_storage.bucket", "")
+	viper.SetDefault("desktop_update_storage.resource_bucket", "")
 	viper.SetDefault("desktop_update_storage.access_key_id", "")
 	viper.SetDefault("desktop_update_storage.secret_access_key", "")
 	viper.SetDefault("desktop_update_storage.prefix", "desktop-updates/")

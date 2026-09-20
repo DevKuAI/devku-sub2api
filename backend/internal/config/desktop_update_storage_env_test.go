@@ -13,6 +13,7 @@ func TestLoadDesktopUpdateStorageFromEnv(t *testing.T) {
 	t.Setenv("DESKTOP_UPDATE_STORAGE_ENDPOINT", "https://oss-cn-hangzhou.aliyuncs.com")
 	t.Setenv("DESKTOP_UPDATE_STORAGE_REGION", "cn-hangzhou")
 	t.Setenv("DESKTOP_UPDATE_STORAGE_BUCKET", "desktop-releases")
+	t.Setenv("DESKTOP_UPDATE_STORAGE_RESOURCE_BUCKET", "private-resources")
 	t.Setenv("DESKTOP_UPDATE_STORAGE_ACCESS_KEY_ID", "ak")
 	t.Setenv("DESKTOP_UPDATE_STORAGE_SECRET_ACCESS_KEY", "sk")
 	t.Setenv("DESKTOP_UPDATE_STORAGE_PUBLIC_BASE_URL", "https://downloads.example.com")
@@ -23,5 +24,6 @@ func TestLoadDesktopUpdateStorageFromEnv(t *testing.T) {
 	require.Equal(t, "https://oss-cn-hangzhou.aliyuncs.com", cfg.DesktopUpdateStorage.Endpoint)
 	require.Equal(t, "cn-hangzhou", cfg.DesktopUpdateStorage.Region)
 	require.Equal(t, "desktop-releases", cfg.DesktopUpdateStorage.Bucket)
+	require.Equal(t, "private-resources", cfg.DesktopUpdateStorage.ResourceBucket)
 	require.Equal(t, int64(209715200), cfg.DesktopUpdateStorage.MaxUploadBytes)
 }

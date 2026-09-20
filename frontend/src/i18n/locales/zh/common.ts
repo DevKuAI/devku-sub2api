@@ -183,6 +183,7 @@ export default {
     desktopManagement: 'Desktop 管理',
     desktopOrganization: '企业管理',
     desktopOrganizations: '组织管理',
+    desktopResources: '资源管理',
     desktopUpdates: '软件更新',
     subscriptionAccounts: '订阅账户',
     channels: '渠道管理',

@@ -25,6 +25,10 @@ func RegisterDesktopRoutes(root *gin.Engine, h *handler.Handlers, desktop *servi
 	protected := api.Group("")
 	protected.Use(middleware.DesktopAuth(desktop))
 	{
+		protected.GET("/resources", h.DesktopResource.List)
+		protected.GET("/resources/:resource_id", h.DesktopResource.Get)
+		protected.GET("/resources/:resource_id/versions/:version/artifacts/:platform", h.DesktopResource.Download)
+		protected.POST("/resources/:resource_id/versions/:version/artifacts/:platform/download-url", middleware.StrictBodyLimit(8<<10), h.DesktopResource.DownloadURL)
 		protected.GET("/me", h.Desktop.Me)
 		protected.GET("/model-configuration", h.Desktop.ModelConfiguration)
 		protected.GET("/usage/summary", h.Desktop.UsageSummary)

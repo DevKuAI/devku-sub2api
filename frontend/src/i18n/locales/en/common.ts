@@ -183,6 +183,7 @@ export default {
     desktopManagement: 'Desktop Management',
     desktopOrganization: 'Organization',
     desktopOrganizations: 'Organizations',
+    desktopResources: 'Resources',
     desktopUpdates: 'Software Updates',
     subscriptionAccounts: 'Subscription Accounts',
     channels: 'Channels',

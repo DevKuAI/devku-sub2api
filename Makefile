@@ -1,6 +1,8 @@
 .PHONY: build build-backend build-frontend test test-backend test-frontend test-frontend-critical
 
 FRONTEND_CRITICAL_VITEST := \
+	src/api/__tests__/desktopResources.spec.ts \
+	src/views/admin/desktop/DesktopResourcesView.spec.ts \
 	src/api/__tests__/desktopConversations.spec.ts \
 	src/components/desktop/__tests__/DesktopConversationRecords.spec.ts \
 	src/i18n/__tests__/localeKeyCompleteness.spec.ts \

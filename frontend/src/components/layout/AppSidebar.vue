@@ -825,6 +825,7 @@ const adminNavItems = computed((): NavItem[] => {
           hideInSimpleMode: true,
           featureFlag: flagDesktop,
         },
+        { path: '/admin/desktop/resources', label: t('nav.desktopResources'), icon: FolderIcon, featureFlag: flagDesktop },
         { path: '/admin/desktop/updates', label: t('nav.desktopUpdates'), icon: SignalIcon },
       ],
     },

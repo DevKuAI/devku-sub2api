@@ -122,12 +122,14 @@ desktop:
 # Desktop Update Artifact Storage (Aliyun OSS through its S3-compatible API)
 # Desktop 更新产物存储（通过 S3-compatible API 连接阿里云 OSS）
 # =============================================================================
-# Independent of desktop.enabled. public_base_url must be a stable HTTPS origin
-# that allows anonymous reads for objects under prefix.
-# 与 desktop.enabled 无关。public_base_url 必须是稳定 HTTPS 地址，并允许匿名读取 prefix 下的对象。
+# Updater distribution is independent of desktop.enabled; its bucket/public_base_url allow anonymous reads.
+# MCP/Skill resources use resource_bucket privately and require desktop.enabled.
+# 安装包公开分发与 desktop.enabled 无关；MCP/Skill 使用 resource_bucket 私有存储并受开关控制。
 desktop_update_storage:
   endpoint: "https://oss-cn-hangzhou.aliyuncs.com"
   region: "cn-hangzhou"
+  # Private MCP/Skill bucket; no anonymous read or public custom domain.
+  resource_bucket: ""
   bucket: ""
   access_key_id: ""
   secret_access_key: ""

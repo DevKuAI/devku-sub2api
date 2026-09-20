@@ -1,0 +1,2080 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Devku Desktop Resource Distribution API",
+    "version": "1.0.0",
+    "description": "MCP/Skill publication and administration with private object storage. Resource storage shares Desktop update endpoint and credentials, using the explicitly configured private resource_bucket. Authorized users can obtain S3 presigned download URLs valid for 300 seconds; URLs can be reused until expiry.",
+    "license": {
+      "name": "LGPL-3.0",
+      "url": "https://www.gnu.org/licenses/lgpl-3.0.html"
+    }
+  },
+  "tags": [
+    {
+      "name": "Publishing",
+      "description": "Validate and immediately publish immutable resource packages."
+    },
+    {
+      "name": "Distribution",
+      "description": "Desktop member catalog and ZIP downloads."
+    },
+    {
+      "name": "Management",
+      "description": "Administrator resource status and version history."
+    }
+  ],
+  "paths": {
+    "/api/v1/admin/desktop/resources": {
+      "post": {
+        "operationId": "publishPublicDesktopResource",
+        "tags": [
+          "Publishing"
+        ],
+        "summary": "Upload one ZIP and publish it immediately",
+        "description": "Raw ZIP <=64 MiB. Uploaded object first, then resource metadata commits atomically in PostgreSQL. New resources are active; publishing never changes an existing disabled status. Returns only the uploaded platform. Duplicate tuple or older version is 409. On ambiguous results verify through administrator key lookup and historical version SHA-256. Objects are uploaded to a private resource_bucket; no permanent download URL is returned or persisted.",
+        "security": [
+          {
+            "adminBearer": []
+          },
+          {
+            "adminApiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/zip": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          },
+          "description": "ZIP <=64 MiB; manifest.json <=128 KiB; <=1024 entries; <=128 MiB uncompressed."
+        },
+        "responses": {
+          "200": {
+            "description": "Published. data.artifacts contains only the uploaded platform.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResourceResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "RESOURCE_PACKAGE_INVALID",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "RESOURCE_VERSION_CONFLICT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Package/ingress body limit exceeded. Proxy responses may not be JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ErrorResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdminErrorResponse"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "VALIDATION_FAILED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Existing administrator authentication failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Existing administrator authorization failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminErrorResponse"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "ADMIN_COMPLIANCE_ACK_REQUIRED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminErrorResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Other upstream or administrator middleware error",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "listAdminDesktopResources",
+        "tags": [
+          "Management"
+        ],
+        "summary": "List resources, including disabled resources",
+        "security": [
+          {
+            "adminBearer": []
+          },
+          {
+            "adminApiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminResourceListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Administrator authentication required"
+          },
+          "403": {
+            "description": "Administrator access denied"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "422": {
+            "description": "Invalid query or status"
+          },
+          "423": {
+            "description": "Administrator compliance acknowledgment required"
+          },
+          "default": {
+            "description": "Service or proxy failure"
+          }
+        },
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "Page number; maximum offset 10000.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "description": "Resources or versions per page.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "description": "Resource type.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "",
+                "mcp",
+                "skill"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "Resource status.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "",
+                "active",
+                "disabled"
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "description": "Name/description search, max 200 UTF-8 bytes. % and _ are ILIKE wildcards.",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "key",
+            "in": "query",
+            "required": false,
+            "description": "Exact resource key for publication reconciliation.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_-]{1,63}$"
+            }
+          }
+        ]
+      }
+    },
+    "/api/desktop/v1/resources": {
+      "get": {
+        "operationId": "listDesktopResources",
+        "tags": [
+          "Distribution"
+        ],
+        "summary": "List public or current-organization resources",
+        "security": [
+          {
+            "desktopBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Installation-ID",
+            "in": "header",
+            "required": false,
+            "description": "Required for v2 dks_ sessions and must match the session installation UUID. Optional only for legacy v1 JWTs.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "scope",
+            "in": "query",
+            "required": false,
+            "description": "Never accepts organization ID.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "public",
+                "enterprise"
+              ],
+              "default": "public"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "description": "Empty means all kinds.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "",
+                "mcp",
+                "skill"
+              ],
+              "default": ""
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "description": "Max 200 UTF-8 bytes; case-insensitive name/description ILIKE; % and _ are wildcards.",
+            "schema": {
+              "type": "string",
+              "maxLength": 200,
+              "default": ""
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Desktop sends 20. Out-of-range or nonnumeric currently falls back to 50.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "description": "Out-of-range is 422; nonnumeric currently maps to 0.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000,
+              "default": 0
+            }
+          }
+        ],
+        "description": "Array envelope, no total/hasMore/cursor. Resource-level pagination sorted updated_at DESC,id ASC. Empty array is success. Concurrent publishing can change pagination order. No snapshot guarantee.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResourceListResponse"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "MEMBERSHIP_REVOKED or SESSION_INSTALLATION_MISMATCH",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Upstream/network/service failure; error envelope is not guaranteed outside resource handlers.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid input or missing/invalid v2 installation UUID",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/desktop/v1/resources/{resource_id}": {
+      "get": {
+        "operationId": "getDesktopResource",
+        "tags": [
+          "Distribution"
+        ],
+        "summary": "Get current version and all published platforms",
+        "security": [
+          {
+            "desktopBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Installation-ID",
+            "in": "header",
+            "required": false,
+            "description": "Required for v2 dks_ sessions and must match the session installation UUID. Optional only for legacy v1 JWTs.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "resource_id",
+            "in": "path",
+            "required": true,
+            "description": "Opaque server resource ID.",
+            "schema": {
+              "type": "string",
+              "pattern": "^res_[0-9a-f]{32}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResourceResponse"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "MEMBERSHIP_REVOKED or SESSION_INSTALLATION_MISMATCH",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Upstream/network/service failure; error envelope is not guaranteed outside resource handlers.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "404": {
+            "description": "RESOURCE_NOT_FOUND: missing or invisible resource/version/platform",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid input or missing/invalid v2 installation UUID",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/desktop/v1/resources/{resource_id}/versions/{version}/artifacts/{platform}": {
+      "get": {
+        "operationId": "downloadDesktopResourceArtifact",
+        "tags": [
+          "Distribution"
+        ],
+        "summary": "Download immutable authenticated ZIP",
+        "security": [
+          {
+            "desktopBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Installation-ID",
+            "in": "header",
+            "required": false,
+            "description": "Required for v2 dks_ sessions and must match the session installation UUID. Optional only for legacy v1 JWTs.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "resource_id",
+            "in": "path",
+            "required": true,
+            "description": "Opaque server resource ID.",
+            "schema": {
+              "type": "string",
+              "pattern": "^res_[0-9a-f]{32}$"
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "description": "Pinned version; historical artifacts remain downloadable.",
+            "schema": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]{0,5})\\.(0|[1-9][0-9]{0,5})\\.(0|[1-9][0-9]{0,5})$"
+            }
+          },
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "description": "Exact platform from artifact metadata.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "darwin-arm64",
+                "darwin-x64",
+                "windows-x64",
+                "linux-x64",
+                "any"
+              ]
+            }
+          }
+        ],
+        "description": "Authenticated compatibility endpoint streaming private ZIP bytes without redirects. Verify size and SHA-256 against pinned catalog metadata. New clients can POST to the download-url subresource for a 5-minute S3 presigned URL and download directly from private storage.",
+        "responses": {
+          "200": {
+            "description": "Raw ZIP bytes",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "private, no-store"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "type": "string",
+                  "const": "nosniff"
+                }
+              },
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string",
+                  "const": "attachment; filename=\"resource.zip\""
+                }
+              },
+              "X-Artifact-SHA256": {
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              }
+            },
+            "content": {
+              "application/zip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "MEMBERSHIP_REVOKED or SESSION_INSTALLATION_MISMATCH",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "RESOURCE_NOT_FOUND: missing or invisible resource/version/platform",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Other upstream/service failure",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid input or missing/invalid v2 installation UUID",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/desktop/resources/validate": {
+      "post": {
+        "operationId": "validateDesktopResource",
+        "tags": [
+          "Management"
+        ],
+        "summary": "Validate a ZIP without publishing",
+        "security": [
+          {
+            "adminBearer": []
+          },
+          {
+            "adminApiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Administrator authentication required"
+          },
+          "403": {
+            "description": "Administrator access denied"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "422": {
+            "description": "Invalid query or status"
+          },
+          "423": {
+            "description": "Administrator compliance acknowledgment required"
+          },
+          "default": {
+            "description": "Service or proxy failure"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/zip": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          },
+          "description": "ZIP <=64 MiB; manifest.json <=128 KiB; <=1024 entries; <=128 MiB uncompressed."
+        }
+      }
+    },
+    "/api/v1/admin/desktop/resources/{resource_id}": {
+      "get": {
+        "operationId": "getAdminDesktopResource",
+        "tags": [
+          "Management"
+        ],
+        "summary": "Get current resource metadata and status",
+        "security": [
+          {
+            "adminBearer": []
+          },
+          {
+            "adminApiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminResourceResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Administrator authentication required"
+          },
+          "403": {
+            "description": "Administrator access denied"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "422": {
+            "description": "Invalid query or status"
+          },
+          "423": {
+            "description": "Administrator compliance acknowledgment required"
+          },
+          "default": {
+            "description": "Service or proxy failure"
+          }
+        },
+        "parameters": [
+          {
+            "name": "resource_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^res_[0-9a-f]{32}$"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/desktop/resources/{resource_id}/versions": {
+      "get": {
+        "operationId": "listAdminDesktopResourceVersions",
+        "tags": [
+          "Management"
+        ],
+        "summary": "List immutable versions in descending numeric order",
+        "security": [
+          {
+            "adminBearer": []
+          },
+          {
+            "adminApiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Administrator authentication required"
+          },
+          "403": {
+            "description": "Administrator access denied"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "422": {
+            "description": "Invalid query or status"
+          },
+          "423": {
+            "description": "Administrator compliance acknowledgment required"
+          },
+          "default": {
+            "description": "Service or proxy failure"
+          }
+        },
+        "parameters": [
+          {
+            "name": "resource_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^res_[0-9a-f]{32}$"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "Page number; maximum offset 10000.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "description": "Resources or versions per page.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/desktop/resources/{resource_id}/status": {
+      "patch": {
+        "operationId": "setDesktopResourceStatus",
+        "tags": [
+          "Management"
+        ],
+        "summary": "Disable or restore catalog and API access",
+        "security": [
+          {
+            "adminBearer": []
+          },
+          {
+            "adminApiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminResourceResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Administrator authentication required"
+          },
+          "403": {
+            "description": "Administrator access denied"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "422": {
+            "description": "Invalid query or status"
+          },
+          "423": {
+            "description": "Administrator compliance acknowledgment required"
+          },
+          "default": {
+            "description": "Service or proxy failure"
+          }
+        },
+        "parameters": [
+          {
+            "name": "resource_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^res_[0-9a-f]{32}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "active",
+                      "disabled"
+                    ]
+                  },
+                  "reason": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "description": "Required and nonblank for disabled. Maximum 2000 UTF-8 bytes. Cleared on restore."
+                  }
+                },
+                "required": [
+                  "status"
+                ]
+              }
+            }
+          }
+        },
+        "description": "Does not delete packages, uninstall local files or interrupt downloads already authorized. Blocks new download URL issuance; existing presigned URLs expire within 5 minutes. Publishing while disabled preserves disabled status."
+      }
+    },
+    "/api/v1/admin/desktop/resources/{resource_id}/versions/{version}/artifacts/{platform}/download-url": {
+      "post": {
+        "operationId": "createAdminDesktopResourceDownloadURL",
+        "tags": [
+          "Management"
+        ],
+        "summary": "Authorize and issue a private download URL valid for 5 minutes",
+        "description": "No request body. Resource must be active, including historical versions. Requires existing administrator or Desktop member authentication. The presigned URL can be reused until expiry; disabling a resource or revoking membership blocks further issuance but cannot revoke an already issued URL. Fetch the URL directly from S3 without User/Model Tokens. No URL is stored in resource metadata.",
+        "security": [
+          {
+            "adminBearer": []
+          },
+          {
+            "adminApiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "resource_id",
+            "in": "path",
+            "required": true,
+            "description": "Opaque server resource ID.",
+            "schema": {
+              "type": "string",
+              "pattern": "^res_[0-9a-f]{32}$"
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "description": "Pinned version; historical artifacts remain downloadable.",
+            "schema": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]{0,5})\\.(0|[1-9][0-9]{0,5})\\.(0|[1-9][0-9]{0,5})$"
+            }
+          },
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "description": "Exact platform from artifact metadata.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "darwin-arm64",
+                "darwin-x64",
+                "windows-x64",
+                "linux-x64",
+                "any"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Short-lived download URL",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminDownloadURLResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Access denied, revoked membership or installation mismatch"
+          },
+          "404": {
+            "description": "Resource/version/platform missing or resource disabled"
+          },
+          "422": {
+            "description": "Invalid request or missing v2 installation ID"
+          },
+          "503": {
+            "description": "Private resource storage is not configured or signing is unavailable"
+          },
+          "423": {
+            "description": "Administrator compliance acknowledgment required"
+          }
+        }
+      }
+    },
+    "/api/desktop/v1/resources/{resource_id}/versions/{version}/artifacts/{platform}/download-url": {
+      "post": {
+        "operationId": "createDesktopResourceDownloadURL",
+        "tags": [
+          "Distribution"
+        ],
+        "summary": "Authorize and issue a private download URL valid for 5 minutes",
+        "description": "No request body. Resource must be active, including historical versions. Requires existing administrator or Desktop member authentication. The presigned URL can be reused until expiry; disabling a resource or revoking membership blocks further issuance but cannot revoke an already issued URL. Fetch the URL directly from S3 without User/Model Tokens. No URL is stored in resource metadata.",
+        "security": [
+          {
+            "desktopBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Installation-ID",
+            "in": "header",
+            "required": false,
+            "description": "Required for v2 dks_ sessions and must match the session installation UUID. Optional only for legacy v1 JWTs.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "resource_id",
+            "in": "path",
+            "required": true,
+            "description": "Opaque server resource ID.",
+            "schema": {
+              "type": "string",
+              "pattern": "^res_[0-9a-f]{32}$"
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "description": "Pinned version; historical artifacts remain downloadable.",
+            "schema": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]{0,5})\\.(0|[1-9][0-9]{0,5})\\.(0|[1-9][0-9]{0,5})$"
+            }
+          },
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "description": "Exact platform from artifact metadata.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "darwin-arm64",
+                "darwin-x64",
+                "windows-x64",
+                "linux-x64",
+                "any"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Short-lived download URL",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DesktopDownloadURLResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Access denied, revoked membership or installation mismatch"
+          },
+          "404": {
+            "description": "Resource/version/platform missing or resource disabled"
+          },
+          "422": {
+            "description": "Invalid request or missing v2 installation ID"
+          },
+          "503": {
+            "description": "Private resource storage is not configured or signing is unavailable"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "desktopBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Desktop member User Token, never Model Token."
+      },
+      "adminBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Existing administrator access token."
+      },
+      "adminApiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key",
+        "description": "Existing administrator API key, subject to administrator middleware."
+      }
+    },
+    "schemas": {
+      "Manifest": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/MCPManifest"
+          },
+          {
+            "$ref": "#/components/schemas/SkillManifest"
+          }
+        ]
+      },
+      "Artifact": {
+        "type": "object",
+        "properties": {
+          "platform": {
+            "type": "string",
+            "enum": [
+              "darwin-arm64",
+              "darwin-x64",
+              "windows-x64",
+              "linux-x64",
+              "any"
+            ]
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 67108864
+          },
+          "manifest": {
+            "$ref": "#/components/schemas/Manifest"
+          }
+        },
+        "required": [
+          "platform",
+          "sha256",
+          "sizeBytes",
+          "manifest"
+        ]
+      },
+      "Resource": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^res_[0-9a-f]{32}$"
+          },
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{1,63}$"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "mcp",
+              "skill"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "sourceUrl": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,5})\\.(0|[1-9][0-9]{0,5})\\.(0|[1-9][0-9]{0,5})$"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "public",
+              "enterprise"
+            ]
+          },
+          "artifacts": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/Artifact"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "key",
+          "kind",
+          "name",
+          "description",
+          "sourceUrl",
+          "version",
+          "scope",
+          "artifacts"
+        ]
+      },
+      "ResourceResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Resource"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "examples": [
+          {
+            "data": {
+              "id": "res_11111111111111111111111111111111",
+              "key": "devku_image",
+              "kind": "mcp",
+              "name": "Devku 图片生成",
+              "description": "通过企业网关生成图片",
+              "sourceUrl": "https://github.com/hiccup711/devku_imagegen",
+              "version": "0.1.0",
+              "scope": "public",
+              "artifacts": [
+                {
+                  "platform": "darwin-arm64",
+                  "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                  "sizeBytes": 123456,
+                  "manifest": {
+                    "schemaVersion": 1,
+                    "key": "devku_image",
+                    "kind": "mcp",
+                    "name": "Devku 图片生成",
+                    "description": "通过企业网关生成图片",
+                    "sourceUrl": "https://github.com/hiccup711/devku_imagegen",
+                    "version": "0.1.0",
+                    "platform": "darwin-arm64",
+                    "entry": "bin/devku-image-mcp",
+                    "args": [
+                      "--mcp-server",
+                      "devku_image",
+                      "--binding",
+                      "{binding}"
+                    ],
+                    "credentialMode": "enterprise_model",
+                    "targets": [
+                      "workbuddy",
+                      "chatgpt_codex"
+                    ],
+                    "files": {
+                      "bin/devku-image-mcp": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "LICENSE.txt": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "ResourceListResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Resource"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "examples": [
+          {
+            "data": [
+              {
+                "id": "res_11111111111111111111111111111111",
+                "key": "devku_image",
+                "kind": "mcp",
+                "name": "Devku 图片生成",
+                "description": "通过企业网关生成图片",
+                "sourceUrl": "https://github.com/hiccup711/devku_imagegen",
+                "version": "0.1.0",
+                "scope": "public",
+                "artifacts": [
+                  {
+                    "platform": "darwin-arm64",
+                    "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                    "sizeBytes": 123456,
+                    "manifest": {
+                      "schemaVersion": 1,
+                      "key": "devku_image",
+                      "kind": "mcp",
+                      "name": "Devku 图片生成",
+                      "description": "通过企业网关生成图片",
+                      "sourceUrl": "https://github.com/hiccup711/devku_imagegen",
+                      "version": "0.1.0",
+                      "platform": "darwin-arm64",
+                      "entry": "bin/devku-image-mcp",
+                      "args": [
+                        "--mcp-server",
+                        "devku_image",
+                        "--binding",
+                        "{binding}"
+                      ],
+                      "credentialMode": "enterprise_model",
+                      "targets": [
+                        "workbuddy",
+                        "chatgpt_codex"
+                      ],
+                      "files": {
+                        "bin/devku-image-mcp": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        "LICENSE.txt": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "data": []
+          }
+        ]
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "request_id": {
+                "type": "string"
+              },
+              "retryable": {
+                "type": "boolean"
+              },
+              "details": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "code",
+              "message",
+              "request_id",
+              "retryable",
+              "details"
+            ]
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "examples": [
+          {
+            "error": {
+              "code": "RESOURCE_NOT_FOUND",
+              "message": "resource not found",
+              "request_id": "",
+              "retryable": false,
+              "details": {}
+            }
+          }
+        ]
+      },
+      "AdminErrorResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ]
+      },
+      "MCPManifest": {
+        "type": "object",
+        "properties": {
+          "schemaVersion": {
+            "type": "integer",
+            "const": 1
+          },
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{1,63}$"
+          },
+          "kind": {
+            "type": "string",
+            "const": "mcp"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Nonblank. Server limit: 200 UTF-8 bytes."
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "Server limit: 2000 UTF-8 bytes."
+          },
+          "sourceUrl": {
+            "type": "string",
+            "maxLength": 2048,
+            "pattern": "^(https://[^/]+.*)?$",
+            "description": "Empty or HTTPS URL without userinfo. Server limit: 2048 UTF-8 bytes."
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,5})\\.(0|[1-9][0-9]{0,5})\\.(0|[1-9][0-9]{0,5})$"
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "darwin-arm64",
+              "darwin-x64",
+              "windows-x64",
+              "linux-x64"
+            ]
+          },
+          "entry": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240,
+            "description": "Safe relative package file path; must be declared in files."
+          },
+          "args": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "type": "string",
+              "maxLength": 1000,
+              "description": "No NUL; max 1000 UTF-8 bytes. {binding} expands locally, no shell."
+            }
+          },
+          "credentialMode": {
+            "type": "string",
+            "enum": [
+              "",
+              "enterprise_model"
+            ]
+          },
+          "targets": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 2,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "workbuddy",
+                "chatgpt_codex"
+              ]
+            }
+          },
+          "files": {
+            "type": "object",
+            "minProperties": 1,
+            "maxProperties": 1023,
+            "additionalProperties": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "description": "Relative file path to SHA-256; excludes manifest.json. ZIP content validated separately."
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "key",
+          "kind",
+          "name",
+          "description",
+          "sourceUrl",
+          "version",
+          "platform",
+          "entry",
+          "targets",
+          "files"
+        ],
+        "additionalProperties": false
+      },
+      "SkillManifest": {
+        "type": "object",
+        "properties": {
+          "schemaVersion": {
+            "type": "integer",
+            "const": 1
+          },
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{1,63}$"
+          },
+          "kind": {
+            "type": "string",
+            "const": "skill"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Nonblank. Server limit: 200 UTF-8 bytes."
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "Server limit: 2000 UTF-8 bytes."
+          },
+          "sourceUrl": {
+            "type": "string",
+            "maxLength": 2048,
+            "pattern": "^(https://[^/]+.*)?$",
+            "description": "Empty or HTTPS URL without userinfo. Server limit: 2048 UTF-8 bytes."
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,5})\\.(0|[1-9][0-9]{0,5})\\.(0|[1-9][0-9]{0,5})$"
+          },
+          "platform": {
+            "type": "string",
+            "const": "any"
+          },
+          "entry": {
+            "type": "string",
+            "const": "skill/SKILL.md"
+          },
+          "args": {
+            "type": "array",
+            "maxItems": 0,
+            "items": {
+              "type": "string",
+              "maxLength": 1000,
+              "description": "No NUL; max 1000 UTF-8 bytes. {binding} expands locally, no shell."
+            }
+          },
+          "credentialMode": {
+            "type": "string",
+            "const": ""
+          },
+          "targets": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 2,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "workbuddy",
+                "chatgpt_codex"
+              ]
+            }
+          },
+          "files": {
+            "type": "object",
+            "minProperties": 1,
+            "maxProperties": 1023,
+            "additionalProperties": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "description": "Relative file path to SHA-256; excludes manifest.json. ZIP content validated separately."
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "key",
+          "kind",
+          "name",
+          "description",
+          "sourceUrl",
+          "version",
+          "platform",
+          "entry",
+          "targets",
+          "files"
+        ],
+        "additionalProperties": false
+      },
+      "AdminArtifact": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Artifact"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "createdBy": {
+                "type": "integer"
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": [
+              "createdBy",
+              "createdAt"
+            ]
+          }
+        ]
+      },
+      "AdminResource": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Resource"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "artifacts": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/AdminArtifact"
+                }
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "active",
+                  "disabled"
+                ]
+              },
+              "statusReason": {
+                "type": "string"
+              },
+              "createdBy": {
+                "type": "integer"
+              },
+              "updatedBy": {
+                "type": "integer"
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "updatedAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": [
+              "artifacts",
+              "status",
+              "statusReason",
+              "createdBy",
+              "updatedBy",
+              "createdAt",
+              "updatedAt"
+            ]
+          }
+        ]
+      },
+      "ResourceVersion": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,5})\\.(0|[1-9][0-9]{0,5})\\.(0|[1-9][0-9]{0,5})$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "sourceUrl": {
+            "type": "string"
+          },
+          "createdBy": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "artifacts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminArtifact"
+            }
+          }
+        },
+        "required": [
+          "version",
+          "name",
+          "description",
+          "sourceUrl",
+          "createdBy",
+          "createdAt",
+          "artifacts"
+        ]
+      },
+      "Validation": {
+        "type": "object",
+        "properties": {
+          "manifest": {
+            "$ref": "#/components/schemas/Manifest"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 67108864
+          },
+          "current": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AdminResource"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "manifest",
+          "sha256",
+          "sizeBytes",
+          "current"
+        ]
+      },
+      "AdminResourceResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "const": 0
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/AdminResource"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "data"
+        ]
+      },
+      "ValidationResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "const": 0
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/Validation"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "data"
+        ]
+      },
+      "AdminResourceListResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "const": 0
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/AdminResource"
+                }
+              },
+              "total": {
+                "type": "integer"
+              },
+              "page": {
+                "type": "integer"
+              },
+              "page_size": {
+                "type": "integer"
+              },
+              "pages": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "items",
+              "total",
+              "page",
+              "page_size",
+              "pages"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "data"
+        ]
+      },
+      "VersionListResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "const": 0
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ResourceVersion"
+                }
+              },
+              "total": {
+                "type": "integer"
+              },
+              "page": {
+                "type": "integer"
+              },
+              "page_size": {
+                "type": "integer"
+              },
+              "pages": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "items",
+              "total",
+              "page",
+              "page_size",
+              "pages"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "data"
+        ]
+      },
+      "DownloadURL": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Sensitive temporary S3 presigned URL. Do not persist, log, or attach User/Model Tokens."
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresIn": {
+            "type": "integer",
+            "const": 300
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 67108864
+          }
+        },
+        "required": [
+          "url",
+          "expiresAt",
+          "expiresIn",
+          "sha256",
+          "sizeBytes"
+        ]
+      },
+      "DesktopDownloadURLResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/DownloadURL"
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "AdminDownloadURLResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "const": 0
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/DownloadURL"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "data"
+        ]
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Current Sub2API deployment"
+    }
+  ]
+}

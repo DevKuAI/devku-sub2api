@@ -45,6 +45,7 @@ type AdminHandlers struct {
 	AuditLog               *admin.AuditLogHandler
 	Desktop                *admin.DesktopHandler
 	DesktopUpdate          *admin.DesktopUpdateHandler
+	DesktopResource        *admin.DesktopResourceHandler
 }
 
 // Handlers contains all HTTP handlers
@@ -73,6 +74,7 @@ type Handlers struct {
 	TiboResetMonitor *TiboResetMonitorHandler
 	Desktop          *DesktopHandler
 	DesktopUpdate    *DesktopUpdateHandler
+	DesktopResource  *DesktopResourceHandler
 }
 
 // BuildInfo contains build-time information
