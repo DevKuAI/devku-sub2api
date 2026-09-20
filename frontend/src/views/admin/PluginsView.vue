@@ -136,16 +136,25 @@
               <p class="text-xs font-medium uppercase text-gray-500">
                 {{ t("admin.plugins.compatibility") }}
               </p>
-              <div class="mt-2 flex items-center gap-2">
+              <div class="mt-2 space-y-2">
                 <span
-                  class="rounded px-2 py-0.5 text-xs font-medium"
-                  :class="compatibilityClass(plugin.compatibility.status)"
+                  class="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-medium leading-4"
+                  :class="compatibilityClass(plugin.compatibility.compatible)"
                 >
-                  {{ t(`admin.plugins.${plugin.compatibility.status}`) }}
+                  <Icon
+                    :name="plugin.compatibility.compatible ? 'checkCircle' : 'xCircle'"
+                    size="sm"
+                    class="shrink-0"
+                    aria-hidden="true"
+                  />
+                  {{ t(`admin.plugins.${plugin.compatibility.compatible ? 'compatible' : 'incompatible'}`) }}
                 </span>
-                <span class="text-xs text-gray-500 dark:text-gray-400">{{
-                  plugin.compatibility.message
-                }}</span>
+                <p
+                  v-if="plugin.compatibility.message"
+                  class="break-words text-xs leading-5 text-gray-500 dark:text-gray-400"
+                >
+                  {{ plugin.compatibility.message }}
+                </p>
               </div>
               <dl
                 class="mt-3 grid grid-cols-[auto,1fr] gap-x-3 gap-y-1 text-xs"
@@ -176,6 +185,14 @@
                 <dd class="font-mono text-gray-800 dark:text-gray-200">
                   {{ plugin.compatibility.recommended_sub2api_version || "-" }}
                 </dd>
+                <template v-if="plugin.compatibility.compatible">
+                  <dt class="text-gray-500">
+                    {{ t("admin.plugins.testDeclaration") }}
+                  </dt>
+                  <dd class="text-gray-600 dark:text-gray-300">
+                    {{ t(`admin.plugins.${plugin.compatibility.tested ? 'testDeclared' : 'testNotDeclared'}`) }}
+                  </dd>
+                </template>
               </dl>
             </div>
 
@@ -714,13 +731,9 @@ function stateClass(state: PluginInstallation["state"]): string {
   return "bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-gray-300";
 }
 
-function compatibilityClass(
-  status: PluginInstallation["compatibility"]["status"],
-): string {
-  if (status === "compatible")
+function compatibilityClass(compatible: boolean): string {
+  if (compatible)
     return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300";
-  if (status === "untested")
-    return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300";
   return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300";
 }
 
