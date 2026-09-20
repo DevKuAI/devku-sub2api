@@ -16,13 +16,12 @@
 
     <div v-else-if="monitor" class="grid gap-5 px-5 py-5 sm:grid-cols-2">
       <section
-        v-if="latest"
         class="min-w-0 rounded-lg border border-gray-200 px-4 py-4"
         :class="{ 'sm:col-span-2': !latestCredit }"
       >
         <div class="flex flex-wrap items-center gap-2">
           <p class="text-xs font-medium text-gray-500 dark:text-dark-400">{{ t('subscriptionAccounts.tiboReset.latest') }}</p>
-          <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+          <span v-if="latest" class="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
             {{ t('subscriptionAccounts.tiboReset.directReset') }}
           </span>
         </div>
@@ -38,18 +37,19 @@
         >
           {{ t('subscriptionAccounts.tiboReset.viewPost') }}
         </a>
-        <p v-else class="mt-2 text-sm text-gray-400 dark:text-dark-500">{{ t('subscriptionAccounts.tiboReset.noData') }}</p>
+        <p v-if="!latest" class="mt-2 text-sm text-gray-400 dark:text-dark-500">{{ t('subscriptionAccounts.tiboReset.noData') }}</p>
       </section>
 
       <section v-if="latestCredit" class="min-w-0 rounded-lg border border-gray-200 px-4 py-4">
         <div class="flex flex-wrap items-center gap-2">
-          <p class="text-xs font-medium text-gray-500 dark:text-dark-400">{{ t('subscriptionAccounts.tiboReset.latestCard') }}</p>
+          <p class="text-xs font-medium text-gray-500 dark:text-dark-400">{{ t(creditAnnounced ? 'subscriptionAccounts.tiboReset.cardForecast' : 'subscriptionAccounts.tiboReset.latestCard') }}</p>
           <span class="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
-            {{ t('subscriptionAccounts.tiboReset.resetCard') }}
+            {{ t(creditAnnounced ? 'subscriptionAccounts.tiboReset.cardAnnouncement' : 'subscriptionAccounts.tiboReset.resetCard') }}
           </span>
         </div>
         <p class="mt-2 text-sm text-amber-700 dark:text-amber-300">{{ latestCredit.title }}</p>
         <p class="mt-1 text-2xl font-semibold tabular-nums text-gray-900 dark:text-white">{{ eventDate(latestCredit) }}</p>
+        <p v-if="creditAnnounced && latestCredit.schedule?.label" class="mt-1 text-xs text-gray-500 dark:text-dark-400">{{ latestCredit.schedule.label }}</p>
         <p v-if="latestCredit.scope" class="mt-1 text-xs text-gray-500 dark:text-dark-400">{{ latestCredit.scope }}</p>
         <a
           v-if="latestCreditPost?.url"
@@ -70,45 +70,89 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import subscriptionAccountsAPI from '@/api/subscriptionAccounts'
-import { formatDateTimeToMinute } from '@/utils/format'
+import { formatDate as formatDateWithOptions } from '@/utils/format'
 import type { TiboResetMonitor, TiboResetMonitorEvent } from '@/types'
 
 const { t } = useI18n()
 const loading = ref(true)
 const monitor = ref<TiboResetMonitor | null>(null)
+const dateOnlyPattern = /^\d{4}-\d{2}-\d{2}$/
+const sourceDateFormatter = computed(() => {
+  const options: Intl.DateTimeFormatOptions = {
+    timeZone: monitor.value?.timezone || 'Asia/Shanghai',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+  }
+  try {
+    return new Intl.DateTimeFormat('en-US', options)
+  } catch {
+    return new Intl.DateTimeFormat('en-US', { ...options, timeZone: 'Asia/Shanghai' })
+  }
+})
 
-function eventTime(event: TiboResetMonitorEvent): number {
-  const value = event.confirmedAt || event.updatedAt || event.createdAt || event.occurredOn
-  const timestamp = value ? new Date(value).getTime() : 0
-  return Number.isFinite(timestamp) ? timestamp : 0
+function validDate(value?: string | null): value is string {
+  if (!value || !Number.isFinite(Date.parse(value))) return false
+  return !dateOnlyPattern.test(value) || new Date(value).toISOString().slice(0, 10) === value
 }
 
-const latest = computed(() => {
-  const events = monitor.value?.events || []
-  const confirmed = events.filter((event) => event.status === 'confirmed')
-  const directResets = confirmed.filter((event) => event.type === 'direct_reset')
-  return [...(directResets.length > 0 ? directResets : confirmed)]
-    .sort((a, b) => eventTime(b) - eventTime(a))[0] || null
-})
+function timestamp(value?: string | null): number {
+  const parsed = value ? Date.parse(value) : NaN
+  return Number.isFinite(parsed) ? parsed : 0
+}
 
-const latestPost = computed(() => latest.value?.posts?.[0] || null)
+function eventDateValue(event: TiboResetMonitorEvent): string | null {
+  const candidates = event.status === 'announced'
+    ? [event.schedule?.from]
+    : [event.confirmedAt, event.occurredOn]
+  return candidates.find(validDate) || null
+}
 
-const latestCredit = computed(() => {
-  const events = monitor.value?.events || []
-  return [...events]
-    .filter((event) => event.status === 'confirmed' && event.type === 'reset_credit')
-    .sort((a, b) => eventTime(b) - eventTime(a))[0] || null
-})
+function eventTimeKey(event: TiboResetMonitorEvent): string {
+  // Publication time only orders undated events; it is not an occurrence time.
+  const value = eventDateValue(event) || event.createdAt
+  if (!validDate(value)) return ''
+  // Compare calendar days and exact times in the same source timezone.
+  if (dateOnlyPattern.test(value)) return `${value.replace(/-/g, '')}000000000`
+  const date = new Date(value)
+  const parts = Object.fromEntries(sourceDateFormatter.value.formatToParts(date).map((part) => [part.type, part.value]))
+  return ['year', 'month', 'day', 'hour', 'minute', 'second'].map((field) => parts[field]).join('')
+    + String(date.getUTCMilliseconds()).padStart(3, '0')
+}
 
-const latestCreditPost = computed(() => latestCredit.value?.posts?.[0] || null)
+function findLatestEvent(type: string, statuses: string[]): TiboResetMonitorEvent | null {
+  return (monitor.value?.events || [])
+    .filter((event) => event.type === type && statuses.includes(event.status))
+    .sort((a, b) => eventTimeKey(b).localeCompare(eventTimeKey(a))
+      || Number(b.status === 'confirmed') - Number(a.status === 'confirmed')
+      || timestamp(b.createdAt) - timestamp(a.createdAt))[0] || null
+}
+
+function sourcePost(event: TiboResetMonitorEvent | null) {
+  const posts = [...(event?.posts || [])].sort((a, b) => timestamp(b.publishedAt) - timestamp(a.publishedAt))
+  const stage = event?.status === 'confirmed'
+    ? (event.type === 'direct_reset' ? '确认完成' : '确认发卡')
+    : (event?.type === 'direct_reset' ? '预告' : '发卡预告')
+  return posts.find((post) => post.stage === stage && post.url) || posts.find((post) => post.url) || null
+}
+
+const latest = computed(() => findLatestEvent('direct_reset', ['confirmed']))
+const latestCredit = computed(() => findLatestEvent('reset_credit', ['confirmed', 'announced']))
+const creditAnnounced = computed(() => latestCredit.value?.status === 'announced')
+const latestPost = computed(() => sourcePost(latest.value))
+const latestCreditPost = computed(() => sourcePost(latestCredit.value))
 
 function formatDate(value: string): string {
-  return formatDateTimeToMinute(value)
+  return formatDateWithOptions(value, {
+    timeZone: sourceDateFormatter.value.resolvedOptions().timeZone,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  })
 }
 
 function eventDate(event: TiboResetMonitorEvent): string {
-  const value = event.confirmedAt || event.updatedAt || event.occurredOn || event.createdAt
-  return value ? formatDate(value) : t('subscriptionAccounts.tiboReset.unknown')
+  const value = eventDateValue(event)
+  if (!value) return t('subscriptionAccounts.tiboReset.unknown')
+  return dateOnlyPattern.test(value) ? value.replace(/-/g, '/') : formatDate(value)
 }
 
 onMounted(async () => {

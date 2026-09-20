@@ -163,6 +163,8 @@ export default {
       updatedAt: 'Updated {time}',
       latest: 'Latest reset',
       latestCard: 'Latest reset card',
+      cardForecast: 'Reset card forecast',
+      cardAnnouncement: 'Announced',
       directReset: 'Global reset',
       resetCard: 'Reset card issued',
       viewPost: 'View source post',

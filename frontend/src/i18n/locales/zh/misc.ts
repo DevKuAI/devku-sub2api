@@ -160,6 +160,8 @@ export default {
       updatedAt: '数据更新于 {time}',
       latest: '最近一次重置',
       latestCard: '最近发放重置卡',
+      cardForecast: '重置卡发放预告',
+      cardAnnouncement: '发卡预告',
       directReset: '全员重置',
       resetCard: '发重置卡',
       viewPost: '查看原帖',
