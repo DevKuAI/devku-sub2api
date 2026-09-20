@@ -33,25 +33,56 @@
     </TablePageLayout>
 
     <BaseDialog :show="showUpload" :title="t('admin.desktop.resources.upload')" width="wide" @close="closeUpload">
-      <div class="space-y-4">
-        <p class="text-sm text-gray-500">{{ t('admin.desktop.resources.uploadHint') }}</p>
-        <input class="max-w-full" type="file" accept=".zip,application/zip" :disabled="busy" :aria-label="t('admin.desktop.resources.selectZIP')" @change="selectFile" />
+      <div class="space-y-5">
+        <p class="text-sm leading-6 text-gray-500 dark:text-dark-400">{{ t('admin.desktop.resources.uploadHint') }}</p>
+        <input ref="fileInput" class="hidden" type="file" accept=".zip,application/zip" :disabled="busy" :aria-label="t('admin.desktop.resources.selectZIP')" @change="selectFile" />
+        <div class="rounded-xl border border-gray-200 bg-gray-50/70 p-4 dark:border-dark-700 dark:bg-dark-800/60" :aria-busy="busy">
+          <div class="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <div class="flex min-w-0 flex-1 items-center gap-3">
+              <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white text-primary-600 shadow-sm dark:bg-dark-700 dark:text-primary-400">
+                <Icon name="document" size="lg" aria-hidden="true" />
+              </span>
+              <div class="min-w-0 flex-1">
+                <p class="break-all text-sm font-medium text-gray-900 dark:text-white">{{ selectedFile?.name || t('admin.desktop.resources.packageFile') }}</p>
+                <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">{{ selectedFile ? bytes(selectedFile.size) : t('admin.desktop.resources.fileRequirements') }}</p>
+              </div>
+            </div>
+            <div class="flex shrink-0 items-center gap-2">
+              <button type="button" class="btn btn-secondary min-h-11 flex-1 sm:flex-none" :disabled="busy" @click="fileInput?.click()">
+                <Icon name="upload" size="sm" :stroke-width="2" class="mr-2" aria-hidden="true" />
+                {{ t(`admin.desktop.resources.${selectedFile ? 'replaceFile' : 'selectZIP'}`) }}
+              </button>
+              <button v-if="selectedFile" type="button" class="btn btn-secondary h-11 w-11 shrink-0 p-0" :disabled="busy" :title="t('admin.desktop.resources.clearFile')" :aria-label="t('admin.desktop.resources.clearFile')" @click="clearSelectedFile">
+                <Icon name="x" size="sm" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+          <p class="mt-4 border-t border-gray-200 pt-3 text-xs leading-5 text-gray-500 dark:border-dark-700 dark:text-dark-400">{{ t('admin.desktop.resources.kindHint') }}</p>
+        </div>
         <button v-if="selectedFile && !preview && !busy" type="button" class="btn btn-secondary btn-sm" @click="validateSelectedFile">{{ t('admin.desktop.resources.retryValidation') }}</button>
         <div v-if="busy" class="space-y-1">
           <p class="text-sm" role="status">{{ t(`admin.desktop.resources.${phase}`) }} · {{ progress }}%</p>
           <progress class="h-2 w-full" max="100" :value="progress" :aria-label="t(`admin.desktop.resources.${phase}`)"></progress>
         </div>
-        <div v-if="preview" class="space-y-3 rounded-lg border border-gray-200 p-4 dark:border-dark-700">
-          <p class="font-semibold">{{ preview.manifest.name }} <span class="font-mono">{{ preview.manifest.version }}</span></p>
-          <p class="text-sm">{{ preview.manifest.key }} · {{ preview.manifest.kind }} · {{ preview.manifest.platform }} · {{ bytes(preview.sizeBytes) }}</p>
-          <p class="text-sm text-gray-500">{{ preview.manifest.description }}</p>
+        <div v-if="preview" class="space-y-3 rounded-xl border border-gray-200 p-4 dark:border-dark-700">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ t('admin.desktop.resources.packageInfo') }}</p>
+            <span class="inline-flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-400"><Icon name="checkCircle" size="sm" aria-hidden="true" />{{ t('admin.desktop.resources.validated') }}</span>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="inline-flex rounded-md bg-primary-50 px-2 py-1 text-xs font-semibold text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">{{ preview.manifest.kind === 'mcp' ? 'MCP' : 'Skill' }}</span>
+            <p class="min-w-0 break-words font-semibold text-gray-900 dark:text-white">{{ preview.manifest.name }}</p>
+            <span class="font-mono text-sm text-gray-500 dark:text-dark-400">{{ preview.manifest.version }}</span>
+          </div>
+          <p class="break-all text-sm text-gray-500 dark:text-dark-400">{{ preview.manifest.key }} · {{ preview.manifest.platform }} · {{ bytes(preview.sizeBytes) }}</p>
+          <p class="text-sm text-gray-500 dark:text-dark-400">{{ preview.manifest.description }}</p>
           <p class="text-sm">{{ t('admin.desktop.resources.targets') }}: {{ preview.manifest.targets.join(', ') }}</p>
           <p class="break-all font-mono text-xs">SHA-256: {{ preview.sha256 }}</p>
           <p v-if="preview.current" class="text-sm">{{ t('admin.desktop.resources.currentVersion') }}: {{ preview.current.version }} · {{ t(`admin.desktop.resources.${preview.current.status}`) }}</p>
-          <p class="text-sm text-amber-700 dark:text-amber-300">{{ t('admin.desktop.resources.versionHint') }}</p>
+          <p class="text-sm text-amber-700 dark:text-amber-300">{{ t(`admin.desktop.resources.${preview.manifest.kind === 'skill' ? 'skillVersionHint' : 'versionHint'}`) }}</p>
           <p v-if="preview.current?.status === 'disabled'" class="text-sm text-amber-700 dark:text-amber-300">{{ t('admin.desktop.resources.disabledUploadHint') }}</p>
         </div>
-        <p v-if="uploadError" class="break-words text-sm text-red-600" role="alert">{{ uploadError }}</p>
+        <p v-if="uploadError" class="break-words text-sm text-red-600 dark:text-red-400" role="alert">{{ uploadError }}</p>
         <p v-if="pending" class="text-sm text-amber-700 dark:text-amber-300" role="status">{{ t('admin.desktop.resources.pending') }}</p>
         <p v-if="published" class="text-sm text-green-700 dark:text-green-300" role="status">{{ t('admin.desktop.resources.published') }}</p>
       </div>
@@ -117,6 +148,7 @@ import BaseDialog from '@/components/common/BaseDialog.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import StatusBadge from '@/components/common/StatusBadge.vue'
 import Select from '@/components/common/Select.vue'
+import Icon from '@/components/icons/Icon.vue'
 
 const { t } = useI18n()
 const app = useAppStore()
@@ -125,6 +157,7 @@ const page = ref(1), pageSize = ref(20), total = ref(0), loading = ref(false)
 const items = ref<ResourceRecord[]>([])
 const showUpload = ref(false), busy = ref(false), progress = ref(0), phase = ref('validating')
 const selectedFile = ref<File | null>(null), preview = ref<ResourceValidation | null>(null)
+const fileInput = ref<HTMLInputElement | null>(null)
 const uploadError = ref(''), pending = ref(false), published = ref(false)
 const showDetail = ref(false), detail = ref<ResourceRecord | null>(null), detailLoading = ref(false)
 const versions = ref<ResourceVersion[]>([]), versionPage = ref(1), versionTotal = ref(0)
@@ -154,10 +187,18 @@ function resetAndLoad() { page.value = 1; void load() }
 function changePage(value: number) { page.value = value; void load() }
 function changePageSize(value: number) { pageSize.value = Math.min(value, 100); resetAndLoad() }
 function closeUpload() { if (!busy.value) showUpload.value = false }
+function clearSelectedFile() {
+  if (busy.value) return
+  selectedFile.value = null; preview.value = null; pending.value = false; published.value = false; uploadError.value = ''; progress.value = 0
+  if (fileInput.value) fileInput.value.value = ''
+}
 async function selectFile(event: Event) {
-  const file = (event.target as HTMLInputElement).files?.[0]
-  selectedFile.value = file ?? null; preview.value = null; pending.value = false; published.value = false; uploadError.value = ''
-  if (!file) return
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file || busy.value) return
+  clearSelectedFile()
+  selectedFile.value = file
+  input.value = ''
   if (file.size > 64 * 1024 * 1024 || file.size === 0) { uploadError.value = t('admin.desktop.resources.sizeError'); return }
   await validateSelectedFile()
 }

@@ -67,6 +67,20 @@ describe('DesktopResourcesView', () => {
     await vm.publish(); expect(api.publishResource).not.toHaveBeenCalled()
     wrapper.unmount()
   })
+  it('preserves a validated selection on cancel and prevents publishing after clearing it', async () => {
+    const wrapper = mountView(); await flushPromises(); const vm = wrapper.vm as any
+    const file = new File(['ZIP'], 'resource.zip')
+    await vm.selectFile({ target: { files: [file] } })
+    await vm.selectFile({ target: { files: [] } })
+    expect(vm.selectedFile).toBe(file)
+    expect(vm.preview).toEqual(preview)
+    vm.clearSelectedFile()
+    await vm.publish()
+    expect(vm.preview).toBe(null)
+    expect(vm.selectedFile).toBe(null)
+    expect(api.publishResource).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
   it('disables a resource with a reason and presents the public URL limitation', async () => {
     const wrapper = mountView(); await flushPromises(); const vm = wrapper.vm as any
     vm.statusTarget = resource; vm.statusReason = 'investigate'
