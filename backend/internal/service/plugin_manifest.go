@@ -75,16 +75,17 @@ type PluginSignature struct {
 
 // PluginCompatibility 是管理页面展示和启用门禁共同使用的兼容性结论。
 type PluginCompatibility struct {
-	Compatible         bool   `json:"compatible"`
-	Tested             bool   `json:"tested"`
-	Status             string `json:"status"`
-	Message            string `json:"message"`
-	CurrentSub2API     string `json:"current_sub2api_version"`
-	RequiredSub2API    string `json:"required_sub2api_version"`
-	RecommendedSub2API string `json:"recommended_sub2api_version"`
-	PluginProtocol     int    `json:"plugin_protocol"`
-	TransportAPI       int    `json:"transport_api"`
-	UIBridge           int    `json:"ui_bridge"`
+	Compatible           bool   `json:"compatible"`
+	Tested               bool   `json:"tested"`
+	Status               string `json:"status"`
+	Message              string `json:"message"`
+	CurrentSub2API       string `json:"current_sub2api_version"`
+	CompatibilitySub2API string `json:"compatibility_sub2api_version,omitempty"`
+	RequiredSub2API      string `json:"required_sub2api_version"`
+	RecommendedSub2API   string `json:"recommended_sub2api_version"`
+	PluginProtocol       int    `json:"plugin_protocol"`
+	TransportAPI         int    `json:"transport_api"`
+	UIBridge             int    `json:"ui_bridge"`
 }
 
 type PluginInstallation struct {

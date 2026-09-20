@@ -72,6 +72,10 @@ ui/assets/...
 
 宿主版本超出范围时，插件可以安装并查看，但保持“不兼容”状态且不能启用。版本在范围内但未列入已测试版本时，管理员必须再次确认才能启用。
 
+DevKu fork 使用 `X.Y.Z.N` 四段式稳定版本，前三段是上游兼容基线。例如，宿主 `0.2.7.0` 和 `0.2.7.12` 都按 `0.2.7` 校验 `requires.sub2api` 的 SemVer 范围，仍须满足三个独立协议版本要求。管理页面和 `current_sub2api_version` 保留完整版本号，并通过 `compatibility_sub2api_version` 显示用于匹配范围的基线。
+
+`tested_sub2api_versions` 按完整宿主版本匹配：声明已测试 `0.2.7` 不等于已测试 `0.2.7.0`，不同 fork revision 也不互相替代。只有发布者实际验证后列出对应四段式版本，才会显示为已测试。宿主升级后，已恢复兼容且没有启用绑定的旧“不兼容”记录显示为“已停用”，可以重新发起启用；查询不会自动启用插件。
+
 ## UI 隔离与 Bridge
 
 插件 UI 由包内静态文件实现，宿主使用只有 `allow-scripts` 权限的 sandbox iframe 加载。iframe 没有管理员 Token，也不能直接访问管理 API。宿主为每次打开配置页生成短时资源 URL 和独立 Bridge Token，并且同时校验消息来源窗口与 Token。

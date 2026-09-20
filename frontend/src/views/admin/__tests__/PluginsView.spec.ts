@@ -1,5 +1,5 @@
 import { flushPromises, mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import PluginsView from '../PluginsView.vue'
 
@@ -123,6 +123,8 @@ function mountView() {
 }
 
 describe('管理员插件页二次验证', () => {
+  afterEach(() => vi.restoreAllMocks())
+
   beforeEach(() => {
     vi.clearAllMocks()
     stepUpRun.mockImplementation((action: () => Promise<unknown>) => action())
@@ -165,5 +167,56 @@ describe('管理员插件页二次验证', () => {
 
     expect(stepUpRun).toHaveBeenCalledTimes(1)
     expect(uploadPlugin).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([true, false])('显示 fork 兼容基线并保留未验证版本的启用确认：%s', async (accepted) => {
+    listPlugins.mockResolvedValue([{
+      ...plugin,
+      compatibility: {
+        ...plugin.compatibility,
+        tested: false,
+        status: 'untested',
+        current_sub2api_version: '0.2.7.0',
+        compatibility_sub2api_version: '0.2.7',
+        required_sub2api_version: '>=0.2.7 <0.3.0',
+      },
+    }])
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(accepted)
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('0.2.7.0')
+    expect(wrapper.text()).toContain('admin.plugins.compatibilityVersion')
+    expect(wrapper.text()).toContain('admin.plugins.untested')
+    expect(wrapper.get('dl').findAll('dd').map((item) => item.text()).slice(0, 3))
+      .toEqual(['0.2.7.0', '0.2.7', '>=0.2.7 <0.3.0'])
+    const button = wrapper.findAll('button').find((item) => item.text().includes('admin.plugins.enable'))!
+    expect(button.attributes('disabled')).toBeUndefined()
+    await button.trigger('click')
+    await flushPromises()
+
+    expect(confirm).toHaveBeenCalledWith('admin.plugins.confirmUntested')
+    if (accepted) {
+      expect(enablePlugin).toHaveBeenCalledWith(7, 100, true)
+      expect(stepUpRun).toHaveBeenCalledTimes(1)
+    } else {
+      expect(enablePlugin).not.toHaveBeenCalled()
+      expect(stepUpRun).not.toHaveBeenCalled()
+    }
+    wrapper.unmount()
+  })
+
+  it('版本范围或协议不兼容时仍禁止启用', async () => {
+    listPlugins.mockResolvedValue([{
+      ...plugin, state: 'incompatible',
+      compatibility: { ...plugin.compatibility, compatible: false, tested: false, status: 'incompatible' },
+    }])
+    const wrapper = mountView()
+    await flushPromises()
+
+    const button = wrapper.findAll('button').find((item) => item.text().includes('admin.plugins.enable'))!
+    expect(button.attributes('disabled')).toBeDefined()
+    expect(enablePlugin).not.toHaveBeenCalled()
+    wrapper.unmount()
   })
 })

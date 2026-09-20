@@ -16,6 +16,7 @@ export default {
     rollout: 'OAuth 流量比例',
     compatibility: '版本兼容性',
     currentVersion: '当前 Sub2API',
+    compatibilityVersion: '上游兼容基线',
     requiredVersion: '要求范围',
     recommendedVersion: '建议版本',
     signature: '包签名',

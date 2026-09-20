@@ -33,6 +33,7 @@ export interface PluginCompatibility {
   status: 'compatible' | 'untested' | 'incompatible'
   message: string
   current_sub2api_version: string
+  compatibility_sub2api_version?: string
   required_sub2api_version: string
   recommended_sub2api_version: string
   plugin_protocol: number

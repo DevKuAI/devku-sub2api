@@ -16,6 +16,7 @@ export default {
     rollout: 'OAuth traffic percentage',
     compatibility: 'Version compatibility',
     currentVersion: 'Current Sub2API',
+    compatibilityVersion: 'Upstream compatibility version',
     requiredVersion: 'Required range',
     recommendedVersion: 'Recommended version',
     signature: 'Package signature',

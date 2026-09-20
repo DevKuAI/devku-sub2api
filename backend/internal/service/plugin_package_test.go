@@ -118,6 +118,26 @@ func TestPluginPackageInstallerKeepsHostVersionMismatchDisabled(t *testing.T) {
 	assert.False(t, installation.Compatibility.Compatible)
 }
 
+func TestPluginPackageInstallerAcceptsForkHostBaseline(t *testing.T) {
+	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	cfg := testPluginConfig(t.TempDir(), false)
+	cfg.Plugins.TrustedPublishers["fork-test"] = base64.StdEncoding.EncodeToString(publicKey)
+	installer := NewPluginPackageInstaller(cfg, PluginHostInfo{Version: "0.2.7.0", BuildType: "release"})
+	manifest := testPluginManifest(nil)
+	manifest.Requires.Sub2API = ">=0.2.7 <0.3.0"
+	manifest.Requires.TestedSub2APIVersions = []string{"0.2.7"}
+	archive := buildPluginArchive(t, manifest, privateKey, "fork-test", nil)
+
+	installation, err := installer.Install(context.Background(), bytes.NewReader(archive), nil)
+
+	require.NoError(t, err)
+	assert.Equal(t, PluginSignatureTrusted, installation.SignatureStatus)
+	assert.Equal(t, PluginStateDisabled, installation.State)
+	assert.True(t, installation.Compatibility.Compatible)
+	assert.False(t, installation.Compatibility.Tested)
+}
+
 func TestPluginPackageInstallerRejectsHashMismatch(t *testing.T) {
 	cfg := testPluginConfig(t.TempDir(), true)
 	installer := NewPluginPackageInstaller(cfg, PluginHostInfo{Version: "0.1.179"})

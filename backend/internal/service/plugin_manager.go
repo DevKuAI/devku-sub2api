@@ -148,7 +148,7 @@ func (m *PluginManager) List(ctx context.Context) ([]*PluginInstallation, error)
 	defer m.mu.Unlock()
 	route := m.route.Load()
 	for _, installation := range plugins {
-		installation.Compatibility = EvaluatePluginCompatibility(installation.Manifest, m.hostInfo)
+		m.refreshCompatibilityForDisplay(installation)
 		if runtime := m.runtimes[installation.ID]; runtime != nil && !runtime.client.Exited() {
 			installation.RuntimeHealthy = true
 			installation.RuntimeMessage = "插件进程运行中"
@@ -167,7 +167,7 @@ func (m *PluginManager) Get(ctx context.Context, id int64) (*PluginInstallation,
 	if err != nil {
 		return nil, err
 	}
-	installation.Compatibility = EvaluatePluginCompatibility(installation.Manifest, m.hostInfo)
+	m.refreshCompatibilityForDisplay(installation)
 	m.mu.Lock()
 	runtime := m.runtimes[id]
 	m.mu.Unlock()
@@ -178,6 +178,16 @@ func (m *PluginManager) Get(ctx context.Context, id int64) (*PluginInstallation,
 		installation.RuntimeMessage = route.unavailable
 	}
 	return installation, nil
+}
+
+// Refresh the read model without changing stored state or enabling a plugin.
+func (m *PluginManager) refreshCompatibilityForDisplay(installation *PluginInstallation) {
+	installation.Compatibility = EvaluatePluginCompatibility(installation.Manifest, m.hostInfo)
+	if installation.State == PluginStateIncompatible && installation.Compatibility.Compatible &&
+		!hasEnabledOpenAIBinding(installation.Bindings) {
+		installation.State = PluginStateDisabled
+		installation.LastError = ""
+	}
 }
 
 func (m *PluginManager) Install(ctx context.Context, reader io.Reader, installedBy *int64) (*PluginInstallation, error) {

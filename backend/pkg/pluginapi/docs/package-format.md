@@ -28,6 +28,8 @@ ui/assets/...
 - `transport_api`：请求和响应帧协议。
 - `ui_bridge`：配置 UI 消息协议。
 
+DevKu fork 的四段式稳定宿主版本 `X.Y.Z.N` 使用前三段 `X.Y.Z` 匹配 `requires.sub2api`；范围表达式仍使用标准 SemVer。`tested_sub2api_versions` 可以列出实际验证过的完整四段式版本，不会把上游版本或其他 fork revision 自动视为已测试。插件自身 `version`、包签名和协议版本的校验规则不变。
+
 ## 签名
 
 `signature.json`：

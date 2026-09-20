@@ -156,6 +156,14 @@
                 <dd class="font-mono text-gray-800 dark:text-gray-200">
                   {{ plugin.compatibility.current_sub2api_version }}
                 </dd>
+                <template v-if="plugin.compatibility.compatibility_sub2api_version">
+                  <dt class="text-gray-500">
+                    {{ t("admin.plugins.compatibilityVersion") }}
+                  </dt>
+                  <dd class="font-mono text-gray-800 dark:text-gray-200">
+                    {{ plugin.compatibility.compatibility_sub2api_version }}
+                  </dd>
+                </template>
                 <dt class="text-gray-500">
                   {{ t("admin.plugins.requiredVersion") }}
                 </dt>
