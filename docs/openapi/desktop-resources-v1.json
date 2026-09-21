@@ -11,15 +11,15 @@
   },
   "tags": [
     {
-      "name": "Publishing",
+      "name": "Desktop Admin - Resource Publishing",
       "description": "Validate and immediately publish immutable resource packages."
     },
     {
-      "name": "Distribution",
+      "name": "Desktop Client - Resource Distribution",
       "description": "Desktop member catalog and ZIP downloads."
     },
     {
-      "name": "Management",
+      "name": "Desktop Admin - Resource Management",
       "description": "Administrator resource status and version history."
     }
   ],
@@ -28,7 +28,7 @@
       "post": {
         "operationId": "publishPublicDesktopResource",
         "tags": [
-          "Publishing"
+          "Desktop Admin - Resource Publishing"
         ],
         "summary": "Upload one ZIP and publish it immediately",
         "description": "Raw ZIP <=64 MiB. Uploaded object first, then resource metadata commits atomically in PostgreSQL. New resources are active; publishing never changes an existing disabled status. Returns only the uploaded platform. Duplicate tuple or older version is 409. On ambiguous results verify through administrator key lookup and historical version SHA-256. Objects are uploaded to a private resource_bucket; no permanent download URL is returned or persisted.",
@@ -153,7 +153,7 @@
       "get": {
         "operationId": "listAdminDesktopResources",
         "tags": [
-          "Management"
+          "Desktop Admin - Resource Management"
         ],
         "summary": "List resources, including disabled resources",
         "security": [
@@ -283,7 +283,7 @@
       "get": {
         "operationId": "listDesktopResources",
         "tags": [
-          "Distribution"
+          "Desktop Client - Resource Distribution"
         ],
         "summary": "List public or current-organization resources",
         "security": [
@@ -432,7 +432,7 @@
       "get": {
         "operationId": "getDesktopResource",
         "tags": [
-          "Distribution"
+          "Desktop Client - Resource Distribution"
         ],
         "summary": "Get current version and all published platforms",
         "security": [
@@ -536,7 +536,7 @@
       "get": {
         "operationId": "downloadDesktopResourceArtifact",
         "tags": [
-          "Distribution"
+          "Desktop Client - Resource Distribution"
         ],
         "summary": "Download immutable authenticated ZIP",
         "security": [
@@ -686,7 +686,7 @@
       "post": {
         "operationId": "validateDesktopResource",
         "tags": [
-          "Management"
+          "Desktop Admin - Resource Management"
         ],
         "summary": "Validate a ZIP without publishing",
         "security": [
@@ -755,7 +755,7 @@
       "get": {
         "operationId": "getAdminDesktopResource",
         "tags": [
-          "Management"
+          "Desktop Admin - Resource Management"
         ],
         "summary": "Get current resource metadata and status",
         "security": [
@@ -823,7 +823,7 @@
       "get": {
         "operationId": "listAdminDesktopResourceVersions",
         "tags": [
-          "Management"
+          "Desktop Admin - Resource Management"
         ],
         "summary": "List immutable versions in descending numeric order",
         "security": [
@@ -914,7 +914,7 @@
       "patch": {
         "operationId": "setDesktopResourceStatus",
         "tags": [
-          "Management"
+          "Desktop Admin - Resource Management"
         ],
         "summary": "Disable or restore catalog and API access",
         "security": [
@@ -1010,7 +1010,7 @@
       "post": {
         "operationId": "createAdminDesktopResourceDownloadURL",
         "tags": [
-          "Management"
+          "Desktop Admin - Resource Management"
         ],
         "summary": "Authorize and issue a private download URL valid for 5 minutes",
         "description": "No request body. Resource must be active, including historical versions. Requires existing administrator or Desktop member authentication. The presigned URL can be reused until expiry; disabling a resource or revoking membership blocks further issuance but cannot revoke an already issued URL. Fetch the URL directly from S3 without User/Model Tokens. No URL is stored in resource metadata.",
@@ -1104,7 +1104,7 @@
       "post": {
         "operationId": "createDesktopResourceDownloadURL",
         "tags": [
-          "Distribution"
+          "Desktop Client - Resource Distribution"
         ],
         "summary": "Authorize and issue a private download URL valid for 5 minutes",
         "description": "No request body. Resource must be active, including historical versions. Requires existing administrator or Desktop member authentication. The presigned URL can be reused until expiry; disabling a resource or revoking membership blocks further issuance but cannot revoke an already issued URL. Fetch the URL directly from S3 without User/Model Tokens. No URL is stored in resource metadata.",

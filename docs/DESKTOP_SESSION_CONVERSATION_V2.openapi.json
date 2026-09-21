@@ -23,19 +23,19 @@
   ],
   "tags": [
     {
-      "name": "Desktop session",
-      "description": "Desktop session"
+      "name": "Desktop Client - Auth",
+      "description": "Desktop 客户端 v2 会话认证"
     },
     {
-      "name": "Conversation records",
-      "description": "Conversation records"
+      "name": "Desktop Client - Conversations",
+      "description": "Desktop 客户端对话记录上报"
     },
     {
-      "name": "Desktop Admin Conversations",
+      "name": "Desktop Admin - Conversations",
       "description": "平台管理员在所选企业内查询"
     },
     {
-      "name": "Desktop Organization Conversations",
+      "name": "Desktop User - Conversations",
       "description": "企业账号在所属企业内查询"
     }
   ],
@@ -52,7 +52,7 @@
       "post": {
         "operationId": "loginDesktopSessionV2",
         "tags": [
-          "Desktop session"
+          "Desktop Client - Auth"
         ],
         "summary": "名单匹配登录并签发 v2 稳定会话凭证",
         "description": "本操作 schema 仅描述 X-Desktop-Auth-Version: 2。未带头或版本 1 走旧合同；其他版本返回 422 AUTH_VERSION_UNSUPPORTED。新客户端必须确认 auth_version=2，不接受旧服务忽略版本头后返回的 JWT 作为长效凭证。登录验证及限流沿用现有流程；原文凭证只返回一次。",
@@ -277,7 +277,7 @@
       "post": {
         "operationId": "logoutDesktopSessionV2",
         "tags": [
-          "Desktop session"
+          "Desktop Client - Auth"
         ],
         "summary": "撤销当前 v2 会话",
         "description": "无需请求正文；删除当前会话，不延长 TTL。删除后开始认证的请求必须失败，并发 touch 不能重建已注销 key；已通过鉴权的在途请求可完成。客户端无论请求结果如何均清理本地凭证。",
@@ -447,7 +447,7 @@
       "post": {
         "operationId": "createDesktopConversationRecord",
         "tags": [
-          "Conversation records"
+          "Desktop Client - Conversations"
         ],
         "summary": "写入一轮提问与最终可见响应",
         "description": "企业 conversation_reporting_enabled 必须为 true；关闭时返回 403 CONVERSATION_REPORTING_DISABLED，不保存正文。仅接受 v2 会话。校验正文、身份及独立限流后原子续期，再执行数据库事务；提交成功才返回 200。每成员默认每分钟 60 次，可通过 DESKTOP_CONVERSATION_MEMBER_PER_MINUTE 配置，同一成员的设备和客户端共用限额。客户端仅发送一次，不刷新、重试或补传。保存全部收到且合法的记录，不自动清理；不记录正文或凭证到日志。",
@@ -797,7 +797,7 @@
       "get": {
         "operationId": "listAdminDesktopConversations",
         "tags": [
-          "Desktop Admin Conversations"
+          "Desktop Admin - Conversations"
         ],
         "summary": "分页查询对话元数据",
         "description": "企业范围由当前角色和服务端授权确定，跨企业读取返回 404。历史成员删除后仍可回看。列表不含 prompts/response。排序按 received_at、内部 ID；回看时固定企业、member_id、client、installation_id、source_session_id 并使用 asc。",
@@ -1004,7 +1004,7 @@
       "get": {
         "operationId": "getAdminDesktopConversations",
         "tags": [
-          "Desktop Admin Conversations"
+          "Desktop Admin - Conversations"
         ],
         "summary": "读取完整一轮问答",
         "description": "企业范围由当前角色和服务端授权确定，跨企业读取返回 404。历史成员删除后仍可回看。正文仅以文本展示，访问审计不复制正文。",
@@ -1109,7 +1109,7 @@
       "get": {
         "operationId": "listManagedDesktopConversations",
         "tags": [
-          "Desktop Organization Conversations"
+          "Desktop User - Conversations"
         ],
         "summary": "分页查询对话元数据",
         "description": "企业范围由当前角色和服务端授权确定，跨企业读取返回 404。历史成员删除后仍可回看。列表不含 prompts/response。排序按 received_at、内部 ID；回看时固定企业、member_id、client、installation_id、source_session_id 并使用 asc。 企业上报开关关闭时，用户查询返回 403 CONVERSATION_REPORTING_DISABLED；管理员查询不受此开关限制，历史记录保留。",
@@ -1308,7 +1308,7 @@
       "get": {
         "operationId": "getManagedDesktopConversations",
         "tags": [
-          "Desktop Organization Conversations"
+          "Desktop User - Conversations"
         ],
         "summary": "读取完整一轮问答",
         "description": "企业范围由当前角色和服务端授权确定，跨企业读取返回 404。历史成员删除后仍可回看。正文仅以文本展示，访问审计不复制正文。 企业上报开关关闭时，用户查询返回 403 CONVERSATION_REPORTING_DISABLED；管理员查询不受此开关限制，历史记录保留。",
