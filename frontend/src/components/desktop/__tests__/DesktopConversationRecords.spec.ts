@@ -21,7 +21,7 @@ const DataTableStub = defineComponent({
   template: '<div><slot v-if="!loading && !data.length" name="empty" /><div v-for="row in data" :key="row.record_id"><slot name="cell-member_name" :row="row" /><slot name="cell-actions" :row="row" /></div></div>',
 })
 function view() {
-  return mount(DesktopConversationRecords, { props: { organizationId: 'org_one', selfManaged: false }, global: { stubs: { DataTable: DataTableStub, Pagination: true } } })
+  return mount(DesktopConversationRecords, { props: { organizationId: 'org_one', selfManaged: false }, global: { stubs: { DataTable: DataTableStub, Pagination: true, teleport: true } } })
 }
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -60,7 +60,9 @@ describe('Desktop conversation records', () => {
     expect(api.listDesktopConversations).toHaveBeenLastCalledWith('org_one', false, {
       page: 1, page_size: 20, sort_order: 'asc', member_id: 'mem_one', client: 'workbuddy', installation_id: 'device_one', source_session_id: 'source_one',
     }, expect.any(AbortSignal))
-    expect(wrapper.find('[data-testid="thread-scope"]').exists()).toBe(true)
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('conversations.threadHint')
+    expect(api.getDesktopConversation).toHaveBeenCalledWith('org_one', false, record.record_id, expect.any(AbortSignal))
     wrapper.unmount()
   })
 
@@ -105,6 +107,109 @@ describe('Desktop conversation records', () => {
     await wrapper.find('[role="alert"] button').trigger('click')
     await flushPromises()
     expect(wrapper.text()).toContain('conversations.deletedMember')
+    wrapper.unmount()
+  })
+
+  it('keeps list filters and pagination when browsing and closing a conversation', async () => {
+    const wrapper = view()
+    await flushPromises()
+    await wrapper.find('input[type="search"]').setValue('Member')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    wrapper.findComponent({ name: 'Pagination' }).vm.$emit('update:page', 3)
+    await flushPromises()
+    const callsBeforeOpen = api.listDesktopConversations.mock.calls.length
+    await wrapper.findAll('button').find(button => button.text().includes('viewThread'))!.trigger('click')
+    await flushPromises()
+    await wrapper.find('[role="dialog"] button[aria-label="Close modal"]').trigger('click')
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+    expect((wrapper.find('input[type="search"]').element as HTMLInputElement).value).toBe('Member')
+    expect(wrapper.findComponent({ name: 'Pagination' }).props('page')).toBe(3)
+    expect(api.listDesktopConversations).toHaveBeenCalledTimes(callsBeforeOpen + 1)
+    wrapper.unmount()
+  })
+
+  it('navigates in the dialog and discards late detail responses', async () => {
+    const second = { ...record, record_id: 'record_two' }
+    api.listDesktopConversations.mockResolvedValue({ items: [record, second], total: 2 })
+    const pending = deferred<DesktopConversationDetail>()
+    api.getDesktopConversation.mockReturnValueOnce(pending.promise).mockResolvedValueOnce({ ...detail, ...second, prompts: [{ text: 'second question', truncated: false }], response: { text: 'second answer', truncated: false } })
+    const wrapper = view()
+    await flushPromises()
+    await wrapper.findAll('button').find(button => button.text().includes('viewDetail'))!.trigger('click')
+    const signal = api.getDesktopConversation.mock.calls[0][3] as AbortSignal
+    expect(wrapper.find('[role="dialog"]').text()).toContain('common.loading')
+    await wrapper.findAll('[role="dialog"] button').find(button => button.text().includes('nextRecord'))!.trigger('click')
+    await flushPromises()
+    expect(signal.aborted).toBe(true)
+    pending.resolve(detail)
+    await flushPromises()
+    expect(wrapper.find('[role="dialog"]').text()).toContain('second answer')
+    expect(wrapper.find('[role="dialog"]').text()).not.toContain('private')
+    expect(wrapper.findAll('[role="dialog"] button').find(button => button.text().includes('nextRecord'))!.attributes('disabled')).toBeDefined()
+    expect(wrapper.find('details').attributes('open')).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('cancels pending thread requests when the dialog closes', async () => {
+    const wrapper = view()
+    await flushPromises()
+    const pending = deferred<{ items: DesktopConversation[]; total: number }>()
+    api.listDesktopConversations.mockReturnValueOnce(pending.promise)
+    await wrapper.findAll('button').find(button => button.text().includes('viewThread'))!.trigger('click')
+    const signal = api.listDesktopConversations.mock.calls[1][3] as AbortSignal
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await flushPromises()
+    expect(signal.aborted).toBe(true)
+    pending.resolve({ items: [record], total: 1 })
+    await flushPromises()
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+    expect(api.getDesktopConversation).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('loads the next conversation page while keeping the original scope for enterprise users', async () => {
+    const wrapper = view()
+    await wrapper.setProps({ selfManaged: true })
+    await flushPromises()
+    const firstPage = Array.from({ length: 20 }, (_, index) => ({ ...record, record_id: `thread_${index}` }))
+    const last = { ...record, record_id: 'last_record' }
+    api.listDesktopConversations.mockResolvedValueOnce({ items: firstPage, total: 21 }).mockResolvedValueOnce({ items: [last], total: 21 })
+    await wrapper.findAll('button').find(button => button.text().includes('viewThread'))!.trigger('click')
+    await flushPromises()
+    const select = wrapper.find('[role="dialog"] select')
+    await select.setValue('thread_19')
+    await flushPromises()
+    await wrapper.findAll('[role="dialog"] button').find(button => button.text().includes('nextRecord'))!.trigger('click')
+    await flushPromises()
+    expect(api.listDesktopConversations).toHaveBeenLastCalledWith('org_one', true, {
+      page: 2, page_size: 20, sort_order: 'asc', member_id: 'mem_one', client: 'workbuddy', installation_id: 'device_one', source_session_id: 'source_one',
+    }, expect.any(AbortSignal))
+    expect(api.getDesktopConversation).toHaveBeenLastCalledWith('org_one', true, last.record_id, expect.any(AbortSignal))
+    expect(wrapper.find('[role="dialog"]').text()).toContain('21 / 21')
+    wrapper.unmount()
+  })
+
+  it('retries thread and detail failures and handles empty conversations', async () => {
+    const wrapper = view()
+    await flushPromises()
+    api.listDesktopConversations.mockRejectedValueOnce(new Error('offline'))
+    await wrapper.findAll('button').find(button => button.text().includes('viewThread'))!.trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[role="dialog"] [role="alert"]').text()).toContain('conversations.loadFailed')
+    api.getDesktopConversation.mockRejectedValueOnce({ response: { status: 404 } })
+    await wrapper.find('[role="dialog"] [role="alert"] button').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="conversation-detail"] [role="alert"]').text()).toContain('conversations.notFound')
+    await wrapper.find('[data-testid="conversation-detail"] [role="alert"] button').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[role="dialog"] pre').exists()).toBe(true)
+    await wrapper.find('[role="dialog"] button[aria-label="Close modal"]').trigger('click')
+    api.listDesktopConversations.mockResolvedValueOnce({ items: [], total: 0 })
+    await wrapper.findAll('button').find(button => button.text().includes('viewThread'))!.trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[role="dialog"]').text()).toContain('conversations.empty')
+    expect(wrapper.findAll('[role="dialog"] button').find(button => button.text().includes('nextRecord'))!.attributes('disabled')).toBeDefined()
     wrapper.unmount()
   })
 
