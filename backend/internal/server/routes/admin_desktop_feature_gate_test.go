@@ -1,6 +1,8 @@
 package routes
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -22,12 +24,13 @@ func TestDesktopAdminRoutesFollowFeatureFlag(t *testing.T) {
 		want    int
 	}{
 		{name: "disabled"},
-		{name: "enabled", enabled: true, want: 12},
+		{name: "enabled", enabled: true, want: 13},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			router := gin.New()
+			router.Use(func(c *gin.Context) { c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: 42}) })
 			handlers := &handler.Handlers{Admin: &handler.AdminHandlers{Desktop: adminhandler.NewDesktopHandler(nil)}}
 			audit := middleware.AuditLogMiddleware(func(c *gin.Context) { c.Next() })
 			cfg := &config.Config{Desktop: config.DesktopConfig{Enabled: test.enabled}}
@@ -41,6 +44,13 @@ func TestDesktopAdminRoutesFollowFeatureFlag(t *testing.T) {
 				}
 			}
 			require.Equal(t, test.want, registered)
+			result := httptest.NewRecorder()
+			router.ServeHTTP(result, httptest.NewRequest(http.MethodGet, "/api/v1/admin/desktop/organizations/org_one/conversation-records/statistics?client=invalid", nil))
+			if test.enabled {
+				require.Equal(t, http.StatusUnprocessableEntity, result.Code, result.Body.String())
+			} else {
+				require.Equal(t, http.StatusNotFound, result.Code)
+			}
 		})
 	}
 }

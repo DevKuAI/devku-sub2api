@@ -3,6 +3,10 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"time"
+
+	"entgo.io/ent/dialect/sql"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/desktopconversationrecord"
@@ -164,4 +168,49 @@ func desktopConversationMetadata(row *dbent.DesktopConversationRecord) service.D
 		result.MemberID, result.MemberName, result.MemberDeleted = member.PublicID, member.Name, member.DeletedAt != nil
 	}
 	return result
+}
+
+// Statistics aggregates metadata only in one database snapshot, independent of list pagination.
+func (r *desktopConversationRepository) Statistics(ctx context.Context, organizationID int64, filters service.DesktopConversationFilters, periods service.DesktopConversationPeriods) (*service.DesktopConversationStatistics, error) {
+	ctx = mixins.SkipSoftDelete(ctx)
+	var rows []struct {
+		TodayRecords int64 `json:"today_records"`
+		TodayPrompts int64 `json:"today_prompts"`
+		WeekRecords  int64 `json:"week_records"`
+		WeekPrompts  int64 `json:"week_prompts"`
+		MonthRecords int64 `json:"month_records"`
+		MonthPrompts int64 `json:"month_prompts"`
+		TotalRecords int64 `json:"total_records"`
+		TotalPrompts int64 `json:"total_prompts"`
+	}
+	countsSince := func(start time.Time, prefix string) []dbent.AggregateFunc {
+		// Only server-generated timestamps are formatted here; request filters use Ent predicates.
+		condition := func(s *sql.Selector) string {
+			return fmt.Sprintf("%s >= '%s'::timestamptz", s.C(desktopconversationrecord.FieldReceivedAt), start.UTC().Format(time.RFC3339Nano))
+		}
+		return []dbent.AggregateFunc{
+			func(s *sql.Selector) string {
+				return sql.As("COUNT(*) FILTER (WHERE "+condition(s)+")", prefix+"_records")
+			},
+			func(s *sql.Selector) string {
+				return sql.As("COALESCE(SUM("+s.C(desktopconversationrecord.FieldPromptCount)+") FILTER (WHERE "+condition(s)+"), 0)", prefix+"_prompts")
+			},
+		}
+	}
+	aggregates := append(countsSince(periods.Today, "today"), countsSince(periods.Week, "week")...)
+	aggregates = append(aggregates, countsSince(periods.Month, "month")...)
+	aggregates = append(aggregates, dbent.As(dbent.Count(), "total_records"), func(s *sql.Selector) string {
+		return sql.As("COALESCE(SUM("+s.C(desktopconversationrecord.FieldPromptCount)+"), 0)", "total_prompts")
+	})
+	err := r.query(organizationID, filters).Where(desktopconversationrecord.ReceivedAtLTE(periods.AsOf)).Aggregate(aggregates...).Scan(ctx, &rows)
+	if err != nil || len(rows) != 1 {
+		return nil, service.ErrDesktopConversationStorage
+	}
+	row := rows[0]
+	return &service.DesktopConversationStatistics{
+		Today: service.DesktopConversationCounts{RecordCount: row.TodayRecords, PromptCount: row.TodayPrompts},
+		Week:  service.DesktopConversationCounts{RecordCount: row.WeekRecords, PromptCount: row.WeekPrompts},
+		Month: service.DesktopConversationCounts{RecordCount: row.MonthRecords, PromptCount: row.MonthPrompts},
+		Total: service.DesktopConversationCounts{RecordCount: row.TotalRecords, PromptCount: row.TotalPrompts},
+	}, nil
 }

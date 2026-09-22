@@ -3,7 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent } from 'vue'
 import type { DesktopConversation, DesktopConversationDetail } from '@/api/desktopConversations'
 
-const api = vi.hoisted(() => ({ listDesktopConversations: vi.fn(), getDesktopConversation: vi.fn() }))
+const api = vi.hoisted(() => ({ listDesktopConversations: vi.fn(), getDesktopConversation: vi.fn(), getDesktopConversationStatistics: vi.fn() }))
 vi.mock('@/api/desktopConversations', () => api)
 vi.mock('vue-i18n', async (importOriginal) => ({ ...await importOriginal<typeof import('vue-i18n')>(), useI18n: () => ({ t: (key: string) => key }) }))
 import DesktopConversationRecords from '../DesktopConversationRecords.vue'
@@ -34,6 +34,7 @@ describe('Desktop conversation records', () => {
     vi.clearAllMocks()
     api.listDesktopConversations.mockResolvedValue({ items: [record], total: 1, page: 1, page_size: 20, pages: 1 })
     api.getDesktopConversation.mockResolvedValue(detail)
+    api.getDesktopConversationStatistics.mockResolvedValue({ timezone: 'Asia/Shanghai', as_of: '2026-09-22T04:00:00Z', today: { record_count: 3, prompt_count: 5 }, week: { record_count: 12, prompt_count: 20 }, month: { record_count: 30, prompt_count: 45 }, total: { record_count: 80, prompt_count: 100 } })
   })
 
   it('loads only metadata until selected, renders plain text, and preserves missing responses', async () => {
@@ -211,6 +212,63 @@ describe('Desktop conversation records', () => {
     expect(wrapper.find('[role="dialog"]').text()).toContain('conversations.empty')
     expect(wrapper.findAll('[role="dialog"] button').find(button => button.text().includes('nextRecord'))!.attributes('disabled')).toBeDefined()
     wrapper.unmount()
+  })
+
+  it('loads statistics across all pages and applies only submitted filters to both requests', async () => {
+    const wrapper = view()
+    await flushPromises()
+    expect(wrapper.find('[data-testid="statistics-total"]').text()).toContain('80')
+    expect(api.getDesktopConversationStatistics).toHaveBeenLastCalledWith('org_one', false, {}, expect.any(AbortSignal))
+    const initialCalls = api.getDesktopConversationStatistics.mock.calls.length
+    await wrapper.find('input[type="search"]').setValue('  Member  ')
+    wrapper.findComponent({ name: 'Pagination' }).vm.$emit('update:page', 2)
+    await flushPromises()
+    expect(api.getDesktopConversationStatistics).toHaveBeenCalledTimes(initialCalls)
+    expect(api.listDesktopConversations.mock.lastCall?.[2]).not.toHaveProperty('member_search')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(api.getDesktopConversationStatistics).toHaveBeenLastCalledWith('org_one', false, { member_search: 'Member' }, expect.any(AbortSignal))
+    expect(api.listDesktopConversations.mock.lastCall?.[2]).toMatchObject({ member_search: 'Member', page: 1 })
+    await wrapper.findAll('form button').find(button => button.text().includes('reset'))!.trigger('click')
+    await flushPromises()
+    expect(api.getDesktopConversationStatistics.mock.lastCall?.[2]).toEqual({})
+    wrapper.unmount()
+  })
+
+  it('preserves record browsing when statistics fail and retries independently', async () => {
+    api.getDesktopConversationStatistics.mockRejectedValueOnce(new Error('offline'))
+    const wrapper = view()
+    await flushPromises()
+    const statistics = wrapper.find('[data-testid="conversation-statistics"]')
+    expect(statistics.text()).toContain('statistics.loadFailed')
+    expect(wrapper.findAll('button').some(button => button.text().includes('viewDetail'))).toBe(true)
+    const listCalls = api.listDesktopConversations.mock.calls.length
+    await statistics.find('[role="alert"] button').trigger('click')
+    await flushPromises()
+    expect(statistics.find('[data-testid="statistics-today"]').text()).toContain('3')
+    expect(api.listDesktopConversations).toHaveBeenCalledTimes(listCalls)
+    wrapper.unmount()
+  })
+
+  it('discards stale statistics after changing organization or role and displays empty counts', async () => {
+    const pending = deferred<unknown>()
+    api.getDesktopConversationStatistics.mockReturnValueOnce(pending.promise)
+    const wrapper = view()
+    await flushPromises()
+    expect(wrapper.find('[data-testid="statistics-total"]').text()).toContain('—')
+    const signal = api.getDesktopConversationStatistics.mock.calls[0][3] as AbortSignal
+    const empty = { timezone: 'UTC', as_of: '2026-09-22T04:00:00Z', today: { record_count: 0, prompt_count: 0 }, week: { record_count: 0, prompt_count: 0 }, month: { record_count: 0, prompt_count: 0 }, total: { record_count: 0, prompt_count: 0 } }
+    api.getDesktopConversationStatistics.mockResolvedValue(empty)
+    await wrapper.setProps({ organizationId: 'org_two', selfManaged: true })
+    await flushPromises()
+    pending.resolve({ ...empty, total: { record_count: 999, prompt_count: 999 } })
+    await flushPromises()
+    expect(signal.aborted).toBe(true)
+    expect(api.getDesktopConversationStatistics).toHaveBeenLastCalledWith('org_two', true, {}, expect.any(AbortSignal))
+    expect(wrapper.find('[data-testid="statistics-total"]').text()).toContain('0')
+    expect(wrapper.find('[data-testid="statistics-total"]').text()).not.toContain('999')
+    wrapper.unmount()
+    expect((api.getDesktopConversationStatistics.mock.lastCall?.[3] as AbortSignal).aborted).toBe(true)
   })
 
   it('expands long text without modifying its content', async () => {

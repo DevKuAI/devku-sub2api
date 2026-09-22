@@ -64,10 +64,11 @@ func TestDesktopUserRoutesFollowFeatureFlag(t *testing.T) {
 		want    int
 	}{
 		{name: "disabled"},
-		{name: "enabled", enabled: true, want: 10},
+		{name: "enabled", enabled: true, want: 11},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			router := gin.New()
+			router.Use(func(c *gin.Context) { c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: 42}) })
 			handlers := &handler.Handlers{Desktop: handler.NewDesktopHandler(nil)}
 			cfg := &config.Config{Desktop: config.DesktopConfig{Enabled: test.enabled}}
 
@@ -80,6 +81,13 @@ func TestDesktopUserRoutesFollowFeatureFlag(t *testing.T) {
 				}
 			}
 			require.Equal(t, test.want, registered)
+			result := httptest.NewRecorder()
+			router.ServeHTTP(result, httptest.NewRequest(http.MethodGet, "/api/v1/desktop/organization/conversation-records/statistics?client=invalid", nil))
+			if test.enabled {
+				require.Equal(t, http.StatusUnprocessableEntity, result.Code, result.Body.String())
+			} else {
+				require.Equal(t, http.StatusNotFound, result.Code)
+			}
 		})
 	}
 }

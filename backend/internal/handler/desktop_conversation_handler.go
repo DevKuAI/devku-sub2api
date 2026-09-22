@@ -95,3 +95,20 @@ func (h *DesktopHandler) GetManagedConversation(c *gin.Context) {
 	middleware.SetAuditExtra(c, map[string]any{"record_id": result.RecordID, "organization_id": result.OrganizationID})
 	response.Success(c, result)
 }
+
+func (h *DesktopHandler) ManagedConversationStatistics(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
+	userID, ok := desktopManagedUserID(c)
+	if !ok {
+		return
+	}
+	_, filters, err := dto.ParseDesktopConversationQuery(c.Request.URL.Query())
+	if response.ErrorFrom(c, err) {
+		return
+	}
+	result, err := h.desktop.ConversationStatistics(c.Request.Context(), "", userID, filters)
+	if response.ErrorFrom(c, err) {
+		return
+	}
+	response.Success(c, result)
+}

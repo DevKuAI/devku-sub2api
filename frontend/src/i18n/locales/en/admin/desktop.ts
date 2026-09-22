@@ -50,6 +50,17 @@ export default {
     conversationReporting: 'Report conversation records',
     conversationReportingHint: 'Allow Desktop to report prompts and final responses, and show Conversation records in organization management. Turning this off stops new uploads and retains existing records.',
     conversations: {
+      statistics: {
+        title: "Conversation statistics",
+        today: "Today",
+        week: "This week",
+        month: "This month",
+        total: "Total",
+        records: "records",
+        prompts: "{count} prompts",
+        hint: "Based on receipt time in {timezone}; weeks start on Monday. Statistics reflect applied filters across all pages.",
+        loadFailed: "Unable to load statistics. Please retry.",
+      },
       title: "Conversation records",
       memberSearch: "Member name or ID",
       client: "Client",

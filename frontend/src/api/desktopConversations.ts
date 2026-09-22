@@ -30,10 +30,7 @@ export interface DesktopConversationDetail extends DesktopConversation {
   response: DesktopConversationSegment | null
 }
 
-export interface DesktopConversationQuery {
-  page: number
-  page_size: number
-  sort_order?: 'asc' | 'desc'
+export interface DesktopConversationFilters {
   member_id?: string
   member_search?: string
   client?: string
@@ -43,6 +40,26 @@ export interface DesktopConversationQuery {
   installation_id?: string
   received_from?: string
   received_to?: string
+}
+
+export interface DesktopConversationQuery extends DesktopConversationFilters {
+  page: number
+  page_size: number
+  sort_order?: 'asc' | 'desc'
+}
+
+export interface DesktopConversationCounts {
+  record_count: number
+  prompt_count: number
+}
+
+export interface DesktopConversationStatistics {
+  timezone: string
+  as_of: string
+  today: DesktopConversationCounts
+  week: DesktopConversationCounts
+  month: DesktopConversationCounts
+  total: DesktopConversationCounts
 }
 
 function basePath(organizationID: string, selfManaged: boolean): string {
@@ -58,5 +75,10 @@ export async function listDesktopConversations(organizationID: string, selfManag
 
 export async function getDesktopConversation(organizationID: string, selfManaged: boolean, recordID: string, signal?: AbortSignal): Promise<DesktopConversationDetail> {
   const { data } = await apiClient.get<DesktopConversationDetail>(`${basePath(organizationID, selfManaged)}/${encodeURIComponent(recordID)}`, { signal })
+  return data
+}
+
+export async function getDesktopConversationStatistics(organizationID: string, selfManaged: boolean, filters: DesktopConversationFilters, signal?: AbortSignal): Promise<DesktopConversationStatistics> {
+  const { data } = await apiClient.get<DesktopConversationStatistics>(`${basePath(organizationID, selfManaged)}/statistics`, { params: filters, signal })
   return data
 }

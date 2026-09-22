@@ -48,5 +48,5 @@ func TestDesktopV2OpenAPIRegisteredOperations(t *testing.T) {
 			require.True(t, routes[strings.ToUpper(method)+" "+path], "unregistered contract operation: %s %s", method, path)
 		}
 	}
-	require.Len(t, ids, 7)
+	require.Len(t, ids, 9)
 }

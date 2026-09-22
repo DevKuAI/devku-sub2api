@@ -264,3 +264,79 @@ func TestDesktopConversationReportingMigrationDefaultsExistingRowsOff(t *testing
 	require.NoError(t, tx.QueryRowContext(ctx, "INSERT INTO desktop_organizations(id) VALUES (2) RETURNING conversation_reporting_enabled").Scan(&enabled))
 	require.False(t, enabled)
 }
+
+func TestDesktopConversationStatisticsPeriodsFiltersAndIsolation(t *testing.T) {
+	ctx := context.Background()
+	one := newDesktopRepositoryFixture(t, "convstats", 10)
+	two := newDesktopRepositoryFixture(t, "otherstats", 10)
+	enableDesktopConversationReporting(t, one)
+	enableDesktopConversationReporting(t, two)
+	member := one.createMember(t, "statsmember", 1)
+	other := one.createMember(t, "statsother", 2)
+	outside := two.createMember(t, "statsoutside", 1)
+	t.Cleanup(func() {
+		_, _ = integrationDB.ExecContext(ctx, "DELETE FROM desktop_conversation_records WHERE organization_id IN ($1,$2)", one.organization.ID, two.organization.ID)
+	})
+	parse := func(value string) time.Time {
+		result, err := time.Parse(time.RFC3339, value)
+		require.NoError(t, err)
+		return result
+	}
+	periods := service.DesktopConversationPeriods{
+		Today: parse("2026-09-21T16:00:00Z"), Week: parse("2026-09-20T16:00:00Z"),
+		Month: parse("2026-08-31T16:00:00Z"), AsOf: parse("2026-09-22T04:00:00Z"),
+	}
+	repo := NewDesktopConversationRepository(integrationEntClient)
+	installation := uuid.NewString()
+	insert := func(orgID, memberID int64, client, received string, promptCount int) string {
+		input := &service.DesktopConversationInput{
+			RecordID: uuid.NewString(), Client: client, InstallationID: installation, SessionID: "statistics-session",
+			StartedAt: periods.AsOf.Add(-time.Minute), StoppedAt: periods.AsOf,
+			Prompts: make([]service.DesktopTextSegment, promptCount), CaptureStatus: "response_missing",
+		}
+		_, err := repo.Create(ctx, orgID, memberID, input)
+		require.NoError(t, err)
+		_, err = integrationDB.ExecContext(ctx, "UPDATE desktop_conversation_records SET received_at = $1 WHERE organization_id = $2 AND record_id = $3", parse(received), orgID, input.RecordID)
+		require.NoError(t, err)
+		return input.RecordID
+	}
+	insert(one.organization.ID, member.ID, "workbuddy", "2026-08-31T15:59:59Z", 7)
+	insert(one.organization.ID, member.ID, "workbuddy", "2026-08-31T16:00:00Z", 5)
+	insert(one.organization.ID, member.ID, "workbuddy", "2026-09-20T16:00:00Z", 3)
+	todayID := insert(one.organization.ID, member.ID, "workbuddy", "2026-09-21T16:00:00Z", 2)
+	insert(one.organization.ID, member.ID, "workbuddy", "2026-09-22T04:00:00Z", 4)
+	insert(one.organization.ID, member.ID, "workbuddy", "2026-09-22T04:00:01Z", 9)
+	insert(one.organization.ID, other.ID, "chatgpt_codex", "2026-09-21T16:00:00Z", 6)
+	insert(two.organization.ID, outside.ID, "workbuddy", "2026-09-21T16:00:00Z", 8)
+	counts := func(records, prompts int64) service.DesktopConversationCounts {
+		return service.DesktopConversationCounts{RecordCount: records, PromptCount: prompts}
+	}
+	stats, err := repo.Statistics(ctx, one.organization.ID, service.DesktopConversationFilters{}, periods)
+	require.NoError(t, err)
+	require.Equal(t, counts(3, 12), stats.Today)
+	require.Equal(t, counts(4, 15), stats.Week)
+	require.Equal(t, counts(5, 20), stats.Month)
+	require.Equal(t, counts(6, 27), stats.Total)
+
+	_, err = one.repo.DeleteMember(ctx, one.organization.PublicID, member.PublicID)
+	require.NoError(t, err)
+	stats, err = repo.Statistics(ctx, one.organization.ID, service.DesktopConversationFilters{MemberSearch: "statsmember", Client: "workbuddy", CaptureStatus: "response_missing", InstallationID: installation, SourceSessionID: "statistics-session", MemberID: member.PublicID}, periods)
+	require.NoError(t, err)
+	require.Equal(t, counts(2, 6), stats.Today)
+	require.Equal(t, counts(5, 21), stats.Total)
+	stats, err = repo.Statistics(ctx, one.organization.ID, service.DesktopConversationFilters{ReceivedFrom: &periods.Week, ReceivedTo: &periods.Today}, periods)
+	require.NoError(t, err)
+	require.Equal(t, counts(0, 0), stats.Today)
+	require.Equal(t, counts(1, 3), stats.Week)
+	require.Equal(t, counts(1, 3), stats.Total)
+	stats, err = repo.Statistics(ctx, one.organization.ID, service.DesktopConversationFilters{RecordID: todayID}, periods)
+	require.NoError(t, err)
+	require.Equal(t, counts(1, 2), stats.Total)
+	stats, err = repo.Statistics(ctx, two.organization.ID, service.DesktopConversationFilters{RecordID: todayID}, periods)
+	require.NoError(t, err)
+	require.Equal(t, counts(0, 0), stats.Total)
+	require.Equal(t, counts(0, 0), stats.Today)
+	stats, err = repo.Statistics(ctx, one.organization.ID, service.DesktopConversationFilters{CaptureStatus: "captured"}, periods)
+	require.NoError(t, err)
+	require.Equal(t, counts(0, 0), stats.Total)
+}

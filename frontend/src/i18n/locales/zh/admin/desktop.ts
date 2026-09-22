@@ -50,6 +50,17 @@ export default {
     conversationReporting: '上报对话记录',
     conversationReportingHint: '开启后，Desktop 可上报提问和最终回复，用户企业管理页显示「对话记录」。关闭后停止接收新记录，已有记录保留。',
     conversations: {
+      statistics: {
+        title: "统计概览",
+        today: "今日",
+        week: "本周",
+        month: "本月",
+        total: "总计",
+        records: "条记录",
+        prompts: "{count} 次提问",
+        hint: "按接收时间统计，时区为 {timezone}，每周从周一开始。当前筛选条件同时作用于统计，结果不受分页影响。",
+        loadFailed: "统计加载失败，请重试。",
+      },
       title: "对话记录",
       memberSearch: "成员姓名或 ID",
       client: "客户端",

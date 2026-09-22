@@ -1,5 +1,6 @@
 <template>
   <div class="min-w-0 space-y-5">
+    <DesktopConversationStatistics :organization-id="organizationId" :self-managed="selfManaged" :filters="appliedFilters" />
     <form class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4" @submit.prevent="applyFilters">
       <label class="space-y-1 text-sm"><span>{{ t('admin.desktop.conversations.memberSearch') }}</span><input v-model="filters.member_search" class="input" type="search" maxlength="100" /></label>
       <label class="space-y-1 text-sm"><span>{{ t('admin.desktop.conversations.client') }}</span><select v-model="filters.client" class="input"><option value="">{{ t('common.all') }}</option><option value="workbuddy">Workbuddy</option><option value="chatgpt_codex">ChatGPT Codex</option></select></label>
@@ -52,18 +53,20 @@
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { listDesktopConversations } from '@/api/desktopConversations'
-import type { DesktopConversation, DesktopConversationQuery } from '@/api/desktopConversations'
+import type { DesktopConversation, DesktopConversationFilters, DesktopConversationQuery } from '@/api/desktopConversations'
 import DataTable from '@/components/common/DataTable.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import type { Column } from '@/components/common/types'
 import { formatDateTime } from '@/utils/format'
 import Icon from '@/components/icons/Icon.vue'
 import DesktopConversationViewer from './DesktopConversationViewer.vue'
+import DesktopConversationStatistics from './DesktopConversationStatistics.vue'
 
 const props = defineProps<{ organizationId: string; selfManaged: boolean }>()
 const { t } = useI18n()
 const emptyFilters = () => ({ member_search: '', client: '', capture_status: '', record_id: '', source_session_id: '', installation_id: '', received_from: '', received_to: '' })
 const filters = reactive(emptyFilters())
+const appliedFilters = ref<DesktopConversationFilters>({})
 const records = ref<DesktopConversation[]>([])
 const total = ref(0)
 const page = ref(1)
@@ -73,7 +76,7 @@ const error = ref('')
 const selected = ref<DesktopConversation | null>(null)
 const viewerMode = ref<'record' | 'thread'>('record')
 let listController: AbortController | undefined
-const hasFilters = computed(() => Object.values(filters).some(Boolean))
+const hasFilters = computed(() => Object.values(appliedFilters.value).some(Boolean))
 const columns = computed<Column[]>(() => [
   { key: 'member_name', label: t('admin.desktop.member') },
   { key: 'client', label: t('admin.desktop.conversations.client') },
@@ -106,10 +109,7 @@ async function loadRecords() {
   if (!props.organizationId) { loading.value = false; return }
   loading.value = true
   try {
-    const query: DesktopConversationQuery = { page: page.value, page_size: pageSize.value, sort_order: 'desc' }
-    for (const [key, value] of Object.entries(filters)) {
-      if (value) Object.assign(query, { [key]: key.startsWith('received_') ? new Date(value).toISOString() : value.trim() })
-    }
+    const query: DesktopConversationQuery = { ...appliedFilters.value, page: page.value, page_size: pageSize.value, sort_order: 'desc' }
     const result = await listDesktopConversations(props.organizationId, props.selfManaged, query, controller.signal)
     if (controller.signal.aborted) return
     records.value = result.items
@@ -118,10 +118,18 @@ async function loadRecords() {
     if (!controller.signal.aborted) error.value = requestError(cause)
   } finally { if (!controller.signal.aborted) loading.value = false }
 }
-function applyFilters() { page.value = 1; void loadRecords() }
+function applyFilters() {
+  const next: DesktopConversationFilters = {}
+  for (const [key, value] of Object.entries(filters)) {
+    if (value.trim()) Object.assign(next, { [key]: key.startsWith('received_') ? new Date(value).toISOString() : value.trim() })
+  }
+  appliedFilters.value = next
+  page.value = 1
+  void loadRecords()
+}
 function resetFilters() { Object.assign(filters, emptyFilters()); applyFilters() }
 function changePage(value: number) { page.value = value; void loadRecords() }
-function changePageSize(value: number) { pageSize.value = value; applyFilters() }
+function changePageSize(value: number) { pageSize.value = value; page.value = 1; void loadRecords() }
 watch(() => [props.organizationId, props.selfManaged], () => { resetFilters() }, { immediate: true })
 onBeforeUnmount(() => { listController?.abort() })
 </script>

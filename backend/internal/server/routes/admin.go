@@ -172,6 +172,7 @@ func registerDesktopAdminRoutesIfEnabled(
 
 func registerDesktopAdminRoutes(desktop *gin.RouterGroup, h *handler.Handlers) {
 	desktop.GET("/organizations/:organization_id/conversation-records", h.Admin.Desktop.ListConversations)
+	desktop.GET("/organizations/:organization_id/conversation-records/statistics", h.Admin.Desktop.ConversationStatistics)
 	desktop.GET("/organizations/:organization_id/conversation-records/:record_id", h.Admin.Desktop.GetConversation)
 	desktop.POST("/organizations", h.Admin.Desktop.CreateOrganization)
 	desktop.GET("/organizations", h.Admin.Desktop.ListOrganizations)

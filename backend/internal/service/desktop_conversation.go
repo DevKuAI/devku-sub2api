@@ -100,6 +100,7 @@ type DesktopConversationRepository interface {
 	Create(context.Context, int64, int64, *DesktopConversationInput) (*DesktopConversationReceipt, error)
 	List(context.Context, int64, pagination.PaginationParams, DesktopConversationFilters) ([]DesktopConversationMetadata, *pagination.PaginationResult, error)
 	Get(context.Context, int64, string) (*DesktopConversationDetail, error)
+	Statistics(context.Context, int64, DesktopConversationFilters, DesktopConversationPeriods) (*DesktopConversationStatistics, error)
 }
 
 type DesktopConversationLimiter interface {

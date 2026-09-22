@@ -177,3 +177,20 @@ Hook 对所有结果均结束本轮并清理临时正文，不根据 `retryable`
 ```sh
 python3 deploy/tests/desktop-conversation-proxy-test.py
 ```
+
+## 对话记录统计
+
+管理员和企业用户的「对话记录」页均展示今日、本周、本月、总计四组统计，每组包含记录数和提问数。
+
+| 角色 | 接口 |
+| --- | --- |
+| 平台管理员 | `GET /api/v1/admin/desktop/organizations/{organization_id}/conversation-records/statistics` |
+| 企业用户 | `GET /api/v1/desktop/organization/conversation-records/statistics` |
+
+接口沿用 Web Bearer 鉴权及 `{code,message,data}` 响应，返回 `Cache-Control: no-store`。管理员可查询所选企业；企业用户的范围始终由当前登录账号确定，企业关闭对话上报后返回 `403 CONVERSATION_REPORTING_DISABLED`。管理员仍可统计历史记录。
+
+统计按服务端接收时间 `received_at` 计算，使用服务器配置时区（默认 `Asia/Shanghai`）。今日从零点起，本周从周一零点起，本月从每月 1 日零点起；返回的 `as_of` 是本次统计的 UTC 截止时刻，包含该时刻。总计覆盖截止时刻前的全部历史记录，包括已删除成员的记录。
+
+`record_count` 为已上报问答记录数，一条记录是一轮问答，不是去重后的会话数；`prompt_count` 为这些记录中提问数之和。统计只聚合元数据，不读取问答正文；无匹配记录时各计数均返回 `0`。
+
+统计支持与列表相同的成员、客户端、采集状态、记录 ID、原始对话 ID、安装 ID、接收时间筛选。时间筛选与各周期取交集：`received_from` 包含起点，`received_to` 不含终点。统计覆盖筛选结果的所有页，分页和排序不影响计数。页面在点击搜索或重置后同时应用筛选，单独翻页不会重算统计；也可手动刷新统计。统计加载失败时保留列表和问答查看功能。

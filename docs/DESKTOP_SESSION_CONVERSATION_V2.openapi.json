@@ -1400,6 +1400,366 @@
           }
         }
       }
+    },
+    "/api/v1/admin/desktop/organizations/{organization_id}/conversation-records/statistics": {
+      "get": {
+        "operationId": "getAdminDesktopConversationStatistics",
+        "tags": [
+          "Desktop Admin - Conversations"
+        ],
+        "summary": "查询今日、本周、本月及累计对话统计",
+        "description": "按服务端 received_at 和服务器配置时区聚合记录数及提问数，周一为每周起点。所有筛选条件与列表一致，统计不受分页影响；received_from / received_to 与各周期取交集。仅统计 received_at <= as_of 的记录；一条记录表示一轮上报问答，提问数为 prompt_count 之和，不是去重会话数。无数据返回 0，包含已删除成员的历史记录，不读取问答正文。企业范围和权限沿用列表接口。",
+        "security": [
+          {
+            "AdminBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "member_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "member_search",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "source_session_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "record_id",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/RecordId"
+            }
+          },
+          {
+            "name": "installation_id",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/InstallationId"
+            }
+          },
+          {
+            "name": "client",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "workbuddy",
+                "chatgpt_codex"
+              ]
+            }
+          },
+          {
+            "name": "capture_status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "captured",
+                "response_missing"
+              ]
+            }
+          },
+          {
+            "name": "received_from",
+            "in": "query",
+            "description": "服务端接收时间；起点包含、终点不含，RFC 3339。",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "received_to",
+            "in": "query",
+            "description": "服务端接收时间；起点包含、终点不含，RFC 3339。",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "查询成功，Cache-Control: no-store",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationStatisticsEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                },
+                "description": "禁止缓存企业统计。"
+              }
+            }
+          },
+          "401": {
+            "description": "Web 登录失效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "权限不足",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "企业或记录不可见",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "筛选参数不合法",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Web 面板限流",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "存储不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/desktop/organization/conversation-records/statistics": {
+      "get": {
+        "operationId": "getManagedDesktopConversationStatistics",
+        "tags": [
+          "Desktop User - Conversations"
+        ],
+        "summary": "查询今日、本周、本月及累计对话统计",
+        "description": "按服务端 received_at 和服务器配置时区聚合记录数及提问数，周一为每周起点。所有筛选条件与列表一致，统计不受分页影响；received_from / received_to 与各周期取交集。仅统计 received_at <= as_of 的记录；一条记录表示一轮上报问答，提问数为 prompt_count 之和，不是去重会话数。无数据返回 0，包含已删除成员的历史记录，不读取问答正文。企业范围和权限沿用列表接口。",
+        "security": [
+          {
+            "WebBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "member_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "member_search",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "source_session_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "record_id",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/RecordId"
+            }
+          },
+          {
+            "name": "installation_id",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/InstallationId"
+            }
+          },
+          {
+            "name": "client",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "workbuddy",
+                "chatgpt_codex"
+              ]
+            }
+          },
+          {
+            "name": "capture_status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "captured",
+                "response_missing"
+              ]
+            }
+          },
+          {
+            "name": "received_from",
+            "in": "query",
+            "description": "服务端接收时间；起点包含、终点不含，RFC 3339。",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "received_to",
+            "in": "query",
+            "description": "服务端接收时间；起点包含、终点不含，RFC 3339。",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "查询成功，Cache-Control: no-store",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationStatisticsEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                },
+                "description": "禁止缓存企业统计。"
+              }
+            }
+          },
+          "401": {
+            "description": "Web 登录失效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "权限不足，或企业未开启对话上报（CONVERSATION_REPORTING_DISABLED）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "企业或记录不可见",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "筛选参数不合法",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Web 面板限流",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "存储不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2067,6 +2427,111 @@
           "metadata": {
             "type": "object",
             "additionalProperties": true
+          }
+        }
+      },
+      "ConversationCounts": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "record_count",
+          "prompt_count"
+        ],
+        "properties": {
+          "record_count": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "已上报问答记录数，不是去重会话数。"
+          },
+          "prompt_count": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "记录中 prompt_count 的总和。"
+          }
+        }
+      },
+      "ConversationStatistics": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "timezone",
+          "as_of",
+          "today",
+          "week",
+          "month",
+          "total"
+        ],
+        "properties": {
+          "timezone": {
+            "type": "string",
+            "description": "服务器配置时区，例如 Asia/Shanghai。"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "description": "统计截止时刻，UTC，包含该时刻。"
+          },
+          "today": {
+            "$ref": "#/components/schemas/ConversationCounts",
+            "description": "今日零点起。"
+          },
+          "week": {
+            "$ref": "#/components/schemas/ConversationCounts",
+            "description": "本周周一零点起。"
+          },
+          "month": {
+            "$ref": "#/components/schemas/ConversationCounts",
+            "description": "本月 1 日零点起。"
+          },
+          "total": {
+            "$ref": "#/components/schemas/ConversationCounts",
+            "description": "全部历史记录，仍受传入筛选条件限制。"
+          }
+        }
+      },
+      "ConversationStatisticsEnvelope": {
+        "type": "object",
+        "required": [
+          "code",
+          "message",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer",
+            "const": 0
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ConversationStatistics"
+          }
+        },
+        "example": {
+          "code": 0,
+          "message": "success",
+          "data": {
+            "timezone": "Asia/Shanghai",
+            "as_of": "2026-09-22T04:00:00Z",
+            "today": {
+              "record_count": 3,
+              "prompt_count": 5
+            },
+            "week": {
+              "record_count": 12,
+              "prompt_count": 20
+            },
+            "month": {
+              "record_count": 30,
+              "prompt_count": 45
+            },
+            "total": {
+              "record_count": 80,
+              "prompt_count": 100
+            }
           }
         }
       }

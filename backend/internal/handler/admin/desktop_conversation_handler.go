@@ -29,3 +29,16 @@ func (h *DesktopHandler) GetConversation(c *gin.Context) {
 	middleware.SetAuditExtra(c, map[string]any{"record_id": result.RecordID, "organization_id": result.OrganizationID})
 	response.Success(c, result)
 }
+
+func (h *DesktopHandler) ConversationStatistics(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
+	_, filters, err := dto.ParseDesktopConversationQuery(c.Request.URL.Query())
+	if response.ErrorFrom(c, err) {
+		return
+	}
+	result, err := h.desktop.ConversationStatistics(c.Request.Context(), c.Param("organization_id"), 0, filters)
+	if response.ErrorFrom(c, err) {
+		return
+	}
+	response.Success(c, result)
+}
