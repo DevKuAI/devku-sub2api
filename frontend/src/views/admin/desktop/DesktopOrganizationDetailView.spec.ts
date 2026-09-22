@@ -89,6 +89,7 @@ function mountView() {
       stubs: {
         AppLayout: { template: '<main><slot /></main>' },
         DataTable: true,
+        DesktopOrganizationUsageStatistics: true,
         DesktopConversationRecords: true,
         Pagination: true,
         BaseDialog: true,
@@ -109,6 +110,7 @@ function mountManagedView() {
       stubs: {
         AppLayout: { template: '<main><slot /></main>' },
         DataTable: true,
+        DesktopOrganizationUsageStatistics: true,
         DesktopConversationRecords: true,
         Pagination: true,
         BaseDialog: true,
@@ -128,6 +130,7 @@ function mountViewWithRealMemberForm() {
 			stubs: {
 				AppLayout: { template: '<main><slot /></main>' },
 				DataTable: true,
+        DesktopOrganizationUsageStatistics: true,
 				Pagination: true,
 				ConfirmDialog: true,
 				StatusBadge: true,
@@ -167,6 +170,21 @@ describe('DesktopOrganizationDetailView', () => {
     ;(wrapper.vm as any).setTab('configuration')
     expect(router.replace).toHaveBeenCalledWith({ query: { tab: 'configuration' } })
     wrapper.unmount()
+  })
+
+  it('shows organization-wide usage in the members tab for both entry points', async () => {
+    for (const mountPage of [mountView, mountManagedView]) {
+      const wrapper = mountPage()
+      await flushPromises()
+      const statistics = wrapper.findComponent({ name: 'DesktopOrganizationUsageStatistics' })
+      expect(statistics.exists()).toBe(true)
+      expect(statistics.props()).toEqual({ organizationId: 'org_one', selfManaged: mountPage === mountManagedView })
+      ;(wrapper.vm as any).memberSearch = 'Someone'
+      ;(wrapper.vm as any).memberStatus = 'disabled'
+      await flushPromises()
+      expect(statistics.props()).toEqual({ organizationId: 'org_one', selfManaged: mountPage === mountManagedView })
+      wrapper.unmount()
+    }
   })
 
   it('supports the ARIA tabs keyboard model', async () => {

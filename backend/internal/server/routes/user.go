@@ -183,6 +183,7 @@ func registerDesktopUserRoutesIfEnabled(authenticated *gin.RouterGroup, h *handl
 		desktop.PUT("/model-configuration", h.Desktop.UpdateManagedModelConfiguration)
 		desktop.POST("/members", h.Desktop.CreateManagedMember)
 		desktop.GET("/members", h.Desktop.ListManagedMembers)
+		desktop.GET("/usage/statistics", h.Desktop.ManagedOrganizationUsageStatistics)
 		desktop.PATCH("/members/:member_id", h.Desktop.UpdateManagedMember)
 		desktop.DELETE("/members/:member_id", h.Desktop.DeleteManagedMember)
 		desktop.POST("/members/:member_id/model-token/rotate", h.Desktop.RotateManagedModelToken)

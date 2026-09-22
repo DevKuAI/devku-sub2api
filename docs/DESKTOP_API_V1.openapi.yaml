@@ -1275,6 +1275,81 @@ paths:
         '500':
           $ref: '#/components/responses/DesktopError'
 
+  /api/v1/admin/desktop/organizations/{organization_id}/usage/statistics:
+    get:
+      tags: [Desktop Admin - Organizations]
+      operationId: getAdminDesktopOrganizationUsageStatistics
+      summary: 查询企业费用和令牌用量汇总
+      description: |
+        按服务器配置时区和 usage_logs.created_at 汇总今日、本周、本月和累计用量；每周从周一开始。
+        费用使用 actual_cost，令牌包含输入、输出、缓存写入和缓存读取令牌。
+        覆盖当前企业全部成员及历史模型令牌关联，包含停用和已删除成员，不受成员筛选或分页影响。
+        累计基于当前保留的用量日志，不包含承载用户其他普通 API Key 的用量。
+        统计截止 as_of（不含该时刻）；空数据返回 0。接口受 DESKTOP_ENABLED 控制，不依赖对话上报开关。
+      security:
+        - AdminBearer: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+      responses:
+        '200':
+          description: 企业费用及令牌用量统计
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum: [no-store]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DesktopOrganizationUsageStatisticsResponse'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '403':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '429':
+          $ref: '#/components/responses/AdminError'
+        '503':
+          $ref: '#/components/responses/AdminError'
+
+  /api/v1/desktop/organization/usage/statistics:
+    get:
+      tags: [Desktop User - Organization]
+      operationId: getManagedDesktopOrganizationUsageStatistics
+      summary: 查询企业费用和令牌用量汇总
+      description: |
+        按服务器配置时区和 usage_logs.created_at 汇总今日、本周、本月和累计用量；每周从周一开始。
+        费用使用 actual_cost，令牌包含输入、输出、缓存写入和缓存读取令牌。
+        覆盖当前企业全部成员及历史模型令牌关联，包含停用和已删除成员，不受成员筛选或分页影响。
+        累计基于当前保留的用量日志，不包含承载用户其他普通 API Key 的用量。
+        统计截止 as_of（不含该时刻）；空数据返回 0。接口受 DESKTOP_ENABLED 控制，不依赖对话上报开关。
+        企业范围由当前 Web 登录账号确定，不接受客户端指定企业。
+      security:
+        - UserBearer: []
+      responses:
+        '200':
+          description: 企业费用及令牌用量统计
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum: [no-store]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DesktopOrganizationUsageStatisticsResponse'
+        '401':
+          $ref: '#/components/responses/PanelError'
+        '403':
+          $ref: '#/components/responses/PanelError'
+        '404':
+          $ref: '#/components/responses/PanelError'
+        '429':
+          $ref: '#/components/responses/PanelError'
+        '503':
+          $ref: '#/components/responses/PanelError'
+
 components:
   securitySchemes:
     AdminBearer:
@@ -2333,3 +2408,60 @@ components:
       properties:
         data:
           $ref: '#/components/schemas/DesktopUsageSummary'
+
+    DesktopOrganizationUsagePeriod:
+      type: object
+      required: [total_tokens, actual_cost]
+      properties:
+        total_tokens:
+          type: integer
+          format: int64
+          minimum: 0
+          description: 输入、输出、缓存写入和缓存读取令牌总和。
+        actual_cost:
+          type: number
+          format: double
+          description: 实际费用总和，单位为美元，与成员列表费用口径一致。
+
+    DesktopOrganizationUsageStatistics:
+      type: object
+      required: [timezone, as_of, today, week, month, total]
+      properties:
+        timezone:
+          type: string
+          description: 服务器配置时区，默认 Asia/Shanghai。
+        as_of:
+          type: string
+          format: date-time
+          description: UTC 统计截止时刻，不包含该时刻。
+        today:
+          $ref: '#/components/schemas/DesktopOrganizationUsagePeriod'
+        week:
+          $ref: '#/components/schemas/DesktopOrganizationUsagePeriod'
+        month:
+          $ref: '#/components/schemas/DesktopOrganizationUsagePeriod'
+        total:
+          $ref: '#/components/schemas/DesktopOrganizationUsagePeriod'
+
+    DesktopOrganizationUsageStatisticsResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code:
+          type: integer
+          enum: [0]
+        message:
+          type: string
+          enum: [success]
+        data:
+          $ref: '#/components/schemas/DesktopOrganizationUsageStatistics'
+      example:
+        code: 0
+        message: success
+        data:
+          timezone: Asia/Shanghai
+          as_of: '2026-09-22T04:00:00Z'
+          today: {total_tokens: 1250, actual_cost: 0.125}
+          week: {total_tokens: 2500000, actual_cost: 2.5}
+          month: {total_tokens: 8000000, actual_cost: 12.75}
+          total: {total_tokens: 4000000000, actual_cost: 150.1234}

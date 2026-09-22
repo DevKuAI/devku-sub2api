@@ -532,3 +532,20 @@ Workbuddy target 仅在 `enabled: true` 时下发给 Desktop 客户端。
 ## MCP / Skill 资源
 
 资源发布、管理、启停和分发接口见 [资源契约](desktop-resources-v1.md) 与 [OpenAPI 3.1](openapi/desktop-resources-v1.json)。资源 ZIP 复用 Desktop 更新存储连接和凭据，通过 `resource_bucket` 指定私有桶；鉴权后签发有效期为 5 分钟的 S3 presigned URL，停用后停止签发。v2 Session 访问资源接口必须携带 `X-Installation-ID`。
+
+## 企业费用与令牌用量汇总
+
+管理员和企业用户的「成员」页上方均展示当前企业的今日、本周、本月、累计费用与令牌用量。
+
+| 角色 | 接口 |
+| --- | --- |
+| 平台管理员 | `GET /api/v1/admin/desktop/organizations/{organization_id}/usage/statistics` |
+| 企业用户 | `GET /api/v1/desktop/organization/usage/statistics` |
+
+接口沿用 Web 面板鉴权和 `{code,message,data}` 响应，返回 `Cache-Control: no-store`。企业用户的统计范围由当前登录账号确定。接口受 `DESKTOP_ENABLED` 控制，与 `conversation_reporting_enabled` 无关。
+
+费用为 `usage_logs.actual_cost` 的总和，单位为美元；令牌用量为输入、输出、缓存写入及缓存读取令牌之和。关联范围通过企业成员和 `desktop_member_api_keys` 确定，包含停用／删除成员与已轮换模型令牌的历史用量，不包含承载用户其他普通 API Key 的用量。
+
+统计使用服务器配置时区（默认 `Asia/Shanghai`）和用量日志的 `created_at`：今日从零点起，本周从周一零点起，本月从每月 1 日零点起，均截止返回的 `as_of`（UTC，不含该时刻）。累计覆盖当前保留的用量日志；清理历史日志会影响累计值，不是永久账本余额。无用量时各数值返回 `0`。
+
+统计覆盖当前企业全部成员，不受成员搜索、状态筛选或分页影响。页面支持独立刷新；加载失败时显示错误与重试入口，不将错误显示为零费用，也不阻断成员列表操作。每个周期返回 `total_tokens` 和 `actual_cost`；前端费用保留四位小数，令牌量紧凑显示并提供完整数值提示。

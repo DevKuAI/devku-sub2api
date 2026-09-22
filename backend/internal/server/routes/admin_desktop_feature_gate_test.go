@@ -24,7 +24,7 @@ func TestDesktopAdminRoutesFollowFeatureFlag(t *testing.T) {
 		want    int
 	}{
 		{name: "disabled"},
-		{name: "enabled", enabled: true, want: 13},
+		{name: "enabled", enabled: true, want: 14},
 	}
 
 	for _, test := range tests {

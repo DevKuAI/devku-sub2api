@@ -29,6 +29,7 @@
       </div>
 
       <section v-if="activeTab === 'members'" :id="panelId('members')" class="min-w-0 space-y-4" role="tabpanel" :aria-labelledby="tabId('members')">
+        <DesktopOrganizationUsageStatistics v-if="organization" :organization-id="organizationID" :self-managed="selfManaged" />
         <div class="flex flex-wrap items-center gap-3">
           <div class="min-w-0 flex-1 sm:max-w-72"><input v-model="memberSearch" class="input" type="search" :placeholder="t('admin.desktop.searchMembers')" @input="scheduleMembers" /></div>
           <Select v-model="memberStatus" class="w-40" :options="statusOptions" @change="resetMembers" />
@@ -193,6 +194,7 @@ import Select from '@/components/common/Select.vue'
 import Input from '@/components/common/Input.vue'
 import Icon from '@/components/icons/Icon.vue'
 import DesktopConversationRecords from '@/components/desktop/DesktopConversationRecords.vue'
+import DesktopOrganizationUsageStatistics from '@/components/desktop/DesktopOrganizationUsageStatistics.vue'
 
 type DetailTab = 'members' | 'configuration' | 'conversations'
 const { selfManaged = false } = defineProps<{ selfManaged?: boolean }>()

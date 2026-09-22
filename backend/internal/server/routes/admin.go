@@ -181,6 +181,7 @@ func registerDesktopAdminRoutes(desktop *gin.RouterGroup, h *handler.Handlers) {
 	desktop.PUT("/organizations/:organization_id/model-configuration", h.Admin.Desktop.UpdateModelConfiguration)
 	desktop.POST("/organizations/:organization_id/members", h.Admin.Desktop.CreateMember)
 	desktop.GET("/organizations/:organization_id/members", h.Admin.Desktop.ListMembers)
+	desktop.GET("/organizations/:organization_id/usage/statistics", h.Admin.Desktop.OrganizationUsageStatistics)
 	desktop.PATCH("/organizations/:organization_id/members/:member_id", h.Admin.Desktop.UpdateMember)
 	desktop.DELETE("/organizations/:organization_id/members/:member_id", h.Admin.Desktop.DeleteMember)
 	desktop.POST("/organizations/:organization_id/members/:member_id/model-token/rotate", h.Admin.Desktop.RotateModelToken)

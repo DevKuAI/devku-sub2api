@@ -306,3 +306,12 @@ func adminDesktopBindingError(c *gin.Context, err error) {
 	}
 	response.ErrorFrom(c, service.ErrDesktopValidation.WithMetadata(map[string]string{"binding": strings.TrimSpace(err.Error())}))
 }
+
+func (h *DesktopHandler) OrganizationUsageStatistics(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
+	result, err := h.desktop.OrganizationUsageStatistics(c.Request.Context(), c.Param("organization_id"), 0)
+	if response.ErrorFrom(c, err) {
+		return
+	}
+	response.Success(c, result)
+}

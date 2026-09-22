@@ -223,3 +223,16 @@ func desktopManagedBindingError(c *gin.Context, err error) {
 	}
 	response.ErrorFrom(c, service.ErrDesktopValidation.WithMetadata(map[string]string{"binding": strings.TrimSpace(err.Error())}))
 }
+
+func (h *DesktopHandler) ManagedOrganizationUsageStatistics(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
+	userID, ok := desktopManagedUserID(c)
+	if !ok {
+		return
+	}
+	result, err := h.desktop.OrganizationUsageStatistics(c.Request.Context(), "", userID)
+	if response.ErrorFrom(c, err) {
+		return
+	}
+	response.Success(c, result)
+}

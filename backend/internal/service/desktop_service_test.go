@@ -102,6 +102,7 @@ func (s *desktopRepositoryStub) DesktopOrganizationGroupForUser(context.Context,
 }
 
 type desktopUsageRepositoryStub struct {
+	DesktopUsageRepository
 	calls       [][]int64
 	next        []*usagestats.UsageStats
 	memberCalls []desktopMemberUsageCall
