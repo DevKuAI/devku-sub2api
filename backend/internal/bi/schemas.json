@@ -1,0 +1,6768 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "components": {
+    "schemas": {
+      "Id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128,
+        "pattern": "^[A-Za-z0-9_.:-]+$"
+      },
+      "TokenCount": {
+        "type": "string",
+        "description": "十进制非负整数，客户端用 BigInt/十进制库计算；显示层可缩写。",
+        "pattern": "^(0|[1-9][0-9]*)$",
+        "maxLength": 30
+      },
+      "Error": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "INVALID_ARGUMENT",
+              "INTERNAL_ERROR",
+              "CHECKPOINT_CONFLICT",
+              "IMPORT_BUSY",
+              "BINDING_CONFLICT",
+              "UNAUTHENTICATED",
+              "FORBIDDEN",
+              "NOT_FOUND",
+              "CONFLICT",
+              "PRECONDITION_FAILED",
+              "PRECONDITION_REQUIRED",
+              "CONTEXT_EXPIRED",
+              "CONTEXT_REVOKED",
+              "IDEMPOTENCY_CONFLICT",
+              "RATE_LIMITED",
+              "DATA_UNAVAILABLE",
+              "UPSTREAM_UNAVAILABLE",
+              "PAYLOAD_TOO_LARGE",
+              "BINDING_EXPIRED"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "retryable": {
+            "type": "boolean"
+          },
+          "details": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "field": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "field",
+                "reason"
+              ]
+            }
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "request_id",
+          "retryable",
+          "details"
+        ]
+      },
+      "Ack": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          }
+        },
+        "required": [
+          "ok"
+        ]
+      },
+      "User": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "authorization_version": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          }
+        },
+        "required": [
+          "id",
+          "display_name",
+          "capabilities",
+          "authorization_version"
+        ]
+      },
+      "Organization": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "disabled"
+            ]
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "org_admin",
+              "team_manager",
+              "viewer"
+            ]
+          },
+          "all_teams": {
+            "type": "boolean"
+          },
+          "team_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            }
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "status",
+          "role",
+          "all_teams",
+          "team_ids",
+          "capabilities"
+        ]
+      },
+      "Session": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "authenticated"
+            ]
+          },
+          "access_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "refresh_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "token_type": {
+            "type": "string",
+            "enum": [
+              "Bearer"
+            ]
+          },
+          "expires_in": {
+            "type": "integer",
+            "const": 900
+          },
+          "refresh_expires_in": {
+            "type": "integer",
+            "const": 43200
+          },
+          "user": {
+            "$ref": "#/components/schemas/User"
+          }
+        },
+        "required": [
+          "result",
+          "access_token",
+          "refresh_token",
+          "token_type",
+          "expires_in",
+          "refresh_expires_in",
+          "user"
+        ]
+      },
+      "BindingChallenge": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "binding_required"
+            ]
+          },
+          "binding_ticket": {
+            "type": "string",
+            "minLength": 32
+          },
+          "user_code": {
+            "type": "string",
+            "pattern": "^[A-Z0-9]{8}$"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "verification_path": {
+            "type": "string",
+            "description": "现有 sub2api 站点上的绑定确认路径，不接受用户任意重定向 URL。",
+            "pattern": "^/[^/].*"
+          }
+        },
+        "required": [
+          "result",
+          "binding_ticket",
+          "user_code",
+          "expires_at",
+          "verification_path"
+        ]
+      },
+      "WeChatLoginResult": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/Session"
+          },
+          {
+            "$ref": "#/components/schemas/BindingChallenge"
+          }
+        ]
+      },
+      "PendingBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending"
+            ]
+          },
+          "retry_after_seconds": {
+            "type": "integer",
+            "minimum": 3,
+            "maximum": 30
+          }
+        },
+        "required": [
+          "status",
+          "retry_after_seconds"
+        ]
+      },
+      "LoginRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "wx.login 获得的一次性 code，仅用于服务器 code2session。",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "client_version": {
+            "type": "string",
+            "maxLength": 32
+          }
+        },
+        "required": [
+          "code",
+          "client_version"
+        ]
+      },
+      "BindingApproval": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "user_code": {
+            "type": "string",
+            "pattern": "^[A-Z0-9]{8}$"
+          },
+          "confirm_binding": {
+            "type": "boolean",
+            "const": true
+          }
+        },
+        "required": [
+          "user_code",
+          "confirm_binding"
+        ]
+      },
+      "BindingExchange": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "binding_ticket": {
+            "type": "string",
+            "minLength": 32,
+            "maxLength": 512
+          },
+          "code": {
+            "type": "string",
+            "description": "新的 wx.login code，必须属于同一小程序主体。",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "required": [
+          "binding_ticket",
+          "code"
+        ]
+      },
+      "RefreshRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "refresh_token": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          }
+        },
+        "required": [
+          "refresh_token"
+        ]
+      },
+      "Bootstrap": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "api_version": {
+            "type": "string",
+            "enum": [
+              "v1"
+            ]
+          },
+          "min_client_version": {
+            "type": "string"
+          },
+          "timezone": {
+            "type": "string",
+            "enum": [
+              "Asia/Shanghai"
+            ]
+          },
+          "demo_available": {
+            "type": "boolean"
+          },
+          "binding_enabled": {
+            "type": "boolean"
+          },
+          "privacy_notice_version": {
+            "type": "string"
+          },
+          "privacy_notice_url": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "required": [
+          "api_version",
+          "min_client_version",
+          "timezone",
+          "demo_available",
+          "binding_enabled",
+          "privacy_notice_version",
+          "privacy_notice_url"
+        ]
+      },
+      "Filters": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "period": {
+            "type": "string",
+            "enum": [
+              "week",
+              "current",
+              "month"
+            ]
+          },
+          "team_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            },
+            "maxItems": 100,
+            "uniqueItems": true
+          },
+          "application_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "scene_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          }
+        },
+        "required": [
+          "period",
+          "team_ids"
+        ],
+        "description": "team_ids=[] 表示全部已授权团队，绝不代表绕过权限。无效 ID 拒绝。"
+      },
+      "Range": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "end_date_exclusive": {
+            "type": "string",
+            "format": "date"
+          },
+          "timezone": {
+            "type": "string",
+            "enum": [
+              "Asia/Shanghai"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "complete_days": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date_exclusive",
+          "timezone",
+          "label",
+          "complete_days"
+        ]
+      },
+      "Freshness": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "partial",
+              "stale",
+              "unavailable"
+            ]
+          },
+          "complete_through": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "missing_dimensions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "identity",
+                "organization",
+                "application",
+                "scene",
+                "tokens",
+                "outcome",
+                "history",
+                "knowledge",
+                "rating",
+                "evaluation"
+              ]
+            }
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "source_id",
+          "status",
+          "complete_through",
+          "missing_dimensions",
+          "reason"
+        ]
+      },
+      "Context": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "organization_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "filters": {
+            "$ref": "#/components/schemas/Filters"
+          },
+          "range": {
+            "$ref": "#/components/schemas/Range"
+          },
+          "comparison_range": {
+            "$ref": "#/components/schemas/Range"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "content_as_of": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "data_revision": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "metric_version": {
+            "type": "string",
+            "enum": [
+              "bi-v1"
+            ]
+          },
+          "authorization_version": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "empty",
+              "partial",
+              "not_observable"
+            ]
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Freshness"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "organization_id",
+          "filters",
+          "range",
+          "comparison_range",
+          "as_of",
+          "content_as_of",
+          "data_revision",
+          "metric_version",
+          "authorization_version",
+          "expires_at",
+          "status",
+          "sources"
+        ]
+      },
+      "Metric": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "value": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "numerator": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "denominator": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "not_observable",
+              "unavailable",
+              "partial"
+            ]
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "zero_denominator",
+                  "history_incomplete",
+                  "period_incomplete",
+                  "source_unavailable",
+                  "restricted_population",
+                  "unknown_outcome",
+                  "unknown_identity"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "value",
+          "numerator",
+          "denominator",
+          "status",
+          "reason"
+        ]
+      },
+      "Comparison": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "previous": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "relative_change": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rate_difference": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": -1,
+                "maximum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "comparable": {
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "no_baseline",
+                  "incomplete_data",
+                  "different_definition",
+                  "restricted_population"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "previous",
+          "relative_change",
+          "rate_difference",
+          "comparable",
+          "reason"
+        ]
+      },
+      "TokenTotals": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "input": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TokenCount"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "output": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TokenCount"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cache_read": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TokenCount"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cache_write": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TokenCount"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TokenCount"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "human": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TokenCount"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "automatic": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TokenCount"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unknown": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TokenCount"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "non_cohort_human_tokens": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TokenCount"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "measured_requests": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "unmeasured_requests": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "input",
+          "output",
+          "cache_read",
+          "cache_write",
+          "total",
+          "human",
+          "automatic",
+          "unknown",
+          "non_cohort_human_tokens",
+          "measured_requests",
+          "unmeasured_requests"
+        ],
+        "description": "有测量记录时返回已观测Token和measured/unmeasured覆盖；全部未测量为null；完整且无调用返回字符串0。含未测量调用时不得生成总量增长结论。"
+      },
+      "UsageStats": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "context_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "eligible_members": {
+            "$ref": "#/components/schemas/Metric"
+          },
+          "activated_members": {
+            "$ref": "#/components/schemas/Metric"
+          },
+          "active_members": {
+            "$ref": "#/components/schemas/Metric"
+          },
+          "stable_members": {
+            "$ref": "#/components/schemas/Metric"
+          },
+          "repeat_members": {
+            "$ref": "#/components/schemas/Metric"
+          },
+          "adoption_rate": {
+            "$ref": "#/components/schemas/Metric"
+          },
+          "adoption_comparison": {
+            "$ref": "#/components/schemas/Comparison"
+          },
+          "tokens": {
+            "$ref": "#/components/schemas/TokenTotals"
+          },
+          "active_applications": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requests": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "failed_requests": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unknown_outcome_requests": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "human_requests": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "failure_rate": {
+            "$ref": "#/components/schemas/Metric"
+          },
+          "rated_interactions": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "helpful_interactions": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "helpful_rate": {
+            "$ref": "#/components/schemas/Metric"
+          },
+          "feedback_coverage": {
+            "$ref": "#/components/schemas/Metric"
+          },
+          "effective_filters": {
+            "$ref": "#/components/schemas/Filters",
+            "description": "上下文范围与当前路径实体取交集后的有效条件。"
+          }
+        },
+        "required": [
+          "context_id",
+          "eligible_members",
+          "activated_members",
+          "active_members",
+          "stable_members",
+          "repeat_members",
+          "adoption_rate",
+          "adoption_comparison",
+          "tokens",
+          "active_applications",
+          "requests",
+          "failed_requests",
+          "unknown_outcome_requests",
+          "human_requests",
+          "failure_rate",
+          "rated_interactions",
+          "helpful_interactions",
+          "helpful_rate",
+          "feedback_coverage",
+          "effective_filters"
+        ]
+      },
+      "Target": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "team",
+              "member",
+              "application",
+              "scene",
+              "knowledge",
+              "case",
+              "evaluation",
+              "metric"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          }
+        },
+        "required": [
+          "kind",
+          "id"
+        ],
+        "description": "服务端仅返回客户端白名单内的实体跳转，不返回任意 URL。"
+      },
+      "Finding": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "title": {
+            "type": "string"
+          },
+          "fact": {
+            "type": "string"
+          },
+          "interpretation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "interpretation_status": {
+            "type": "string",
+            "enum": [
+              "none",
+              "hypothesis"
+            ]
+          },
+          "evidence_metric_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "target": {
+            "$ref": "#/components/schemas/Target"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "fact",
+          "interpretation",
+          "interpretation_status",
+          "evidence_metric_keys",
+          "target"
+        ]
+      },
+      "AssetStats": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "context_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "content_as_of": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "valid_knowledge": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reused_valid_knowledge": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reuse_rate": {
+            "$ref": "#/components/schemas/Metric"
+          },
+          "draft_knowledge": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expired_knowledge": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stale_referenced_now": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expired_at_use": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "added_valid": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "updated_valid": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "context_id",
+          "content_as_of",
+          "valid_knowledge",
+          "reused_valid_knowledge",
+          "reuse_rate",
+          "draft_knowledge",
+          "expired_knowledge",
+          "stale_referenced_now",
+          "expired_at_use",
+          "added_valid",
+          "updated_valid"
+        ]
+      },
+      "Overview": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "context_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "stats": {
+            "$ref": "#/components/schemas/UsageStats"
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Finding"
+            },
+            "maxItems": 3
+          },
+          "assets": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AssetStats"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "无knowledge:read时为null；有权限但缺数据时使用字段为null的AssetStats。"
+          }
+        },
+        "required": [
+          "context_id",
+          "stats",
+          "findings",
+          "assets"
+        ]
+      },
+      "TrendPoint": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "end_date_exclusive": {
+            "type": "string",
+            "format": "date"
+          },
+          "tokens": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TokenCount"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "active_members": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "average_daily_active": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "partial",
+              "unavailable"
+            ]
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date_exclusive",
+          "tokens",
+          "active_members",
+          "average_daily_active",
+          "status"
+        ]
+      },
+      "Trend": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "context_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "bucket": {
+            "type": "string",
+            "enum": [
+              "day",
+              "seven_day"
+            ]
+          },
+          "points": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrendPoint"
+            },
+            "maxItems": 31
+          }
+        },
+        "required": [
+          "context_id",
+          "bucket",
+          "points"
+        ]
+      },
+      "FrequencyBucket": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "min_days": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "max_days": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "members": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "min_days",
+          "max_days",
+          "members"
+        ]
+      },
+      "RetentionCell": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "week_offset": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3
+          },
+          "observed_range": {
+            "$ref": "#/components/schemas/Range"
+          },
+          "retained": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rate": {
+            "$ref": "#/components/schemas/Metric"
+          }
+        },
+        "required": [
+          "week_offset",
+          "observed_range",
+          "retained",
+          "rate"
+        ]
+      },
+      "RetentionCohort": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "first_week": {
+            "type": "string",
+            "format": "date"
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "cells": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RetentionCell"
+            },
+            "minItems": 3,
+            "maxItems": 3
+          }
+        },
+        "required": [
+          "first_week",
+          "size",
+          "cells"
+        ]
+      },
+      "Adoption": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "context_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "stats": {
+            "$ref": "#/components/schemas/UsageStats"
+          },
+          "stable_range": {
+            "$ref": "#/components/schemas/Range"
+          },
+          "frequency": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FrequencyBucket"
+            },
+            "minItems": 4,
+            "maxItems": 4
+          },
+          "retention": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RetentionCohort"
+            },
+            "maxItems": 12
+          }
+        },
+        "required": [
+          "context_id",
+          "stats",
+          "stable_range",
+          "frequency",
+          "retention"
+        ]
+      },
+      "EntitySummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "disabled",
+              "unknown"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "status"
+        ]
+      },
+      "ComparisonRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "entity": {
+            "$ref": "#/components/schemas/EntitySummary"
+          },
+          "stats": {
+            "$ref": "#/components/schemas/UsageStats"
+          }
+        },
+        "required": [
+          "entity",
+          "stats"
+        ]
+      },
+      "TeamDetail": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "team": {
+            "$ref": "#/components/schemas/EntitySummary"
+          },
+          "primary_role": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EntitySummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stats": {
+            "$ref": "#/components/schemas/UsageStats"
+          },
+          "adoption": {
+            "$ref": "#/components/schemas/Adoption"
+          }
+        },
+        "required": [
+          "team",
+          "primary_role",
+          "stats",
+          "adoption"
+        ]
+      },
+      "MemberRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "team": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EntitySummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "role": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EntitySummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "disabled"
+            ]
+          },
+          "active_days": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tokens": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TokenCount"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stable": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "team",
+          "role",
+          "status",
+          "active_days",
+          "tokens",
+          "stable"
+        ]
+      },
+      "MemberDetail": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "context_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "member": {
+            "$ref": "#/components/schemas/MemberRow"
+          },
+          "application_usage": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "application": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/EntitySummary"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "无应用映射的已授权调用汇入null组，不虚构可跳转应用ID。"
+                },
+                "requests": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "tokens": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/TokenCount"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "application",
+                "requests",
+                "tokens"
+              ]
+            }
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "has_more": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "context_id",
+          "member",
+          "application_usage",
+          "next_cursor",
+          "has_more"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "has_more": {
+                  "const": true
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "next_cursor": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "next_cursor": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ApplicationRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "tool",
+              "agent",
+              "skill",
+              "workflow"
+            ]
+          },
+          "summary": {
+            "type": "string"
+          },
+          "current_version_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "stats": {
+            "$ref": "#/components/schemas/UsageStats"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "type",
+          "summary",
+          "current_version_id",
+          "stats"
+        ]
+      },
+      "ApplicationDetail": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "application": {
+            "$ref": "#/components/schemas/ApplicationRow"
+          },
+          "scene_ids": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            }
+          },
+          "team_ids": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            }
+          },
+          "knowledge_ids": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            }
+          },
+          "evaluation_ids": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            }
+          },
+          "relations_truncated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "application",
+          "scene_ids",
+          "team_ids",
+          "knowledge_ids",
+          "evaluation_ids",
+          "relations_truncated"
+        ],
+        "description": "关联 ID 仅含有权对象；关联列表超过100项走通用列表过滤，不在详情无限内嵌。"
+      },
+      "SceneRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "classification": {
+            "type": "string",
+            "enum": [
+              "confirmed",
+              "inferred",
+              "unclassified"
+            ]
+          },
+          "stats": {
+            "$ref": "#/components/schemas/UsageStats"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "category",
+          "summary",
+          "classification",
+          "stats"
+        ]
+      },
+      "SceneDetail": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "scene": {
+            "$ref": "#/components/schemas/SceneRow"
+          },
+          "application_ids": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            }
+          },
+          "relations_truncated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "scene",
+          "application_ids",
+          "relations_truncated"
+        ]
+      },
+      "ModelTokens": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "model": {
+            "type": "string"
+          },
+          "model_source": {
+            "type": "string",
+            "enum": [
+              "requested"
+            ]
+          },
+          "tokens": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TokenCount"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requests": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "model",
+          "model_source",
+          "tokens",
+          "requests"
+        ]
+      },
+      "TokenAnalysis": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "context_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/TokenTotals"
+          },
+          "previous_total": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TokenCount"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "relative_change": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "comparison_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "no_baseline",
+                  "incomplete_data"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "models": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/ModelTokens"
+            }
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "has_more": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "context_id",
+          "totals",
+          "previous_total",
+          "relative_change",
+          "comparison_reason",
+          "models",
+          "next_cursor",
+          "has_more"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "has_more": {
+                  "const": true
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "next_cursor": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "next_cursor": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "FeedbackAnalysis": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "context_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "rated": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "helpful": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "negative": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/Metric"
+          },
+          "by_application": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "application": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/EntitySummary"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "无应用映射的已授权调用汇入null组，不虚构可跳转应用ID。"
+                },
+                "rated": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "helpful": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "negative": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "application",
+                "rated",
+                "helpful",
+                "negative"
+              ]
+            }
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "has_more": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "context_id",
+          "rated",
+          "helpful",
+          "negative",
+          "coverage",
+          "by_application",
+          "next_cursor",
+          "has_more"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "has_more": {
+                  "const": true
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "next_cursor": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "next_cursor": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "KnowledgeRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "title": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "valid",
+              "draft",
+              "expired"
+            ]
+          },
+          "current_version_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "owner_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "summary",
+          "status",
+          "current_version_id",
+          "owner_name",
+          "updated_at"
+        ]
+      },
+      "VersionSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "version": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "change_summary": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "created_at",
+          "change_summary"
+        ]
+      },
+      "SourceLink": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9_.:-]+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "availability": {
+            "type": "string",
+            "enum": [
+              "available",
+              "restricted",
+              "deleted"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "availability"
+        ],
+        "description": "restricted 时 id=null,label固定“来源不可访问”；不返回真实标题。",
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "availability": {
+                  "const": "restricted"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "id": {
+                  "type": "null"
+                },
+                "label": {
+                  "const": "来源不可访问"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "availability": {
+                  "const": "available"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "id": {
+                  "$ref": "#/components/schemas/Id"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "KnowledgeVersion": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "knowledge_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "version": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "change_summary": {
+            "type": "string"
+          },
+          "applicability": {
+            "type": "string"
+          },
+          "body": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceLink"
+            },
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "id",
+          "knowledge_id",
+          "version",
+          "created_at",
+          "change_summary",
+          "applicability",
+          "body",
+          "sources"
+        ]
+      },
+      "KnowledgeDetail": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "knowledge": {
+            "$ref": "#/components/schemas/KnowledgeRow"
+          },
+          "version": {
+            "$ref": "#/components/schemas/KnowledgeVersion"
+          },
+          "application_ids": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            }
+          },
+          "scene_ids": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            }
+          },
+          "usage": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "context_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9_.:-]+$"
+              },
+              "references": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "teams": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "rated": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "helpful": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "expired_at_use_references": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "context_id",
+              "references",
+              "teams",
+              "rated",
+              "helpful",
+              "expired_at_use_references"
+            ]
+          },
+          "favorite": {
+            "type": "boolean"
+          },
+          "my_note": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KnowledgeNote"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "relations_truncated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "knowledge",
+          "version",
+          "application_ids",
+          "scene_ids",
+          "usage",
+          "favorite",
+          "my_note",
+          "relations_truncated"
+        ]
+      },
+      "CaseRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "title": {
+            "type": "string"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "customer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "resolved",
+              "unresolved",
+              "unverified"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "occurred_at",
+          "project",
+          "customer",
+          "outcome"
+        ]
+      },
+      "KnowledgeVersionLink": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "knowledge_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "version_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          }
+        },
+        "required": [
+          "knowledge_id",
+          "version_id"
+        ]
+      },
+      "CaseDetail": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "case": {
+            "$ref": "#/components/schemas/CaseRow"
+          },
+          "problem": {
+            "type": "string"
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "result": {
+            "type": "string"
+          },
+          "application_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9_.:-]+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "scene_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9_.:-]+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "knowledge_versions": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeVersionLink"
+            }
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceLink"
+            },
+            "maxItems": 100
+          },
+          "relations_truncated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "case",
+          "problem",
+          "steps",
+          "result",
+          "application_id",
+          "scene_id",
+          "knowledge_versions",
+          "sources",
+          "relations_truncated"
+        ]
+      },
+      "SourceDetail": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "title": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "document",
+              "work_record",
+              "approved_excerpt"
+            ]
+          },
+          "version_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "body": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "availability": {
+            "type": "string",
+            "enum": [
+              "available",
+              "deleted"
+            ]
+          },
+          "deletion_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "type",
+          "version_id",
+          "updated_at",
+          "body",
+          "availability",
+          "deletion_reason"
+        ]
+      },
+      "EvaluationRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "title": {
+            "type": "string"
+          },
+          "application_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "dataset_version": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "criterion_version": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "sample_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "evaluated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "application_id",
+          "dataset_version",
+          "criterion_version",
+          "sample_count",
+          "evaluated_at"
+        ]
+      },
+      "EvaluationResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "application_version_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "passed": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "failed": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "not_run": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "application_version_id",
+          "passed",
+          "failed",
+          "not_run"
+        ]
+      },
+      "EvaluationDetail": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "evaluation": {
+            "$ref": "#/components/schemas/EvaluationRow"
+          },
+          "criterion": {
+            "type": "string"
+          },
+          "baseline": {
+            "$ref": "#/components/schemas/EvaluationResult"
+          },
+          "candidate": {
+            "$ref": "#/components/schemas/EvaluationResult"
+          },
+          "comparable": {
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sample_visibility": {
+            "type": "string",
+            "enum": [
+              "full",
+              "restricted"
+            ]
+          }
+        },
+        "required": [
+          "evaluation",
+          "criterion",
+          "baseline",
+          "candidate",
+          "comparable",
+          "reason",
+          "sample_visibility"
+        ]
+      },
+      "EvaluationSample": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "question": {
+            "type": "string"
+          },
+          "expected": {
+            "type": "string"
+          },
+          "baseline": {
+            "type": "string",
+            "enum": [
+              "passed",
+              "failed",
+              "not_run"
+            ]
+          },
+          "candidate": {
+            "type": "string",
+            "enum": [
+              "passed",
+              "failed",
+              "not_run"
+            ]
+          },
+          "case_link": {
+            "$ref": "#/components/schemas/SourceLink"
+          }
+        },
+        "required": [
+          "id",
+          "question",
+          "expected",
+          "baseline",
+          "candidate",
+          "case_link"
+        ]
+      },
+      "SearchHit": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "target": {
+            "$ref": "#/components/schemas/Target"
+          },
+          "title": {
+            "type": "string"
+          },
+          "snippet": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "knowledge_status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "valid",
+                  "draft",
+                  "expired"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "target",
+          "title",
+          "snippet",
+          "updated_at",
+          "knowledge_status"
+        ]
+      },
+      "Favorite": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "knowledge": {
+            "$ref": "#/components/schemas/KnowledgeRow"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "knowledge",
+          "created_at"
+        ]
+      },
+      "KnowledgeNote": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "knowledge_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "revision": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "knowledge_id",
+          "text",
+          "revision",
+          "updated_at"
+        ]
+      },
+      "SaveNote": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "去掉首尾空白后1–300个Unicode字符；空白拒绝，清空用DELETE。",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        },
+        "required": [
+          "text"
+        ]
+      },
+      "MetricDefinition": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "definition": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "person",
+              "request",
+              "token",
+              "ratio",
+              "knowledge",
+              "day"
+            ]
+          },
+          "version": {
+            "type": "string",
+            "enum": [
+              "bi-v1"
+            ]
+          },
+          "limitations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "definition",
+          "unit",
+          "version",
+          "limitations"
+        ]
+      },
+      "DataStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "organization_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Freshness"
+            }
+          }
+        },
+        "required": [
+          "organization_id",
+          "as_of",
+          "sources"
+        ]
+      },
+      "ReportSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "organization_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "ready",
+              "failed"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "failure_code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "DATA_UNAVAILABLE",
+                  "CONTEXT_REVOKED",
+                  "GENERATION_FAILED"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "organization_id",
+          "title",
+          "status",
+          "created_at",
+          "expires_at",
+          "failure_code"
+        ]
+      },
+      "ReportDetail": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "report": {
+            "$ref": "#/components/schemas/ReportSummary"
+          },
+          "context": {
+            "$ref": "#/components/schemas/Context"
+          },
+          "definition_version": {
+            "type": "string",
+            "enum": [
+              "bi-v1"
+            ]
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Target"
+            }
+          },
+          "can_copy": {
+            "type": "boolean"
+          },
+          "can_share": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "report",
+          "context",
+          "definition_version",
+          "text",
+          "evidence",
+          "can_copy",
+          "can_share"
+        ],
+        "description": "仅 ready 返回正文；ACL拒绝为404，不返回失败元数据。上下文到期不影响已授权报告快照读取。"
+      },
+      "ReportText": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "report_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "text": {
+            "type": "string"
+          },
+          "mime_type": {
+            "type": "string",
+            "enum": [
+              "text/plain"
+            ]
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "report_id",
+          "text",
+          "mime_type",
+          "generated_at"
+        ]
+      },
+      "CreateReport": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "context_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          }
+        },
+        "required": [
+          "context_id"
+        ]
+      },
+      "CreateShare": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "expires_in_seconds": {
+            "type": "integer",
+            "minimum": 60,
+            "maximum": 604800,
+            "default": 604800
+          }
+        },
+        "required": [
+
+        ]
+      },
+      "Share": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "report_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "path": {
+            "type": "string",
+            "pattern": "^/pages/report/index\\?share_id="
+          },
+          "title": {
+            "type": "string",
+            "const": "得酷 · 管理简报"
+          }
+        },
+        "required": [
+          "id",
+          "report_id",
+          "expires_at",
+          "path",
+          "title"
+        ]
+      },
+      "SharedReport": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "share_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "report": {
+            "$ref": "#/components/schemas/ReportDetail"
+          }
+        },
+        "required": [
+          "share_id",
+          "report"
+        ]
+      },
+      "ACL": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "organization_readable": {
+            "type": "boolean"
+          },
+          "team_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            }
+          },
+          "manager_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            }
+          }
+        },
+        "required": [
+          "organization_readable",
+          "team_ids",
+          "manager_ids"
+        ],
+        "description": "授权集合与现有业务身份取交集；同步不能创建管理账号或提升全局权限。空集合且false为拒绝所有。"
+      },
+      "DirectoryTeam": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "disabled"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "status"
+        ]
+      },
+      "DirectoryRole": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "disabled"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "status"
+        ]
+      },
+      "DirectoryMember": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "disabled"
+            ]
+          },
+          "enabled_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "disabled_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "status",
+          "enabled_at",
+          "disabled_at"
+        ]
+      },
+      "MembershipRecord": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "member_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "team_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "role_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "valid_from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "primary": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "member_id",
+          "team_id",
+          "role_id",
+          "valid_from",
+          "valid_to",
+          "primary"
+        ]
+      },
+      "EligibilityRecord": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "member_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "application_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9_.:-]+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "scene_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9_.:-]+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "valid_from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "member_id",
+          "application_id",
+          "scene_id",
+          "valid_from",
+          "valid_to"
+        ]
+      },
+      "ApplicationRecord": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "tool",
+              "agent",
+              "skill",
+              "workflow"
+            ]
+          },
+          "summary": {
+            "type": "string"
+          },
+          "current_version_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "team_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            }
+          },
+          "scene_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            }
+          },
+          "acl": {
+            "$ref": "#/components/schemas/ACL"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "type",
+          "summary",
+          "current_version_id",
+          "team_ids",
+          "scene_ids",
+          "acl"
+        ]
+      },
+      "ApplicationVersionRecord": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "application_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "version": {
+            "type": "string"
+          },
+          "released_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "knowledge_version_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "application_id",
+          "version",
+          "released_at",
+          "knowledge_version_ids"
+        ]
+      },
+      "SceneRecord": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "classification": {
+            "type": "string",
+            "enum": [
+              "confirmed",
+              "inferred",
+              "unclassified"
+            ]
+          },
+          "acl": {
+            "$ref": "#/components/schemas/ACL"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "category",
+          "summary",
+          "classification",
+          "acl"
+        ]
+      },
+      "RawTokens": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "exclusive_buckets",
+              "inclusive_input",
+              "unavailable"
+            ]
+          },
+          "input": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TokenCount"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "output": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TokenCount"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cache_read": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TokenCount"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cache_write": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TokenCount"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "encoding",
+          "input",
+          "output",
+          "cache_read",
+          "cache_write"
+        ],
+        "description": "encoding约束见数据字典；unavailable各数字必须null；其他情况全为非负整数字符串。",
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "encoding": {
+                  "const": "unavailable"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "input": {
+                  "type": "null"
+                },
+                "output": {
+                  "type": "null"
+                },
+                "cache_read": {
+                  "type": "null"
+                },
+                "cache_write": {
+                  "type": "null"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "input": {
+                  "$ref": "#/components/schemas/TokenCount"
+                },
+                "output": {
+                  "$ref": "#/components/schemas/TokenCount"
+                },
+                "cache_read": {
+                  "$ref": "#/components/schemas/TokenCount"
+                },
+                "cache_write": {
+                  "$ref": "#/components/schemas/TokenCount"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "UsageRecord": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "actor_type": {
+            "type": "string",
+            "enum": [
+              "human",
+              "automatic",
+              "unknown"
+            ]
+          },
+          "member_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9_.:-]+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "team_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9_.:-]+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "application_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9_.:-]+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "application_version_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9_.:-]+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "scene_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9_.:-]+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requested_model": {
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "succeeded",
+              "failed",
+              "unknown"
+            ]
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "retry_of": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9_.:-]+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tokens": {
+            "$ref": "#/components/schemas/RawTokens"
+          }
+        },
+        "required": [
+          "id",
+          "occurred_at",
+          "actor_type",
+          "member_id",
+          "team_id",
+          "application_id",
+          "application_version_id",
+          "scene_id",
+          "requested_model",
+          "outcome",
+          "duration_ms",
+          "retry_of",
+          "tokens"
+        ],
+        "description": "身份由可信绑定产生；human必须有member_id；automatic/unknown的member_id必须null。nullable维度进入未知桶。",
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "actor_type": {
+                  "const": "human"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "member_id": {
+                  "$ref": "#/components/schemas/Id"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "member_id": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "RatingRecord": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "usage_event_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "member_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "value": {
+            "type": "string",
+            "enum": [
+              "helpful",
+              "negative"
+            ]
+          },
+          "rated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "usage_event_id",
+          "member_id",
+          "value",
+          "rated_at"
+        ],
+        "description": "同一人员交互只接纳一份当前评价；修订替代。"
+      },
+      "ReferenceRecord": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "usage_event_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "knowledge_version_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          }
+        },
+        "required": [
+          "id",
+          "usage_event_id",
+          "knowledge_version_id"
+        ],
+        "description": "真实执行引用，不能从当前配置反推；知识版本须在事件发生时可用。"
+      },
+      "KnowledgeRecord": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "title": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "valid",
+              "draft",
+              "expired"
+            ]
+          },
+          "current_version_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "owner_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9_.:-]+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "owner_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status_effective_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "application_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            }
+          },
+          "scene_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            }
+          },
+          "acl": {
+            "$ref": "#/components/schemas/ACL"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "summary",
+          "status",
+          "current_version_id",
+          "owner_id",
+          "owner_name",
+          "created_at",
+          "updated_at",
+          "status_effective_at",
+          "application_ids",
+          "scene_ids",
+          "acl"
+        ]
+      },
+      "KnowledgeVersionRecord": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "knowledge_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "version": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "valid_from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "change_summary": {
+            "type": "string"
+          },
+          "applicability": {
+            "type": "string"
+          },
+          "body": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "source_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            },
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "id",
+          "knowledge_id",
+          "version",
+          "created_at",
+          "valid_from",
+          "valid_to",
+          "change_summary",
+          "applicability",
+          "body",
+          "source_ids"
+        ]
+      },
+      "SourceRecord": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "version_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "title": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "document",
+              "work_record",
+              "approved_excerpt"
+            ]
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "body": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "acl": {
+            "$ref": "#/components/schemas/ACL"
+          }
+        },
+        "required": [
+          "id",
+          "version_id",
+          "title",
+          "type",
+          "updated_at",
+          "body",
+          "acl"
+        ]
+      },
+      "CaseRecord": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "title": {
+            "type": "string"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "team_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9_.:-]+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "customer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "problem": {
+            "type": "string"
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "result": {
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "resolved",
+              "unresolved",
+              "unverified"
+            ]
+          },
+          "application_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9_.:-]+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "scene_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9_.:-]+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "knowledge_version_ids": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            }
+          },
+          "source_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            },
+            "maxItems": 100
+          },
+          "acl": {
+            "$ref": "#/components/schemas/ACL"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "occurred_at",
+          "team_id",
+          "project",
+          "customer",
+          "problem",
+          "steps",
+          "result",
+          "outcome",
+          "application_id",
+          "scene_id",
+          "knowledge_version_ids",
+          "source_ids",
+          "acl"
+        ]
+      },
+      "EvaluationRecord": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "title": {
+            "type": "string"
+          },
+          "application_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "dataset_version": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "criterion_version": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "criterion": {
+            "type": "string"
+          },
+          "evaluated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "baseline_application_version_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "candidate_application_version_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "samples": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EvaluationSample"
+            },
+            "minItems": 1,
+            "maxItems": 500
+          },
+          "acl": {
+            "$ref": "#/components/schemas/ACL"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "application_id",
+          "dataset_version",
+          "criterion_version",
+          "criterion",
+          "evaluated_at",
+          "baseline_application_version_id",
+          "candidate_application_version_id",
+          "samples",
+          "acl"
+        ],
+        "description": "通过/失败汇总由样本计算，不采信提交者提供的聚合值。内部case_link只允许available或deleted，导出时执行ACL。"
+      },
+      "DirectoryTeamUpsert": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "team"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "payload": {
+            "$ref": "#/components/schemas/DirectoryTeam"
+          }
+        },
+        "required": [
+          "kind",
+          "revision",
+          "payload"
+        ]
+      },
+      "DirectoryRoleUpsert": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "role"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "payload": {
+            "$ref": "#/components/schemas/DirectoryRole"
+          }
+        },
+        "required": [
+          "kind",
+          "revision",
+          "payload"
+        ]
+      },
+      "DirectoryMemberUpsert": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "member"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "payload": {
+            "$ref": "#/components/schemas/DirectoryMember"
+          }
+        },
+        "required": [
+          "kind",
+          "revision",
+          "payload"
+        ]
+      },
+      "MembershipRecordUpsert": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "membership"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "payload": {
+            "$ref": "#/components/schemas/MembershipRecord"
+          }
+        },
+        "required": [
+          "kind",
+          "revision",
+          "payload"
+        ]
+      },
+      "EligibilityRecordUpsert": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "eligibility"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "payload": {
+            "$ref": "#/components/schemas/EligibilityRecord"
+          }
+        },
+        "required": [
+          "kind",
+          "revision",
+          "payload"
+        ]
+      },
+      "ApplicationRecordUpsert": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "application"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "payload": {
+            "$ref": "#/components/schemas/ApplicationRecord"
+          }
+        },
+        "required": [
+          "kind",
+          "revision",
+          "payload"
+        ]
+      },
+      "ApplicationVersionRecordUpsert": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "application_version"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "payload": {
+            "$ref": "#/components/schemas/ApplicationVersionRecord"
+          }
+        },
+        "required": [
+          "kind",
+          "revision",
+          "payload"
+        ]
+      },
+      "SceneRecordUpsert": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "scene"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "payload": {
+            "$ref": "#/components/schemas/SceneRecord"
+          }
+        },
+        "required": [
+          "kind",
+          "revision",
+          "payload"
+        ]
+      },
+      "UsageRecordUpsert": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "usage"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "payload": {
+            "$ref": "#/components/schemas/UsageRecord"
+          }
+        },
+        "required": [
+          "kind",
+          "revision",
+          "payload"
+        ]
+      },
+      "RatingRecordUpsert": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "rating"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "payload": {
+            "$ref": "#/components/schemas/RatingRecord"
+          }
+        },
+        "required": [
+          "kind",
+          "revision",
+          "payload"
+        ]
+      },
+      "ReferenceRecordUpsert": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "reference"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "payload": {
+            "$ref": "#/components/schemas/ReferenceRecord"
+          }
+        },
+        "required": [
+          "kind",
+          "revision",
+          "payload"
+        ]
+      },
+      "KnowledgeRecordUpsert": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "knowledge"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "payload": {
+            "$ref": "#/components/schemas/KnowledgeRecord"
+          }
+        },
+        "required": [
+          "kind",
+          "revision",
+          "payload"
+        ]
+      },
+      "KnowledgeVersionRecordUpsert": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "knowledge_version"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "payload": {
+            "$ref": "#/components/schemas/KnowledgeVersionRecord"
+          }
+        },
+        "required": [
+          "kind",
+          "revision",
+          "payload"
+        ]
+      },
+      "SourceRecordUpsert": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "source"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "payload": {
+            "$ref": "#/components/schemas/SourceRecord"
+          }
+        },
+        "required": [
+          "kind",
+          "revision",
+          "payload"
+        ]
+      },
+      "CaseRecordUpsert": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "case"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "payload": {
+            "$ref": "#/components/schemas/CaseRecord"
+          }
+        },
+        "required": [
+          "kind",
+          "revision",
+          "payload"
+        ]
+      },
+      "EvaluationRecordUpsert": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "evaluation"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "payload": {
+            "$ref": "#/components/schemas/EvaluationRecord"
+          }
+        },
+        "required": [
+          "kind",
+          "revision",
+          "payload"
+        ]
+      },
+      "TombstoneRecord": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "tombstone"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "entity_kind": {
+            "type": "string",
+            "enum": [
+              "team",
+              "role",
+              "member",
+              "membership",
+              "eligibility",
+              "application",
+              "application_version",
+              "scene",
+              "usage",
+              "rating",
+              "reference",
+              "knowledge",
+              "knowledge_version",
+              "source",
+              "case",
+              "evaluation"
+            ]
+          },
+          "entity_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "effective_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "deleted",
+              "revoked",
+              "corrected"
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "revision",
+          "entity_kind",
+          "entity_id",
+          "effective_at",
+          "reason"
+        ]
+      },
+      "ImportRecord": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/DirectoryTeamUpsert"
+          },
+          {
+            "$ref": "#/components/schemas/DirectoryRoleUpsert"
+          },
+          {
+            "$ref": "#/components/schemas/DirectoryMemberUpsert"
+          },
+          {
+            "$ref": "#/components/schemas/MembershipRecordUpsert"
+          },
+          {
+            "$ref": "#/components/schemas/EligibilityRecordUpsert"
+          },
+          {
+            "$ref": "#/components/schemas/ApplicationRecordUpsert"
+          },
+          {
+            "$ref": "#/components/schemas/ApplicationVersionRecordUpsert"
+          },
+          {
+            "$ref": "#/components/schemas/SceneRecordUpsert"
+          },
+          {
+            "$ref": "#/components/schemas/UsageRecordUpsert"
+          },
+          {
+            "$ref": "#/components/schemas/RatingRecordUpsert"
+          },
+          {
+            "$ref": "#/components/schemas/ReferenceRecordUpsert"
+          },
+          {
+            "$ref": "#/components/schemas/KnowledgeRecordUpsert"
+          },
+          {
+            "$ref": "#/components/schemas/KnowledgeVersionRecordUpsert"
+          },
+          {
+            "$ref": "#/components/schemas/SourceRecordUpsert"
+          },
+          {
+            "$ref": "#/components/schemas/CaseRecordUpsert"
+          },
+          {
+            "$ref": "#/components/schemas/EvaluationRecordUpsert"
+          },
+          {
+            "$ref": "#/components/schemas/TombstoneRecord"
+          }
+        ]
+      },
+      "ImportBatch": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "schema_version": {
+            "type": "string",
+            "enum": [
+              "1"
+            ]
+          },
+          "expected_checkpoint": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 512
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "当前已应用checkpoint；首次导入为null。不同值409，不按字符串大小比较游标。"
+          },
+          "checkpoint": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "records": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportRecord"
+            },
+            "minItems": 0,
+            "maxItems": 500
+          },
+          "complete_through": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "初次回灌尚无可信完整水位时为null；已建立水位后不得清空或倒退。"
+          },
+          "history_start_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "initial_backfill_complete": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "source_id",
+          "schema_version",
+          "checkpoint",
+          "expected_checkpoint",
+          "records",
+          "complete_through",
+          "history_start_date",
+          "initial_backfill_complete"
+        ],
+        "description": "records为空仅作水位心跳；不能修改业务对象；来源历史完整性声明同样校验。",
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "initial_backfill_complete": {
+                  "const": true
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "complete_through": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ImportJob": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "source_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "validating",
+              "applied",
+              "rejected"
+            ]
+          },
+          "received_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "applied_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "checkpoint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "data_revision": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9_.:-]+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "record_index": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "批次级或水位错误为null；记录错误为从0开始的下标。"
+                },
+                "code": {
+                  "type": "string",
+                  "enum": [
+                    "INVALID_REFERENCE",
+                    "INVALID_TOKENS",
+                    "REVISION_CONFLICT",
+                    "IMMUTABLE_VERSION",
+                    "INVALID_IDENTITY",
+                    "FORBIDDEN_SOURCE",
+                    "INVALID_INTERVAL",
+                    "INVALID_WATERMARK",
+                    "INTERNAL_ERROR"
+                  ]
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "record_index",
+                "code",
+                "message"
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "source_id",
+          "status",
+          "received_at",
+          "applied_at",
+          "checkpoint",
+          "data_revision",
+          "errors"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "applied"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "applied_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "checkpoint": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "data_revision": {
+                  "$ref": "#/components/schemas/Id"
+                },
+                "errors": {
+                  "maxItems": 0
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "applied_at": {
+                  "type": "null"
+                },
+                "checkpoint": {
+                  "type": "null"
+                },
+                "data_revision": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "rejected"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "errors": {
+                  "minItems": 1
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "errors": {
+                  "maxItems": 0
+                }
+              }
+            }
+          }
+        ]
+      },
+      "Checkpoint": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "checkpoint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "last_applied_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "data_revision": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9_.:-]+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "complete_through": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "history_start_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "initial_backfill_complete": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "source_id",
+          "checkpoint",
+          "last_applied_at",
+          "data_revision",
+          "complete_through",
+          "history_start_date",
+          "initial_backfill_complete"
+        ]
+      },
+      "OrganizationPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Organization"
+            },
+            "maxItems": 100
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "snapshot_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more",
+          "snapshot_id"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "has_more": {
+                  "const": true
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "next_cursor": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "next_cursor": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "MetricDefinitionPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MetricDefinition"
+            },
+            "maxItems": 100
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "snapshot_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more",
+          "snapshot_id"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "has_more": {
+                  "const": true
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "next_cursor": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "next_cursor": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ComparisonRowPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ComparisonRow"
+            },
+            "maxItems": 100
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "snapshot_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more",
+          "snapshot_id"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "has_more": {
+                  "const": true
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "next_cursor": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "next_cursor": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "MemberRowPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MemberRow"
+            },
+            "maxItems": 100
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "snapshot_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more",
+          "snapshot_id"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "has_more": {
+                  "const": true
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "next_cursor": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "next_cursor": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ApplicationRowPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApplicationRow"
+            },
+            "maxItems": 100
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "snapshot_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more",
+          "snapshot_id"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "has_more": {
+                  "const": true
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "next_cursor": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "next_cursor": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "SceneRowPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SceneRow"
+            },
+            "maxItems": 100
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "snapshot_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more",
+          "snapshot_id"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "has_more": {
+                  "const": true
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "next_cursor": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "next_cursor": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "KnowledgeRowPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeRow"
+            },
+            "maxItems": 100
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "snapshot_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more",
+          "snapshot_id"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "has_more": {
+                  "const": true
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "next_cursor": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "next_cursor": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "VersionSummaryPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VersionSummary"
+            },
+            "maxItems": 100
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "snapshot_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more",
+          "snapshot_id"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "has_more": {
+                  "const": true
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "next_cursor": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "next_cursor": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "CaseRowPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CaseRow"
+            },
+            "maxItems": 100
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "snapshot_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more",
+          "snapshot_id"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "has_more": {
+                  "const": true
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "next_cursor": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "next_cursor": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "EvaluationRowPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EvaluationRow"
+            },
+            "maxItems": 100
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "snapshot_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more",
+          "snapshot_id"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "has_more": {
+                  "const": true
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "next_cursor": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "next_cursor": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "EvaluationSamplePage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EvaluationSample"
+            },
+            "maxItems": 100
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "snapshot_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more",
+          "snapshot_id"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "has_more": {
+                  "const": true
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "next_cursor": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "next_cursor": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "SearchHitPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchHit"
+            },
+            "maxItems": 100
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "snapshot_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more",
+          "snapshot_id"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "has_more": {
+                  "const": true
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "next_cursor": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "next_cursor": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "FavoritePage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Favorite"
+            },
+            "maxItems": 100
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "snapshot_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more",
+          "snapshot_id"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "has_more": {
+                  "const": true
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "next_cursor": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "next_cursor": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ReportSummaryPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReportSummary"
+            },
+            "maxItems": 100
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "snapshot_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more",
+          "snapshot_id"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "has_more": {
+                  "const": true
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "next_cursor": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "next_cursor": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "FilterOption": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "entity": {
+            "$ref": "#/components/schemas/EntitySummary"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "team",
+              "role",
+              "application",
+              "scene"
+            ]
+          }
+        },
+        "required": [
+          "entity",
+          "kind"
+        ]
+      },
+      "FilterOptionPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FilterOption"
+            },
+            "maxItems": 100
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "snapshot_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more",
+          "snapshot_id"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "has_more": {
+                  "const": true
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "next_cursor": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "next_cursor": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ReferenceEvidence": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "knowledge_version_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "application": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EntitySummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "team": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EntitySummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expired_at_use": {
+            "type": "boolean"
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "helpful",
+                  "negative"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "event_id",
+          "occurred_at",
+          "knowledge_version_id",
+          "application",
+          "team",
+          "expired_at_use",
+          "rating"
+        ]
+      },
+      "ReferenceEvidencePage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReferenceEvidence"
+            },
+            "maxItems": 100
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "snapshot_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more",
+          "snapshot_id"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "has_more": {
+                  "const": true
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "next_cursor": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "next_cursor": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "SharePage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Share"
+            },
+            "maxItems": 100
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "snapshot_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more",
+          "snapshot_id"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "has_more": {
+                  "const": true
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "next_cursor": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "next_cursor": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "BindingSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "display_name": {
+            "type": "string",
+            "description": "服务生成的绑定标签，不返回openid或其他微信个人资料。"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "last_login_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "display_name",
+          "created_at",
+          "last_login_at"
+        ]
+      },
+      "BindingSummaryPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BindingSummary"
+            },
+            "maxItems": 100
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "snapshot_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more",
+          "snapshot_id"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "has_more": {
+                  "const": true
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "next_cursor": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "next_cursor": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

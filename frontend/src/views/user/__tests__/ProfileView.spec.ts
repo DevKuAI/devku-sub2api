@@ -2,6 +2,8 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import ProfileView from '@/views/user/ProfileView.vue'
 
+vi.mock('@/api/bi', () => ({ isBIEnabled: vi.fn().mockResolvedValue(false) }))
+
 const {
   fetchPublicSettingsMock,
   refreshUserMock,

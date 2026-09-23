@@ -289,6 +289,12 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/bi/bind',
+    name: 'BIBindings',
+    component: () => import('@/views/user/BIBindingsView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: false, title: 'Mini-program bindings', titleKey: 'bi.title' }
+  },
+  {
     path: '/subscription-accounts',
     name: 'SubscriptionAccounts',
     component: () => import('@/views/user/SubscriptionAccountsView.vue'),

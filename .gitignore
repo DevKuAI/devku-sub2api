@@ -168,3 +168,6 @@ output/
 !docs/openapi/
 docs/openapi/*
 !docs/openapi/desktop-resources-v1.json
+
+!docs/mobile-bi/
+!docs/mobile-bi/**

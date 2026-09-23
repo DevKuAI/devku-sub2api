@@ -39,6 +39,7 @@ func RegisterAdminRoutes(
 	admin.Use(gin.HandlerFunc(auditLog))
 	registerDesktopUpdateAdminRoutes(admin, h, cfg)
 	admin.Use(middleware.AdminComplianceGuard(settingService))
+	registerBIAdminRoutes(admin, h, cfg)
 	{
 		// 部署与运营合规确认
 		registerAdminComplianceRoutes(admin, h)

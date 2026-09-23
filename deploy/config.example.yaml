@@ -119,6 +119,23 @@ desktop:
   conversation_member_per_minute: 60
 
 # =============================================================================
+# Enterprise BI mini-program (disabled by default)
+# =============================================================================
+bi:
+  enabled: false
+  appid: ""
+  app_secret: ""
+  # Generate each secret independently with: openssl rand -base64 32
+  jwt_secret: ""
+  # Retain this key: it indexes existing WeChat bindings without storing openid.
+  identity_secret: ""
+  privacy_notice_url: ""
+  privacy_notice_version: ""
+  min_client_version: "0.1.0"
+  # Calendar months; confirm the retention policy before enabling production BI.
+  report_retention_months: 24
+
+# =============================================================================
 # Desktop Update Artifact Storage (Aliyun OSS through its S3-compatible API)
 # Desktop 更新产物存储（通过 S3-compatible API 连接阿里云 OSS）
 # =============================================================================

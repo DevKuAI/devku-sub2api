@@ -76,8 +76,20 @@ func NewErrorResponse(code, message string) ErrorResponse {
 
 // AbortWithError 中断请求并返回JSON错误
 func AbortWithError(c *gin.Context, statusCode int, code, message string) {
+	if value, exists := c.Get("middleware.error_responder"); exists {
+		if responder, ok := value.(func(*gin.Context, int, string, string)); ok {
+			responder(c, statusCode, code, message)
+			c.Abort()
+			return
+		}
+	}
 	c.JSON(statusCode, NewErrorResponse(code, message))
 	c.Abort()
+}
+
+// SetErrorResponder preserves API-specific envelopes when reusing authentication.
+func SetErrorResponder(c *gin.Context, responder func(*gin.Context, int, string, string)) {
+	c.Set("middleware.error_responder", responder)
 }
 
 // abortWithOpenAIQuotaError writes the OpenAI-compatible insufficient quota response.

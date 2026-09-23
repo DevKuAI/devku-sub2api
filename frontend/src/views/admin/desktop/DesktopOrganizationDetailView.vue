@@ -136,6 +136,7 @@
           <div class="flex justify-end"><button class="btn btn-primary" type="submit" :disabled="configSaving">{{ configSaving ? t('common.saving') : t('common.save') }}</button></div>
         </form>
       </section>
+      <BIGrantManagement v-if="!selfManaged && organization" :key="organizationID" :organization-id="organizationID" />
     </div>
 
     <BaseDialog v-if="!selfManaged" :show="showOrganizationEdit" :title="t('admin.desktop.editOrganization')" width="wide" @close="closeOrganizationEdit">
@@ -195,6 +196,7 @@ import Input from '@/components/common/Input.vue'
 import Icon from '@/components/icons/Icon.vue'
 import DesktopConversationRecords from '@/components/desktop/DesktopConversationRecords.vue'
 import DesktopOrganizationUsageStatistics from '@/components/desktop/DesktopOrganizationUsageStatistics.vue'
+import BIGrantManagement from '@/components/bi/BIGrantManagement.vue'
 
 type DetailTab = 'members' | 'configuration' | 'conversations'
 const { selfManaged = false } = defineProps<{ selfManaged?: boolean }>()

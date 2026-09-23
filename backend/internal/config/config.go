@@ -107,6 +107,7 @@ type Config struct {
 	DesktopUpdateStorage    DesktopUpdateStorageConfig    `mapstructure:"desktop_update_storage"`
 	Plugins                 PluginConfig                  `mapstructure:"plugins"`
 	Desktop                 DesktopConfig                 `mapstructure:"desktop"`
+	BI                      BIConfig                      `mapstructure:"bi"`
 }
 
 // DesktopConfig controls the isolated Desktop authentication domain.
@@ -2031,6 +2032,7 @@ func configureConfigSource(setConfigFile, addConfigPath func(string)) {
 
 func setDefaults() {
 	viper.SetDefault("run_mode", RunModeStandard)
+	setBIDefaults()
 
 	// Desktop authentication domain
 	viper.SetDefault("desktop.conversation_member_per_minute", 60)
@@ -2715,6 +2717,9 @@ func setEnvReachableDefaults() {
 }
 
 func (c *Config) Validate() error {
+	if err := c.validateBI(); err != nil {
+		return err
+	}
 	if err := c.validateDesktop(); err != nil {
 		return err
 	}

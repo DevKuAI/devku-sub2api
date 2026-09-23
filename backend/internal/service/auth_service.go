@@ -1435,6 +1435,8 @@ func (s *AuthService) generateAccessToken(user *User, sessionID, bindingHash str
 		SessionID:    sessionID,
 		BindingHash:  bindingHash,
 		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    "devku-sub2api",
+			Audience:  jwt.ClaimStrings{"sub2api-web"},
 			ExpiresAt: jwt.NewNumericDate(expiresAt),
 			IssuedAt:  jwt.NewNumericDate(now),
 			NotBefore: jwt.NewNumericDate(now),

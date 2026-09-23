@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 
+vi.mock('@/api/bi', () => ({ isBIEnabled: vi.fn().mockResolvedValue(false) }))
+
 const desktopAPI = vi.hoisted(() => ({
   getOrganization: vi.fn(),
   getGatewayUser: vi.fn(),
