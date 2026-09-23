@@ -129,8 +129,8 @@ bi:
   jwt_secret: ""
   # Retain this key: it indexes existing WeChat bindings without storing openid.
   identity_secret: ""
-  privacy_notice_url: ""
-  privacy_notice_version: ""
+  # Publish the privacy notice in Admin Settings > Login agreement.
+  # Set its independent HTTPS site URL there; the app appends /legal/bi-privacy.
   min_client_version: "0.1.0"
   # Calendar months; confirm the retention policy before enabling production BI.
   report_retention_months: 24

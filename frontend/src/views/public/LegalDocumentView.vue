@@ -69,6 +69,9 @@
               <p v-if="updatedAt" class="mt-3 text-sm text-gray-500 dark:text-dark-400">
                 {{ t('legal.updatedAt', { date: updatedAt }) }}
               </p>
+              <p v-if="isBIPrivacyDocument && privacyNotice" class="mt-2 text-sm text-gray-500 dark:text-dark-400">
+                {{ t('bi.privacy.version') }}: {{ privacyNotice.version }}
+              </p>
             </div>
           </div>
         </div>
@@ -90,7 +93,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
@@ -100,6 +103,7 @@ import { getLocale } from '@/i18n'
 import { sanitizeUrl } from '@/utils/url'
 import { useAppStore } from '@/stores/app'
 import type { LoginAgreementDocument } from '@/types'
+import { getBIPrivacyNotice, type BIPrivacyNotice } from '@/api/biPrivacy'
 import zhAdminCompliance from '../../../../docs/legal/admin-compliance.zh.md?raw'
 import enAdminCompliance from '../../../../docs/legal/admin-compliance.en.md?raw'
 
@@ -111,6 +115,7 @@ const appStore = useAppStore()
 const settings = computed(() => appStore.cachedPublicSettings)
 const loading = ref(!settings.value)
 const loadError = ref(false)
+const privacyNotice = ref<BIPrivacyNotice | null>(null)
 
 marked.setOptions({
   breaks: true,
@@ -119,6 +124,7 @@ marked.setOptions({
 
 const documentId = computed(() => String(route.params.documentId || ''))
 const isAdminComplianceDocument = computed(() => documentId.value === 'admin-compliance')
+const isBIPrivacyDocument = computed(() => documentId.value === 'bi-privacy')
 const documents = computed(() => settings.value?.login_agreement_documents ?? [])
 const siteName = computed(() => settings.value?.site_name || 'Sub2API')
 const siteLogo = computed(() => sanitizeUrl(settings.value?.site_logo || '', {
@@ -126,13 +132,16 @@ const siteLogo = computed(() => sanitizeUrl(settings.value?.site_logo || '', {
   allowDataUrl: true,
 }))
 const updatedAt = computed(() =>
-  isAdminComplianceDocument.value ? '' : settings.value?.login_agreement_updated_at || ''
+  isBIPrivacyDocument.value ? privacyNotice.value?.updated_at || '' : isAdminComplianceDocument.value ? '' : settings.value?.login_agreement_updated_at || ''
 )
 const documentTypeLabel = computed(() =>
-  isAdminComplianceDocument.value ? t('legal.adminCompliance') : t('legal.loginAgreement')
+  isBIPrivacyDocument.value ? t('bi.privacy.heading') : isAdminComplianceDocument.value ? t('legal.adminCompliance') : t('legal.loginAgreement')
 )
 
 const currentDocument = computed<LoginAgreementDocument | null>(() => {
+  if (isBIPrivacyDocument.value) {
+    return privacyNotice.value ? { id: 'bi-privacy', ...privacyNotice.value } : null
+  }
   if (isAdminComplianceDocument.value) {
     return {
       id: 'admin-compliance',
@@ -172,14 +181,27 @@ const documentIcon = computed<LegalDocumentIcon>(() => {
   return 'document'
 })
 
-onMounted(async () => {
+watch(documentId, async (_, __, onCleanup) => {
+  let active = true
+  onCleanup(() => { active = false })
   loadError.value = false
-  const loadedSettings = await appStore.fetchPublicSettings()
-  if (!loadedSettings) {
-    loadError.value = true
+  privacyNotice.value = null
+  loading.value = true
+  const isPrivacy = isBIPrivacyDocument.value
+  const results = await Promise.allSettled([
+    appStore.fetchPublicSettings(),
+    isPrivacy ? getBIPrivacyNotice() : Promise.resolve(null),
+  ])
+  if (!active) return
+  const [branding, notice] = results
+  if (isPrivacy) {
+    if (notice.status === 'fulfilled') privacyNotice.value = notice.value
+    else loadError.value = (notice.reason as { status?: number }).status !== 404
+  } else {
+    loadError.value = branding.status === 'rejected' || !branding.value
   }
   loading.value = false
-})
+}, { immediate: true })
 </script>
 
 <style scoped>

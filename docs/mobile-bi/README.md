@@ -6,6 +6,7 @@
 | --- | --- |
 | [主接口 OpenAPI](./openapi.yaml) | 59 个小程序/采集操作，请求响应 Schema、示例、权限、分页和错误契约；`x-implementation-status=implemented-local` |
 | [原站授权管理 OpenAPI](./admin.openapi.json) | 3 个管理授权操作，可独立导入；包含管理员认证、revision 条件写、原站响应 envelope 和错误分支 |
+| [隐私说明 OpenAPI](./privacy-notice.openapi.yaml) | 公开读取、后台读取和发布 3 个操作；程序内 `/legal/bi-privacy` 页面及 bootstrap 动态配置 |
 | [配置参考](./configuration.md) | 9 个服务配置项、环境变量、默认值、校验、部署入口、CLI 参数及固定值 |
 | [测试企业与联调操作](./integration-runbook.md) | 测试环境、授权、微信绑定、采集、修订和失败恢复 |
 | [实施记录](./implementation.md) | 已实现能力、兼容决策、迁移、容量基线和待确认项 |

@@ -397,11 +397,13 @@
             "type": "boolean"
           },
           "privacy_notice_version": {
-            "type": "string"
+            "type": "string",
+            "description": "后台已发布 BI 隐私说明的版本号；与公开页面一致。"
           },
           "privacy_notice_url": {
             "type": "string",
-            "format": "uri"
+            "format": "uri",
+            "description": "程序内公开页面的绝对 HTTPS 地址，仅由 BI 隐私说明独立配置的 site_url 加 /legal/bi-privacy 生成；不读取原站前端地址。未发布说明或地址无效时 bootstrap 返回 503 DATA_UNAVAILABLE。"
           }
         },
         "required": [

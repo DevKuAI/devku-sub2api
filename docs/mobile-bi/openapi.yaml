@@ -60,7 +60,7 @@ paths:
                 demo_available: false
                 binding_enabled: true
                 privacy_notice_version: '2026-09-22'
-                privacy_notice_url: https://example.invalid/privacy
+                privacy_notice_url: https://example.invalid/legal/bi-privacy
         '400':
           $ref: '#/components/responses/Error400'
         '401':
@@ -5254,8 +5254,10 @@ components:
         binding_enabled: *id005
         privacy_notice_version:
           type: string
+          description: 后台已发布 BI 隐私说明的版本号；与公开页面一致。
         privacy_notice_url:
           type: string
+          description: 程序内公开页面的绝对 HTTPS 地址，仅由 BI 隐私说明独立配置的 site_url 加 /legal/bi-privacy 生成；不读取原站前端地址。未发布说明或地址无效时 bootstrap 返回 503 DATA_UNAVAILABLE。
           format: uri
       required:
       - api_version

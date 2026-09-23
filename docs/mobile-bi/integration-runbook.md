@@ -17,14 +17,14 @@
 | `bi.enabled` | 测试环境完成配置后设为 `true`；默认 `false` |
 | `bi.appid`、`bi.app_secret` | 同一个测试小程序的服务端凭证 |
 | `bi.jwt_secret`、`bi.identity_secret` | 各自独立的标准 base64 密钥，每份至少 32 字节；不能复用网页或 Desktop 密钥 |
-| `bi.privacy_notice_url`、`bi.privacy_notice_version` | 实际 HTTPS 隐私说明及版本 |
+| 后台 BI 隐私说明及站点地址 | 在「系统设置 → 登录条款」填写独立的 HTTPS 站点地址、标题、版本和 Markdown 正文后发布；详见 [配置参考](./configuration.md#隐私说明后台维护) |
 | `bi.min_client_version` | bootstrap 返回给客户端的最低版本，当前默认 `0.1.0` |
 | `bi.report_retention_months` | 报告可读期限，默认 24 个自然月；不表示业务事实已执行物理删除 |
 | `desktop.enabled` | 使用原站 Desktop 企业管理入口时须启用，并满足原 Desktop 配置要求 |
 
 密钥、AppSecret 和接入 Token 放在环境配置或部署密钥管理中，不写入本目录。`identity_secret` 参与微信身份索引，不能把重生成密钥当作日常重启步骤。
 
-启动后调用 `GET /api/bi/v1/bootstrap`。预期 `demo_available=false`、`binding_enabled=true`，并返回已配置的隐私信息。BI 未启用时不会注册这些路由。
+启动后调用 `GET /api/bi/v1/bootstrap`。预期 `demo_available=false`、`binding_enabled=true`，并返回已发布文档的版本及 `https://<BI 隐私说明站点域名>/legal/bi-privacy`。未发布或 BI 站点地址无效时返回 `503 DATA_UNAVAILABLE`；先补齐后台设置。使用未登录浏览器打开返回地址，核对正文和版本；修改正文并更换版本发布后再次调用 bootstrap，确认无需重启即可读到新版本。BI 未启用时不会注册这些路由。
 
 ## 2. 建立企业与显式授权
 

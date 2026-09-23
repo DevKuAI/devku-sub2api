@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
-	"net/url"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -18,15 +17,13 @@ type BIConfig struct {
 	AppSecret             string `mapstructure:"app_secret"`
 	JWTSecret             string `mapstructure:"jwt_secret"`
 	IdentitySecret        string `mapstructure:"identity_secret"`
-	PrivacyNoticeURL      string `mapstructure:"privacy_notice_url"`
-	PrivacyNoticeVersion  string `mapstructure:"privacy_notice_version"`
 	MinClientVersion      string `mapstructure:"min_client_version"`
 }
 
 func setBIDefaults() {
 	viper.SetDefault("bi.report_retention_months", 24)
 	viper.SetDefault("bi.enabled", false)
-	for _, key := range []string{"appid", "app_secret", "jwt_secret", "identity_secret", "privacy_notice_url", "privacy_notice_version"} {
+	for _, key := range []string{"appid", "app_secret", "jwt_secret", "identity_secret"} {
 		viper.SetDefault("bi."+key, "")
 	}
 	viper.SetDefault("bi.min_client_version", "0.1.0")
@@ -40,8 +37,7 @@ func (c *Config) validateBI() error {
 		return fmt.Errorf("bi.report_retention_months must be between 1 and 120 (zero uses 24)")
 	}
 	for name, value := range map[string]string{
-		"appid": c.BI.AppID, "app_secret": c.BI.AppSecret,
-		"privacy_notice_version": c.BI.PrivacyNoticeVersion, "min_client_version": c.BI.MinClientVersion,
+		"appid": c.BI.AppID, "app_secret": c.BI.AppSecret, "min_client_version": c.BI.MinClientVersion,
 	} {
 		if strings.TrimSpace(value) == "" {
 			return fmt.Errorf("bi.%s is required when BI is enabled", name)
@@ -61,10 +57,6 @@ func (c *Config) validateBI() error {
 	}
 	if bytes.Equal(secrets[0], secrets[1]) {
 		return fmt.Errorf("bi.jwt_secret and bi.identity_secret must be independent")
-	}
-	u, err := url.Parse(c.BI.PrivacyNoticeURL)
-	if err != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil {
-		return fmt.Errorf("bi.privacy_notice_url must be an absolute HTTPS URL")
 	}
 	return nil
 }

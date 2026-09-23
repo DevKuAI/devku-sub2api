@@ -40,7 +40,7 @@ func TestBIRoutesMatchEveryVersion110OperationAndProtectBearerRoutes(t *testing.
 	client := redis.NewClient(&redis.Options{Addr: store.Addr()})
 	t.Cleanup(func() { _ = client.Close() })
 	cfg := &config.Config{BI: config.BIConfig{Enabled: true, JWTSecret: base64.StdEncoding.EncodeToString([]byte(strings.Repeat("x", 32)))}}
-	h := bi.NewHandler(nil, client, cfg, nil, nil)
+	h := bi.NewHandler(nil, client, cfg, nil, nil, nil)
 	RegisterBIRoutes(r, h, middleware.JWTAuthMiddleware(func(c *gin.Context) { middleware.AbortWithError(c, 401, "UNAUTHORIZED", "Authentication required") }), cfg)
 	parameter := regexp.MustCompile(`:([a-z_]+)`)
 	registered := map[string]bool{}
@@ -81,7 +81,7 @@ func TestBIAdminRoutesMatchSupplementalOpenAPI(t *testing.T) {
 	for _, enabled := range []bool{false, true} {
 		r := gin.New()
 		admin := r.Group("/api/v1/admin", func(c *gin.Context) { middleware.AbortWithError(c, 401, "UNAUTHORIZED", "Authentication required") })
-		h := &handler.Handlers{BI: bi.NewHandler(nil, nil, &config.Config{}, nil, nil)}
+		h := &handler.Handlers{BI: bi.NewHandler(nil, nil, &config.Config{}, nil, nil, nil)}
 		registerBIAdminRoutes(admin, h, &config.Config{BI: config.BIConfig{Enabled: enabled}})
 		if !enabled {
 			require.Empty(t, r.Routes())

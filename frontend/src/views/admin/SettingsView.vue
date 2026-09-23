@@ -6822,6 +6822,7 @@
 
 	        <!-- Tab: Login Agreement -->
 	        <div v-show="activeTab === 'agreement'" class="space-y-6">
+	          <BIPrivacySettings v-if="activeTab === 'agreement'" />
 	          <div class="card">
 	            <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
 	              <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -8818,6 +8819,7 @@
 </template>
 
 <script setup lang="ts">
+import BIPrivacySettings from "@/components/bi/BIPrivacySettings.vue";
 import { ref, reactive, computed, onMounted, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { adminAPI } from "@/api";

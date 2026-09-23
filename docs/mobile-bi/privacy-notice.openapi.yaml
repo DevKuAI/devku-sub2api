@@ -1,0 +1,179 @@
+openapi: 3.1.0
+info:
+  title: 得酷 BI 隐私说明管理 API
+  version: 1.1.0
+  description: |
+    API v1.1.0 的隐私说明配套接口，独立于 bi.enabled 注册。
+    管理接口复用原站管理员认证、审计、合规确认及面板限流；公开读取无需认证，按 IP 限流。
+    页面地址固定为 /legal/bi-privacy。bootstrap 返回当前已发布版本和BI 隐私说明独立配置的 HTTPS 站点 origin 生成的地址。
+    这些接口使用原站响应 envelope，不使用 BI Error 对象。
+servers:
+  - url: /
+tags:
+  - name: 隐私说明
+security:
+  - AdminBearer: []
+  - AdminAPIKey: []
+paths:
+  /api/v1/settings/bi-privacy:
+    get:
+      operationId: getPublicBIPrivacyNotice
+      summary: 匿名读取已发布隐私说明
+      tags: [隐私说明]
+      security: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Notice'
+        '404':
+          description: 尚未发布隐私说明。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
+  /api/v1/admin/settings/bi-privacy:
+    get:
+      operationId: getAdminBIPrivacyNotice
+      summary: 读取后台隐私说明设置
+      description: 尚未发布时 site_url、title、version、content_md、updated_at 为空字符串，便于首次编辑。
+      tags: [隐私说明]
+      responses:
+        '200':
+          $ref: '#/components/responses/Notice'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
+    put:
+      operationId: publishBIPrivacyNotice
+      summary: 保存并发布隐私说明
+      description: |
+        一次写入独立站点地址、标题、版本、正文和服务端更新时间，下一次读取立即生效，无需重启。
+        四个输入字段均须提交；正文信息空值或超长返回 400 INVALID_BI_PRIVACY_NOTICE；站点地址缺失或非法返回 400 INVALID_BI_PRIVACY_SITE_URL。
+        已发布后，修改标题或正文但保持版本不变时返回 400 BI_PRIVACY_VERSION_REQUIRED。
+        原样重复发布或仅修改站点地址时保留原文档版本和更新时间；不支持删除或撤回。请求体上限 2 MiB，解析失败返回 400。
+        不读取原站 frontend_url 或 server.frontend_url。已有记录缺少有效 site_url 时 url 为空，bootstrap 返回 503 DATA_UNAVAILABLE；管理员须补填后发布。
+      tags: [隐私说明]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [site_url, title, version, content_md]
+              properties:
+                site_url:
+                  type: string
+                  minLength: 1
+                  maxLength: 2048
+                  description: 必填的 BI 独立 HTTPS origin（域名及可选端口），去除首尾空白后最多 2048 UTF-8 字节；允许末尾 /，禁止其他路径、用户凭证、查询参数及 fragment。站点须提供本站隐私说明页面。
+                title:
+                  type: string
+                  minLength: 1
+                  maxLength: 80
+                  description: 去除首尾空白后的标题。
+                version:
+                  type: string
+                  minLength: 1
+                  maxLength: 64
+                  description: 去除首尾空白后的版本号，不含控制字符。
+                content_md:
+                  type: string
+                  minLength: 1
+                  description: Markdown 正文，去除首尾空白后最多 204800 UTF-8 字节。
+            example:
+              site_url: https://bi.example.com
+              title: BI 小程序隐私说明
+              version: '2026-09-23'
+              content_md: "# 隐私说明\n\n此处仅为接口示例，正式条款由运营方填写。"
+      responses:
+        '200':
+          $ref: '#/components/responses/Notice'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
+components:
+  securitySchemes:
+    AdminBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    AdminAPIKey:
+      type: apiKey
+      in: header
+      name: x-api-key
+  responses:
+    Notice:
+      description: 成功；返回当前记录。
+      headers:
+        Cache-Control:
+          schema:
+            type: string
+            const: no-store
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [code, message, data]
+            properties:
+              code:
+                type: integer
+                const: 0
+              message:
+                type: string
+              data:
+                $ref: '#/components/schemas/PrivacyNotice'
+    Error:
+      description: 原站错误响应；按 HTTP 状态处理。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  schemas:
+    PrivacyNotice:
+      type: object
+      required: [site_url, title, version, content_md, updated_at, url]
+      properties:
+        site_url:
+          type: string
+          description: BI 隐私说明的独立站点地址；保存后不含末尾 /。未配置时为空，不回退到原站前端地址。
+        title:
+          type: string
+        version:
+          type: string
+        content_md:
+          type: string
+        updated_at:
+          type: string
+          description: 服务端生成的 UTC RFC3339 时间；未发布时为空。
+        url:
+          type: string
+          description: BI 专用 site_url 加 /legal/bi-privacy；记录缺少有效 origin 时为空。
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        reason:
+          type: string
+        metadata:
+          type: object
+          additionalProperties:
+            type: string

@@ -31,15 +31,16 @@ const (
 var requestIDPattern = regexp.MustCompile(`^[A-Za-z0-9_.:-]{1,128}$`)
 
 type Handler struct {
-	service *Service
-	auth    *service.AuthService
-	redis   *redis.Client
-	worker  *Worker
+	service  *Service
+	auth     *service.AuthService
+	redis    *redis.Client
+	worker   *Worker
+	settings *service.SettingService
 }
 
-func NewHandler(db *sql.DB, rdb *redis.Client, cfg *config.Config, auth *service.AuthService, users *service.UserService) *Handler {
+func NewHandler(db *sql.DB, rdb *redis.Client, cfg *config.Config, auth *service.AuthService, users *service.UserService, settings *service.SettingService) *Handler {
 	svc := NewService(db, cfg.BI, users, newWeChatClient(cfg.BI.AppID, cfg.BI.AppSecret))
-	return &Handler{service: svc, auth: auth, redis: rdb, worker: &Worker{service: svc}}
+	return &Handler{service: svc, auth: auth, redis: rdb, worker: &Worker{service: svc}, settings: settings}
 }
 
 func (h *Handler) Start() { h.worker.Start() }
@@ -183,9 +184,18 @@ func principal(c *gin.Context) Principal {
 }
 
 func (h *Handler) Bootstrap(c *gin.Context) {
+	if h.settings == nil {
+		WriteError(c, apiError(503, "DATA_UNAVAILABLE", "Privacy notice is unavailable"))
+		return
+	}
+	notice, err := h.settings.GetBIPrivacyNotice(c.Request.Context())
+	if err != nil || !notice.Published() || notice.URL == "" {
+		WriteError(c, apiError(503, "DATA_UNAVAILABLE", "Publish the BI privacy notice and configure its HTTPS site URL"))
+		return
+	}
 	c.JSON(200, gin.H{"api_version": "v1", "min_client_version": h.service.config.MinClientVersion,
 		"timezone": "Asia/Shanghai", "demo_available": false, "binding_enabled": true,
-		"privacy_notice_version": h.service.config.PrivacyNoticeVersion, "privacy_notice_url": h.service.config.PrivacyNoticeURL})
+		"privacy_notice_version": notice.Version, "privacy_notice_url": notice.URL})
 }
 
 func (h *Handler) Login(c *gin.Context) {
