@@ -46,7 +46,17 @@ func (f *analysisFrame) searchContent(query, kind string) ([]SearchHit, error) {
 				if err != nil {
 					return nil, err
 				}
-				if !allowed || !f.relevantOption(entityKind, id) {
+				if !allowed {
+					continue
+				}
+				relevant := f.relevantOption(entityKind, id)
+				if !relevant && !f.factsLoaded && !f.periodLoaded {
+					if _, err := f.periodFacts(analysisSelection{}); err != nil {
+						return nil, err
+					}
+					relevant = f.relevantOption(entityKind, id)
+				}
+				if !relevant {
 					continue
 				}
 				title = r.str("name")

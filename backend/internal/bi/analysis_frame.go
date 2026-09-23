@@ -2,6 +2,7 @@ package bi
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"slices"
 	"time"
@@ -28,6 +29,7 @@ type analysisFrame struct {
 	memberships       map[string][]*record
 	eligibilities     map[string][]*record
 	ratingValues      map[string]string
+	knowledgeHistory  map[string][]knowledgeStatus
 }
 
 func (s *Service) loadMetadata(ctx context.Context, state analysisState) (*analysisFrame, error) {
@@ -55,7 +57,7 @@ func (s *Service) loadAnalysis(ctx context.Context, state analysisState) (*analy
 	if err != nil {
 		return nil, err
 	}
-	f.facts, err = s.readUsageFacts(ctx, state, nil, nil)
+	f.facts, err = f.readAnalysisFacts()
 	if err != nil {
 		return nil, err
 	}
@@ -63,22 +65,44 @@ func (s *Service) loadAnalysis(ctx context.Context, state analysisState) (*analy
 	return f, nil
 }
 
-func (s *Service) readUsageFacts(ctx context.Context, state analysisState, start, end *time.Time) ([]usageFact, error) {
-	candidates := ""
-	if start != nil && end != nil {
-		// Select candidate IDs by time, then resolve their latest revision. Filtering
-		// versions by time first would resurrect an event corrected out of the period.
-		candidates = ` AND u.entity_id IN (SELECT candidate.entity_id FROM bi_usage_facts candidate WHERE candidate.organization_id=$1 AND candidate.data_revision<=$2 AND candidate.occurred_at>=$3 AND candidate.occurred_at<$4)`
+const usageFactColumns = `f.entity_id,f.occurred_at,f.actor_type,f.member_id,f.team_id,f.application_id,f.application_version_id,f.scene_id,f.requested_model,
+		f.outcome,f.duration_ms,f.input_tokens::text,f.output_tokens::text,f.cache_read_tokens::text,f.cache_write_tokens::text,e.source_id`
+
+const latestUsageFactsSQL = `SELECT DISTINCT ON (u.entity_id) u.* FROM bi_usage_facts u JOIN bi_data_revisions d ON d.id=u.data_revision
+	WHERE u.organization_id=$1 AND u.data_revision<=$2 AND d.status='published' ORDER BY u.entity_id,u.data_revision DESC,u.entity_revision DESC`
+
+// A materialized candidates CTE plus indexed per-ID lookup avoids quadratic
+// semi-join plans when import volume has outgrown PostgreSQL's table statistics.
+// $1 is the organization and $2 is the frozen data revision.
+const latestCandidateUsageSQL = `SELECT version.* FROM candidates candidate CROSS JOIN LATERAL (
+	SELECT u.* FROM bi_usage_facts u JOIN bi_data_revisions d ON d.id=u.data_revision
+	WHERE u.organization_id=$1 AND u.entity_id=candidate.entity_id AND u.data_revision<=$2 AND d.status='published'
+	ORDER BY u.data_revision DESC,u.entity_revision DESC LIMIT 1
+) version`
+
+func usageFactsQuery(bounded bool) string {
+	prefix := ""
+	latest := latestUsageFactsSQL
+	if bounded {
+		// Select IDs by time, then resolve all versions before checking time again.
+		prefix = `WITH candidates AS MATERIALIZED (SELECT DISTINCT entity_id FROM bi_usage_facts
+			WHERE organization_id=$1 AND data_revision<=$2 AND occurred_at>=$3 AND occurred_at<$4) `
+		latest = latestCandidateUsageSQL
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT f.entity_id,f.occurred_at,f.actor_type,f.member_id,f.team_id,f.application_id,f.application_version_id,f.scene_id,f.requested_model,
-		f.outcome,f.duration_ms,f.input_tokens::text,f.output_tokens::text,f.cache_read_tokens::text,f.cache_write_tokens::text,e.source_id
-		FROM (SELECT DISTINCT ON (u.entity_id) u.* FROM bi_usage_facts u JOIN bi_data_revisions d ON d.id=u.data_revision
-		WHERE u.organization_id=$1 AND u.data_revision<=$2 AND d.status='published'`+candidates+` ORDER BY u.entity_id,u.data_revision DESC,u.entity_revision DESC) f
+	return prefix + `SELECT ` + usageFactColumns + ` FROM (` + latest + `) f
 		JOIN bi_entities e ON e.organization_id=f.organization_id AND e.kind='usage' AND e.id=f.entity_id WHERE NOT f.tombstone
-		AND ($3::timestamptz IS NULL OR f.occurred_at>=$3) AND ($4::timestamptz IS NULL OR f.occurred_at<$4)`, state.Context.OrganizationID, state.Revision, start, end)
+		AND ($3::timestamptz IS NULL OR f.occurred_at>=$3) AND ($4::timestamptz IS NULL OR f.occurred_at<$4)`
+}
+
+func (s *Service) readUsageFacts(ctx context.Context, state analysisState, start, end *time.Time) ([]usageFact, error) {
+	rows, err := s.db.QueryContext(ctx, usageFactsQuery(start != nil && end != nil), state.Context.OrganizationID, state.Revision, start, end)
 	if err != nil {
 		return nil, err
 	}
+	return scanUsageFacts(rows)
+}
+
+func scanUsageFacts(rows *sql.Rows) ([]usageFact, error) {
 	defer func() { _ = rows.Close() }()
 	facts := []usageFact{}
 	for rows.Next() {

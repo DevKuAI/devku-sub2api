@@ -218,3 +218,29 @@ func TestContentHTTPMatchesSchema(t *testing.T) {
 		})
 	}
 }
+
+func TestApplicationSearchKeepsPeriodUsageAfterEligibilityEnds(t *testing.T) {
+	s, c, p, snapshot, _ := contentFixture(t)
+	app := acceptancePayload(t, s, c, "application", "test:app")
+	app["team_ids"] = []string{"test:b"}
+	changes := []any{map[string]any{"kind": "application", "revision": 2, "payload": app}}
+	for _, member := range []string{"one", "two", "mover", "leaver"} {
+		eligible := acceptancePayload(t, s, c, "eligibility", "test:eligible:"+member)
+		eligible["valid_to"] = "2026-09-14T00:00:00Z"
+		changes = append(changes, map[string]any{"kind": "eligibility", "revision": 2, "payload": eligible})
+	}
+	job := applyImport(t, s, c, completeBatch(t, "content-seed", "application-reassigned", changes))
+	require.Equal(t, "applied", job.Status, job.Errors)
+	current, err := s.CreateAnalysisContext(context.Background(), p, c.OrganizationID, snapshot.Filters)
+	require.NoError(t, err)
+	state, err := s.analysisContext(context.Background(), p, c.OrganizationID, current.ID, "knowledge:read")
+	require.NoError(t, err)
+	for _, kind := range []string{"all", "application"} {
+		f, err := s.loadMetadata(context.Background(), state)
+		require.NoError(t, err)
+		hits, err := f.searchContent("Application", kind)
+		require.NoError(t, err)
+		require.Len(t, hits, 1)
+		require.Equal(t, Target{Kind: "application", ID: "test:app"}, hits[0].Target)
+	}
+}

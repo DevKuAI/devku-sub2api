@@ -32,10 +32,17 @@
 - `TestUsageCorrectionsRevalidatePublishedRatings`、`TestUsageCorrectionUsesFinalRatingAndKeepsOldContext`：人员、actor 和时间修订不能保留失效评价；同批修复/撤回可以通过，旧 Context 不变。
 - `TestUsageTimeCorrectionRevalidatesReferencesAndRetries`、`TestUsageTimeCorrectionRespectsSameBatchClosedAndRetractedVersion`：事件时间修订重验知识版本有效期和重试顺序；同批关闭并撤回版本也不能绕过有效期。
 - `TestUsageCorrectionsPreserveRetractionsAndClosedVersionHistory`、`TestUsageCorrectionCannotRewriteAnotherSourcesRating`：Token 修正、正常生命周期关闭和调用撤回保留约定语义；跨来源只能修复自己拥有的记录。
+- `TestAnalysisHistoryCompactionPreservesMetricsAndDirectoryChanges`：与完整事实读取逐项对照采用、留存、Token、日/七日趋势；覆盖本周、上周、上月、日内岗位变化、修订、撤回、旧 Context 及受限团队。
+- `TestRetentionUsesStableEventIDForSimultaneousFirstCalls`：同时发生的首次调用按事件 ID 稳定归属，不受数据库返回顺序影响。
+- `TestKnowledgeStatusHistoryLoadsOncePerFrameAndPreservesTimeOrder`：同一知识的状态历史每个请求只查一次，保持生效时间、相同时间的修订优先级及不同快照隔离。
+- `TestPeriodUsageQueryAvoidsQuadraticWorkAfterBulkImport`：在 PostgreSQL 更新统计信息前后核对实际连接工作量；旧查询已在对照版本中复现约 5,014 万次无效比较，修复后回归通过，不依赖易波动的耗时阈值。
+- `TestApplicationSearchKeepsPeriodUsageAfterEligibilityEnds`：当前适用团队变化、Eligibility 结束后，本期实际使用的应用仍可在有权范围内检索。
 - 2026-09-23，本次修复后以 `env -u OPENAI_API_KEY GOTOOLCHAIN=go1.27.0` 运行完整后端 `make test-unit`、`make test-integration`、server/bi-connector build 及全仓 `golangci-lint run ./...`，均通过，lint 为 0 issues。
 - 前端使用 pnpm 9 重新执行完整测试和 build：324 个文件、2,421 项测试通过；修改文件的 ESLint 和前端 typecheck 通过。
 
 上述结果均为本地验证。后端使用 Go 1.27.0，与仓库 CI 固定版本一致；golangci-lint 为 2.13.0。此前的 10,000 条调用容量基线使用 Go 1.27.1，属于前一轮证据；远端 CI 尚未执行。
+
+查询优化后重新完成后端全量 unit、integration、server/bi-connector build 及全仓 lint（0 issues）。周期查询计划回归已分别验证新查询通过、临时旧查询覆盖失败；性能对照见 [查询优化记录](./query-optimization.md)。本轮仅修改后端及文档，未重跑前端套件。
 
 本次代码复核的范围、两个审查方向及修复结果见 [复核记录](./review-2026-09-23.md)。
 

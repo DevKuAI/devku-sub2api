@@ -2,6 +2,10 @@ package bi
 
 func (f *analysisFrame) relevantOption(kind, id string) bool {
 	filters := f.state.Context.Filters
+	facts := f.facts
+	if f.periodLoaded {
+		facts = f.periodCache
+	}
 	switch kind {
 	case "application":
 		r := f.records[kind][id]
@@ -26,7 +30,7 @@ func (f *analysisFrame) relevantOption(kind, id string) bool {
 		if len(f.cohort(f.state.Context.Range, analysisSelection{ApplicationID: id})) > 0 {
 			return true
 		}
-		for _, u := range f.facts {
+		for _, u := range facts {
 			if eventWithin(u, f.state.Context.Range) && f.matchesUsage(u, analysisSelection{ApplicationID: id}, true) {
 				return true
 			}
@@ -48,7 +52,7 @@ func (f *analysisFrame) relevantOption(kind, id string) bool {
 				return true
 			}
 		}
-		for _, u := range f.facts {
+		for _, u := range facts {
 			if eventWithin(u, f.state.Context.Range) && f.matchesUsage(u, analysisSelection{SceneID: id}, true) {
 				return true
 			}
@@ -65,7 +69,7 @@ func (f *analysisFrame) relevantOption(kind, id string) bool {
 				return true
 			}
 		}
-		for _, u := range f.facts {
+		for _, u := range facts {
 			if !eventWithin(u, f.state.Context.Range) || !f.matchesUsage(u, analysisSelection{}, true) {
 				continue
 			}

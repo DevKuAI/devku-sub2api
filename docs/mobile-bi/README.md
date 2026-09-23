@@ -11,6 +11,7 @@
 | [实施记录](./implementation.md) | 已实现能力、兼容决策、迁移、容量基线和待确认项 |
 | [验收进度](./acceptance-progress.md) | 本地证据与真实环境待验收项 |
 | [实现复核](./review-2026-09-23.md) | Standards/Spec 两个方向的复核和修复记录 |
+| [查询优化记录](./query-optimization.md) | 历史读取、执行计划、知识状态与应用搜索修复，以及同进程容量对照 |
 
 原始交接说明保留在 [backend-handoff.md](./backend-handoff.md)、[数据模型](./data-model-and-metrics.md)、[采集与历史](./ingestion-and-history.md)、[现有能力映射](./sub2api-mapping.md) 和 [验收清单](./acceptance.md)。这些 Markdown 描述的是交接时状态，实施进度以本目录新增记录为准。
 

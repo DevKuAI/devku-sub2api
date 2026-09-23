@@ -46,7 +46,7 @@ func (f *analysisFrame) retention(sel analysisSelection) []RetentionCohort {
 			continue
 		}
 		old, ok := first[*u.MemberID]
-		if !ok || u.OccurredAt.Before(old.OccurredAt) {
+		if !ok || u.OccurredAt.Before(old.OccurredAt) || (u.OccurredAt.Equal(old.OccurredAt) && u.ID < old.ID) {
 			first[*u.MemberID] = u
 		}
 	}

@@ -1,7 +1,6 @@
 package bi
 
 import (
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"sort"
@@ -34,16 +33,41 @@ func (f *analysisFrame) knowledgeVersion(knowledgeID, versionID string) (Knowled
 	return result, err
 }
 
+type knowledgeStatus struct {
+	EffectiveAt time.Time
+	Status      string
+}
+
 func (f *analysisFrame) expiredKnowledgeAt(id string, at time.Time) (bool, error) {
-	var status string
-	err := f.service.db.QueryRowContext(f.ctx, `SELECT v.payload->>'status' FROM bi_entity_versions v JOIN bi_data_revisions d ON d.id=v.data_revision
-		WHERE v.organization_id=$1 AND v.kind='knowledge' AND v.entity_id=$2 AND v.data_revision<=$3 AND NOT v.tombstone AND d.status='published'
-		AND (v.payload->>'status_effective_at')::timestamptz<=$4 ORDER BY (v.payload->>'status_effective_at')::timestamptz DESC,v.data_revision DESC,v.revision DESC LIMIT 1`,
-		f.state.Context.OrganizationID, id, f.state.Revision, at).Scan(&status)
-	if errors.Is(err, sql.ErrNoRows) {
-		return false, nil
+	if f.knowledgeHistory == nil {
+		f.knowledgeHistory = map[string][]knowledgeStatus{}
 	}
-	return status == "expired", err
+	history, exists := f.knowledgeHistory[id]
+	if !exists {
+		rows, err := f.service.db.QueryContext(f.ctx, `SELECT (v.payload->>'status_effective_at')::timestamptz,v.payload->>'status'
+			FROM bi_entity_versions v JOIN bi_data_revisions d ON d.id=v.data_revision
+			WHERE v.organization_id=$1 AND v.kind='knowledge' AND v.entity_id=$2 AND v.data_revision<=$3 AND NOT v.tombstone AND d.status='published'
+			ORDER BY (v.payload->>'status_effective_at')::timestamptz DESC,v.data_revision DESC,v.revision DESC`, f.state.Context.OrganizationID, id, f.state.Revision)
+		if err != nil {
+			return false, err
+		}
+		defer func() { _ = rows.Close() }()
+		for rows.Next() {
+			var entry knowledgeStatus
+			if err := rows.Scan(&entry.EffectiveAt, &entry.Status); err != nil {
+				return false, err
+			}
+			history = append(history, entry)
+		}
+		if err := rows.Err(); err != nil {
+			return false, err
+		}
+		// The cache belongs to one frozen frame; current object ACLs are checked
+		// separately on each request before evidence can be returned.
+		f.knowledgeHistory[id] = history
+	}
+	index := sort.Search(len(history), func(i int) bool { return !history[i].EffectiveAt.After(at) })
+	return index < len(history) && history[index].Status == "expired", nil
 }
 
 func (f *analysisFrame) knowledgeEvidence(id string) ([]ReferenceEvidence, error) {

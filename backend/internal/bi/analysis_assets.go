@@ -1,8 +1,6 @@
 package bi
 
 import (
-	"database/sql"
-	"errors"
 	"fmt"
 	"slices"
 	"time"
@@ -110,15 +108,11 @@ func (f *analysisFrame) assets(sel analysisSelection) (AssetStats, error) {
 		if knowledge.str("status") == "expired" {
 			stale[knowledge.ID] = true
 		}
-		var status string
-		err := f.service.db.QueryRowContext(f.ctx, `SELECT v.payload->>'status' FROM bi_entity_versions v JOIN bi_data_revisions d ON d.id=v.data_revision
-			WHERE v.organization_id=$1 AND v.kind='knowledge' AND v.entity_id=$2 AND v.data_revision<=$3 AND NOT v.tombstone AND d.status='published'
-			AND (v.payload->>'status_effective_at')::timestamptz<=$4 ORDER BY (v.payload->>'status_effective_at')::timestamptz DESC,v.data_revision DESC,v.revision DESC LIMIT 1`,
-			f.state.Context.OrganizationID, knowledge.ID, f.state.Revision, u.OccurredAt).Scan(&status)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		expired, err := f.expiredKnowledgeAt(knowledge.ID, u.OccurredAt)
+		if err != nil {
 			return result, err
 		}
-		if status == "expired" {
+		if expired {
 			expiredAtUse[knowledge.ID] = true
 		}
 	}

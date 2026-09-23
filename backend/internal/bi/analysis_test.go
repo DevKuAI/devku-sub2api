@@ -63,3 +63,15 @@ func TestRetentionCannotObserveCallsOutsideGrantedTeams(t *testing.T) {
 	period := dateRange(weekStart(at), weekStart(at).AddDate(0, 0, 7), "")
 	require.False(t, f.observeMembers([]string{"member"}, period))
 }
+
+func TestRetentionUsesStableEventIDForSimultaneousFirstCalls(t *testing.T) {
+	f := metricAcceptanceFrame(t, 1)
+	addMetricUsage(t, f, 0, "2026-08-25", "human", "team-b", "model", "1")
+	f.facts[0].ID = "event-z"
+	addMetricUsage(t, f, 0, "2026-08-25", "human", "team-a", "model", "1")
+	f.facts[1].ID = "event-a"
+	require.Len(t, f.retention(analysisSelection{TeamID: "team-a"}), 1)
+	require.Empty(t, f.retention(analysisSelection{TeamID: "team-b"}))
+	f.facts[0], f.facts[1] = f.facts[1], f.facts[0]
+	require.Len(t, f.retention(analysisSelection{TeamID: "team-a"}), 1)
+}
