@@ -19,6 +19,13 @@ const global = {
   },
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason: unknown) => void
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => { resolve = resolvePromise; reject = rejectPromise })
+  return { promise, resolve, reject }
+}
+
 describe('BI management flows', () => {
   beforeEach(() => {
     vi.resetAllMocks()
@@ -65,6 +72,55 @@ describe('BI management flows', () => {
     await flushPromises()
     expect(api.revokeBinding).toHaveBeenCalledWith('binding-one')
     expect(wrapper.find('li').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it.each(['success', 'failure'])('ignores a pending binding refresh %s after revocation', async (outcome) => {
+    const oldPage = { items: [{ id: 'binding-one', display_name: 'mini-program', created_at: '2026-09-23T00:00:00Z', last_login_at: null }], next_cursor: null, has_more: false, snapshot_id: 'old' }
+    const refresh = deferred<typeof oldPage>()
+    api.listBindings.mockResolvedValueOnce(oldPage).mockReturnValueOnce(refresh.promise)
+    const wrapper = mount(BIBindingsView, { global })
+    await flushPromises()
+    await wrapper.findAll('button').find(button => button.text() === 'common.refresh')!.trigger('click')
+    await flushPromises()
+    await wrapper.get('li button').trigger('click')
+    await wrapper.get('[data-confirm]').trigger('click')
+    await flushPromises()
+    expect(api.listBindings).toHaveBeenCalledTimes(3)
+    expect(wrapper.find('li').exists()).toBe(false)
+    if (outcome === 'success') refresh.resolve(oldPage)
+    else refresh.reject({ status: 500 })
+    await flushPromises()
+    expect(wrapper.find('li').exists()).toBe(false)
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    expect(wrapper.get('[role="status"]').text()).toBe('bi.revoked')
+    wrapper.unmount()
+  })
+
+  it.each(['save', 'revoke'])('keeps the latest grants after %s when an older refresh finishes last', async (operation) => {
+    const grant = { manager_id: 'manager', user_id: 12, display_name: 'Manager', role: 'viewer', all_teams: true, team_ids: [], capabilities: ['analytics:read'], revision: 3, revoked: false }
+    const oldPage = { items: [grant], page: 1, has_more: false, capabilities: ['analytics:read'] }
+    const refresh = deferred<typeof oldPage>()
+    const updated = operation === 'save' ? { ...grant, role: 'org_admin', revision: 4 } : { ...grant, revoked: true, revision: 4 }
+    api.listGrants.mockResolvedValueOnce(oldPage).mockReturnValueOnce(refresh.promise).mockResolvedValueOnce({ ...oldPage, items: [updated] })
+    const wrapper = mount(BIGrantManagement, { props: { organizationId: 'org-one' }, global })
+    await flushPromises()
+    await wrapper.findAll('button').find(button => button.text() === 'common.refresh')!.trigger('click')
+    await flushPromises()
+    if (operation === 'save') {
+      await wrapper.get('li button').trigger('click')
+      await wrapper.get('#bi-grant-role').setValue('org_admin')
+      await wrapper.get('#bi-grant-form').trigger('submit')
+    } else {
+      await wrapper.findAll('li button')[1]!.trigger('click')
+      await wrapper.get('[data-confirm]').trigger('click')
+    }
+    await flushPromises()
+    const expected = operation === 'save' ? 'bi.roles.org_admin' : 'bi.grantRevoked'
+    expect(wrapper.get('li').text()).toContain(expected)
+    refresh.resolve(oldPage)
+    await flushPromises()
+    expect(wrapper.get('li').text()).toContain(expected)
     wrapper.unmount()
   })
 

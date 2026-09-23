@@ -197,8 +197,31 @@ func (s *Service) rejectImport(ctx context.Context, w *importWork, problems []Im
 		if _, err := tx.ExecContext(ctx, `UPDATE bi_data_revisions SET status='rejected' WHERE batch_id=$1 AND status<>'published'`, w.ID); err != nil {
 			return err
 		}
+		if err := discardUnpublishedImport(ctx, tx, w.ID); err != nil {
+			return err
+		}
 		// Keep independently committed ACL denials until a valid repair is published.
 		_, err := tx.ExecContext(ctx, `UPDATE bi_import_batches SET status='rejected',errors=$2,lease_owner=NULL,lease_until=NULL WHERE id=$1`, w.ID, string(raw))
 		return err
 	})
+}
+
+func discardUnpublishedImport(ctx context.Context, tx *sql.Tx, batchID string) error {
+	// Retain revision metadata, the admission receipt and ACL denials for audit
+	// and safe replay. Only unpublishable projections belong to this cleanup.
+	queries := []string{
+		`DELETE FROM bi_usage_daily p USING bi_data_revisions r WHERE p.data_revision=r.id AND r.batch_id=$1 AND r.status='rejected'`,
+		`DELETE FROM bi_usage_day_revisions p USING bi_data_revisions r WHERE p.data_revision=r.id AND r.batch_id=$1 AND r.status='rejected'`,
+		`DELETE FROM bi_source_version_links p USING bi_data_revisions r WHERE p.parent_data_revision=r.id AND r.batch_id=$1 AND r.status='rejected'`,
+		`DELETE FROM bi_usage_facts p USING bi_data_revisions r WHERE p.data_revision=r.id AND r.batch_id=$1 AND r.status='rejected'`,
+		`DELETE FROM bi_entity_versions p USING bi_data_revisions r WHERE p.data_revision=r.id AND r.batch_id=$1 AND r.status='rejected'`,
+		`DELETE FROM bi_ingestion_outbox p USING bi_data_revisions r WHERE p.data_revision=r.id AND r.batch_id=$1 AND r.status='rejected'`,
+		`DELETE FROM bi_record_receipts p USING bi_data_revisions r WHERE p.batch_id=r.batch_id AND r.batch_id=$1 AND r.status='rejected'`,
+	}
+	for _, query := range queries {
+		if _, err := tx.ExecContext(ctx, query, batchID); err != nil {
+			return err
+		}
+	}
+	return nil
 }

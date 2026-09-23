@@ -33,3 +33,24 @@ func TestBIConfigRequiresIndependentSecretsAndRealEnvironment(t *testing.T) {
 		})
 	}
 }
+
+func TestBIConfigLoadsEveryEnvironmentSetting(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	t.Setenv("CONFIG_FILE", "")
+	t.Setenv("DATA_DIR", t.TempDir())
+	want := BIConfig{Enabled: true, AppID: "wx_test", AppSecret: "test-app-secret",
+		JWTSecret:        base64.StdEncoding.EncodeToString([]byte("01234567890123456789012345678901")),
+		IdentitySecret:   base64.StdEncoding.EncodeToString([]byte("11234567890123456789012345678901")),
+		PrivacyNoticeURL: "https://example.com/privacy", PrivacyNoticeVersion: "test-v2", MinClientVersion: "0.2.0", ReportRetentionMonths: 12}
+	for key, value := range map[string]string{
+		"BI_ENABLED": "true", "BI_APPID": want.AppID, "BI_APP_SECRET": want.AppSecret,
+		"BI_JWT_SECRET": want.JWTSecret, "BI_IDENTITY_SECRET": want.IdentitySecret,
+		"BI_PRIVACY_NOTICE_URL": want.PrivacyNoticeURL, "BI_PRIVACY_NOTICE_VERSION": want.PrivacyNoticeVersion,
+		"BI_MIN_CLIENT_VERSION": want.MinClientVersion, "BI_REPORT_RETENTION_MONTHS": "12",
+	} {
+		t.Setenv(key, value)
+	}
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.Equal(t, want, cfg.BI)
+}

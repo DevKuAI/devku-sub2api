@@ -84,22 +84,23 @@ const roles = ['org_admin', 'team_manager', 'viewer'] as const
 const teamText = ref('')
 const form = reactive<BIGrantInput>({ user_id: 0, role: 'viewer', all_teams: false, team_ids: [], capabilities: [], expected_revision: 0 })
 let generation = 0
+let loadGeneration = 0
 
 function message(cause: unknown) { return t((cause as { status?: number }).status === 409 ? 'bi.reload' : 'bi.failed') }
 
 async function load(nextPage = 1) {
-  const current = generation
+  const current = ++loadGeneration
   loading.value = true
   error.value = ''
   try {
     const result = await listGrants(props.organizationId, nextPage)
-    if (current !== generation) return
+    if (current !== loadGeneration) return
     grants.value = nextPage === 1 ? result.items : [...grants.value, ...result.items]
     page.value = result.page
     hasMore.value = result.has_more
     capabilities.value = result.capabilities
-  } catch (cause) { if (current === generation) error.value = message(cause) }
-  finally { if (current === generation) loading.value = false }
+  } catch (cause) { if (current === loadGeneration) error.value = message(cause) }
+  finally { if (current === loadGeneration) loading.value = false }
 }
 
 function openEditor(grant?: BIGrant) {
@@ -142,9 +143,15 @@ async function revoke() {
 
 watch(() => props.organizationId, async () => {
   const current = ++generation
+  ++loadGeneration
+  loading.value = false
+  enabled.value = false
   editing.value = false
   revokeTarget.value = null
   grants.value = []
+  capabilities.value = []
+  page.value = 1
+  hasMore.value = false
   error.value = ''
   try {
     const available = await isBIEnabled()

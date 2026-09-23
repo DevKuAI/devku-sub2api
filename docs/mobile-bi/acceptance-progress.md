@@ -5,6 +5,9 @@
 ## 已执行的本地验证
 
 - `TestBIRoutesMatchEveryVersion110OperationAndProtectBearerRoutes`：59 个 operation 的方法/路径与 OpenAPI 对齐，Bearer 入口拒绝未认证请求。
+- `TestBIAdminRoutesMatchSupplementalOpenAPI`、`TestBIAdminResponsesMatchSupplementalOpenAPI`：补充的 3 个原站授权操作与路由对齐；实际列表、保存、撤销及参数/并发错误响应通过补充文档 Schema 校验。
+- `TestBIConfigLoadsEveryEnvironmentSetting`：全部 9 个环境配置字段经实际 Load 流程正确加载。四套 Compose 的默认/自定义两组配置渲染均通过，既有 application environment/security/storage 检查通过。
+- 两份 OpenAPI 均通过 OpenAPI 3.1 规范校验，共 62 个唯一操作；主文档实现状态已更新为 implemented-local，配套文档和配置入口见 [文档索引](./README.md)。
 - `TestEmbeddedSchemasMatchOpenAPIVersion110` 及响应校验：嵌入 Schema 与交接契约一致；分析、内容、报告的实际 HTTP 响应通过对应 Schema 校验。
 - `TestBindingApprovalRaceAndOneTimeExchange`、`TestWeChatCodeReplayAndUnlinkInvalidatesOutstandingChallenges`、`TestRefreshRaceRevokesFamilyAndLogoutIsImmediate`：绑定争用、一次性兑换、code 重放、解绑和 refresh 并发。
 - `TestGrantsAreExplicitScopedAndRevokeImmediately`、`TestAnalysisContextIsImmutableAndNeverWidens`：企业授权隔离、Context 所属用户/企业校验、撤权与过期、固定 data revision。
@@ -24,10 +27,19 @@
 - `TestAcceptanceP11CachedPagesRecheckSourceAndKnowledgeRestrictions`：来源 ACL 已收紧、业务 revision 尚未发布时，旧评估样本分页返回 403，重读仅保留可见样本；知识撤权后旧搜索分页同样拒绝。
 - `TestAcceptanceP12ConnectorCannotCrossSourceOrganizationOrManageGrants`：实际 ConnectorBearer 的跨 source/企业请求、未允许的记录类型和管理授权导入被拒绝；越界 namespace 全批拒绝且不推进 checkpoint；凭证轮换不能扩权。
 - `TestAcceptanceP18ConcurrentImportAdmissionHasOneBatch`：8 个同时开始的请求，不同幂等键仅一个受理，其余 IMPORT_BUSY；相同键均返回同一批次，仅发布一个 revision。
-- 2026-09-23，日聚合、权限修复及新增 A/P 用例合入当前工作区后，重新执行完整后端 `env -u OPENAI_API_KEY make test-unit`、`env -u OPENAI_API_KEY make test-integration`，均通过；本轮全仓 `golangci-lint run ./...` 为 0 issues。
-- 原站相关 39 个前端测试、typecheck、lint 和 build 已通过；完整前端测试为 324 个文件、2,417 项测试通过。全仓 golangci-lint 和后端 build 也已通过。
+- `TestRejectedImportDiscardsUnpublishedProjectionsAndPreservesDenials`：在 staged 和 built 阶段模拟不可恢复失败，未发布投影与记录回执均被清理；拒绝覆盖层继续生效，原 checkpoint 和旧 Context 保持，新键修复重放可成功。
+- 原站 BI 组件新增 4 项可控异步回归：绑定撤销后的迟到成功/错误，以及同企业授权保存/撤销后的旧列表读取；定向 9 项测试、ESLint 和 typecheck 通过。
+- `TestUsageCorrectionsRevalidatePublishedRatings`、`TestUsageCorrectionUsesFinalRatingAndKeepsOldContext`：人员、actor 和时间修订不能保留失效评价；同批修复/撤回可以通过，旧 Context 不变。
+- `TestUsageTimeCorrectionRevalidatesReferencesAndRetries`、`TestUsageTimeCorrectionRespectsSameBatchClosedAndRetractedVersion`：事件时间修订重验知识版本有效期和重试顺序；同批关闭并撤回版本也不能绕过有效期。
+- `TestUsageCorrectionsPreserveRetractionsAndClosedVersionHistory`、`TestUsageCorrectionCannotRewriteAnotherSourcesRating`：Token 修正、正常生命周期关闭和调用撤回保留约定语义；跨来源只能修复自己拥有的记录。
+- 2026-09-23，本次修复后以 `env -u OPENAI_API_KEY GOTOOLCHAIN=go1.27.0` 运行完整后端 `make test-unit`、`make test-integration`、server/bi-connector build 及全仓 `golangci-lint run ./...`，均通过，lint 为 0 issues。
+- 前端使用 pnpm 9 重新执行完整测试和 build：324 个文件、2,421 项测试通过；修改文件的 ESLint 和前端 typecheck 通过。
 
-测试均为本地结果，当前 Go 为 1.27.1，golangci-lint 为 2.13.0；远端 CI 尚未执行。前端沿用本任务此前完整验证结果，本轮后端增量未改动前端。
+上述结果均为本地验证。后端使用 Go 1.27.0，与仓库 CI 固定版本一致；golangci-lint 为 2.13.0。此前的 10,000 条调用容量基线使用 Go 1.27.1，属于前一轮证据；远端 CI 尚未执行。
+
+本次代码复核的范围、两个审查方向及修复结果见 [复核记录](./review-2026-09-23.md)。
+
+已补充 [测试企业与联调操作说明](./integration-runbook.md)，包含配置、显式授权、微信绑定、导入、修订恢复和验收留证步骤。路径、配置键及 CLI 选项按当前实现核对；真实环境尚未按该说明执行。
 
 ## 原验收项覆盖情况
 

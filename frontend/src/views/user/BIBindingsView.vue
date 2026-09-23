@@ -64,6 +64,7 @@ const notice = ref('')
 const bindings = ref<BIBinding[]>([])
 const nextCursor = ref<string | null>(null)
 const revokeTarget = ref<BIBinding | null>(null)
+let loadGeneration = 0
 
 function reportError(cause: unknown) {
   const code = (cause as { code?: string; reason?: string }).code || (cause as { reason?: string }).reason
@@ -71,14 +72,16 @@ function reportError(cause: unknown) {
 }
 
 async function load(append: boolean) {
-  if (loading.value) return
+  const current = ++loadGeneration
   loading.value = true
   error.value = ''
   try {
     const page = await listBindings(append ? nextCursor.value || undefined : undefined)
+    if (current !== loadGeneration) return
     bindings.value = append ? [...bindings.value, ...page.items] : page.items
     nextCursor.value = page.next_cursor
-  } catch (cause) { reportError(cause) } finally { loading.value = false }
+  } catch (cause) { if (current === loadGeneration) reportError(cause) }
+  finally { if (current === loadGeneration) loading.value = false }
 }
 
 async function approve() {

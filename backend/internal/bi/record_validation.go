@@ -43,6 +43,18 @@ func (v *batchView) validateRecords() ([]ImportError, error) {
 			return nil, err
 		}
 	}
+	for _, r := range v.updates {
+		if r.Kind != "usage" || r.Deleted {
+			continue
+		}
+		if err := v.validateUsageDependents(r); err != nil {
+			var typed *recordError
+			if errors.As(err, &typed) {
+				return recordImportError(r, err), nil
+			}
+			return nil, err
+		}
+	}
 	return nil, nil
 }
 
@@ -230,8 +242,81 @@ func (v *batchView) validateUsage(r *record) error {
 		if err != nil {
 			return err
 		}
-		if previous.ID == r.ID || previous.instant("occurred_at") == nil || !previous.instant("occurred_at").Before(*at) {
-			return errRecord("INVALID_REFERENCE", "Retry must refer to an earlier attempt")
+		if err := validateRetryOrder(r, previous); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateRetryOrder(retry, previous *record) error {
+	at, before := retry.instant("occurred_at"), previous.instant("occurred_at")
+	if retry.ID == previous.ID || at == nil || before == nil || !before.Before(*at) {
+		return errRecord("INVALID_REFERENCE", "Retry must refer to an earlier attempt")
+	}
+	return nil
+}
+
+// Corrections must preserve the constraints of existing records owned by any source.
+// Retractions keep their historical dependents, while same-batch replacements use
+// the final pending view and never rewrite another source's records implicitly.
+func (v *batchView) validateUsageDependents(usage *record) error {
+	previous, err := v.published(usage.recordKey)
+	if err != nil || previous == nil {
+		return err
+	}
+	identityChanged := usage.str("actor_type") != previous.str("actor_type") || usage.str("member_id") != previous.str("member_id")
+	before, after := previous.instant("occurred_at"), usage.instant("occurred_at")
+	timeChanged := before == nil || after == nil || !before.Equal(*after)
+	if !identityChanged && !timeChanged {
+		return nil
+	}
+	ratings, err := v.related("rating", "usage_event_id", usage.ID)
+	if err != nil {
+		return err
+	}
+	for _, rating := range ratings {
+		if err := validateRatingInteraction(rating, usage, v.now); err != nil {
+			return err
+		}
+	}
+	if !timeChanged {
+		return nil
+	}
+	references, err := v.related("reference", "usage_event_id", usage.ID)
+	if err != nil {
+		return err
+	}
+	for _, reference := range references {
+		version, err := v.get("knowledge_version", reference.str("knowledge_version_id"))
+		if err != nil {
+			return err
+		}
+		// A retracted version remains historical evidence; its original validity
+		// still constrains a corrected event time.
+		version, err = v.historicalContent(recordKey{"knowledge_version", reference.str("knowledge_version_id")}, version)
+		if err != nil {
+			return err
+		}
+		// A lifecycle close followed by a tombstone in this batch must still
+		// constrain corrected events; the published version may still be open.
+		for _, pending := range v.receipts {
+			if pending.Kind == "knowledge_version" && pending.ID == reference.str("knowledge_version_id") && !pending.Deleted &&
+				(version == nil || compareRevision(pending.Revision, version.Revision) > 0) {
+				version = pending
+			}
+		}
+		if err := validateReferenceTime(usage, version); err != nil {
+			return err
+		}
+	}
+	retries, err := v.related("usage", "retry_of", usage.ID)
+	if err != nil {
+		return err
+	}
+	for _, retry := range retries {
+		if err := validateRetryOrder(retry, usage); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -242,11 +327,8 @@ func (v *batchView) validateRating(r *record) error {
 	if err != nil {
 		return err
 	}
-	if usage.str("actor_type") != "human" || usage.str("member_id") != r.str("member_id") {
-		return errRecord("INVALID_IDENTITY", "Rating does not belong to the human interaction")
-	}
-	if rated, occurred := r.instant("rated_at"), usage.instant("occurred_at"); rated == nil || occurred == nil || rated.Before(*occurred) || rated.After(v.now.Add(5*time.Minute)) {
-		return errRecord("INVALID_INTERVAL", "Invalid rating time")
+	if err := validateRatingInteraction(r, usage, v.now); err != nil {
+		return err
 	}
 	others, err := v.related("rating", "usage_event_id", usage.ID)
 	if err != nil {
@@ -260,6 +342,16 @@ func (v *batchView) validateRating(r *record) error {
 	return nil
 }
 
+func validateRatingInteraction(rating, usage *record, now time.Time) error {
+	if usage.str("actor_type") != "human" || usage.str("member_id") != rating.str("member_id") {
+		return errRecord("INVALID_IDENTITY", "Rating does not belong to the human interaction")
+	}
+	if rated, occurred := rating.instant("rated_at"), usage.instant("occurred_at"); rated == nil || occurred == nil || rated.Before(*occurred) || rated.After(now.Add(5*time.Minute)) {
+		return errRecord("INVALID_INTERVAL", "Invalid rating time")
+	}
+	return nil
+}
+
 func (v *batchView) validateReference(r *record) error {
 	usage, err := v.reference("usage", r.str("usage_event_id"))
 	if err != nil {
@@ -268,6 +360,13 @@ func (v *batchView) validateReference(r *record) error {
 	version, err := v.reference("knowledge_version", r.str("knowledge_version_id"))
 	if err != nil {
 		return err
+	}
+	return validateReferenceTime(usage, version)
+}
+
+func validateReferenceTime(usage, version *record) error {
+	if version == nil {
+		return errRecord("INVALID_REFERENCE", "A referenced entity is unavailable")
 	}
 	at, start, end := usage.instant("occurred_at"), version.instant("valid_from"), version.instant("valid_to")
 	if at == nil || start == nil || at.Before(*start) || (end != nil && !at.Before(*end)) {

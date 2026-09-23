@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: 得酷企业AI管理小程序 API
   version: 1.1.0
-  description: 拟新增设计契约，非已上线服务。业务说明见protocol.md。接口只使用相对路径，部署域名由环境配置，不包含真实凭证。
+  description: API v1.1.0 已在本地实现并通过契约核验，尚未完成真实环境联调或上线验收。实施与操作说明见 implementation.md 和 integration-runbook.md；原 protocol.md 尚未随交接提供。接口使用相对路径，部署域名由环境配置，不包含真实凭证。
 servers:
 - url: /
   description: 与企业服务同源的相对地址；生产需合法HTTPS域名。
@@ -33,7 +33,7 @@ paths:
       - 启动
       security: []
       x-capability: public
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 读取公开启动信息成功响应
@@ -88,7 +88,7 @@ paths:
       - 身份
       security: []
       x-capability: public
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 微信登录或开始绑定成功响应
@@ -164,7 +164,7 @@ paths:
       security:
       - Sub2apiBearer: []
       x-capability: existing_manager
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 管理账号确认微信绑定成功响应
@@ -220,7 +220,7 @@ paths:
       - 身份
       security: []
       x-capability: public
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 小程序完成绑定并登录成功响应
@@ -308,7 +308,7 @@ paths:
       - 身份
       security: []
       x-capability: refresh_token
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 轮换当前会话成功响应
@@ -382,7 +382,7 @@ paths:
       - 身份
       security: []
       x-capability: refresh_token
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 退出并撤销当前会话成功响应
@@ -438,7 +438,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: self
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '204':
           description: 解除当前微信绑定成功响应
@@ -478,7 +478,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: self
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 读取当前管理者成功响应
@@ -536,7 +536,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: self
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 选择授权企业成功响应
@@ -610,7 +610,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: analytics:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 读取授权筛选项成功响应
@@ -695,7 +695,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: analytics:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 查看来源新鲜度成功响应
@@ -748,7 +748,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: analytics:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 查看统计口径成功响应
@@ -810,7 +810,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: analytics:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '201':
           description: 创建周期和范围快照成功响应
@@ -901,7 +901,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: analytics:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 恢复分析上下文成功响应
@@ -985,7 +985,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: analytics:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 读取企业总览成功响应
@@ -1144,7 +1144,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: analytics:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 读取采用频率与留存成功响应
@@ -1300,7 +1300,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: analytics:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 读取Token与模型构成成功响应
@@ -1389,7 +1389,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: analytics:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 读取反馈分析成功响应
@@ -1468,7 +1468,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: knowledge:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 读取知识积累指标成功响应
@@ -1535,7 +1535,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: analytics:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 切换及查看趋势成功响应
@@ -1603,7 +1603,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: analytics:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 比较部门或岗位成功响应
@@ -1764,7 +1764,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: analytics:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 读取团队详情成功响应
@@ -2014,7 +2014,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: members:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 搜索及分页成员成功响应
@@ -2093,7 +2093,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: members:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 读取成员使用详情成功响应
@@ -2176,7 +2176,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: analytics:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 读取应用列表成功响应
@@ -2336,7 +2336,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: analytics:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 读取应用详情成功响应
@@ -2486,7 +2486,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: analytics:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 读取场景列表成功响应
@@ -2637,7 +2637,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: analytics:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 读取场景详情成功响应
@@ -2784,7 +2784,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: knowledge:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 读取知识及待更新列表成功响应
@@ -2866,7 +2866,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: knowledge:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 读取知识及周期引用成功响应
@@ -2950,7 +2950,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: knowledge:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 分页知识版本历史成功响应
@@ -3015,7 +3015,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: knowledge:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 追溯实际引用版本成功响应
@@ -3082,7 +3082,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: knowledge:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 查找业务案例成功响应
@@ -3149,7 +3149,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: knowledge:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 读取案例问题过程结果成功响应
@@ -3221,7 +3221,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: sources:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 读取授权来源证据成功响应
@@ -3295,7 +3295,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: evaluations:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 查找应用质量评估成功响应
@@ -3363,7 +3363,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: evaluations:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 读取版本比较条件和成绩成功响应
@@ -3440,7 +3440,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: evaluations:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 查看失败样本与来源成功响应
@@ -3522,7 +3522,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: knowledge:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 统一检索知识案例应用成功响应
@@ -3602,7 +3602,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: knowledge:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 读取个人收藏成功响应
@@ -3668,7 +3668,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: knowledge:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 收藏知识成功响应
@@ -3722,7 +3722,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: self
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '204':
           description: 取消收藏成功响应
@@ -3771,7 +3771,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: knowledge:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 读取个人补充反馈成功响应
@@ -3832,7 +3832,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: knowledge:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 保存或更新个人反馈成功响应
@@ -3921,7 +3921,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: self
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '204':
           description: 清除个人补充反馈成功响应
@@ -3981,7 +3981,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: reports:create
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '202':
           description: 生成本期简报快照成功响应
@@ -4055,7 +4055,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: reports:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 回看历史简报成功响应
@@ -4118,7 +4118,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: reports:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 读取简报生成状态与内容成功响应
@@ -4216,7 +4216,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: reports:copy
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 取得可复制简报全文成功响应
@@ -4274,7 +4274,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: reports:share
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 回看历史简报成功响应
@@ -4359,7 +4359,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: reports:share
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '201':
           description: 生成微信分享定位卡片成功响应
@@ -4439,7 +4439,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: reports:share
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '204':
           description: 撤销本人创建的分享成功响应
@@ -4488,7 +4488,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: reports:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 登录后读取获权分享报告成功响应
@@ -4584,7 +4584,7 @@ paths:
       security:
       - ConnectorBearer: []
       x-capability: ingestion:write
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '202':
           description: 批量接收标准业务事实成功响应
@@ -4684,7 +4684,7 @@ paths:
       security:
       - ConnectorBearer: []
       x-capability: ingestion:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 查询批次应用结果成功响应
@@ -4742,7 +4742,7 @@ paths:
       security:
       - ConnectorBearer: []
       x-capability: ingestion:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 恢复增量同步游标成功响应
@@ -4799,7 +4799,7 @@ paths:
       security:
       - MobileBearer: []
       x-capability: knowledge:read
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 分页知识版本历史成功响应
@@ -4860,7 +4860,7 @@ paths:
       security:
       - Sub2apiBearer: []
       x-capability: existing_manager
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '200':
           description: 选择授权企业成功响应
@@ -4933,7 +4933,7 @@ paths:
       security:
       - Sub2apiBearer: []
       x-capability: existing_manager
-      x-implementation-status: proposed
+      x-implementation-status: implemented-local
       responses:
         '204':
           description: 解除当前微信绑定成功响应

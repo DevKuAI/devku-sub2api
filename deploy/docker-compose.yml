@@ -150,6 +150,17 @@ services:
       - DESKTOP_UPDATE_STORAGE_PUBLIC_BASE_URL=${DESKTOP_UPDATE_STORAGE_PUBLIC_BASE_URL:-}
       - DESKTOP_UPDATE_STORAGE_MAX_UPLOAD_BYTES=${DESKTOP_UPDATE_STORAGE_MAX_UPLOAD_BYTES:-209715200}
 
+      # Enterprise BI mini-program (disabled by default)
+      - BI_ENABLED=${BI_ENABLED:-false}
+      - BI_APPID=${BI_APPID:-}
+      - BI_APP_SECRET=${BI_APP_SECRET:-}
+      - BI_JWT_SECRET=${BI_JWT_SECRET:-}
+      - BI_IDENTITY_SECRET=${BI_IDENTITY_SECRET:-}
+      - BI_PRIVACY_NOTICE_URL=${BI_PRIVACY_NOTICE_URL:-}
+      - BI_PRIVACY_NOTICE_VERSION=${BI_PRIVACY_NOTICE_VERSION:-}
+      - BI_MIN_CLIENT_VERSION=${BI_MIN_CLIENT_VERSION:-0.1.0}
+      - BI_REPORT_RETENTION_MONTHS=${BI_REPORT_RETENTION_MONTHS:-24}
+
       # =======================================================================
       # Setup Configuration
       # =======================================================================

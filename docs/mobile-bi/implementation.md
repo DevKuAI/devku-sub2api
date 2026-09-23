@@ -2,7 +2,7 @@
 
 本目录的六份原始交接文件来自用户提供的 `devku mobile api文档.zip`。原件缺少 `protocol.md`、`examples.json`、`contract-cases.json`、`interaction-map.md`、校验脚本和校验报告，不能把这些文件视为已取得。补充材料及真实数据源文档已在任务中询问。
 
-五份 Markdown 与压缩包原件逐字节一致。`openapi.yaml` 仅修正导入操作的 Idempotency-Key 描述：由“用户/企业/operationId，保留 24h”改为“企业/source/operationId/key，凭证轮换不改变幂等域，实体 revision 长期去重”，与原 `ingestion-and-history.md` 的明确约定一致。其余路径、字段和 Schema 未改动；`MetricDefinition.unit` 的待确认枚举也未扩充。
+五份 Markdown 与压缩包原件逐字节一致。`openapi.yaml` 修正了导入操作的 Idempotency-Key 描述，使其与原采集协议的企业/source 幂等域一致；实现状态更新为 `implemented-local`，文档首部注明本地实现与真实验收的边界。其余路径、字段和 Schema 未改动；`MetricDefinition.unit` 的待确认枚举也未扩充。原站新增 3 个授权操作单独记录在 `admin.openapi.json`。
 
 ## 交付边界
 
@@ -13,6 +13,8 @@
 - API v1.1.0 的 59 个操作均已接入路由；路由与 OpenAPI 的方法/路径逐项对齐，所有 Bearer 入口的未认证请求返回 401。
 - 身份：独立 audience、微信绑定审批/兑换、可撤销会话、refresh 轮换与重放检测、企业授权，以及原站绑定与授权管理页面。
 - 采集：17 类记录、长期版本去重、checkpoint 冲突、单 source 在途约束、worker 租约隔离、outbox 与原子发布；ACL 拒绝覆盖层在读取视图构建失败后仍有效。
+- 失败清理：批次转为 rejected 时，在同一事务清理未发布的实体版本、调用事实、日聚合、来源关联、outbox 和记录级回执；保留批次受理回执、revision 元数据及 ACL 拒绝覆盖层。旧 Context 与已发布事实不受影响，新幂等键可修复重放。
+- 修订依赖：调用人员、actor 或时间发生修订时，按批次最终视图重验已有评价、知识引用及重试顺序；冲突整批拒绝且不推进 checkpoint。同来源可在同批修复或撤回关联记录，跨来源由各自拥有者处理。知识有效期关闭及其后撤回的历史约束仍会参与事件时间修订校验。
 - 分析：冻结 Context、自然周期、期末可使用人员、事件归属 Token、稳定使用、首次队列留存、频率、趋势、团队/岗位/成员/应用/场景，以及缺失数据的 null/partial 语义。留存观察同时检查 Membership 和实际调用的授权团队，范围外调用不能作为可观察证据。
 - 日聚合：按 Shanghai 日期、source、团队、actor、应用、场景和 requested model 汇总请求及 Token，随 data revision 原子发布。更正日期或撤回最后一条事件时写入空日期标记，避免旧汇总重新出现；Context coverage 使用日聚合。活跃人数仍按人员去重，不相加每日人数。
 - 内容：知识与版本、案例、固定历史来源、评估样本、检索、引用、收藏及 ETag 条件更新的个人 note。note 不写入交互评分。
@@ -20,8 +22,8 @@
 - sub2api 适配：从企业历史 API Key 关联读取 UsageLog，保留稳定外部映射，避免因提交乱序漏掉较小的日志 ID；不复制密钥、手机号或请求正文，不猜测 actor、应用、场景或结果。
 - 临时状态：分批清理过期 refresh、session、绑定挑战、微信 code 摘要、Context、分页缓存及命令回执。已清理 Context 仍可通过绑定身份的签名 ID 返回 410，其他身份返回 404；报告归档不依赖临时 Context 行。
 - 读取与并发：内容接口按周期加载调用事实，先选事件 ID 再解析最新修订，避免修正到其他周期的旧事件重新计入；授权编辑按固定账号顺序加锁，交叉编辑企业授权不会形成相反锁顺序。
-- 已通过：BI PostgreSQL 集成测试、分析/内容/报告响应 Schema 校验、122 项分页数据测试、来源与分享撤权、note 并发更新、前端相关 39 个测试、前端 typecheck/lint/build，以及完整后端 unit 测试（移除可选实时测试凭证，按 CI 条件运行）。
-- 完整后端 integration、全仓 golangci-lint、后端 build、前端 lint/build 均通过；完整前端测试为 324 个文件、2,417 项测试通过。逐项业务与外部联调验收继续执行。
+- 原站列表：绑定审批/撤销和企业授权保存/撤销后的刷新可替代在途读取；迟到的旧响应或错误不能覆盖最新列表。切换企业同时清空列表、分页和可选 capability 状态。
+- 已取得的验证包括 BI PostgreSQL 集成测试、分析/内容/报告响应 Schema 校验、122 项分页、来源与分享撤权、note 并发、后端 unit/integration/lint/build 及前端验证。2026-09-23 继续复核后修复了暂存清理、调用修订依赖和原站旧请求覆盖问题；最新验证范围见 [验收进度](./acceptance-progress.md)。
 
 路由齐全不代表生产验收完成。真实微信/真机、外部组织/知识/评估生产者的适配和联调、容量目标及业务数据物理保留策略仍待材料和环境确认。尚未连接业务生产数据库、推送或部署；本地提交不代表生产验收完成。
 
@@ -40,6 +42,8 @@
 
 `bi.enabled` 默认 false。启用前必须提供 AppID、AppSecret、两份独立的 base64 密钥及真实 HTTPS 隐私说明 URL/版本。参见 `deploy/config.example.yaml` 的 `bi` 配置。新增迁移为 `242_bi_identity.sql` 至 `248_bi_daily_usage.sql`。
 
+全部 9 个服务配置项已同步至 `.env.example` 和四套 Compose 模板，默认值、环境覆盖及加载行为已核对；字段与固定值边界见 [配置参考](./configuration.md)。完整文档入口见 [文档索引](./README.md)。
+
 可重复执行的阶段验证：
 
 ```bash
@@ -53,6 +57,8 @@ env -u OPENAI_API_KEY go test -tags=integration ./internal/bi -count=1
 采集凭证由运维工具管理，不向小程序提供签发接口。配置 `BI_DATABASE_DSN` 后，使用 `go run ./cmd/bi-connector -operation issue -organization <企业 public_id> -source <稳定 source_id> -namespace <实体前缀> -kinds usage -ttl 24h` 签发。工具仅在签发时输出 bearer；数据库保存摘要。使用 `-operation revoke -id <credential_id>` 撤销。轮换凭证复用 source 与 namespace，不重置 checkpoint，也不能借轮换扩大来源允许的记录类型。
 
 验证证据、各验收项的覆盖范围和剩余条件记录在 [验收进度](./acceptance-progress.md)。后端测试清除 `OPENAI_API_KEY`，避免触发仓库中可选的外部实时对比测试。
+
+测试企业初始化、原站授权、微信绑定、采集和失败恢复步骤见 [联调操作说明](./integration-runbook.md)。说明依据当前路由与配置核对；真实环境执行结果仍待提供。
 
 ## 本地容量基线
 
@@ -83,7 +89,7 @@ cd backend
 go run ./cmd/bi-connector -operation sync-sub2api -since 2026-09-01T00:00:00Z -limit 500
 ```
 
-每次最多提交一批，得到 202 对应的任务信息后等待 applied/rejected，再读取下一批。该适配器应作为所选网关调用的唯一 usage producer；后续可信工作入口的身份/应用/场景归因应合并至相同 source 和稳定事件 ID，不能把相同调用另导一份。
+每次最多提交一批并输出任务 JSON；CLI 不启动 worker，也不返回 HTTP 状态。由已启用 BI 的服务处理任务，等待 applied/rejected 后再读取下一批。HTTP 导入接口受理批次时返回 202。该适配器应作为所选网关调用的唯一 usage producer；后续可信工作入口的身份/应用/场景归因应合并至相同 source 和稳定事件 ID，不能把相同调用另导一份。
 
 UsageLog.created_at 用作对账时间；requested_model 缺失时保留 unknown。明确 token 计费且具有非零测量桶的记录按 exclusive_buckets 导入；无法证实测量的全零记录与非 Token 媒体计费保留 unavailable。该日志并不覆盖全部失败尝试，因此导入维持 complete_through=null、initial_backfill_complete=false，不据此宣称完整请求历史或人员采用。
 

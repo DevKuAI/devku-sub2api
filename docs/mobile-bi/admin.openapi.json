@@ -1,0 +1,911 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "得酷 BI 原站授权管理 API",
+    "version": "1.1.0",
+    "description": "API v1.1.0 的 3 个原站管理配套操作。bi.enabled=true 时注册，复用原站管理员认证、审计、合规确认及面板限流。与 openapi.yaml 的 59 个小程序/采集操作分别导入。当前已本地实现，尚未完成真实环境验收。"
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "security": [
+    {
+      "AdminBearer": []
+    },
+    {
+      "AdminAPIKey": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "企业授权"
+    }
+  ],
+  "paths": {
+    "/api/v1/admin/bi/organizations/{organization_id}/grants": {
+      "parameters": [
+        {
+          "name": "organization_id",
+          "in": "path",
+          "required": true,
+          "description": "现有 Desktop 企业 public_id。",
+          "schema": {
+            "$ref": "#/components/schemas/Id"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "listBIManagerGrants",
+        "tags": [
+          "企业授权"
+        ],
+        "summary": "读取企业 BI 管理授权",
+        "description": "固定每页 50 条，按 manager_id 排序，包含已撤销授权。尚未建立 BI 映射的企业返回空列表，此结果不证明 Desktop 企业存在。",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000,
+              "default": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；保持原站响应 envelope。",
+            "headers": {
+              "X-Request-ID": {
+                "description": "到达 BI handler 后提供的诊断 ID。",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "到达 BI handler 后为 private, no-store。",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrantListResponse"
+                },
+                "example": {
+                  "code": 0,
+                  "message": "success",
+                  "data": {
+                    "items": [
+                      {
+                        "manager_id": "bim_test",
+                        "user_id": 12,
+                        "display_name": "测试管理者",
+                        "role": "viewer",
+                        "all_teams": false,
+                        "team_ids": [
+                          "hr:team-a"
+                        ],
+                        "capabilities": [
+                          "analytics:read"
+                        ],
+                        "revision": 1,
+                        "revoked": false
+                      }
+                    ],
+                    "page": 1,
+                    "has_more": false,
+                    "capabilities": [
+                      "analytics:read",
+                      "knowledge:read",
+                      "sources:read",
+                      "evaluations:read",
+                      "members:read",
+                      "reports:read",
+                      "reports:create",
+                      "reports:copy",
+                      "reports:share"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 不合法",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "原站认证失败，或目标账号已停用/删除",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "需要原站管理员身份",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "企业或授权对象不存在；BI 未启用时路由不注册",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "需先完成原站管理员合规确认",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "原站面板限流",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "saveBIManagerGrant",
+        "tags": [
+          "企业授权"
+        ],
+        "summary": "新建或更新显式 BI 授权",
+        "description": "目标原站账号须有效，Desktop 企业须 active。首次保存同时建立 BI 企业映射；角色名称不自动授予 capability。team_ids 和 capabilities 去重排序；all_teams=true 时 team_ids 必须为空。expected_revision 冲突返回 409。JSON 正文上限 8 KiB。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveGrant"
+              },
+              "example": {
+                "user_id": 12,
+                "role": "viewer",
+                "all_teams": false,
+                "team_ids": [
+                  "hr:team-a"
+                ],
+                "capabilities": [
+                  "analytics:read"
+                ],
+                "expected_revision": 0
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功；保持原站响应 envelope。",
+            "headers": {
+              "X-Request-ID": {
+                "description": "到达 BI handler 后提供的诊断 ID。",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "到达 BI handler 后为 private, no-store。",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrantResponse"
+                },
+                "example": {
+                  "code": 0,
+                  "message": "success",
+                  "data": {
+                    "manager_id": "bim_test",
+                    "user_id": 12,
+                    "display_name": "测试管理者",
+                    "role": "viewer",
+                    "all_teams": false,
+                    "team_ids": [
+                      "hr:team-a"
+                    ],
+                    "capabilities": [
+                      "analytics:read"
+                    ],
+                    "revision": 1,
+                    "revoked": false
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 不合法",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "原站认证失败，或目标账号已停用/删除",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "需要原站管理员身份",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "企业或授权对象不存在；BI 未启用时路由不注册",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "授权 revision 已变化，重新读取后再提交",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "BI 请求正文超过 8 KiB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "需先完成原站管理员合规确认",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "原站面板限流",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/bi/organizations/{organization_id}/grants/{manager_id}/revoke": {
+      "parameters": [
+        {
+          "name": "organization_id",
+          "in": "path",
+          "required": true,
+          "description": "现有 Desktop 企业 public_id。",
+          "schema": {
+            "$ref": "#/components/schemas/Id"
+          }
+        },
+        {
+          "name": "manager_id",
+          "in": "path",
+          "required": true,
+          "description": "列表返回的 BI manager_id，不是原站数字 user_id。",
+          "schema": {
+            "$ref": "#/components/schemas/Id"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "revokeBIManagerGrant",
+        "tags": [
+          "企业授权"
+        ],
+        "summary": "撤销企业 BI 管理授权",
+        "description": "发送当前 revision；撤销后 revision 增加，旧 Context/报告/分享重新校验权限。已撤销且 revision 仍匹配时返回成功；旧 revision 仍返回 409。JSON 正文上限 8 KiB。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevokeGrant"
+              },
+              "example": {
+                "expected_revision": 1
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功；保持原站响应 envelope。",
+            "headers": {
+              "X-Request-ID": {
+                "description": "到达 BI handler 后提供的诊断 ID。",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "到达 BI handler 后为 private, no-store。",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevokeGrantResponse"
+                },
+                "example": {
+                  "code": 0,
+                  "message": "success",
+                  "data": {
+                    "revoked": true
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 不合法",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "原站认证失败，或目标账号已停用/删除",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "需要原站管理员身份",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "企业或授权对象不存在；BI 未启用时路由不注册",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "授权 revision 已变化，重新读取后再提交",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "BI 请求正文超过 8 KiB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "需先完成原站管理员合规确认",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "原站面板限流",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "AdminBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "原站有效管理员 JWT，不接受 MobileBearer 或 ConnectorBearer。"
+      },
+      "AdminAPIKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key",
+        "description": "原站管理员 API Key，仅在服务端或受控运维工具使用。"
+      }
+    },
+    "schemas": {
+      "Id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128,
+        "pattern": "^[A-Za-z0-9_.:-]+$"
+      },
+      "Capability": {
+        "type": "string",
+        "enum": [
+          "analytics:read",
+          "knowledge:read",
+          "sources:read",
+          "evaluations:read",
+          "members:read",
+          "reports:read",
+          "reports:create",
+          "reports:copy",
+          "reports:share"
+        ]
+      },
+      "Role": {
+        "type": "string",
+        "enum": [
+          "org_admin",
+          "team_manager",
+          "viewer"
+        ]
+      },
+      "Grant": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "manager_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "user_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "all_teams": {
+            "type": "boolean"
+          },
+          "team_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "maxItems": 100
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Capability"
+            }
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "revoked": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "manager_id",
+          "user_id",
+          "display_name",
+          "role",
+          "all_teams",
+          "team_ids",
+          "capabilities",
+          "revision",
+          "revoked"
+        ]
+      },
+      "SaveGrant": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "user_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "all_teams": {
+            "type": "boolean",
+            "default": false
+          },
+          "team_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "maxItems": 100
+          },
+          "capabilities": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/Capability"
+            }
+          },
+          "expected_revision": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "首次为 0；修改使用刚读取的 revision。"
+          }
+        },
+        "required": [
+          "user_id",
+          "role",
+          "team_ids",
+          "capabilities",
+          "expected_revision"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "required": [
+                "all_teams"
+              ],
+              "properties": {
+                "all_teams": {
+                  "const": true
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "team_ids": {
+                  "maxItems": 0
+                }
+              }
+            }
+          }
+        ]
+      },
+      "RevokeGrant": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "expected_revision": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "expected_revision"
+        ]
+      },
+      "GrantResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "const": 0
+          },
+          "message": {
+            "const": "success"
+          },
+          "data": {
+            "$ref": "#/components/schemas/Grant"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "data"
+        ]
+      },
+      "GrantListResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "const": 0
+          },
+          "message": {
+            "const": "success"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "items": {
+                "type": "array",
+                "maxItems": 50,
+                "items": {
+                  "$ref": "#/components/schemas/Grant"
+                }
+              },
+              "page": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100000
+              },
+              "has_more": {
+                "type": "boolean"
+              },
+              "capabilities": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Capability"
+                }
+              }
+            },
+            "required": [
+              "items",
+              "page",
+              "has_more",
+              "capabilities"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "data"
+        ]
+      },
+      "RevokeGrantResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "const": 0
+          },
+          "message": {
+            "const": "success"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "revoked": {
+                "const": true
+              }
+            },
+            "required": [
+              "revoked"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "data"
+        ]
+      },
+      "AdminEnvelopeError": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "integer",
+            "minimum": 400,
+            "maximum": 599
+          },
+          "message": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ]
+      },
+      "MiddlewareError": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ]
+      },
+      "BIInputError": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "retryable": {
+            "type": "boolean"
+          },
+          "details": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "field": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "field",
+                "reason"
+              ]
+            }
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "request_id",
+          "retryable",
+          "details"
+        ]
+      },
+      "Error": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/AdminEnvelopeError"
+          },
+          {
+            "$ref": "#/components/schemas/MiddlewareError"
+          },
+          {
+            "$ref": "#/components/schemas/BIInputError"
+          }
+        ],
+        "description": "成功与业务错误沿用原站 envelope。原站鉴权/合规/限流可能返回字符串 code；BI JSON 解码错误使用 BIInputError。消费者应先判断 HTTP 状态及 code 类型。"
+      }
+    }
+  }
+}
