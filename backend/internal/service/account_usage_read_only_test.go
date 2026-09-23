@@ -54,6 +54,7 @@ func TestAccountUsageServiceReadOnlyOpenAIUsageDoesNotProbeOrPersist(t *testing.
 		nil,
 		NewOpenAITokenProvider(repo, tokenCache, nil),
 		newQuotaRedirectingFactory(server),
+		nil,
 	)
 	usageService := &AccountUsageService{
 		accountRepo:        repo,

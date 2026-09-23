@@ -1,5 +1,5 @@
-import { flushPromises, mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import UserApiKeysModal from '../UserApiKeysModal.vue'
 
@@ -67,6 +67,8 @@ const mountAndOpen = async () => {
   return wrapper
 }
 
+enableAutoUnmount(afterEach)
+
 describe('UserApiKeysModal', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -90,5 +92,67 @@ describe('UserApiKeysModal', () => {
     await groupButtons[1].trigger('click')
     expect((wrapper.vm as any).groupSelectorKeyId).toBe(2)
     expect(updateApiKeyGroup).not.toHaveBeenCalled()
+  })
+})
+
+function deferred() {
+  let resolve!: (value: unknown) => void
+  let reject!: (error: Error) => void
+  const promise = new Promise((res, rej) => { resolve = res; reject = rej })
+  return { promise, resolve, reject }
+}
+const user = (id: number) => ({ id, email: `user${id}@example.com`, username: `user${id}` }) as any
+const keys = (id: number, name: string) => ({ items: [{ id, name, key: 'sk-example-key-value-for-tests', status: 'active', created_at: '2026-09-20', group_id: null }] })
+
+async function switchUser(wrapper: Awaited<ReturnType<typeof mountAndOpen>>) {
+  await wrapper.setProps({ show: false })
+  await wrapper.setProps({ show: true, user: user(2) })
+}
+
+describe('user API key loading', () => {
+  beforeEach(() => {
+    getUserApiKeys.mockReset()
+    getAllGroups.mockResolvedValue([])
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+  afterEach(() => vi.restoreAllMocks())
+  it('does not display the previous user keys when the next load fails', async () => {
+    getUserApiKeys.mockResolvedValueOnce(keys(1, 'first-user-key')).mockRejectedValueOnce(new Error('unavailable'))
+    const wrapper = await mountAndOpen(); await flushPromises()
+    expect(wrapper.text()).toContain('first-user-key')
+    await switchUser(wrapper); await flushPromises()
+    expect(wrapper.text()).toContain('user2@example.com')
+    expect(wrapper.text()).not.toContain('first-user-key')
+  })
+
+  it('does not replace current keys with a late previous response', async () => {
+    const old = deferred()
+    getUserApiKeys.mockReturnValueOnce(old.promise).mockResolvedValueOnce(keys(2, 'current-user-key'))
+    const wrapper = await mountAndOpen()
+    await switchUser(wrapper); await flushPromises()
+    old.resolve(keys(1, 'old-user-key')); await flushPromises()
+    expect(wrapper.text()).toContain('current-user-key')
+    expect(wrapper.text()).not.toContain('old-user-key')
+  })
+
+  it('keeps the current request loading when an obsolete request fails', async () => {
+    const old = deferred(); const current = deferred()
+    getUserApiKeys.mockReturnValueOnce(old.promise).mockReturnValueOnce(current.promise)
+    const wrapper = await mountAndOpen()
+    await switchUser(wrapper)
+    old.reject(new Error('obsolete')); await flushPromises()
+    expect(wrapper.find('.animate-spin').exists()).toBe(true)
+    current.resolve(keys(2, 'current-user-key')); await flushPromises()
+    expect(wrapper.text()).toContain('current-user-key')
+    expect(wrapper.find('.animate-spin').exists()).toBe(false)
+  })
+
+  it('loads keys when the selected user changes while the dialog is open', async () => {
+    getUserApiKeys.mockResolvedValueOnce(keys(1, 'first-user-key')).mockResolvedValueOnce(keys(2, 'second-user-key'))
+    const wrapper = await mountAndOpen(); await flushPromises()
+    await wrapper.setProps({ user: user(2) }); await flushPromises()
+    expect(getUserApiKeys).toHaveBeenLastCalledWith(2)
+    expect(wrapper.text()).toContain('second-user-key')
+    expect(wrapper.text()).not.toContain('first-user-key')
   })
 })

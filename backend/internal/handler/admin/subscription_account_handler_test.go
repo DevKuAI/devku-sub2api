@@ -91,6 +91,7 @@ func TestSubscriptionQuotaRefreshReturnsOnlyCreditsAndExpiry(t *testing.T) {
 	quota.queryResult.UserID = "private-user"
 	quota.queryResult.AccountID = "private-account"
 	quota.queryResult.Email = "private@example.test"
+	quota.queryResult.Credits = &service.OpenAICredits{HasCredits: true, Unlimited: true}
 	quota.queryResult.RateLimitResetCredits = &service.OpenAIRateLimitResetCredits{
 		AvailableCount: 2,
 		Credits:        []service.OpenAIRateLimitResetCreditDetail{{ExpiresAt: "2099-10-04T01:56:00Z"}, {ExpiresAt: "2099-10-05T01:56:00Z"}},

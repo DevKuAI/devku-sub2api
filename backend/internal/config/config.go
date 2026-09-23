@@ -97,6 +97,7 @@ type Config struct {
 	UsageCleanup            UsageCleanupConfig            `mapstructure:"usage_cleanup"`
 	Concurrency             ConcurrencyConfig             `mapstructure:"concurrency"`
 	TokenRefresh            TokenRefreshConfig            `mapstructure:"token_refresh"`
+	SimpleMode              SimpleModeConfig              `mapstructure:"simple_mode" yaml:"simple_mode"`
 	RunMode                 string                        `mapstructure:"run_mode" yaml:"run_mode"`
 	Timezone                string                        `mapstructure:"timezone"` // e.g. "Asia/Shanghai", "UTC"
 	Gemini                  GeminiConfig                  `mapstructure:"gemini"`
@@ -108,6 +109,9 @@ type Config struct {
 	Plugins                 PluginConfig                  `mapstructure:"plugins"`
 	Desktop                 DesktopConfig                 `mapstructure:"desktop"`
 	BI                      BIConfig                      `mapstructure:"bi"`
+
+	// Enforce only API-key spending windows in simple mode.
+	SimpleModeKeyRateLimitEnabled bool `mapstructure:"simple_mode_key_rate_limit_enabled" yaml:"simple_mode_key_rate_limit_enabled"`
 }
 
 // DesktopConfig controls the isolated Desktop authentication domain.
@@ -142,6 +146,11 @@ type DesktopUpdateStorageConfig struct {
 func (c *DesktopUpdateStorageConfig) IsConfigured() bool {
 	return c != nil && c.Endpoint != "" && c.Bucket != "" && c.AccessKeyID != "" &&
 		c.SecretAccessKey != "" && c.PublicBaseURL != ""
+}
+
+// SimpleModeConfig controls startup behavior in simple mode.
+type SimpleModeConfig struct {
+	AutoCreateDefaultGroups bool `mapstructure:"auto_create_default_groups" yaml:"auto_create_default_groups"`
 }
 
 // PluginConfig 控制管理员手动上传的本地进程插件。
@@ -2046,6 +2055,8 @@ func setDefaults() {
 	viper.SetDefault("desktop.login_organization_per_minute", 30)
 	viper.SetDefault("desktop.login_phone_failure_limit", 5)
 	viper.SetDefault("desktop.login_phone_freeze_minutes", 15)
+	viper.SetDefault("simple_mode.auto_create_default_groups", true)
+	viper.SetDefault("simple_mode_key_rate_limit_enabled", false)
 
 	// Server
 	viper.SetDefault("server.host", "0.0.0.0")
