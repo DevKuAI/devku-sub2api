@@ -566,7 +566,7 @@ func (h *Handler) AdminIssueCredential(c *gin.Context, actorID int64) {
 	if input.SourceID == "" {
 		input.SourceID = c.Param("source_id")
 	}
-	id, token, err := RegisterConnector(c.Request.Context(), h.service.db, ConnectorRegistration{OrganizationID: input.OrganizationID, SourceID: input.SourceID, Namespace: input.Namespace, AllowedKinds: input.AllowedKinds, ExpiresAt: input.ExpiresAt})
+	id, token, err := RegisterConnector(c.Request.Context(), h.service.db, ConnectorRegistration(input))
 	if err == nil {
 		err = h.service.insertSecurityEvent(c.Request.Context(), actorID, "connector.issue", id, input.OrganizationID, adminRequestID(c), nil)
 	}
