@@ -84,14 +84,14 @@ func RegisterBIRoutes(r *gin.Engine, h *bi.Handler, jwtAuth middleware.JWTAuthMi
 	h.Start()
 }
 
-func registerBIAdminRoutes(admin *gin.RouterGroup, h *handler.Handlers, cfg *config.Config) {
+func registerBIAdminRoutes(admin *gin.RouterGroup, h *handler.Handlers, cfg *config.Config, stepUpAuth middleware.StepUpAuthMiddleware) {
 	if cfg == nil || !cfg.BI.Enabled || h.BI == nil {
 		return
 	}
 	group := admin.Group("/bi/organizations/:organization_id/grants")
 	group.Use(bi.Headers)
 	group.GET("", h.BI.AdminListGrants)
-	group.PUT("", func(c *gin.Context) {
+	group.PUT("", gin.HandlerFunc(stepUpAuth), func(c *gin.Context) {
 		actor, ok := middleware.GetAuthSubjectFromContext(c)
 		if !ok {
 			bi.WriteError(c, bi.ErrUnauthenticated)
@@ -99,7 +99,7 @@ func registerBIAdminRoutes(admin *gin.RouterGroup, h *handler.Handlers, cfg *con
 		}
 		h.BI.AdminSaveGrant(c, actor.UserID)
 	})
-	group.POST("/:manager_id/revoke", func(c *gin.Context) {
+	group.POST("/:manager_id/revoke", gin.HandlerFunc(stepUpAuth), func(c *gin.Context) {
 		actor, ok := middleware.GetAuthSubjectFromContext(c)
 		if !ok {
 			bi.WriteError(c, bi.ErrUnauthenticated)
@@ -107,4 +107,106 @@ func registerBIAdminRoutes(admin *gin.RouterGroup, h *handler.Handlers, cfg *con
 		}
 		h.BI.AdminRevokeGrant(c, actor.UserID)
 	})
+
+	biAdmin := admin.Group("/bi")
+	biAdmin.GET("/overview", h.BI.AdminOverview)
+	biAdmin.GET("/retention", h.BI.AdminGetRetention)
+	biAdmin.PUT("/retention", gin.HandlerFunc(stepUpAuth), func(c *gin.Context) {
+		actor, ok := middleware.GetAuthSubjectFromContext(c)
+		if !ok {
+			middleware.AbortWithError(c, 401, "UNAUTHORIZED", "Authentication required")
+			return
+		}
+		h.BI.AdminUpdateRetention(c, actor.UserID)
+	})
+	identities := biAdmin.Group("/identities")
+	identities.GET("/bindings", h.BI.AdminListBindings)
+	identities.GET("/challenges", h.BI.AdminListChallenges)
+	identities.GET("/sessions", h.BI.AdminListSessions)
+	identities.POST("/bindings/:binding_id/revoke", gin.HandlerFunc(stepUpAuth), func(c *gin.Context) {
+		actor, ok := middleware.GetAuthSubjectFromContext(c)
+		if !ok {
+			middleware.AbortWithError(c, 401, "UNAUTHORIZED", "Authentication required")
+			return
+		}
+		h.BI.AdminRevokeBinding(c, actor.UserID)
+	})
+	sources := biAdmin.Group("/sources")
+	sources.GET("", h.BI.AdminListSources)
+	sources.POST("", gin.HandlerFunc(stepUpAuth), func(c *gin.Context) {
+		actor, ok := middleware.GetAuthSubjectFromContext(c)
+		if !ok {
+			middleware.AbortWithError(c, 401, "UNAUTHORIZED", "Authentication required")
+			return
+		}
+		h.BI.AdminIssueCredential(c, actor.UserID)
+	})
+	sources.GET("/:source_id/credentials", h.BI.AdminListCredentials)
+	sources.POST("/:source_id/credentials", gin.HandlerFunc(stepUpAuth), func(c *gin.Context) {
+		actor, ok := middleware.GetAuthSubjectFromContext(c)
+		if !ok {
+			middleware.AbortWithError(c, 401, "UNAUTHORIZED", "Authentication required")
+			return
+		}
+		h.BI.AdminIssueCredential(c, actor.UserID)
+	})
+	credentials := biAdmin.Group("/credentials")
+	credentials.POST("/:credential_id/revoke", gin.HandlerFunc(stepUpAuth), func(c *gin.Context) {
+		actor, ok := middleware.GetAuthSubjectFromContext(c)
+		if !ok {
+			middleware.AbortWithError(c, 401, "UNAUTHORIZED", "Authentication required")
+			return
+		}
+		h.BI.AdminRevokeCredential(c, actor.UserID)
+	})
+	credentials.POST("/:credential_id/rotate", gin.HandlerFunc(stepUpAuth), func(c *gin.Context) {
+		actor, ok := middleware.GetAuthSubjectFromContext(c)
+		if !ok {
+			middleware.AbortWithError(c, 401, "UNAUTHORIZED", "Authentication required")
+			return
+		}
+		h.BI.AdminRotateCredential(c, actor.UserID)
+	})
+	imports := biAdmin.Group("/imports")
+	imports.GET("", h.BI.AdminListImports)
+	imports.GET("/:batch_id", h.BI.AdminGetImport)
+	imports.POST("/:batch_id/retry", gin.HandlerFunc(stepUpAuth), func(c *gin.Context) {
+		actor, ok := middleware.GetAuthSubjectFromContext(c)
+		if !ok {
+			middleware.AbortWithError(c, 401, "UNAUTHORIZED", "Authentication required")
+			return
+		}
+		h.BI.AdminRetryImport(c, actor.UserID)
+	})
+	biAdmin.GET("/quality", h.BI.AdminListQuality)
+	reports := biAdmin.Group("/reports")
+	reports.GET("", h.BI.AdminListReports)
+	reports.GET("/:report_id", h.BI.AdminGetReport)
+	reports.POST("/:report_id/retry", gin.HandlerFunc(stepUpAuth), func(c *gin.Context) {
+		actor, ok := middleware.GetAuthSubjectFromContext(c)
+		if !ok {
+			middleware.AbortWithError(c, 401, "UNAUTHORIZED", "Authentication required")
+			return
+		}
+		h.BI.AdminRetryReport(c, actor.UserID)
+	})
+	reports.POST("/:report_id/archive", gin.HandlerFunc(stepUpAuth), func(c *gin.Context) {
+		actor, ok := middleware.GetAuthSubjectFromContext(c)
+		if !ok {
+			middleware.AbortWithError(c, 401, "UNAUTHORIZED", "Authentication required")
+			return
+		}
+		h.BI.AdminArchiveReport(c, actor.UserID)
+	})
+	cleanup := biAdmin.Group("/cleanup")
+	cleanup.GET("", h.BI.AdminCleanupStatus)
+	cleanup.POST("/run", gin.HandlerFunc(stepUpAuth), func(c *gin.Context) {
+		actor, ok := middleware.GetAuthSubjectFromContext(c)
+		if !ok {
+			middleware.AbortWithError(c, 401, "UNAUTHORIZED", "Authentication required")
+			return
+		}
+		h.BI.AdminRunCleanup(c, actor.UserID)
+	})
+	biAdmin.GET("/audit", h.BI.AdminListAudit)
 }

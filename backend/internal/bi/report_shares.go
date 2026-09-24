@@ -121,7 +121,7 @@ func (s *Service) reportSummaries(ctx context.Context, p Principal, org string) 
 	if _, err := s.AuthorizeOrganization(ctx, p, org, "reports:read"); err != nil {
 		return nil, err
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT id FROM bi_reports WHERE organization_id=$1 AND expires_at>$2 ORDER BY created_at DESC,id`, org, s.now().UTC())
+	rows, err := s.db.QueryContext(ctx, `SELECT id FROM bi_reports WHERE organization_id=$1 AND expires_at>$2 AND status<>'archived' ORDER BY created_at DESC,id`, org, s.now().UTC())
 	if err != nil {
 		return nil, err
 	}

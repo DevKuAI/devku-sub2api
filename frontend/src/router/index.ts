@@ -458,6 +458,18 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/bi',
+    name: 'AdminBI',
+    component: () => import('@/views/admin/BIOperationsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'BI Operations',
+      titleKey: 'admin.bi.title',
+      descriptionKey: 'admin.bi.description'
+    }
+  },
+  {
     path: '/admin/audit-logs',
     name: 'AdminAuditLogs',
     component: () => import('@/views/admin/AuditLogView.vue'),

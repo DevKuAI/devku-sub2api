@@ -519,7 +519,37 @@
           }
         }
       }
-    }
+    },
+    "/api/v1/admin/bi/overview": { "get": { "operationId": "getBIMaintenanceOverview" } },
+    "/api/v1/admin/bi/retention": {
+      "get": { "operationId": "getBIRetentionPolicy" },
+      "put": { "operationId": "updateBIRetentionPolicy" }
+    },
+    "/api/v1/admin/bi/identities/bindings": { "get": { "operationId": "listBIBindings" } },
+    "/api/v1/admin/bi/identities/challenges": { "get": { "operationId": "listBIChallenges" } },
+    "/api/v1/admin/bi/identities/sessions": { "get": { "operationId": "listBISessions" } },
+    "/api/v1/admin/bi/identities/bindings/{binding_id}/revoke": { "post": { "operationId": "revokeBIBinding" } },
+    "/api/v1/admin/bi/sources": {
+      "get": { "operationId": "listBISources" },
+      "post": { "operationId": "issueBICredential" }
+    },
+    "/api/v1/admin/bi/sources/{source_id}/credentials": {
+      "get": { "operationId": "listBICredentials" },
+      "post": { "operationId": "issueBISourceCredential" }
+    },
+    "/api/v1/admin/bi/credentials/{credential_id}/revoke": { "post": { "operationId": "revokeBICredential" } },
+    "/api/v1/admin/bi/credentials/{credential_id}/rotate": { "post": { "operationId": "rotateBICredential" } },
+    "/api/v1/admin/bi/imports": { "get": { "operationId": "listBIImports" } },
+    "/api/v1/admin/bi/imports/{batch_id}": { "get": { "operationId": "getBIImport" } },
+    "/api/v1/admin/bi/imports/{batch_id}/retry": { "post": { "operationId": "retryBIImport" } },
+    "/api/v1/admin/bi/quality": { "get": { "operationId": "listBIQuality" } },
+    "/api/v1/admin/bi/reports": { "get": { "operationId": "listBIReports" } },
+    "/api/v1/admin/bi/reports/{report_id}": { "get": { "operationId": "getBIReport" } },
+    "/api/v1/admin/bi/reports/{report_id}/retry": { "post": { "operationId": "retryBIReport" } },
+    "/api/v1/admin/bi/reports/{report_id}/archive": { "post": { "operationId": "archiveBIReport" } },
+    "/api/v1/admin/bi/cleanup": { "get": { "operationId": "getBICleanupStatus" } },
+    "/api/v1/admin/bi/cleanup/run": { "post": { "operationId": "runBICleanup" } },
+    "/api/v1/admin/bi/audit": { "get": { "operationId": "listBIAuditEvents" } }
   },
   "components": {
     "securitySchemes": {

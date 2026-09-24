@@ -2,14 +2,17 @@ package bi
 
 import (
 	"context"
-	"time"
 )
 
 // CleanupEphemeralState removes expired credentials and read caches in bounded batches.
 // Business facts, content versions and audit history are not temporary caches.
 func (s *Service) CleanupEphemeralState(ctx context.Context) (int64, error) {
 	now := s.now().UTC()
-	cutoff := now.Add(-24 * time.Hour)
+	ephermeralDays := defaultEphemeralRetentionDays
+	if policy, err := s.retentionPolicy(ctx); err == nil && policy.EphemeralDays > 0 {
+		ephermeralDays = policy.EphemeralDays
+	}
+	cutoff := now.AddDate(0, 0, -ephermeralDays)
 	statements := []struct {
 		query string
 		args  []any

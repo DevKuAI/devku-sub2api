@@ -37,6 +37,7 @@ import adminComplianceAPI from './compliance'
 import auditAPI from './audit'
 import pluginsAPI from './plugins'
 import desktopAPI from './desktop'
+import biAdminAPI from './bi'
 
 /**
  * Unified admin API object for convenient access
@@ -75,7 +76,8 @@ export const adminAPI = {
   compliance: adminComplianceAPI,
   audit: auditAPI,
   plugins: pluginsAPI,
-  desktop: desktopAPI
+  desktop: desktopAPI,
+  bi: biAdminAPI
 }
 
 export {
@@ -112,7 +114,8 @@ export {
   adminComplianceAPI,
   auditAPI,
   pluginsAPI,
-  desktopAPI
+  desktopAPI,
+  biAdminAPI
 }
 
 export default adminAPI

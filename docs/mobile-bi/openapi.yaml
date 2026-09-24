@@ -6778,6 +6778,7 @@ components:
           - running
           - ready
           - failed
+          - archived
         created_at: *id011
         expires_at: *id011
         failure_code:
@@ -6787,6 +6788,14 @@ components:
             - DATA_UNAVAILABLE
             - CONTEXT_REVOKED
             - GENERATION_FAILED
+          - type: 'null'
+        archived_at:
+          anyOf:
+          - *id011
+          - type: 'null'
+        retry_of:
+          anyOf:
+          - *id001
           - type: 'null'
       required:
       - id

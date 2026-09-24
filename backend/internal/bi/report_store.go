@@ -77,10 +77,12 @@ func readStoredReport(ctx context.Context, q queryer, org, id string) (storedRep
 	var snapshot, scope, sources, deps, caps, evidence []byte
 	var revision sql.NullInt64
 	var created, expires time.Time
-	err := q.QueryRowContext(ctx, `SELECT id,organization_id,manager_id,title,status,created_at,expires_at,failure_code,snapshot,scope,source_state,data_revision,
+	var archivedAt sql.NullTime
+	var retryOf sql.NullString
+	err := q.QueryRowContext(ctx, `SELECT id,organization_id,manager_id,title,status,created_at,expires_at,failure_code,archived_at,retry_of,snapshot,scope,source_state,data_revision,
 		dependencies,required_capabilities,evidence,text,generated_at FROM bi_reports WHERE id=$1 AND organization_id=$2`, id, org).
 		Scan(&report.Summary.ID, &report.Summary.OrganizationID, &report.ManagerID, &report.Summary.Title, &report.Summary.Status, &created, &expires, &report.Summary.FailureCode,
-			&snapshot, &scope, &sources, &revision, &deps, &caps, &evidence, &report.Text, &report.GeneratedAt)
+			&archivedAt, &retryOf, &snapshot, &scope, &sources, &revision, &deps, &caps, &evidence, &report.Text, &report.GeneratedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return report, ErrNotFound
 	}
@@ -89,6 +91,13 @@ func readStoredReport(ctx context.Context, q queryer, org, id string) (storedRep
 	}
 	report.Summary.CreatedAt = created.UTC().Format(time.RFC3339Nano)
 	report.Summary.ExpiresAt = expires.UTC().Format(time.RFC3339Nano)
+	if archivedAt.Valid {
+		value := archivedAt.Time.UTC().Format(time.RFC3339Nano)
+		report.Summary.ArchivedAt = &value
+	}
+	if retryOf.Valid {
+		report.Summary.RetryOf = &retryOf.String
+	}
 	report.State.Revision = revision.Int64
 	for _, decode := range []struct {
 		raw    []byte
@@ -180,8 +189,11 @@ func (s *Service) CreateReport(ctx context.Context, p Principal, org, key, conte
 		}
 		now := s.now().UTC().Truncate(time.Microsecond)
 		months := s.config.ReportRetentionMonths
+		if policy, policyErr := s.retentionPolicy(ctx); policyErr == nil && policy.ReportMonths > 0 {
+			months = policy.ReportMonths
+		}
 		if months == 0 {
-			months = 24
+			months = defaultReportRetentionMonths
 		}
 		name := state.Context.Range.StartDate + " 管理简报"
 		if title != nil {

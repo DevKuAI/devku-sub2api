@@ -44,6 +44,12 @@ type binding struct {
 	OpenHash  string
 }
 
+type LoginOptions struct {
+	ClientVersion string
+	DeviceID      string
+	Platform      string
+}
+
 type queryer interface {
 	QueryRowContext(context.Context, string, ...any) *sql.Row
 	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
@@ -86,6 +92,10 @@ func (s *Service) exchangeIdentity(ctx context.Context, code string) (string, er
 }
 
 func (s *Service) Login(ctx context.Context, code string) (any, error) {
+	return s.LoginWithOptions(ctx, code, LoginOptions{})
+}
+
+func (s *Service) LoginWithOptions(ctx context.Context, code string, options LoginOptions) (any, error) {
 	openHash, err := s.exchangeIdentity(ctx, code)
 	if err != nil {
 		return nil, err
@@ -94,7 +104,7 @@ func (s *Service) Login(ctx context.Context, code string) (any, error) {
 	err = s.identityTx(ctx, openHash, func(tx *sql.Tx) error {
 		b, err := s.activeBinding(ctx, tx, openHash)
 		if err == nil {
-			result, err = s.createSession(ctx, tx, b)
+			result, err = s.createSession(ctx, tx, b, options)
 			return err
 		}
 		if !errors.Is(err, sql.ErrNoRows) {
@@ -136,7 +146,7 @@ func (s *Service) credentialVersion(user *service.User) string {
 	return keyedHash(s.identity, "credentials", user.Email, user.PasswordHash)
 }
 
-func (s *Service) createSession(ctx context.Context, tx *sql.Tx, b binding) (*Session, error) {
+func (s *Service) createSession(ctx context.Context, tx *sql.Tx, b binding, options ...LoginOptions) (*Session, error) {
 	u, err := s.activeUser(ctx, b.UserID)
 	if err != nil {
 		return nil, err
@@ -144,8 +154,16 @@ func (s *Service) createSession(ctx context.Context, tx *sql.Tx, b binding) (*Se
 	now := s.now().UTC()
 	sessionID := randomToken("bis_")
 	refresh := randomToken("bir_")
-	if _, err := tx.ExecContext(ctx, `INSERT INTO bi_sessions(id,binding_id,credential_version,created_at,expires_at)
-		VALUES($1,$2,$3,$4,$5)`, sessionID, b.ID, s.credentialVersion(u), now, now.Add(RefreshTTL)); err != nil {
+	var deviceHash, platform, clientVersion any
+	if len(options) > 0 {
+		if options[0].DeviceID != "" {
+			deviceHash = keyedHash(s.identity, "device", options[0].DeviceID)
+		}
+		platform = truncateIdentityField(options[0].Platform, 32)
+		clientVersion = truncateIdentityField(options[0].ClientVersion, 32)
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO bi_sessions(id,binding_id,credential_version,created_at,expires_at,device_id_hash,device_platform,client_version,last_seen_at)
+		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$4)`, sessionID, b.ID, s.credentialVersion(u), now, now.Add(RefreshTTL), deviceHash, platform, clientVersion); err != nil {
 		return nil, err
 	}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO bi_refresh_tokens(token_hash,session_id,expires_at) VALUES($1,$2,$3)`,
@@ -156,6 +174,14 @@ func (s *Service) createSession(ctx context.Context, tx *sql.Tx, b binding) (*Se
 		return nil, err
 	}
 	return s.sessionResponse(ctx, tx, b.ManagerID, sessionID, refresh, u)
+}
+
+func truncateIdentityField(value string, limit int) string {
+	value = strings.TrimSpace(value)
+	if len(value) > limit {
+		return value[:limit]
+	}
+	return value
 }
 
 func (s *Service) sessionResponse(ctx context.Context, q queryer, managerID, sessionID, refresh string, u *service.User) (*Session, error) {
@@ -243,6 +269,9 @@ func (s *Service) Authorize(ctx context.Context, raw string) (Principal, error) 
 	}
 	if subtle.ConstantTimeCompare([]byte(credentials), []byte(s.credentialVersion(u))) != 1 {
 		return Principal{}, ErrUnauthenticated
+	}
+	if _, err := s.db.ExecContext(ctx, `UPDATE bi_sessions SET last_seen_at=$2 WHERE id=$1`, p.SessionID, s.now().UTC()); err != nil {
+		return Principal{}, err
 	}
 	return p, nil
 }

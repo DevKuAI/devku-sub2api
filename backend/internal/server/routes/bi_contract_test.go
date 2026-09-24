@@ -82,7 +82,7 @@ func TestBIAdminRoutesMatchSupplementalOpenAPI(t *testing.T) {
 		r := gin.New()
 		admin := r.Group("/api/v1/admin", func(c *gin.Context) { middleware.AbortWithError(c, 401, "UNAUTHORIZED", "Authentication required") })
 		h := &handler.Handlers{BI: bi.NewHandler(nil, nil, &config.Config{}, nil, nil, nil)}
-		registerBIAdminRoutes(admin, h, &config.Config{BI: config.BIConfig{Enabled: enabled}})
+		registerBIAdminRoutes(admin, h, &config.Config{BI: config.BIConfig{Enabled: enabled}}, middleware.StepUpAuthMiddleware(func(c *gin.Context) { c.Next() }))
 		if !enabled {
 			require.Empty(t, r.Routes())
 			continue
@@ -113,6 +113,6 @@ func TestBIAdminRoutesMatchSupplementalOpenAPI(t *testing.T) {
 				}
 			}
 		}
-		require.Len(t, seen, 3)
+		require.Len(t, seen, 27)
 	}
 }

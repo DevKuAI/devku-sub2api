@@ -415,6 +415,8 @@ type ReportSummary struct {
 	CreatedAt      string  `json:"created_at"`
 	ExpiresAt      string  `json:"expires_at"`
 	FailureCode    *string `json:"failure_code"`
+	ArchivedAt     *string `json:"archived_at,omitempty"`
+	RetryOf        *string `json:"retry_of,omitempty"`
 }
 
 type ReportDetail struct {

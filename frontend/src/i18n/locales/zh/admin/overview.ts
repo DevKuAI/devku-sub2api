@@ -1,4 +1,5 @@
 export default {
+    bi: { title: 'BI 运维', description: 'BI 服务、数据同步和审计运维' },
     // Dashboard
     dashboard: {
       title: '管理控制台',

@@ -210,8 +210,19 @@ func (h *Handler) Login(c *gin.Context) {
 		WriteError(c, invalid("client_version", "Client version is required and must not exceed 32 characters"))
 		return
 	}
-	result, err := h.service.Login(c.Request.Context(), input.Code)
+	result, err := h.service.LoginWithOptions(c.Request.Context(), input.Code, LoginOptions{
+		ClientVersion: valueOrEmpty(input.ClientVersion),
+		DeviceID:      c.GetHeader("X-BI-Device-ID"),
+		Platform:      c.GetHeader("X-BI-Platform"),
+	})
 	respond(c, 200, result, err)
+}
+
+func valueOrEmpty(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
 
 func (h *Handler) ApproveBinding(c *gin.Context) {

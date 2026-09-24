@@ -1,4 +1,5 @@
 export default {
+    bi: { title: 'BI Operations', description: 'BI service, synchronization, and audit operations' },
     // Dashboard
     dashboard: {
       title: 'Admin Dashboard',
