@@ -79,6 +79,14 @@ describe('AppSidebar Desktop navigation', () => {
   })
 })
 
+describe('AppSidebar BI navigation', () => {
+  it('opens BI Operations in a separate browser tab', () => {
+    expect(componentSource).toMatch(/path: '\/admin\/bi'[\s\S]*?openInNewWindow: true/)
+    expect(componentSource).toContain(":target=\"item.openInNewWindow ? '_blank' : undefined\"")
+    expect(componentSource).toContain(":rel=\"item.openInNewWindow ? 'noopener noreferrer' : undefined\"")
+  })
+})
+
 describe('AppSidebar subscription account navigation', () => {
   it('only adds the read-only subscription page when the user has assigned accounts', () => {
     expect(componentSource).toContain('useSubscriptionAccountAccess')
