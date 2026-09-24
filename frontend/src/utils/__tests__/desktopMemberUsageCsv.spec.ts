@@ -49,4 +49,19 @@ describe('Desktop member usage CSV', () => {
     const csv = createDesktopMemberUsageCsv(organization, [{ ...member, status: 'disabled', model_token_status: 'missing', usage: undefined }], t)
     expect(csv).toContain('common.disabled,admin.desktop.tokenStatus.missing,,,,,,,2026-09-24T01:23:45Z')
   })
+
+  it('exports only approved columns even when API objects contain raw credentials', () => {
+    const unexpectedMember = {
+      ...member,
+      model_token: 'PRIVATE-MODEL-TOKEN',
+      api_key: 'PRIVATE-API-KEY',
+      credentials: { access_token: 'PRIVATE-ACCESS-TOKEN', refresh_token: 'PRIVATE-REFRESH-TOKEN' },
+    }
+    const unexpectedOrganization = { ...organization, model_token: 'PRIVATE-ORGANIZATION-TOKEN' }
+    const csv = createDesktopMemberUsageCsv(unexpectedOrganization, [unexpectedMember], t)
+    expect(csv).not.toContain('PRIVATE-')
+    expect(csv).not.toMatch(/\b(?:model_token|api_key|access_token|refresh_token)\b/)
+    expect(csv).toContain('admin.desktop.tokenStatus.active')
+    expect(csv.split('\r\n')[1].split(',')).toHaveLength(14)
+  })
 })

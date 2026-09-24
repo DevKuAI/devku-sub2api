@@ -7,13 +7,13 @@ const directory = dirname(fileURLToPath(import.meta.url))
 const sources = [
   readFileSync(resolve(directory, './DesktopOrganizationsView.vue'), 'utf8'),
   readFileSync(resolve(directory, './DesktopOrganizationDetailView.vue'), 'utf8'),
+  readFileSync(resolve(directory, '../../../utils/desktopMemberUsageCsv.ts'), 'utf8'),
 ].join('\n')
 
 describe('Desktop Admin credential safety', () => {
-  it('never renders or adds copy/download controls for a raw model token', () => {
-    expect(sources).not.toMatch(/\bmodel_token\b/)
+  it('never renders or exports raw credentials and only displays model token status', () => {
+    expect(sources).not.toMatch(/\b(?:model_token|api_key|access_token|refresh_token)\b/)
     expect(sources).not.toContain('clipboard')
-    expect(sources).not.toContain('download')
     expect(sources).toContain('model_token_status')
   })
 })
