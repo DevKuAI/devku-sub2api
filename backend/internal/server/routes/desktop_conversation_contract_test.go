@@ -27,6 +27,7 @@ func TestDesktopV2OpenAPIRegisteredOperations(t *testing.T) {
 	router := gin.New()
 	handlers := &handler.Handlers{Desktop: handler.NewDesktopHandler(nil), Admin: &handler.AdminHandlers{Desktop: adminhandler.NewDesktopHandler(nil)}}
 	RegisterDesktopRoutes(router, handlers, nil, middleware.AuditLogMiddleware(func(c *gin.Context) { c.Next() }))
+	RegisterDesktopDirectWebhookRoute(router, handlers, middleware.AuditLogMiddleware(func(c *gin.Context) { c.Next() }))
 	registerDesktopAdminRoutes(router.Group("/api/v1/admin/desktop"), handlers)
 	registerDesktopUserRoutesIfEnabled(router.Group("/api/v1"), handlers, &config.Config{Desktop: config.DesktopConfig{Enabled: true}})
 	routes := map[string]bool{}
@@ -48,5 +49,5 @@ func TestDesktopV2OpenAPIRegisteredOperations(t *testing.T) {
 			require.True(t, routes[strings.ToUpper(method)+" "+path], "unregistered contract operation: %s %s", method, path)
 		}
 	}
-	require.Len(t, ids, 9)
+	require.Len(t, ids, 10)
 }

@@ -793,6 +793,150 @@
         }
       }
     },
+    "/api/desktop/v1/conversation-records/direct": {
+      "post": {
+        "operationId": "createDirectDesktopConversationRecord",
+        "tags": [
+          "Desktop Webhook - Conversations"
+        ],
+        "summary": "通过管理员 webhook 直接写入一轮对话",
+        "description": "Webhook 不使用管理员 Bearer 或 x-api-key；调用方必须在请求头传入 organizationId 和 memberId。正文沿用 Desktop conversation record schema，且两个 header 必须分别与正文 organizationId/memberId 一致。服务端再校验成员归属、状态和企业 conversation_reporting_enabled，并执行与 Desktop session 上报相同的正文校验、成员限流和原子写入。",
+        "security": [],
+        "parameters": [
+          {
+            "name": "organizationId",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "memberId",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "Cache-Control",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "const": "no-store"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConversationRecord"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "记录已提交",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "不适用于此 webhook 接口",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "成员归属、成员状态或企业上报开关校验失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "recordId 已存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "正文超过 32 MiB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Content-Type 或 Content-Encoding 不符合要求",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "正文校验失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "成员级提交限流",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "对话存储不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/desktop/organizations/{organization_id}/conversation-records": {
       "get": {
         "operationId": "listAdminDesktopConversations",

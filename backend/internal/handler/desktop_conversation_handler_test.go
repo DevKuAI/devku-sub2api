@@ -35,6 +35,12 @@ func (r *conversationAuthRepo) FindActiveOrganizationByCode(context.Context, str
 func (r *conversationAuthRepo) FindMemberByPhone(context.Context, int64, string) (*service.DesktopMember, error) {
 	return r.authorized.Member, nil
 }
+func (r *conversationAuthRepo) GetOrganization(context.Context, string) (*service.DesktopOrganization, error) {
+	return r.authorized.Organization, nil
+}
+func (r *conversationAuthRepo) GetMember(context.Context, string, string) (*service.DesktopMember, error) {
+	return r.authorized.Member, nil
+}
 
 type conversationSessions struct {
 	session *service.DesktopSession
@@ -99,7 +105,7 @@ func conversationRouter(t *testing.T, reporting ...bool) (*gin.Engine, *conversa
 	tokens, err := service.NewDesktopTokenManager(cfg)
 	require.NoError(t, err)
 	repo := &conversationAuthRepo{authorized: &service.DesktopAuthorizedMember{
-		Member:       &service.DesktopMember{ID: 1, PublicID: "mem_one", Name: "Member", NameNormalized: "Member", Status: "active", AuthVersion: 1},
+		Member:       &service.DesktopMember{ID: 1, PublicID: "mem_one", OrganizationID: 2, Name: "Member", NameNormalized: "Member", Status: "active", AuthVersion: 1},
 		Organization: &service.DesktopOrganization{ID: 2, PublicID: "org_one", Status: "active", AuthVersion: 1}, GatewayUser: &service.User{Status: "active"},
 	}}
 	repo.authorized.Organization.ConversationReportingEnabled = len(reporting) == 0 || reporting[0]
@@ -116,12 +122,38 @@ func conversationRouter(t *testing.T, reporting ...bool) (*gin.Engine, *conversa
 	router := gin.New()
 	router.Use(middleware.RequestLogger())
 	router.POST("/conversation-records", middleware.StrictBodyLimit(service.DesktopConversationMaxBodyBytes), middleware.DesktopSessionAuth(svc), h.CreateConversation)
+	router.POST("/conversation-records/direct", middleware.StrictBodyLimit(service.DesktopConversationMaxBodyBytes), h.CreateDirectConversation)
 	router.POST("/login", middleware.StrictBodyLimit(8*1024), h.Login)
 	router.POST("/logout", middleware.DesktopAuth(svc), h.Logout)
 	router.GET("/me", middleware.DesktopAuth(svc), h.Me)
 	router.GET("/usage", middleware.DesktopAuth(svc), h.UsageSummary)
 	router.GET("/configuration", middleware.DesktopAuth(svc), h.ModelConfiguration)
 	return router, sessions, records, limiter
+}
+
+func TestDesktopDirectConversationWebhookUsesMemberValidation(t *testing.T) {
+	router, _, records, _ := conversationRouter(t)
+	request := httptest.NewRequest(http.MethodPost, "/conversation-records/direct", strings.NewReader(conversationBody()))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Cache-Control", "no-store")
+	request.Header.Set("organizationId", "org_one")
+	request.Header.Set("memberId", "mem_one")
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+	require.Equal(t, 1, records.writes)
+
+	badMember := strings.Replace(conversationBody(), `"memberId":"mem_one"`, `"memberId":"mem_other"`, 1)
+	request = httptest.NewRequest(http.MethodPost, "/conversation-records/direct", strings.NewReader(badMember))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Cache-Control", "no-store")
+	request.Header.Set("organizationId", "org_one")
+	request.Header.Set("memberId", "mem_one")
+	response = httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+	require.Equal(t, http.StatusForbidden, response.Code, response.Body.String())
+	require.Contains(t, response.Body.String(), "CONVERSATION_IDENTITY_MISMATCH")
+	require.Equal(t, 1, records.writes)
 }
 
 func conversationBody() string {

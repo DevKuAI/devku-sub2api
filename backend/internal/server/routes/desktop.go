@@ -34,3 +34,11 @@ func RegisterDesktopRoutes(root *gin.Engine, h *handler.Handlers, desktop *servi
 		protected.GET("/usage/summary", h.Desktop.UsageSummary)
 	}
 }
+
+func RegisterDesktopDirectWebhookRoute(root *gin.Engine, h *handler.Handlers, auditLog middleware.AuditLogMiddleware) {
+	api := root.Group("/api/desktop/v1")
+	api.Use(func(c *gin.Context) { desktopresponse.SetHeaders(c); c.Next() })
+	direct := api.Group("/conversation-records/direct")
+	direct.Use(gin.HandlerFunc(auditLog))
+	direct.POST("", middleware.StrictBodyLimit(service.DesktopConversationMaxBodyBytes), h.Desktop.CreateDirectConversation)
+}

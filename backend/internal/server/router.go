@@ -142,4 +142,5 @@ func registerDesktopRoutesIfEnabled(r *gin.Engine, h *handler.Handlers, auditLog
 		return
 	}
 	routes.RegisterDesktopRoutes(r, h, h.Desktop.Service(), auditLog)
+	routes.RegisterDesktopDirectWebhookRoute(r, h, auditLog)
 }

@@ -28,41 +28,74 @@ func (h *DesktopHandler) CreateConversation(c *gin.Context) {
 	}
 
 	start := time.Now()
-	var bodySize int
-	var recordID string
+	input, recordID, bodySize, ok := decodeDesktopConversationRequest(c)
 	defer func() {
 		logger.FromContext(c.Request.Context()).Info("desktop conversation upload",
 			zap.String("record_id", recordID), zap.Int("status_code", c.Writer.Status()),
 			zap.Int("bytes", bodySize), zap.Int64("latency_ms", time.Since(start).Milliseconds()))
 	}()
-	mediaType, _, err := mime.ParseMediaType(c.GetHeader("Content-Type"))
-	encoding := strings.TrimSpace(c.GetHeader("Content-Encoding"))
-	if err != nil || mediaType != "application/json" || (encoding != "" && !strings.EqualFold(encoding, "identity")) {
-		desktopError(c, service.ErrDesktopMediaType)
+	if !ok {
 		return
 	}
-	if c.GetHeader("Cache-Control") != "no-store" {
-		desktopError(c, service.ErrDesktopValidation.WithMetadata(map[string]string{"field": "Cache-Control"}))
-		return
-	}
-	raw, err := io.ReadAll(c.Request.Body)
-	bodySize = len(raw)
-	if err != nil {
-		desktopBindingError(c, err)
-		return
-	}
-	input, err := service.DecodeDesktopConversation(raw)
-	if err != nil {
-		desktopError(c, err)
-		return
-	}
-	recordID = input.RecordID
 	result, err := h.desktop.CreateConversation(c.Request.Context(), auth, input)
 	if err != nil {
 		desktopError(c, err)
 		return
 	}
 	desktopresponse.Success(c, result)
+}
+
+// CreateDirectConversation accepts the same validated payload for webhook
+// callers authenticated by the admin route middleware.
+func (h *DesktopHandler) CreateDirectConversation(c *gin.Context) {
+	start := time.Now()
+	input, recordID, bodySize, ok := decodeDesktopConversationRequest(c)
+	defer func() {
+		logger.FromContext(c.Request.Context()).Info("desktop conversation direct upload",
+			zap.String("record_id", recordID), zap.Int("status_code", c.Writer.Status()),
+			zap.Int("bytes", bodySize), zap.Int64("latency_ms", time.Since(start).Milliseconds()))
+	}()
+	if !ok {
+		return
+	}
+	organizationID := strings.TrimSpace(c.GetHeader("organizationId"))
+	memberID := strings.TrimSpace(c.GetHeader("memberId"))
+	if organizationID == "" || memberID == "" {
+		desktopError(c, service.ErrDesktopConversationIdentity)
+		return
+	}
+	result, err := h.desktop.CreateDirectConversation(c.Request.Context(), organizationID, memberID, input)
+	if err != nil {
+		desktopError(c, err)
+		return
+	}
+	middleware.SetAuditExtra(c, map[string]any{"record_id": result.RecordID, "organization_id": organizationID, "resource_id": memberID})
+	desktopresponse.Success(c, result)
+}
+
+func decodeDesktopConversationRequest(c *gin.Context) (*service.DesktopConversationInput, string, int, bool) {
+	mediaType, _, err := mime.ParseMediaType(c.GetHeader("Content-Type"))
+	encoding := strings.TrimSpace(c.GetHeader("Content-Encoding"))
+	if err != nil || mediaType != "application/json" || (encoding != "" && !strings.EqualFold(encoding, "identity")) {
+		desktopError(c, service.ErrDesktopMediaType)
+		return nil, "", 0, false
+	}
+	if c.GetHeader("Cache-Control") != "no-store" {
+		desktopError(c, service.ErrDesktopValidation.WithMetadata(map[string]string{"field": "Cache-Control"}))
+		return nil, "", 0, false
+	}
+	raw, err := io.ReadAll(c.Request.Body)
+	bodySize := len(raw)
+	if err != nil {
+		desktopBindingError(c, err)
+		return nil, "", bodySize, false
+	}
+	input, err := service.DecodeDesktopConversation(raw)
+	if err != nil {
+		desktopError(c, err)
+		return nil, "", bodySize, false
+	}
+	return input, input.RecordID, bodySize, true
 }
 
 func (h *DesktopHandler) ListManagedConversations(c *gin.Context) {

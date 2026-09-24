@@ -263,6 +263,53 @@ func (s *DesktopService) CreateConversation(ctx context.Context, auth *DesktopAu
 	return s.conversations.Create(ctx, auth.Member.Organization.ID, auth.Member.Member.ID, input)
 }
 
+// CreateDirectConversation is the webhook path for trusted admin callers. It
+// keeps the same body validation, reporting switch, member rate limit, and
+// transactional repository write as the Desktop session path, but resolves
+// identity from the organization/member public IDs in the request path.
+func (s *DesktopService) CreateDirectConversation(ctx context.Context, organizationID, memberID string, input *DesktopConversationInput) (*DesktopConversationReceipt, error) {
+	if input == nil {
+		return nil, ErrDesktopValidation
+	}
+	if err := input.Validate(); err != nil {
+		return nil, err
+	}
+	if input.OrganizationID != organizationID || input.MemberID != memberID {
+		return nil, ErrDesktopConversationIdentity
+	}
+	organization, err := s.repo.GetOrganization(ctx, organizationID)
+	if err != nil {
+		return nil, err
+	}
+	if organization.Status != DesktopStatusActive {
+		return nil, ErrDesktopMembershipRevoked
+	}
+	if !organization.ConversationReportingEnabled {
+		return nil, ErrDesktopConversationReportingDisabled
+	}
+	member, err := s.repo.GetMember(ctx, organizationID, memberID)
+	if err != nil {
+		return nil, err
+	}
+	if member == nil || member.PublicID != memberID || member.OrganizationID != organization.ID {
+		return nil, ErrDesktopConversationIdentity
+	}
+	if member.Status != DesktopStatusActive {
+		return nil, ErrDesktopMemberDisabled
+	}
+	if s.conversationLimiter == nil || s.conversations == nil {
+		return nil, ErrDesktopConversationStorage
+	}
+	retry, err := s.conversationLimiter.Allow(ctx, member.PublicID)
+	if err != nil {
+		return nil, err
+	}
+	if retry > 0 {
+		return nil, rateLimitedError(retry)
+	}
+	return s.conversations.Create(ctx, organization.ID, member.ID, input)
+}
+
 func (f DesktopConversationFilters) Validate() error {
 	if f.Client != "" && !desktopConversationClient(f.Client) {
 		return ErrDesktopValidation

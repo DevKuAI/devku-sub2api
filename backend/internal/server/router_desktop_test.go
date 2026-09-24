@@ -28,6 +28,7 @@ func TestDesktopAPIRoutesFollowFeatureFlag(t *testing.T) {
 				"POST /api/desktop/v1/auth/refresh",
 				"POST /api/desktop/v1/auth/logout",
 				"POST /api/desktop/v1/conversation-records",
+				"POST /api/desktop/v1/conversation-records/direct",
 				"GET /api/desktop/v1/me",
 				"GET /api/desktop/v1/resources",
 				"POST /api/desktop/v1/resources/:resource_id/versions/:version/artifacts/:platform/download-url",

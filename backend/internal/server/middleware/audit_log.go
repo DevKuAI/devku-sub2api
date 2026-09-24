@@ -131,6 +131,7 @@ const auditDurableRequestBodyReadRoute = "GET /api/v1/admin/usage/:id/request-bo
 
 // auditActionOverrides 变更类请求的动作名精确映射（未命中时自动推导）。
 var auditActionOverrides = map[string]string{
+	"POST /api/desktop/v1/conversation-records/direct":                  "desktop.conversation.direct",
 	"POST /api/v1/admin/desktop/resources/:resource_id/versions/:version/artifacts/:platform/download-url": "admin.desktop.resources.download_url",
 	"POST /api/v1/admin/desktop/resources":                               "admin.desktop.resources.publish",
 	"POST /api/v1/admin/desktop/resources/validate":                      "admin.desktop.resources.validate",
