@@ -1,10 +1,12 @@
 <template>
-  <section v-if="enabled || error" class="card mt-6 space-y-4 p-6" :aria-busy="loading">
+  <section class="card space-y-4 p-6" :aria-busy="loading">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <h2 class="font-semibold">{{ t('bi.grants') }}</h2>
       <button v-if="enabled" type="button" class="btn btn-secondary" :disabled="busy || loading" @click="openEditor()">{{ t('bi.addGrant') }}</button>
     </div>
     <p class="text-sm text-gray-500 dark:text-dark-400">{{ t('bi.grantsDescription') }}</p>
+    <p v-if="loading && !enabled" class="text-sm text-gray-500" role="status">{{ t('common.loading') }}</p>
+    <p v-else-if="!enabled && !error" class="text-sm text-gray-500">{{ t('bi.disabled') }}</p>
     <p v-if="error" class="text-sm text-red-600 dark:text-red-400" role="alert">{{ error }}</p>
     <p v-if="enabled && !loading && !error && grants.length === 0" class="text-sm text-gray-500">{{ t('bi.noGrants') }}</p>
     <ul class="divide-y divide-gray-200 dark:divide-dark-700">
@@ -60,7 +62,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue'
+import { onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
@@ -144,7 +146,7 @@ async function revoke() {
 watch(() => props.organizationId, async () => {
   const current = ++generation
   ++loadGeneration
-  loading.value = false
+  loading.value = true
   enabled.value = false
   editing.value = false
   revokeTarget.value = null
@@ -159,5 +161,8 @@ watch(() => props.organizationId, async () => {
     enabled.value = available
     if (available) await load()
   } catch (cause) { if (current === generation) error.value = message(cause) }
+  finally { if (current === generation) loading.value = false }
 }, { immediate: true })
+
+onBeforeUnmount(() => { generation++; loadGeneration++ })
 </script>

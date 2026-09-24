@@ -96,6 +96,10 @@
         <DesktopConversationRecords :organization-id="organizationID" :self-managed="selfManaged" />
       </section>
 
+      <section v-else-if="activeTab === 'grants'" :id="panelId('grants')" role="tabpanel" :aria-labelledby="tabId('grants')">
+        <BIGrantManagement v-if="!selfManaged && organization" :key="organizationID" :organization-id="organizationID" />
+      </section>
+
       <section v-else :id="panelId('configuration')" class="min-w-0" role="tabpanel" :aria-labelledby="tabId('configuration')">
         <div v-if="selfManaged" class="space-y-6">
           <p class="text-sm text-gray-500 dark:text-dark-400">{{ t('admin.desktop.configurationReadOnly') }}</p>
@@ -139,7 +143,6 @@
           <div class="flex justify-end"><button class="btn btn-primary" type="submit" :disabled="configSaving">{{ configSaving ? t('common.saving') : t('common.save') }}</button></div>
         </form>
       </section>
-      <BIGrantManagement v-if="!selfManaged && organization" :key="organizationID" :organization-id="organizationID" />
     </div>
 
     <BaseDialog v-if="!selfManaged" :show="showOrganizationEdit" :title="t('admin.desktop.editOrganization')" width="wide" @close="closeOrganizationEdit">
@@ -203,7 +206,7 @@ import DesktopConversationRecords from '@/components/desktop/DesktopConversation
 import DesktopOrganizationUsageStatistics from '@/components/desktop/DesktopOrganizationUsageStatistics.vue'
 import BIGrantManagement from '@/components/bi/BIGrantManagement.vue'
 
-type DetailTab = 'members' | 'configuration' | 'conversations'
+type DetailTab = 'members' | 'configuration' | 'conversations' | 'grants'
 const { selfManaged = false } = defineProps<{ selfManaged?: boolean }>()
 const { t, te } = useI18n()
 const route = useRoute()
@@ -219,12 +222,13 @@ const organizationID = computed(() => selfManaged ? (organization.value?.public_
 const organizationAPI = computed(() => selfManaged ? desktopOrganizationAPI : adminAPI.desktop)
 const dashboardPath = computed(() => authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
 const canViewConversations = computed(() => !selfManaged || organization.value?.conversation_reporting_enabled === true)
-const activeTab = computed<DetailTab>(() => route.query.tab === 'configuration' ? 'configuration' : route.query.tab === 'conversations' && canViewConversations.value ? 'conversations' : 'members')
 const tabs = computed(() => {
   const result: { value: DetailTab; label: string }[] = [{ value: 'members', label: t('admin.desktop.members') }, { value: 'configuration', label: t('admin.desktop.configuration') }]
   if (canViewConversations.value) result.push({ value: 'conversations', label: t('admin.desktop.conversations.title') })
+  if (!selfManaged) result.push({ value: 'grants', label: t('bi.grants') })
   return result
 })
+const activeTab = computed<DetailTab>(() => tabs.value.find(tab => tab.value === route.query.tab)?.value ?? 'members')
 const members = ref<DesktopMember[]>([])
 const membersLoading = ref(false)
 const membersExporting = ref(false)
@@ -478,7 +482,7 @@ async function saveConfiguration() {
 }
 
 watch([canViewConversations, () => organization.value?.public_id], () => {
-  if (selfManaged && organization.value && !canViewConversations.value && route.query.tab === 'conversations') setTab('members')
+  if (selfManaged && organization.value && (route.query.tab === 'grants' || (!canViewConversations.value && route.query.tab === 'conversations'))) setTab('members')
 })
 
 watch(() => route.params.organizationId, async () => {
