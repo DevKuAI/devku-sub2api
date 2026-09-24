@@ -34,6 +34,9 @@
           <div class="min-w-0 flex-1 sm:max-w-72"><input v-model="memberSearch" class="input" type="search" :placeholder="t('admin.desktop.searchMembers')" @input="scheduleMembers" /></div>
           <Select v-model="memberStatus" class="w-40" :options="statusOptions" @change="resetMembers" />
           <div class="ml-auto flex items-center gap-2">
+            <button class="btn btn-secondary" type="button" data-testid="export-member-usage" :disabled="membersExporting || !organization || organization.public_id !== organizationID" :aria-busy="membersExporting" :title="t('admin.desktop.memberUsageExport.hint')" @click="exportMemberUsage">
+              <Icon :name="membersExporting ? 'refresh' : 'download'" size="md" class="mr-1" :class="{ 'animate-spin': membersExporting }" />{{ t(membersExporting ? 'admin.desktop.memberUsageExport.exporting' : 'admin.desktop.memberUsageExport.button') }}
+            </button>
             <button class="btn btn-secondary" type="button" :disabled="membersLoading" :title="t('common.refresh')" :aria-label="t('common.refresh')" @click="loadMembers"><Icon name="refresh" size="md" :class="membersLoading ? 'animate-spin' : ''" /></button>
             <button class="btn btn-primary" type="button" :disabled="organization?.status !== 'active' || memberLimitReached" :title="memberLimitReached ? t('admin.desktop.errors.MEMBER_LIMIT_REACHED') : undefined" @click="openCreateMember"><Icon name="plus" size="md" class="mr-1" />{{ t('admin.desktop.createMember') }}</button>
           </div>
@@ -176,6 +179,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { saveAs } from 'file-saver'
 import { adminAPI } from '@/api/admin'
 import desktopOrganizationAPI from '@/api/desktopOrganization'
 import type { DesktopMember, DesktopModelTokenStatus, DesktopOrganization, DesktopStatus, DesktopTarget, DesktopTargetConfig, DesktopWireAPI } from '@/api/admin/desktop'
@@ -184,6 +188,7 @@ import type { Column } from '@/components/common/types'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import { formatCompactNumber, formatDateTime } from '@/utils/format'
+import { createDesktopMemberUsageCsv } from '@/utils/desktopMemberUsageCsv'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import DataTable from '@/components/common/DataTable.vue'
@@ -222,6 +227,7 @@ const tabs = computed(() => {
 })
 const members = ref<DesktopMember[]>([])
 const membersLoading = ref(false)
+const membersExporting = ref(false)
 const memberSearch = ref('')
 const memberStatus = ref<DesktopStatus | ''>('')
 const memberPagination = reactive({ page: 1, page_size: getPersistedPageSize(), total: 0 })
@@ -244,6 +250,7 @@ const confirmState = reactive({ show: false, title: '', message: '', confirmText
 const confirmPending = ref(false)
 let memberTimer: ReturnType<typeof setTimeout> | undefined
 let memberController: AbortController | undefined
+let memberExportController: AbortController | undefined
 let gatewayController: AbortController | undefined
 
 const gatewayUserLocked = computed(() => (organization.value?.member_count ?? 0) > 0)
@@ -324,6 +331,50 @@ function scheduleMembers() { clearTimeout(memberTimer); memberTimer = setTimeout
 function resetMembers() { memberPagination.page = 1; void loadMembers() }
 function changeMemberPage(page: number) { memberPagination.page = page; void loadMembers() }
 function changeMemberPageSize(size: number) { memberPagination.page_size = size; memberPagination.page = 1; void loadMembers() }
+
+function cancelMemberExport() {
+  memberExportController?.abort()
+  memberExportController = undefined
+  membersExporting.value = false
+}
+
+async function exportMemberUsage() {
+  if (membersExporting.value || !organization.value || organization.value.public_id !== organizationID.value) return
+  const request = new AbortController()
+  memberExportController = request
+  membersExporting.value = true
+  const selectedOrganization = organization.value
+  const api = organizationAPI.value
+  const filters = { search: memberSearch.value.trim(), status: memberStatus.value }
+  try {
+    const allMembers: DesktopMember[] = []
+    let pages = 1
+    for (let page = 1; page <= pages; page++) {
+      const result = await api.listMembers(selectedOrganization.public_id, page, 100, filters, request.signal)
+      if (request.signal.aborted) return
+      if (page === 1) pages = result.pages
+      allMembers.push(...result.items)
+    }
+    if (allMembers.length === 0) {
+      appStore.showWarning(t('admin.desktop.memberUsageExport.empty'))
+      return
+    }
+    const csv = createDesktopMemberUsageCsv(selectedOrganization, allMembers, t)
+    const file = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const code = selectedOrganization.code.replace(/[^a-zA-Z0-9_-]/g, '_')
+    saveAs(file, `desktop_member_usage_${code}_${new Date().toISOString().slice(0, 10)}.csv`)
+    appStore.showSuccess(t('admin.desktop.memberUsageExport.success'))
+  } catch (error) {
+    if (!request.signal.aborted && (error as { code?: string })?.code !== 'ERR_CANCELED') {
+      appStore.showError(t('admin.desktop.memberUsageExport.failed'))
+    }
+  } finally {
+    if (memberExportController === request) {
+      memberExportController = undefined
+      membersExporting.value = false
+    }
+  }
+}
 
 async function loadGatewayUsers(query = '') {
   gatewayController?.abort(); gatewayController = new AbortController(); gatewayUsersLoading.value = true
@@ -433,6 +484,7 @@ watch([canViewConversations, () => organization.value?.public_id], () => {
 watch(() => route.params.organizationId, async () => {
   if (!selfManaged) await Promise.all([loadOrganization(), loadMembers()])
 })
+watch([organizationID, () => organization.value?.public_id, () => selfManaged], cancelMemberExport, { flush: 'sync' })
 onMounted(() => {
   if (selfManaged) {
     void loadOrganization().then(async (loaded) => {
@@ -442,7 +494,7 @@ onMounted(() => {
   }
   void Promise.all([loadOrganization(), loadMembers()])
 })
-onBeforeUnmount(() => { clearTimeout(memberTimer); memberController?.abort(); gatewayController?.abort() })
+onBeforeUnmount(() => { clearTimeout(memberTimer); memberController?.abort(); gatewayController?.abort(); cancelMemberExport() })
 </script>
 
 <style scoped>
