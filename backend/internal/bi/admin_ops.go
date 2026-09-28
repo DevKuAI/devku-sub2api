@@ -571,19 +571,47 @@ func (h *Handler) AdminIssueCredential(c *gin.Context, actorID int64) {
 	if input.SourceID == "" {
 		input.SourceID = c.Param("source_id")
 	}
-	id, token, err := RegisterConnector(c.Request.Context(), h.service.db, ConnectorRegistration(input))
-	if err == nil {
-		err = h.service.insertSecurityEvent(c.Request.Context(), actorID, "connector.issue", id, input.OrganizationID, adminRequestID(c), nil)
-	}
+	id, token, err := h.service.issueAdminCredential(c.Request.Context(), ConnectorRegistration(input), actorID, adminRequestID(c))
 	adminRespond(c, gin.H{"credential_id": id, "token": token}, err)
 }
 
-func (h *Handler) AdminRevokeCredential(c *gin.Context, actorID int64) {
-	err := RevokeConnector(c.Request.Context(), h.service.db, c.Param("credential_id"))
-	if err == nil {
-		err = h.service.insertSecurityEvent(c.Request.Context(), actorID, "connector.revoke", c.Param("credential_id"), "", adminRequestID(c), nil)
+func (s *Service) issueAdminCredential(ctx context.Context, input ConnectorRegistration, actorID int64, requestID string) (string, string, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return "", "", err
 	}
+	defer func() { _ = tx.Rollback() }()
+	id, token, err := registerConnectorTx(ctx, tx, input)
+	if err != nil {
+		return "", "", err
+	}
+	if err := insertAdminSecurityEvent(ctx, tx, actorID, "connector.issue", id, input.OrganizationID, requestID, nil); err != nil {
+		return "", "", err
+	}
+	if err := tx.Commit(); err != nil {
+		return "", "", err
+	}
+	return id, token, nil
+}
+
+func (h *Handler) AdminRevokeCredential(c *gin.Context, actorID int64) {
+	err := h.service.revokeAdminCredential(c.Request.Context(), c.Param("credential_id"), actorID, adminRequestID(c))
 	adminRespond(c, gin.H{"revoked": err == nil}, err)
+}
+
+func (s *Service) revokeAdminCredential(ctx context.Context, id string, actorID int64, requestID string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if err := revokeConnectorTx(ctx, tx, id); err != nil {
+		return err
+	}
+	if err := insertAdminSecurityEvent(ctx, tx, actorID, "connector.revoke", id, "", requestID, nil); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (h *Handler) AdminRotateCredential(c *gin.Context, actorID int64) {
@@ -593,25 +621,42 @@ func (h *Handler) AdminRotateCredential(c *gin.Context, actorID int64) {
 	if !decodeRequest(c, &input) {
 		return
 	}
+	id, token, err := h.service.rotateAdminCredential(c.Request.Context(), c.Param("credential_id"), input.ExpiresAt, actorID, adminRequestID(c))
+	adminRespond(c, gin.H{"credential_id": id, "token": token}, err)
+}
+
+func (s *Service) rotateAdminCredential(ctx context.Context, oldID string, expiresAt time.Time, actorID int64, requestID string) (string, string, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return "", "", err
+	}
+	defer func() { _ = tx.Rollback() }()
 	var registration ConnectorRegistration
 	var rawKinds []byte
-	err := h.service.db.QueryRowContext(c.Request.Context(), `SELECT c.organization_id,c.source_id,s.namespace,s.allowed_kinds FROM bi_connector_credentials c JOIN bi_connector_sources s ON s.organization_id=c.organization_id AND s.source_id=c.source_id WHERE c.id=$1`, c.Param("credential_id")).Scan(&registration.OrganizationID, &registration.SourceID, &registration.Namespace, &rawKinds)
+	err = tx.QueryRowContext(ctx, `SELECT c.organization_id,c.source_id,s.namespace,s.allowed_kinds FROM bi_connector_credentials c JOIN bi_connector_sources s ON s.organization_id=c.organization_id AND s.source_id=c.source_id WHERE c.id=$1 AND c.revoked_at IS NULL AND c.expires_at>NOW() FOR UPDATE OF c`, oldID).Scan(&registration.OrganizationID, &registration.SourceID, &registration.Namespace, &rawKinds)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", "", ErrNotFound
+	}
 	if err != nil {
-		adminRespond(c, nil, ErrNotFound)
-		return
+		return "", "", err
 	}
-	if err = json.Unmarshal(rawKinds, &registration.AllowedKinds); err != nil {
-		adminRespond(c, nil, err)
-		return
+	if err := json.Unmarshal(rawKinds, &registration.AllowedKinds); err != nil {
+		return "", "", err
 	}
-	id, token, err := RegisterConnector(c.Request.Context(), h.service.db, registrationWithExpiry(registration, input.ExpiresAt))
-	if err == nil {
-		err = h.service.insertSecurityEvent(c.Request.Context(), actorID, "connector.rotate", id, registration.OrganizationID, adminRequestID(c), map[string]any{"replaced": c.Param("credential_id")})
+	id, token, err := registerConnectorTx(ctx, tx, registrationWithExpiry(registration, expiresAt))
+	if err != nil {
+		return "", "", err
 	}
-	if err == nil {
-		err = RevokeConnector(c.Request.Context(), h.service.db, c.Param("credential_id"))
+	if err := insertAdminSecurityEvent(ctx, tx, actorID, "connector.rotate", id, registration.OrganizationID, requestID, map[string]any{"replaced": oldID}); err != nil {
+		return "", "", err
 	}
-	adminRespond(c, gin.H{"credential_id": id, "token": token}, err)
+	if err := revokeConnectorTx(ctx, tx, oldID); err != nil {
+		return "", "", err
+	}
+	if err := tx.Commit(); err != nil {
+		return "", "", err
+	}
+	return id, token, nil
 }
 
 func registrationWithExpiry(input ConnectorRegistration, expiresAt time.Time) ConnectorRegistration {

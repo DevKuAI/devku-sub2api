@@ -5,10 +5,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"log/slog"
 	"slices"
 
+	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/gin-gonic/gin"
+	"github.com/lib/pq"
 )
 
 var Capabilities = []string{
@@ -229,11 +233,22 @@ func (s *Service) ListGrants(ctx context.Context, organizationID string, offset,
 
 func adminRespond(c *gin.Context, result any, err error) {
 	if err != nil {
+		requestID, _ := c.Request.Context().Value(ctxkey.RequestID).(string)
+		var metadata map[string]string
+		if requestID != "" {
+			metadata = map[string]string{"request_id": requestID}
+		}
 		var typed *Error
 		if !errors.As(err, &typed) {
+			fields := []any{"request_id", requestID, "operation", c.FullPath(), "error_type", fmt.Sprintf("%T", err)}
+			var postgresError *pq.Error
+			if errors.As(err, &postgresError) {
+				fields = append(fields, "sqlstate", string(postgresError.Code))
+			}
+			slog.ErrorContext(c.Request.Context(), "BI admin request failed", fields...)
 			typed = apiError(500, "INTERNAL_ERROR", "BI operation failed")
 		}
-		response.ErrorWithDetails(c, typed.Status, typed.Message, typed.Code, nil)
+		response.ErrorWithDetails(c, typed.Status, typed.Message, typed.Code, metadata)
 		return
 	}
 	response.Success(c, result)

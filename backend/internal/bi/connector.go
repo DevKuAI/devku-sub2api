@@ -20,6 +20,22 @@ type ConnectorRegistration struct {
 // RegisterConnector is an operations-only API. The bearer is returned once.
 // Reissuing credentials for the same source preserves its checkpoint and idempotency domain.
 func RegisterConnector(ctx context.Context, db *sql.DB, input ConnectorRegistration) (string, string, error) {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return "", "", err
+	}
+	defer func() { _ = tx.Rollback() }()
+	id, token, err := registerConnectorTx(ctx, tx, input)
+	if err != nil {
+		return "", "", err
+	}
+	if err := tx.Commit(); err != nil {
+		return "", "", err
+	}
+	return id, token, nil
+}
+
+func registerConnectorTx(ctx context.Context, tx *sql.Tx, input ConnectorRegistration) (string, string, error) {
 	if !requestIDPattern.MatchString(input.OrganizationID) || !requestIDPattern.MatchString(input.SourceID) ||
 		!requestIDPattern.MatchString(input.Namespace) || len(input.AllowedKinds) == 0 || !input.ExpiresAt.After(time.Now()) {
 		return "", "", invalid("connector", "Organization, source, namespace, kinds and future expiry are required")
@@ -29,16 +45,12 @@ func RegisterConnector(ctx context.Context, db *sql.DB, input ConnectorRegistrat
 			return "", "", invalid("allowed_kinds", "Unknown record kind")
 		}
 	}
+	input.AllowedKinds = slices.Clone(input.AllowedKinds)
 	slices.Sort(input.AllowedKinds)
 	input.AllowedKinds = slices.Compact(input.AllowedKinds)
 	kinds, _ := json.Marshal(input.AllowedKinds)
-	tx, err := db.BeginTx(ctx, nil)
-	if err != nil {
-		return "", "", err
-	}
-	defer func() { _ = tx.Rollback() }()
 	var active bool
-	err = tx.QueryRowContext(ctx, `SELECT d.status='active' AND d.deleted_at IS NULL FROM bi_organizations o JOIN desktop_organizations d ON d.id=o.desktop_organization_id WHERE o.id=$1 FOR UPDATE OF o`, input.OrganizationID).Scan(&active)
+	err := tx.QueryRowContext(ctx, `SELECT d.status='active' AND d.deleted_at IS NULL FROM bi_organizations o JOIN desktop_organizations d ON d.id=o.desktop_organization_id WHERE o.id=$1 FOR UPDATE OF o`, input.OrganizationID).Scan(&active)
 	if errors.Is(err, sql.ErrNoRows) || (err == nil && !active) {
 		return "", "", ErrNotFound
 	}
@@ -71,9 +83,6 @@ func RegisterConnector(ctx context.Context, db *sql.DB, input ConnectorRegistrat
 	if _, err := tx.ExecContext(ctx, `INSERT INTO bi_security_events(action,target_id,request_id) VALUES('connector.issue',$1,$2)`, id, randomToken("ops_")); err != nil {
 		return "", "", err
 	}
-	if err := tx.Commit(); err != nil {
-		return "", "", err
-	}
 	return id, token, nil
 }
 
@@ -83,6 +92,13 @@ func RevokeConnector(ctx context.Context, db *sql.DB, id string) error {
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
+	if err := revokeConnectorTx(ctx, tx, id); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func revokeConnectorTx(ctx context.Context, tx *sql.Tx, id string) error {
 	result, err := tx.ExecContext(ctx, `UPDATE bi_connector_credentials SET revoked_at=COALESCE(revoked_at,NOW()) WHERE id=$1`, id)
 	if err != nil {
 		return err
@@ -97,7 +113,7 @@ func RevokeConnector(ctx context.Context, db *sql.DB, id string) error {
 	if _, err := tx.ExecContext(ctx, `INSERT INTO bi_security_events(action,target_id,request_id) VALUES('connector.revoke',$1,$2)`, id, randomToken("ops_")); err != nil {
 		return err
 	}
-	return tx.Commit()
+	return nil
 }
 
 func (s *Service) AuthorizeConnector(ctx context.Context, raw string) (Connector, error) {

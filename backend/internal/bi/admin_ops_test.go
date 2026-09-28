@@ -2,13 +2,37 @@ package bi
 
 import (
 	"context"
+	"errors"
+	"net/http/httptest"
 	"regexp"
 	"testing"
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
+
+func TestBIAdminErrorIncludesRequestIDWithoutDatabaseDetails(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	mock.ExpectQuery("SELECT report_months").WillReturnError(errors.New("private database detail"))
+	mock.ExpectClose()
+	h := &Handler{service: &Service{db: db}}
+	r := gin.New()
+	r.GET("/retention", func(c *gin.Context) {
+		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), ctxkey.RequestID, "bi-request-1"))
+		h.AdminGetRetention(c)
+	})
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest("GET", "/retention", nil))
+	require.Equal(t, 500, w.Code)
+	require.Contains(t, w.Body.String(), `"request_id":"bi-request-1"`)
+	require.NotContains(t, w.Body.String(), "private database detail")
+	require.NoError(t, db.Close())
+	require.NoError(t, mock.ExpectationsWereMet())
+}
 
 func TestListAdminBindingsJoinsManagerAndUser(t *testing.T) {
 	db, mock, err := sqlmock.New()

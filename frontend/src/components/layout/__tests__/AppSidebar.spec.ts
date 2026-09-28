@@ -80,8 +80,10 @@ describe('AppSidebar Desktop navigation', () => {
 })
 
 describe('AppSidebar BI navigation', () => {
-  it('leaves BI Operations out of the sidebar', () => {
-    expect(componentSource).not.toContain("path: '/admin/bi'")
+  it('only shows a BI fallback when ops monitoring is disabled and BI is available', () => {
+    expect(componentSource).toContain('const flagBIFallback = () => !flagOpsMonitoring() && biEnabled.value')
+    expect(componentSource).toMatch(/path: '\/admin\/bi'[^\n]*featureFlag: flagBIFallback[^\n]*openInNewWindow: true/)
+    expect(componentSource).toContain(":target=\"item.openInNewWindow ? '_blank' : undefined\"")
   })
 })
 

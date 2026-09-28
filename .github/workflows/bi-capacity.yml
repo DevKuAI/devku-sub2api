@@ -1,0 +1,48 @@
+name: BI Capacity Baseline
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * 2'
+
+permissions:
+  contents: read
+
+jobs:
+  capacity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          check-latest: false
+          cache: true
+          cache-dependency-path: backend/go.sum
+      - name: Run BI capacity baselines
+        working-directory: backend
+        shell: bash
+        run: |
+          set -o pipefail
+          go test -tags='integration bi_capacity' ./internal/bi -run '^(TestBICapacityBaseline|TestBIHistoricalReadBaseline)$' -count=1 -timeout=35m -v 2>&1 | tee "$RUNNER_TEMP/bi-capacity.log"
+      - name: Summarize baseline
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## BI capacity baseline'
+            echo ''
+            echo '```text'
+            if [ -f "$RUNNER_TEMP/bi-capacity.log" ]; then
+              grep -E 'calls=[0-9]+|historical_calls=[0-9]+' "$RUNNER_TEMP/bi-capacity.log" || true
+            fi
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: bi-capacity-log
+          path: ${{ runner.temp }}/bi-capacity.log
+          if-no-files-found: ignore
+          retention-days: 14

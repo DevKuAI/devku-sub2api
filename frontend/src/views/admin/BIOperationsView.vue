@@ -49,6 +49,9 @@
           <button class="btn btn-secondary" type="button" @click="loadChallenges">待确认绑定</button>
           <button class="btn btn-secondary" type="button" @click="loadSessions">设备/会话</button>
         </div>
+        <p v-if="identityErrors.bindings" class="text-sm text-red-600 dark:text-red-400" role="alert">绑定列表：{{ identityErrors.bindings }} <button class="ml-2 underline" type="button" @click="loadIdentity">重试绑定列表</button></p>
+        <p v-if="identityErrors.challenges" class="text-sm text-red-600 dark:text-red-400" role="alert">待确认绑定：{{ identityErrors.challenges }} <button class="ml-2 underline" type="button" @click="loadChallenges">重试待确认绑定</button></p>
+        <p v-if="identityErrors.sessions" class="text-sm text-red-600 dark:text-red-400" role="alert">设备/会话：{{ identityErrors.sessions }} <button class="ml-2 underline" type="button" @click="loadSessions">重试设备/会话</button></p>
         <div class="card overflow-hidden">
           <table class="min-w-full text-left text-sm"><thead class="bg-gray-50 text-xs uppercase text-gray-500 dark:bg-dark-800"><tr><th class="px-4 py-3">微信身份</th><th class="px-4 py-3">账号</th><th class="px-4 py-3">状态</th><th class="px-4 py-3">最近登录</th><th class="px-4 py-3">会话</th><th class="px-4 py-3">操作</th></tr></thead><tbody class="divide-y divide-gray-100 dark:divide-dark-700"><tr v-for="row in bindings" :key="row.id"><td class="px-4 py-3 font-mono text-xs">{{ row.id }}</td><td class="px-4 py-3">{{ row.display_name }} (#{{ row.user_id }})</td><td class="px-4 py-3"><span :class="statusClass(row.status)">{{ row.status }}</span></td><td class="px-4 py-3">{{ formatDate(row.last_login_at) }}</td><td class="px-4 py-3">{{ row.session_count }}</td><td class="px-4 py-3"><button v-if="row.status === 'active'" class="btn btn-danger btn-sm" type="button" @click="revokeBinding(row)">强制撤销</button></td></tr><tr v-if="!bindings.length"><td colspan="6" class="px-4 py-8 text-center text-gray-500">暂无绑定记录</td></tr></tbody></table>
           <Pagination v-if="pageState.bindings.total > 0" :page="pageState.bindings.page" :page-size="pageState.bindings.page_size" :total="pageState.bindings.total" :page-size-options="[20, 50, 100]" @update:page="setPage('bindings', $event)" @update:page-size="setPageSize('bindings', $event)" />
@@ -82,6 +85,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { adminAPI } from '@/api/admin'
 import type { BIAuditEvent, BIBindingOperation, BIChallengeOperation, BICredentialOperation, BIImportOperation, BIQualityOperation, BIReportOperation, BISessionOperation, BISourceOperation, BIOperationsOverview, BIRetentionPolicy } from '@/api/admin/bi'
 import { useAppStore } from '@/stores'
+import { extractApiErrorCode, extractApiErrorMessage, extractApiErrorMetadata } from '@/utils/apiError'
 import Pagination from '@/components/common/Pagination.vue'
 
 type Tab = 'overview' | 'identity' | 'sources' | 'imports' | 'quality' | 'reports' | 'retention' | 'audit'
@@ -89,6 +93,7 @@ const appStore = useAppStore()
 const activeTab = ref<Tab>('overview')
 const loading = ref(false)
 const error = ref('')
+const identityErrors = reactive({ bindings: '', challenges: '', sessions: '' })
 const overview = ref<BIOperationsOverview | null>(null)
 const bindings = ref<BIBindingOperation[]>([])
 const challenges = ref<BIChallengeOperation[]>([])
@@ -131,30 +136,67 @@ function formatDate(value: string | null | undefined) { return value ? new Date(
 function statusClass(status: string) { return status === 'ready' || status === 'active' || status === 'applied' ? 'text-green-600 dark:text-green-400' : status === 'failed' || status === 'rejected' || status === 'revoked' || status === 'expired' || status === 'unknown' ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400' }
 function filterLabel(value: string) { return value === 'all' ? '全部' : value === 'active' ? '有效' : '已撤销' }
 function confirmAction(message: string) { return window.confirm(message) }
-function showError(reason: unknown) { error.value = reason instanceof Error ? reason.message : '操作失败，请稍后重试' }
+function formatError(reason: unknown): string {
+  const message = extractApiErrorCode(reason) === 'INTERNAL_ERROR'
+    ? 'BI 服务异常，请稍后重试'
+    : extractApiErrorMessage(reason, '操作失败，请稍后重试')
+  const requestID = extractApiErrorMetadata(reason)?.request_id
+  return typeof requestID === 'string' && requestID ? `${message}（请求 ID：${requestID}）` : message
+}
+function showError(reason: unknown) { error.value = formatError(reason) }
 async function loadOverview() { overview.value = await adminAPI.bi.getOverview(); Object.assign(retention, overview.value.retention) }
 function setPage(key: PageKey, page: number) { pageState[key].page = page; void loadPage(key) }
 function setPageSize(key: PageKey, pageSize: number) { pageState[key].page_size = pageSize; pageState[key].page = 1; void loadPage(key) }
 async function loadPage(key: PageKey) {
-  if (key === 'bindings') await loadIdentity()
-  else if (key === 'challenges') await loadChallenges()
-  else if (key === 'sessions') await loadSessions()
-  else if (key === 'sources') await loadSources()
-  else if (key === 'credentials' && selectedSource.value) await loadCredentials(selectedSource.value)
-  else if (key === 'imports') await loadImports()
-  else if (key === 'reports') await loadReports()
-  else if (key === 'audit') await loadAudit()
+  try {
+    if (key === 'bindings') await loadIdentity()
+    else if (key === 'challenges') await loadChallenges()
+    else if (key === 'sessions') await loadSessions()
+    else if (key === 'sources') await loadSources()
+    else if (key === 'credentials' && selectedSource.value) await loadCredentials(selectedSource.value)
+    else if (key === 'imports') await loadImports()
+    else if (key === 'reports') await loadReports()
+    else if (key === 'audit') await loadAudit()
+  } catch (reason) { showError(reason) }
 }
 function applyPage(key: PageKey, result: { page: number; page_size: number; total: number }) { pageState[key].page = result.page; pageState[key].page_size = result.page_size; pageState[key].total = result.total }
-async function loadIdentity() { const result = await adminAPI.bi.listBindings({ ...(identityFilter.value === 'all' ? {} : { status: identityFilter.value }), page: pageState.bindings.page, page_size: pageState.bindings.page_size }); bindings.value = result.items; applyPage('bindings', result) }
-async function loadChallenges() { const result = await adminAPI.bi.listChallenges({ page: pageState.challenges.page, page_size: pageState.challenges.page_size }); challenges.value = result.items; applyPage('challenges', result) }
-async function loadSessions() { const result = await adminAPI.bi.listSessions({ page: pageState.sessions.page, page_size: pageState.sessions.page_size }); sessions.value = result.items; applyPage('sessions', result) }
+async function loadIdentity() {
+  identityErrors.bindings = ''
+  try {
+    const result = await adminAPI.bi.listBindings({ ...(identityFilter.value === 'all' ? {} : { status: identityFilter.value }), page: pageState.bindings.page, page_size: pageState.bindings.page_size })
+    bindings.value = result.items
+    applyPage('bindings', result)
+  } catch (reason) { identityErrors.bindings = formatError(reason) }
+}
+async function loadChallenges() {
+  identityErrors.challenges = ''
+  try {
+    const result = await adminAPI.bi.listChallenges({ page: pageState.challenges.page, page_size: pageState.challenges.page_size })
+    challenges.value = result.items
+    applyPage('challenges', result)
+  } catch (reason) { identityErrors.challenges = formatError(reason) }
+}
+async function loadSessions() {
+  identityErrors.sessions = ''
+  try {
+    const result = await adminAPI.bi.listSessions({ page: pageState.sessions.page, page_size: pageState.sessions.page_size })
+    sessions.value = result.items
+    applyPage('sessions', result)
+  } catch (reason) { identityErrors.sessions = formatError(reason) }
+}
 async function loadSources() { const result = await adminAPI.bi.listSources({ page: pageState.sources.page, page_size: pageState.sources.page_size }); sources.value = result.items; applyPage('sources', result) }
 async function loadCredentials(row: BISourceOperation) { try { selectedSource.value = row; const result = await adminAPI.bi.listCredentials(row.source_id, row.organization_id, { page: pageState.credentials.page, page_size: pageState.credentials.page_size }); credentials.value = result.items; applyPage('credentials', result) } catch (reason) { showError(reason) } }
 async function loadImports() { const result = await adminAPI.bi.listImports({ page: pageState.imports.page, page_size: pageState.imports.page_size }); imports.value = result.items; applyPage('imports', result) }
 async function loadQuality() { quality.value = (await adminAPI.bi.listQuality({ organization_id: credentialForm.organization_id || undefined })).items }
 async function loadReports() { const result = await adminAPI.bi.listReports({ page: pageState.reports.page, page_size: pageState.reports.page_size }); reports.value = result.items; applyPage('reports', result) }
-async function loadAudit() { const result = await adminAPI.bi.listAudit({ page: pageState.audit.page, page_size: pageState.audit.page_size, ...(auditRequestID.value ? { request_id: auditRequestID.value } : {}) }); audit.value = result.items; applyPage('audit', result) }
+async function loadAudit() {
+  error.value = ''
+  try {
+    const result = await adminAPI.bi.listAudit({ page: pageState.audit.page, page_size: pageState.audit.page_size, ...(auditRequestID.value ? { request_id: auditRequestID.value } : {}) })
+    audit.value = result.items
+    applyPage('audit', result)
+  } catch (reason) { showError(reason) }
+}
 async function loadImportDetails(row: BIImportOperation) { try { selectedImport.value = await adminAPI.bi.getImport(row.id) } catch (reason) { showError(reason) } }
 async function loadReportDetails(row: BIReportOperation) { try { selectedReport.value = await adminAPI.bi.getReport(row.id) } catch (reason) { showError(reason) } }
 async function loadActive() { loading.value = true; error.value = ''; try { if (activeTab.value === 'overview') await loadOverview(); else if (activeTab.value === 'identity') await Promise.all([loadIdentity(), loadChallenges(), loadSessions()]); else if (activeTab.value === 'sources') await loadSources(); else if (activeTab.value === 'imports') await loadImports(); else if (activeTab.value === 'quality') await loadQuality(); else if (activeTab.value === 'reports') await loadReports(); else if (activeTab.value === 'retention') { Object.assign(retention, await adminAPI.bi.getRetention()); cleanupStatus.value = await adminAPI.bi.getCleanup() } else await loadAudit() } catch (reason) { showError(reason) } finally { loading.value = false } }
