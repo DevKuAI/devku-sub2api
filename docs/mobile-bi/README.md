@@ -1,13 +1,13 @@
 # BI API 文档索引
 
-当前实现面向 API v1.1.0。可导入的接口文档共覆盖 62 个操作：59 个小程序/采集操作及 3 个配套原站授权管理操作。它们已在本地实现；真实数据源、微信设备和生产容量验收仍按 [验收进度](./acceptance-progress.md) 跟踪。
+当前实现面向 API v1.1.0。主接口覆盖 59 个小程序/采集操作；原站后台 OpenAPI 覆盖 27 个授权与运维操作；隐私说明另有 3 个操作。它们已在本地实现；真实数据源、微信设备和生产容量验收仍按 [验收进度](./acceptance-progress.md) 跟踪。
 
 | 文档 | 用途 |
 | --- | --- |
 | [主接口 OpenAPI](./openapi.yaml) | 59 个小程序/采集操作，请求响应 Schema、示例、权限、分页和错误契约；`x-implementation-status=implemented-local` |
-| [原站授权管理 OpenAPI](./admin.openapi.json) | 3 个管理授权操作，可独立导入；包含管理员认证、revision 条件写、原站响应 envelope 和错误分支 |
+| [原站授权与运维 OpenAPI](./admin.openapi.json) | 27 个授权、身份、数据源、导入、报告、清理和审计操作，可独立导入 |
 | [隐私说明 OpenAPI](./privacy-notice.openapi.yaml) | 公开读取、后台读取和发布 3 个操作；程序内 `/legal/bi-privacy` 页面及 bootstrap 动态配置 |
-| [配置参考](./configuration.md) | 9 个服务配置项、环境变量、默认值、校验、部署入口、CLI 参数及固定值 |
+| [配置参考](./configuration.md) | 7 个服务配置项、环境变量、默认值、校验、部署入口、CLI 参数及固定值 |
 | [测试企业与联调操作](./integration-runbook.md) | 测试环境、授权、微信绑定、采集、修订和失败恢复 |
 | [实施记录](./implementation.md) | 已实现能力、兼容决策、迁移、容量基线和待确认项 |
 | [验收进度](./acceptance-progress.md) | 本地证据与真实环境待验收项 |

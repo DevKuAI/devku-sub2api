@@ -284,6 +284,10 @@ func importStatus(status string, leaseUntil *time.Time, now time.Time, attempts 
 	return status
 }
 
+func retryableImportStatus(status string) bool {
+	return status == "failed" || status == "rejected" || status == "validating" || status == "queued"
+}
+
 func reportStatus(status string, leaseUntil *time.Time, now time.Time) string {
 	if status == "running" && leaseUntil != nil && leaseUntil.Before(now) {
 		return "lease_timeout"
@@ -511,43 +515,43 @@ func (h *Handler) AdminListSources(c *gin.Context) {
 	adminRespond(c, gin.H{"items": items, "total": total, "page": page, "page_size": size}, err)
 }
 
-func (s *Service) listAdminCredentials(ctx context.Context, sourceID, organizationID string) ([]AdminCredential, error) {
+func (s *Service) listAdminCredentialsPage(ctx context.Context, sourceID, organizationID string, page, pageSize int) ([]AdminCredential, int64, error) {
 	if s.db == nil {
-		return []AdminCredential{}, nil
+		return []AdminCredential{}, 0, nil
 	}
 	args := []any{}
-	where := ""
-	if sourceID != "" {
-		args = append(args, sourceID)
-		where = " WHERE source_id=$1"
-	}
-	if organizationID != "" {
-		args = append(args, organizationID)
-		if where == "" {
-			where = " WHERE organization_id=$1"
-		} else {
-			where += " AND organization_id=$" + strconv.Itoa(len(args))
+	where := " WHERE 1=1"
+	for _, item := range []struct{ value, key string }{{sourceID, "source_id"}, {organizationID, "organization_id"}} {
+		if item.value != "" {
+			args = append(args, item.value)
+			where += " AND " + item.key + "=$" + strconv.Itoa(len(args))
 		}
 	}
-	rows, err := s.db.QueryContext(ctx, "SELECT id,organization_id,source_id,LEFT(token_hash,12),CASE WHEN revoked_at IS NOT NULL THEN 'revoked' WHEN expires_at<=NOW() THEN 'expired' ELSE 'active' END,created_at,expires_at,revoked_at FROM bi_connector_credentials"+where+" ORDER BY created_at DESC", args...)
+	var total int64
+	if err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM bi_connector_credentials"+where, args...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+	args = append(args, pageSize, (page-1)*pageSize)
+	rows, err := s.db.QueryContext(ctx, "SELECT id,organization_id,source_id,LEFT(token_hash,12),CASE WHEN revoked_at IS NOT NULL THEN 'revoked' WHEN expires_at<=NOW() THEN 'expired' ELSE 'active' END,created_at,expires_at,revoked_at FROM bi_connector_credentials"+where+" ORDER BY created_at DESC,id LIMIT $"+strconv.Itoa(len(args)-1)+" OFFSET $"+strconv.Itoa(len(args)), args...)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer func() { _ = rows.Close() }()
 	items := []AdminCredential{}
 	for rows.Next() {
 		var item AdminCredential
 		if err := rows.Scan(&item.ID, &item.OrganizationID, &item.SourceID, &item.TokenPrefix, &item.Status, &item.CreatedAt, &item.ExpiresAt, &item.RevokedAt); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		items = append(items, item)
 	}
-	return items, rows.Err()
+	return items, total, rows.Err()
 }
 
 func (h *Handler) AdminListCredentials(c *gin.Context) {
-	items, err := h.service.listAdminCredentials(c.Request.Context(), c.Param("source_id"), c.Query("organization_id"))
-	adminRespond(c, gin.H{"items": items}, err)
+	page, size := adminPagination(c)
+	items, total, err := h.service.listAdminCredentialsPage(c.Request.Context(), c.Param("source_id"), c.Query("organization_id"), page, size)
+	adminRespond(c, gin.H{"items": items, "total": total, "page": page, "page_size": size}, err)
 }
 
 type AdminSourceInput struct {
@@ -709,7 +713,7 @@ func (s *Service) retryImport(ctx context.Context, id string, actorID int64, req
 	} else if err != nil {
 		return AdminImport{}, err
 	}
-	if status != "rejected" && status != "validating" && status != "queued" {
+	if !retryableImportStatus(status) {
 		return AdminImport{}, apiError(409, "CONFLICT", "Only failed or pending imports can be retried")
 	}
 	if status == "queued" || status == "validating" {
@@ -934,10 +938,18 @@ func (h *Handler) AdminRetryReport(c *gin.Context, actorID int64) {
 }
 
 func (s *Service) cleanupRetention(ctx context.Context) (int64, error) {
+	if s.db == nil {
+		return 0, fmt.Errorf("BI database is unavailable")
+	}
 	policy, err := s.retentionPolicy(ctx)
 	if err != nil {
 		return 0, err
 	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = tx.Rollback() }()
 	now := s.now().UTC()
 	var total int64
 	statements := []struct {
@@ -945,12 +957,15 @@ func (s *Service) cleanupRetention(ctx context.Context) (int64, error) {
 		args  []any
 	}{{`DELETE FROM bi_refresh_tokens WHERE expires_at <= $1`, []any{now}}, {`DELETE FROM bi_sessions WHERE expires_at <= $1 AND NOT EXISTS(SELECT 1 FROM bi_refresh_tokens r WHERE r.session_id=bi_sessions.id)`, []any{now}}, {`DELETE FROM bi_binding_challenges WHERE expires_at <= $1`, []any{now.AddDate(0, 0, -policy.EphemeralDays)}}, {`DELETE FROM bi_wechat_codes WHERE created_at <= $1`, []any{now.AddDate(0, 0, -policy.EphemeralDays)}}, {`DELETE FROM bi_list_snapshots WHERE expires_at <= $1`, []any{now}}, {`DELETE FROM bi_analysis_contexts WHERE expires_at <= $1`, []any{now}}, {`DELETE FROM bi_command_receipts WHERE expires_at <= $1`, []any{now}}, {`DELETE FROM bi_report_shares WHERE expires_at <= $1`, []any{now}}, {`DELETE FROM bi_report_shares WHERE report_id IN (SELECT id FROM bi_reports WHERE expires_at <= $1)`, []any{now.AddDate(0, policy.ReportMonths*-1, 0)}}, {`DELETE FROM bi_reports WHERE expires_at <= $1`, []any{now.AddDate(0, policy.ReportMonths*-1, 0)}}, {`DELETE FROM bi_security_events WHERE created_at <= $1`, []any{now.AddDate(0, 0, -policy.AuditDays)}}, {`DELETE FROM bi_usage_facts WHERE occurred_at <= $1`, []any{now.AddDate(0, policy.FactMonths*-1, 0)}}}
 	for _, statement := range statements {
-		result, err := s.db.ExecContext(ctx, statement.query, statement.args...)
+		result, err := tx.ExecContext(ctx, statement.query, statement.args...)
 		if err != nil {
 			return total, err
 		}
 		count, _ := result.RowsAffected()
 		total += count
+	}
+	if err := tx.Commit(); err != nil {
+		return total, err
 	}
 	return total, nil
 }

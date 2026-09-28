@@ -2,7 +2,7 @@
 
 本目录的六份原始交接文件来自用户提供的 `devku mobile api文档.zip`。原件缺少 `protocol.md`、`examples.json`、`contract-cases.json`、`interaction-map.md`、校验脚本和校验报告，不能把这些文件视为已取得。补充材料及真实数据源文档已在任务中询问。
 
-五份 Markdown 与压缩包原件逐字节一致。`openapi.yaml` 修正了导入操作的 Idempotency-Key 描述，使其与原采集协议的企业/source 幂等域一致；实现状态更新为 `implemented-local`，文档首部注明本地实现与真实验收的边界。其余路径、字段和 Schema 未改动；`MetricDefinition.unit` 的待确认枚举也未扩充。原站新增 3 个授权操作单独记录在 `admin.openapi.json`。
+五份 Markdown 与压缩包原件逐字节一致。`openapi.yaml` 修正了导入操作的 Idempotency-Key 描述，使其与原采集协议的企业/source 幂等域一致；实现状态更新为 `implemented-local`，文档首部注明本地实现与真实验收的边界。其余路径、字段和 Schema 未改动；`MetricDefinition.unit` 的待确认枚举也未扩充。原站授权与运维共 27 个操作单独记录在 `admin.openapi.json`。
 
 ## 交付边界
 
@@ -25,6 +25,7 @@
 - 分析读取优化：当前周期及对比窗口保留逐次调用明细，更早的数据按人员、上海自然日、团队、应用、场景和结果保留活动证据。部门/岗位变更日保留全部人员事件，避免日内归属丢失；首次调用时间相同时按事件 ID 稳定选取。源事实和旧 Context 的数据版本保持不变。
 - 周期查询与知识状态：周期读取先固定候选 ID，再通过索引查找最新已发布版本，避免统计信息滞后时的重复扫描；知识状态历史在单个请求内复用，资产统计和引用明细使用同一判断方法。应用搜索在需要时读取本期调用关联，保留本期用过但当前适用范围已变化的应用。
 - 原站列表：绑定审批/撤销和企业授权保存/撤销后的刷新可替代在途读取；迟到的旧响应或错误不能覆盖最新列表。切换企业同时清空列表、分页和可选 capability 状态。
+- 运维工作台：原站 `/admin/bi` 提供服务状态、微信身份、数据源凭证、导入批次、来源质量、报告任务、保留清理和审计查询；变更操作经过 step-up authentication，并记录管理员、request_id 和操作对象。
 - 已取得的验证包括 BI PostgreSQL 集成测试、分析/内容/报告响应 Schema 校验、122 项分页、来源与分享撤权、note 并发、后端 unit/integration/lint/build 及前端验证。2026-09-23 继续复核后修复了暂存清理、调用修订依赖和原站旧请求覆盖问题；最新验证范围见 [验收进度](./acceptance-progress.md)。
 
 路由齐全不代表生产验收完成。真实微信/真机、外部组织/知识/评估生产者的适配和联调、容量目标及业务数据物理保留策略仍待材料和环境确认。尚未连接业务生产数据库、推送或部署；本地提交不代表生产验收完成。
@@ -42,9 +43,9 @@
 
 ## 配置与验证
 
-`bi.enabled` 默认 false。启用前必须提供 AppID、AppSecret、两份独立的 base64 密钥及真实 HTTPS 隐私说明 URL/版本。参见 `deploy/config.example.yaml` 的 `bi` 配置。新增迁移为 `242_bi_identity.sql` 至 `248_bi_daily_usage.sql`。
+`bi.enabled` 默认 false。启用前必须提供 AppID、AppSecret、两份独立的 base64 密钥及真实 HTTPS 隐私说明 URL/版本。参见 `deploy/config.example.yaml` 的 `bi` 配置。新增迁移为 `242_bi_identity.sql` 至 `249_bi_operations.sql`。
 
-全部 9 个服务配置项已同步至 `.env.example` 和四套 Compose 模板，默认值、环境覆盖及加载行为已核对；字段与固定值边界见 [配置参考](./configuration.md)。完整文档入口见 [文档索引](./README.md)。
+全部 7 个服务配置项已同步至 `.env.example` 和四套 Compose 模板，默认值、环境覆盖及加载行为已核对；字段与固定值边界见 [配置参考](./configuration.md)。完整文档入口见 [文档索引](./README.md)。
 
 可重复执行的阶段验证：
 
@@ -103,5 +104,5 @@ UsageLog.created_at 用作对账时间；requested_model 缺失时保留 unknown
 - 本周对比口径已经确认；refresh 活动续期、绑定挑战默认 10 分钟及角色配置规则仍须与完整协议复核。
 - MetricDefinition.unit 缺少 application。已询问是否扩充该枚举；确认前不在指标字典中把活跃应用数误标为请求次数，统计响应本身正常提供 active_applications。
 - 尚缺真实组织/Eligibility、工作入口归因、知识/案例/评估来源的接口或样本，不能凭通用 ImportBatch 接口声称这些生产系统已完成适配。
-- report_retention_months 默认 24，控制报告可读期限；业务事实、内容历史和审计的物理删除规则尚未启用，需先落实实际保留期限及引用保留要求。临时缓存清理不替代业务数据保留策略。
+- 运维工作台已保存报告、业务事实、审计和临时状态保留策略，并支持手动或 worker 定时清理；默认值仍需业务方确认，历史报告引用和来源撤权规则必须先完成验证。清理策略不替代真实数据保留制度和备份策略。
 - 未执行真实 AppID、HTTPS 合法域名和微信 iOS/Android 真机验证，也未作没有 PRD 容量基线的 SLA 承诺。

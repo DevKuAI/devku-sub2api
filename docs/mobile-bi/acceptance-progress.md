@@ -5,9 +5,9 @@
 ## 已执行的本地验证
 
 - `TestBIRoutesMatchEveryVersion110OperationAndProtectBearerRoutes`：59 个 operation 的方法/路径与 OpenAPI 对齐，Bearer 入口拒绝未认证请求。
-- `TestBIAdminRoutesMatchSupplementalOpenAPI`、`TestBIAdminResponsesMatchSupplementalOpenAPI`：补充的 3 个原站授权操作与路由对齐；实际列表、保存、撤销及参数/并发错误响应通过补充文档 Schema 校验。
-- `TestBIConfigLoadsEveryEnvironmentSetting`：全部 9 个环境配置字段经实际 Load 流程正确加载。四套 Compose 的默认/自定义两组配置渲染均通过，既有 application environment/security/storage 检查通过。
-- 两份 OpenAPI 均通过 OpenAPI 3.1 规范校验，共 62 个唯一操作；主文档实现状态已更新为 implemented-local，配套文档和配置入口见 [文档索引](./README.md)。
+- `TestBIAdminRoutesMatchSupplementalOpenAPI`、`TestBIAdminResponsesMatchSupplementalOpenAPI`：原站授权操作与路由对齐；运维工作台的 24 个操作已接入路由，变更接口要求 step-up authentication。
+- `TestBIConfigLoadsEveryEnvironmentSetting`：全部 7 个 BI 服务配置字段经实际 Load 流程正确加载。四套 Compose 的默认/自定义两组配置渲染均通过，既有 application environment/security/storage 检查通过。
+- 主接口与后台接口的路径均已注册；主文档实现状态已更新为 implemented-local。后台运维接口的路径清单已加入 `admin.openapi.json`，但新增运维操作的请求/响应 Schema 仍需继续补齐。
 - `TestEmbeddedSchemasMatchOpenAPIVersion110` 及响应校验：嵌入 Schema 与交接契约一致；分析、内容、报告的实际 HTTP 响应通过对应 Schema 校验。
 - `TestBindingApprovalRaceAndOneTimeExchange`、`TestWeChatCodeReplayAndUnlinkInvalidatesOutstandingChallenges`、`TestRefreshRaceRevokesFamilyAndLogoutIsImmediate`：绑定争用、一次性兑换、code 重放、解绑和 refresh 并发。
 - `TestGrantsAreExplicitScopedAndRevokeImmediately`、`TestAnalysisContextIsImmutableAndNeverWidens`：企业授权隔离、Context 所属用户/企业校验、撤权与过期、固定 data revision。

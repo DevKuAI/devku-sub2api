@@ -6,11 +6,11 @@
 
 实施人员需要提供测试服务地址、微信 AppID、合法 HTTPS request 域名、隐私说明 URL、企业管理账号和测试数据来源。完整协议、PRD、数据保留期限及容量阈值仍以业务方提供的材料为准。
 
-使用独立的测试 PostgreSQL/Redis 和脱敏业务数据。通过现有 sub2api 启动流程运行迁移，确认 `242_bi_identity.sql` 至 `248_bi_daily_usage.sql` 已应用。服务的 BI worker 与服务进程一起启动，无需另外启动 `bi-connector` worker。
+使用独立的测试 PostgreSQL/Redis 和脱敏业务数据。通过现有 sub2api 启动流程运行迁移，确认 `242_bi_identity.sql` 至 `249_bi_operations.sql` 已应用。服务的 BI worker 与服务进程一起启动，无需另外启动 `bi-connector` worker。
 
 在部署使用的配置中设置以下字段。环境变量由相应配置键的大写形式构成，点替换为下划线，例如 `bi.app_secret` 对应 `BI_APP_SECRET`。
 
-四套 Compose 模板已透传全部 9 个 BI 配置项，完整字段、默认值与校验见 [配置参考](./configuration.md)。
+四套 Compose 模板已透传全部 7 个 BI 服务配置项，完整字段、默认值与校验见 [配置参考](./configuration.md)。Connector 凭证和导入批次通过 `/admin/bi` 运维工作台管理。
 
 | 配置 | 要求 |
 | --- | --- |
@@ -19,7 +19,7 @@
 | `bi.jwt_secret`、`bi.identity_secret` | 各自独立的标准 base64 密钥，每份至少 32 字节；不能复用网页或 Desktop 密钥 |
 | 后台 BI 隐私说明及站点地址 | 在「系统设置 → 登录条款」填写独立的 HTTPS 站点地址、标题、版本和 Markdown 正文后发布；详见 [配置参考](./configuration.md#隐私说明后台维护) |
 | `bi.min_client_version` | bootstrap 返回给客户端的最低版本，当前默认 `0.1.0` |
-| `bi.report_retention_months` | 报告可读期限，默认 24 个自然月；不表示业务事实已执行物理删除 |
+| `bi.report_retention_months` | 报告可读期限，默认 24 个自然月；业务事实、报告和审计清理由 `/admin/bi` 策略控制，启用前需确认保留制度 |
 | `desktop.enabled` | 使用原站 Desktop 企业管理入口时须启用，并满足原 Desktop 配置要求 |
 
 密钥、AppSecret 和接入 Token 放在环境配置或部署密钥管理中，不写入本目录。`identity_secret` 参与微信身份索引，不能把重生成密钥当作日常重启步骤。

@@ -149,7 +149,7 @@ const biAdminAPI = {
   listSessions: (params?: Record<string, unknown>) => list<BISessionOperation>('/admin/bi/identities/sessions', params),
   revokeBinding: (id: string) => apiClient.post(`/admin/bi/identities/bindings/${encodeURIComponent(id)}/revoke`).then(({ data }) => data),
   listSources: (params?: Record<string, unknown>) => list<BISourceOperation>('/admin/bi/sources', params),
-  listCredentials: (sourceID: string, organizationID?: string) => apiClient.get<{ items: BICredentialOperation[] }>(`/admin/bi/sources/${encodeURIComponent(sourceID)}/credentials`, { params: organizationID ? { organization_id: organizationID } : undefined }).then(({ data }) => data),
+  listCredentials: (sourceID: string, organizationID?: string, params?: Record<string, unknown>) => apiClient.get<ListResponse<BICredentialOperation>>(`/admin/bi/sources/${encodeURIComponent(sourceID)}/credentials`, { params: { ...(organizationID ? { organization_id: organizationID } : {}), ...params } }).then(({ data }) => data),
   issueCredential: (input: Record<string, unknown>) => apiClient.post<{ credential_id: string; token: string }>('/admin/bi/sources', input).then(({ data }) => data),
   revokeCredential: (id: string) => apiClient.post(`/admin/bi/credentials/${encodeURIComponent(id)}/revoke`).then(({ data }) => data),
   rotateCredential: (id: string, expires_at: string) => apiClient.post(`/admin/bi/credentials/${encodeURIComponent(id)}/rotate`, { expires_at }).then(({ data }) => data),

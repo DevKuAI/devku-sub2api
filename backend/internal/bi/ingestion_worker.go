@@ -46,7 +46,17 @@ func (w *Worker) Start() {
 		for {
 			if time.Since(lastCleanup) >= time.Hour {
 				cleanupCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-				_, err := w.service.CleanupEphemeralState(cleanupCtx)
+				deleted, err := w.service.cleanupRetention(cleanupCtx)
+				if w.service.db != nil {
+					status := "succeeded"
+					if err != nil {
+						status = "failed"
+					}
+					_, recordErr := w.service.db.ExecContext(cleanupCtx, `INSERT INTO bi_cleanup_runs(started_at,finished_at,status,deleted_count,error_message) VALUES($1,NOW(),$2,$3,$4)`, time.Now().UTC(), status, deleted, errorMessage(err))
+					if err == nil {
+						err = recordErr
+					}
+				}
 				cancel()
 				lastCleanup = time.Now()
 				if err != nil && ctx.Err() == nil {

@@ -3,7 +3,7 @@
   "info": {
     "title": "得酷 BI 原站授权管理 API",
     "version": "1.1.0",
-    "description": "API v1.1.0 的 3 个原站管理配套操作。bi.enabled=true 时注册，复用原站管理员认证、审计、合规确认及面板限流。与 openapi.yaml 的 59 个小程序/采集操作分别导入。当前已本地实现，尚未完成真实环境验收。"
+    "description": "API v1.1.0 的 27 个原站授权与运维操作。bi.enabled=true 时注册，复用原站管理员认证、审计、合规确认及面板限流。与 openapi.yaml 的 59 个小程序/采集操作分别导入。当前已本地实现，尚未完成真实环境验收。"
   },
   "servers": [
     {
