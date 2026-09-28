@@ -206,6 +206,37 @@ func TestAnalysisHTTPResponsesFollowContract(t *testing.T) {
 	}
 }
 
+func TestBICoreReadHTTPResponsesFollowContract(t *testing.T) {
+	s, connector, p, snapshot := analysisFixture(t)
+	h := &Handler{service: s}
+	r := gin.New()
+	r.Use(Headers, func(c *gin.Context) { c.Set(principalKey, p); c.Next() })
+	r.GET("/me", h.Me)
+	r.GET("/organizations", h.Organizations)
+	base := "/organizations/:organization_id"
+	r.GET(base+"/data-status", h.DataStatus)
+	r.GET(base+"/metric-definitions", h.MetricDefinitions)
+	r.GET(base+"/filter-options", h.FilterOptions)
+	r.GET(base+"/analysis-contexts/:context_id", h.GetAnalysisContext)
+
+	orgPath := "/organizations/" + connector.OrganizationID
+	for _, tc := range []struct{ name, path, schema string }{
+		{"me", "/me", "User"},
+		{"organizations", "/organizations", "OrganizationPage"},
+		{"data-status", orgPath + "/data-status", "DataStatus"},
+		{"metric-definitions", orgPath + "/metric-definitions", "MetricDefinitionPage"},
+		{"filter-options", orgPath + "/filter-options?kind=team&context_id=" + url.QueryEscape(snapshot.ID), "FilterOptionPage"},
+		{"analysis-context", orgPath + "/analysis-contexts/" + snapshot.ID, "Context"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, httptest.NewRequest("GET", tc.path, nil))
+			require.Equal(t, 200, w.Code, w.Body.String())
+			require.NoError(t, validateSchema(tc.schema, w.Body.Bytes()), w.Body.String())
+		})
+	}
+}
+
 func TestAnalysisPaginationPreservesTotalsAndBindsEntity(t *testing.T) {
 	s, c, p, _ := analysisFixture(t)
 	acl := map[string]any{"organization_readable": true, "team_ids": []string{}, "manager_ids": []string{}}
