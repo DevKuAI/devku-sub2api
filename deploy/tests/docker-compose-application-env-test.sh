@@ -90,8 +90,10 @@ do
   assert_contains_once "$compose_file" '-c maintenance_work_mem=${POSTGRES_MAINTENANCE_WORK_MEM:-64MB}'
   assert_contains_once "$compose_file" '      - REDIS_MAXCLIENTS=${REDIS_MAXCLIENTS:-10000}'
   assert_contains_once "$compose_file" '      - REDISCLI_AUTH=${REDIS_PASSWORD:-}'
-  assert_contains_once "$compose_file" '--maxclients "$${REDIS_MAXCLIENTS}"'
-  assert_contains_once "$compose_file" '$${REDISCLI_AUTH:+--requirepass "$$REDISCLI_AUTH"}'
+  assert_contains_once "$compose_file" '      - --maxclients'
+  assert_contains_once "$compose_file" '      - ${REDIS_MAXCLIENTS:-10000}'
+  assert_contains_once "$compose_file" '      - --requirepass'
+  assert_contains_once "$compose_file" '      - ${REDIS_PASSWORD:-}'
 done
 
 assert_contains_once deploy/apple-container.sh 'POSTGRES_MAX_CONNECTIONS="$(read_env_value POSTGRES_MAX_CONNECTIONS 100)"'
