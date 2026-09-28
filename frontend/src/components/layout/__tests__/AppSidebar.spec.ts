@@ -80,10 +80,8 @@ describe('AppSidebar Desktop navigation', () => {
 })
 
 describe('AppSidebar BI navigation', () => {
-  it('opens BI Operations in a separate browser tab', () => {
-    expect(componentSource).toMatch(/path: '\/admin\/bi'[\s\S]*?openInNewWindow: true/)
-    expect(componentSource).toContain(":target=\"item.openInNewWindow ? '_blank' : undefined\"")
-    expect(componentSource).toContain(":rel=\"item.openInNewWindow ? 'noopener noreferrer' : undefined\"")
+  it('leaves BI Operations out of the sidebar', () => {
+    expect(componentSource).not.toContain("path: '/admin/bi'")
   })
 })
 

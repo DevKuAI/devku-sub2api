@@ -5,14 +5,15 @@ import { flushPromises, mount, shallowMount } from '@vue/test-utils'
 import OpsDashboardHeader from '../OpsDashboardHeader.vue'
 import OpsRequestDetailsModal from '../OpsRequestDetailsModal.vue'
 
-const { listRequestDetails, viewport } = vi.hoisted(() => ({
+const { listRequestDetails, getBIOverview, viewport } = vi.hoisted(() => ({
   listRequestDetails: vi.fn(),
+  getBIOverview: vi.fn(),
   viewport: { desktop: true },
 }))
 
 vi.mock('@vueuse/core', () => ({ useMediaQuery: () => ref(viewport.desktop) }))
 vi.mock('@/api/admin/ops', () => ({ opsAPI: { listRequestDetails } }))
-vi.mock('@/api', () => ({ adminAPI: { groups: { getAll: vi.fn().mockResolvedValue([]) } } }))
+vi.mock('@/api', () => ({ adminAPI: { groups: { getAll: vi.fn().mockResolvedValue([]) }, bi: { getOverview: getBIOverview } } }))
 vi.mock('@/stores', () => ({
   useAppStore: () => ({ showError: vi.fn() }),
   useAdminSettingsStore: () => ({ opsRealtimeMonitoringEnabled: false }),
@@ -33,10 +34,13 @@ async function openDetails(sort: 'duration_desc' | 'ttft_desc') {
   return wrapper
 }
 
+const routerLinkStub = { props: ['to'], template: '<a :href="to"><slot /></a>' }
+
 describe('Ops request latency details', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     viewport.desktop = true
+    getBIOverview.mockResolvedValue({})
     listRequestDetails.mockResolvedValue({
       items: [
         { kind: 'success', created_at: '2026-09-10T00:00:00Z', duration_ms: 12000, first_token_ms: 800 },
@@ -47,9 +51,29 @@ describe('Ops request latency details', () => {
     })
   })
 
+  it('shows the BI Operations link only when BI is available', async () => {
+    const props = { platform: '', groupId: null, timeRange: '1h', queryMode: 'auto', loading: false, lastUpdated: null }
+    const wrapper = shallowMount(OpsDashboardHeader, { props, global: { stubs: { RouterLink: routerLinkStub } } })
+    await flushPromises()
+    const link = wrapper.find('a[href="/admin/bi"]')
+    expect(link.exists()).toBe(true)
+    expect(link.attributes('target')).toBe('_blank')
+    expect(link.attributes('rel')).toBe('noopener noreferrer')
+    await wrapper.setProps({ fullscreen: true })
+    expect(wrapper.find('a[href="/admin/bi"]').exists()).toBe(false)
+    wrapper.unmount()
+
+    getBIOverview.mockRejectedValueOnce(new Error('BI unavailable'))
+    const unavailable = shallowMount(OpsDashboardHeader, { props, global: { stubs: { RouterLink: routerLinkStub } } })
+    await flushPromises()
+    expect(unavailable.find('a[href="/admin/bi"]').exists()).toBe(false)
+    unavailable.unmount()
+  })
+
   it('opens the TTFT card with first-token sorting and successful requests', async () => {
     const wrapper = shallowMount(OpsDashboardHeader, {
       props: { overview: {} as OpsDashboardOverview, platform: '', groupId: null, timeRange: '1h', queryMode: 'auto', loading: false, lastUpdated: null },
+      global: { stubs: { RouterLink: routerLinkStub } },
     })
     await flushPromises()
     const button = wrapper.findAll('button').find((item) =>

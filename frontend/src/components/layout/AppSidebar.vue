@@ -80,8 +80,6 @@
             <router-link
               v-else
               :to="item.path"
-              :target="item.openInNewWindow ? '_blank' : undefined"
-              :rel="item.openInNewWindow ? 'noopener noreferrer' : undefined"
               class="sidebar-link mb-1"
               :class="{ 'sidebar-link-active': isActive(item.path), 'sidebar-link-collapsed': sidebarCollapsed }"
               :title="sidebarCollapsed ? item.label : undefined"
@@ -203,7 +201,6 @@ import { resolveSiteBillingMode } from '@/utils/siteBillingMode'
 import { useBatchImageAccess } from '@/composables/useBatchImageAccess'
 import { useDesktopOrganizationAccess } from '@/composables/useDesktopOrganizationAccess'
 import { useSubscriptionAccountAccess } from '@/composables/useSubscriptionAccountAccess'
-import { adminAPI } from '@/api/admin'
 
 interface NavItem {
   path: string
@@ -211,7 +208,6 @@ interface NavItem {
   icon: unknown
   iconSvg?: string
   hideInSimpleMode?: boolean
-  openInNewWindow?: boolean
   children?: NavItem[]
   /**
    * When true, the parent item only toggles the expand/collapse state and
@@ -281,7 +277,6 @@ const mobileOpen = computed(() => appStore.mobileOpen)
 const isAdmin = computed(() => authStore.isAdmin)
 const sidebarNavRef = ref<HTMLElement | null>(null)
 const isDark = ref(document.documentElement.classList.contains('dark'))
-const biEnabled = ref<boolean | undefined>(undefined)
 
 const homePath = computed(() => (isAdmin.value ? '/admin/dashboard' : '/dashboard'))
 
@@ -741,7 +736,6 @@ const flagRiskControl = makeSidebarFlag(FeatureFlags.riskControl)
 const flagPluginManagement = makeSidebarFlag(FeatureFlags.pluginManagement)
 const flagDesktop = makeSidebarFlag(FeatureFlags.desktop)
 const flagOpsMonitoring = () => adminSettingsStore.opsMonitoringEnabled
-const flagBI = () => biEnabled.value
 const flagAdminPayment = () => adminSettingsStore.paymentEnabled
 const flagBatchImageAccess = () => canUseBatchImage.value
 
@@ -816,7 +810,6 @@ const adminNavItems = computed((): NavItem[] => {
   const baseItems: NavItem[] = [
     { path: '/admin/dashboard', label: t('nav.dashboard'), icon: DashboardIcon },
     { path: '/admin/ops', label: t('nav.ops'), icon: ChartIcon, featureFlag: flagOpsMonitoring },
-    { path: '/admin/bi', label: t('nav.biOperations'), icon: ChartIcon, featureFlag: flagBI, openInNewWindow: true },
     { path: '/admin/users', label: t('nav.users'), icon: UsersIcon, hideInSimpleMode: true },
     { path: '/admin/groups', label: t('nav.groups'), icon: FolderIcon },
     {
@@ -1038,7 +1031,6 @@ onMounted(() => {
   void refreshBatchImageAccess()
   if (isAdmin.value) {
     adminSettingsStore.fetch()
-    void adminAPI.bi.getOverview().then(() => { biEnabled.value = true }).catch(() => { biEnabled.value = false })
   }
   // Restore sidebar scroll position after route change re-mounts the component
   if (appStore.sidebarScrollTop > 0 && sidebarNavRef.value) {
