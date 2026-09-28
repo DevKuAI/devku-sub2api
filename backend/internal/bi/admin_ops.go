@@ -334,7 +334,8 @@ func (s *Service) listAdminBindings(ctx context.Context, page, pageSize int, sta
 	}
 	args = append(args, pageSize, (page-1)*pageSize)
 	rows, err := s.db.QueryContext(ctx, `SELECT b.id,m.user_id,COALESCE(u.username,''),CASE WHEN b.revoked_at IS NOT NULL THEN 'revoked' ELSE 'active' END,b.created_at,b.last_login_at,b.revoked_at,
-		(SELECT COUNT(*) FROM bi_sessions s WHERE s.binding_id=b.id)`+where+` ORDER BY b.created_at DESC,b.id LIMIT $`+strconv.Itoa(len(args)-1)+` OFFSET $`+strconv.Itoa(len(args)), args...)
+		(SELECT COUNT(*) FROM bi_sessions s WHERE s.binding_id=b.id)
+		FROM bi_wechat_bindings b JOIN bi_managers m ON m.id=b.manager_id LEFT JOIN users u ON u.id=m.user_id`+where+` ORDER BY b.created_at DESC,b.id LIMIT $`+strconv.Itoa(len(args)-1)+` OFFSET $`+strconv.Itoa(len(args)), args...)
 	if err != nil {
 		return nil, 0, err
 	}
