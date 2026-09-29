@@ -57,6 +57,8 @@ describe('Ops request latency details', () => {
     await flushPromises()
     const link = wrapper.find('a[href="/admin/bi"]')
     expect(link.exists()).toBe(true)
+    expect(link.element.previousElementSibling).toBe(wrapper.find('h1').element)
+    expect(link.find('svg').exists()).toBe(false)
     expect(link.attributes('target')).toBe('_blank')
     expect(link.attributes('rel')).toBe('noopener noreferrer')
     await wrapper.setProps({ fullscreen: true })

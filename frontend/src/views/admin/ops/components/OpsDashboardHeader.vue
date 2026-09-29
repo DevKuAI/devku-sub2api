@@ -864,8 +864,8 @@ function handleToolbarRefresh() {
   <div :class="['flex flex-col gap-4 rounded-3xl bg-white shadow-sm ring-1 ring-gray-900/5 dark:bg-dark-800 dark:ring-dark-700', props.fullscreen ? 'p-8' : 'p-6']">
     <!-- Top Toolbar -->
     <div class="flex flex-wrap items-center justify-between gap-4 border-b border-gray-100 pb-4 dark:border-dark-700">
-      <div class="flex flex-wrap items-center gap-4">
-        <div>
+      <div>
+        <div class="flex flex-wrap items-center gap-3">
           <h1 class="flex items-center gap-2 text-xl font-black text-gray-900 dark:text-white">
             <svg class="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
@@ -877,34 +877,33 @@ function handleToolbarRefresh() {
             </svg>
             {{ t('admin.ops.title') }}
           </h1>
-
-          <div v-if="!props.fullscreen" class="mt-1 flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
-            <span class="flex items-center gap-1.5" :title="props.loading ? t('admin.ops.loadingText') : t('admin.ops.ready')">
-              <span class="relative flex h-2 w-2">
-                <span class="relative inline-flex h-2 w-2 rounded-full" :class="props.loading ? 'bg-gray-400' : 'bg-green-500'"></span>
-              </span>
-              {{ props.loading ? t('admin.ops.loadingText') : t('admin.ops.ready') }}
-            </span>
-
-            <span>·</span>
-            <span>{{ t('common.refresh') }}: {{ props.lastUpdated ? props.lastUpdated.toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/\//g, '-') : t('common.unknown') }}</span>
-
-            <template v-if="props.autoRefreshEnabled && props.autoRefreshCountdown !== undefined">
-              <span>·</span>
-              <span>{{ t('admin.ops.autoRefreshRemaining', { seconds: props.autoRefreshCountdown }) }}</span>
-            </template>
-          </div>
+          <router-link
+            v-if="!props.fullscreen && biEnabled"
+            to="/admin/bi"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="flex h-8 items-center rounded-lg bg-gray-100 px-3 text-xs font-bold text-gray-700 transition-colors hover:bg-gray-200 dark:bg-dark-700 dark:text-gray-300 dark:hover:bg-dark-600"
+          >
+            {{ t('nav.biOperations') }}
+          </router-link>
         </div>
-        <router-link
-          v-if="!props.fullscreen && biEnabled"
-          to="/admin/bi"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="flex h-8 items-center gap-1.5 rounded-lg bg-gray-100 px-3 text-xs font-bold text-gray-700 transition-colors hover:bg-gray-200 dark:bg-dark-700 dark:text-gray-300 dark:hover:bg-dark-600"
-        >
-          <Icon name="chart" size="sm" />
-          {{ t('nav.biOperations') }}
-        </router-link>
+
+        <div v-if="!props.fullscreen" class="mt-1 flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+          <span class="flex items-center gap-1.5" :title="props.loading ? t('admin.ops.loadingText') : t('admin.ops.ready')">
+            <span class="relative flex h-2 w-2">
+              <span class="relative inline-flex h-2 w-2 rounded-full" :class="props.loading ? 'bg-gray-400' : 'bg-green-500'"></span>
+            </span>
+            {{ props.loading ? t('admin.ops.loadingText') : t('admin.ops.ready') }}
+          </span>
+
+          <span>·</span>
+          <span>{{ t('common.refresh') }}: {{ props.lastUpdated ? props.lastUpdated.toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/\//g, '-') : t('common.unknown') }}</span>
+
+          <template v-if="props.autoRefreshEnabled && props.autoRefreshCountdown !== undefined">
+            <span>·</span>
+            <span>{{ t('admin.ops.autoRefreshRemaining', { seconds: props.autoRefreshCountdown }) }}</span>
+          </template>
+        </div>
       </div>
 
       <div class="flex flex-wrap items-center gap-3">
