@@ -28,7 +28,11 @@
         <button v-for="(tab, index) in tabs" :id="tabId(tab.value)" :key="tab.value" class="shrink-0 border-b-2 px-4 py-3 text-sm font-medium" :class="activeTab === tab.value ? 'border-primary-500 text-primary-600 dark:text-primary-400' : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-dark-400 dark:hover:text-gray-200'" type="button" role="tab" :aria-controls="panelId(tab.value)" :aria-selected="activeTab === tab.value" :tabindex="activeTab === tab.value ? 0 : -1" @click="setTab(tab.value)" @keydown="handleTabKeydown($event, index)">{{ tab.label }}</button>
       </div>
 
-      <section v-if="activeTab === 'members'" :id="panelId('members')" class="min-w-0 space-y-4" role="tabpanel" :aria-labelledby="tabId('members')">
+      <section v-if="activeTab === 'usage'" :id="panelId('usage')" class="min-w-0" role="tabpanel" :aria-labelledby="tabId('usage')">
+        <DesktopOrganizationUsageStatistics v-if="organization" :organization-id="organizationID" :self-managed="selfManaged" view="insights" />
+      </section>
+
+      <section v-else-if="activeTab === 'members'" :id="panelId('members')" class="min-w-0 space-y-4" role="tabpanel" :aria-labelledby="tabId('members')">
         <DesktopOrganizationUsageStatistics v-if="organization" :organization-id="organizationID" :self-managed="selfManaged" />
         <div class="flex flex-wrap items-center gap-3">
           <div class="min-w-0 flex-1 sm:max-w-72"><input v-model="memberSearch" class="input" type="search" :placeholder="t('admin.desktop.searchMembers')" @input="scheduleMembers" /></div>
@@ -206,7 +210,7 @@ import DesktopConversationRecords from '@/components/desktop/DesktopConversation
 import DesktopOrganizationUsageStatistics from '@/components/desktop/DesktopOrganizationUsageStatistics.vue'
 import BIGrantManagement from '@/components/bi/BIGrantManagement.vue'
 
-type DetailTab = 'members' | 'configuration' | 'conversations' | 'grants'
+type DetailTab = 'usage' | 'members' | 'configuration' | 'conversations' | 'grants'
 const { selfManaged = false } = defineProps<{ selfManaged?: boolean }>()
 const { t, te } = useI18n()
 const route = useRoute()
@@ -223,12 +227,12 @@ const organizationAPI = computed(() => selfManaged ? desktopOrganizationAPI : ad
 const dashboardPath = computed(() => authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
 const canViewConversations = computed(() => !selfManaged || organization.value?.conversation_reporting_enabled === true)
 const tabs = computed(() => {
-  const result: { value: DetailTab; label: string }[] = [{ value: 'members', label: t('admin.desktop.members') }, { value: 'configuration', label: t('admin.desktop.configuration') }]
+  const result: { value: DetailTab; label: string }[] = [{ value: 'usage', label: t('admin.desktop.usageStatistics.tab') }, { value: 'members', label: t('admin.desktop.members') }, { value: 'configuration', label: t('admin.desktop.configuration') }]
   if (canViewConversations.value) result.push({ value: 'conversations', label: t('admin.desktop.conversations.title') })
   if (!selfManaged) result.push({ value: 'grants', label: t('bi.grants') })
   return result
 })
-const activeTab = computed<DetailTab>(() => tabs.value.find(tab => tab.value === route.query.tab)?.value ?? 'members')
+const activeTab = computed<DetailTab>(() => tabs.value.find(tab => tab.value === route.query.tab)?.value ?? 'usage')
 const members = ref<DesktopMember[]>([])
 const membersLoading = ref(false)
 const membersExporting = ref(false)
@@ -482,7 +486,7 @@ async function saveConfiguration() {
 }
 
 watch([canViewConversations, () => organization.value?.public_id], () => {
-  if (selfManaged && organization.value && (route.query.tab === 'grants' || (!canViewConversations.value && route.query.tab === 'conversations'))) setTab('members')
+  if (selfManaged && organization.value && (route.query.tab === 'grants' || (!canViewConversations.value && route.query.tab === 'conversations'))) setTab('usage')
 })
 
 watch(() => route.params.organizationId, async () => {

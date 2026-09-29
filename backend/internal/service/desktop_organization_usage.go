@@ -12,13 +12,45 @@ type DesktopOrganizationUsagePeriod struct {
 	ActualCost  float64 `json:"actual_cost"`
 }
 
+type DesktopUsageDay struct {
+	Date string `json:"date"`
+	DesktopOrganizationUsagePeriod
+}
+
+type DesktopUsageBreakdown struct {
+	InputTokens         int64 `json:"input_tokens"`
+	OutputTokens        int64 `json:"output_tokens"`
+	CacheCreationTokens int64 `json:"cache_creation_tokens"`
+	CacheReadTokens     int64 `json:"cache_read_tokens"`
+}
+
+type DesktopUsageModel struct {
+	Model    string `json:"model"`
+	Requests int64  `json:"requests"`
+	DesktopOrganizationUsagePeriod
+}
+
+type DesktopUsageMember struct {
+	MemberID string `json:"member_id"`
+	Name     string `json:"name"`
+	Deleted  bool   `json:"deleted"`
+	Requests int64  `json:"requests"`
+	DesktopOrganizationUsagePeriod
+}
+
 type DesktopOrganizationUsageStatistics struct {
-	Timezone string                         `json:"timezone"`
-	AsOf     time.Time                      `json:"as_of"`
-	Today    DesktopOrganizationUsagePeriod `json:"today"`
-	Week     DesktopOrganizationUsagePeriod `json:"week"`
-	Month    DesktopOrganizationUsagePeriod `json:"month"`
-	Total    DesktopOrganizationUsagePeriod `json:"total"`
+	Timezone        string                         `json:"timezone"`
+	AsOf            time.Time                      `json:"as_of"`
+	Today           DesktopOrganizationUsagePeriod `json:"today"`
+	Week            DesktopOrganizationUsagePeriod `json:"week"`
+	Month           DesktopOrganizationUsagePeriod `json:"month"`
+	Total           DesktopOrganizationUsagePeriod `json:"total"`
+	Last30Days      DesktopOrganizationUsagePeriod `json:"last_30_days"`
+	Daily           []DesktopUsageDay              `json:"daily"`
+	Breakdown       DesktopUsageBreakdown          `json:"breakdown"`
+	Models          []DesktopUsageModel            `json:"models"`
+	Members         []DesktopUsageMember           `json:"members"`
+	ObservedMembers int64                          `json:"observed_members"`
 }
 
 func (s *DesktopService) OrganizationUsageStatistics(ctx context.Context, organizationID string, managerID int64) (*DesktopOrganizationUsageStatistics, error) {

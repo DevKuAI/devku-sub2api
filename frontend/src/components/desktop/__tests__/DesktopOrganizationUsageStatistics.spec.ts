@@ -4,6 +4,7 @@ import type { DesktopOrganizationUsageStatistics as UsageStatistics } from '@/ap
 
 const api = vi.hoisted(() => ({ getDesktopOrganizationUsageStatistics: vi.fn() }))
 vi.mock('@/api/desktopOrganizationUsage', () => api)
+vi.mock('vue-chartjs', () => ({ Line: { name: 'Line', props: ['data', 'options'], template: '<div data-testid="usage-trend-chart" />' } }))
 vi.mock('vue-i18n', async (importOriginal) => ({ ...await importOriginal<typeof import('vue-i18n')>(), useI18n: () => ({ t: (key: string) => key }) }))
 import DesktopOrganizationUsageStatistics from '../DesktopOrganizationUsageStatistics.vue'
 
@@ -13,8 +14,14 @@ const statistics: UsageStatistics = {
   week: { total_tokens: 2_500_000, actual_cost: 2.5 },
   month: { total_tokens: 8_000_000, actual_cost: 12.75 },
   total: { total_tokens: 4_000_000_000, actual_cost: 150.123456 },
+  last_30_days: { total_tokens: 3000, actual_cost: 1.5 },
+  daily: [{ date: '2026-09-22', total_tokens: 3000, actual_cost: 1.5 }],
+  breakdown: { input_tokens: 100, output_tokens: 200, cache_creation_tokens: 300, cache_read_tokens: 2400 },
+  models: [{ model: 'model-one', requests: 2, total_tokens: 3000, actual_cost: 1.5 }],
+  members: [{ member_id: 'mem_one', name: 'Member One', deleted: true, requests: 2, total_tokens: 3000, actual_cost: 1.5 }],
+  observed_members: 1,
 }
-const view = (selfManaged = false) => mount(DesktopOrganizationUsageStatistics, { props: { organizationId: 'org_one', selfManaged } })
+const view = (selfManaged = false, mode: 'summary' | 'insights' = 'summary') => mount(DesktopOrganizationUsageStatistics, { props: { organizationId: 'org_one', selfManaged, view: mode } })
 
 describe('Desktop organization usage statistics', () => {
   beforeEach(() => { api.getDesktopOrganizationUsageStatistics.mockReset().mockResolvedValue(statistics) })
@@ -28,16 +35,32 @@ describe('Desktop organization usage statistics', () => {
     expect(wrapper.find('[data-testid="organization-usage-month"]').text()).toContain('$12.7500')
     expect(wrapper.find('[data-testid="organization-usage-total"]').text()).toContain('$150.1235')
     expect(wrapper.find('[data-testid="organization-usage-total"] [title]').attributes('title')).toBe((4_000_000_000).toLocaleString())
+    expect(wrapper.find('[data-testid="usage-trend-chart"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it.each([false, true])('shows trends and rankings only in the usage tab for selfManaged=%s', async (selfManaged) => {
+    const wrapper = view(selfManaged, 'insights')
+    await flushPromises()
+    expect(api.getDesktopOrganizationUsageStatistics).toHaveBeenCalledWith('org_one', selfManaged, expect.any(AbortSignal))
+    expect(wrapper.find('[data-testid="organization-usage-today"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="usage-trend-chart"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="organization-last-30-days"]').text()).toContain('$1.5000')
+    expect(wrapper.find('[data-testid="organization-model-ranking"]').text()).toContain('model-one')
+    expect(wrapper.find('[data-testid="organization-member-ranking"]').text()).toContain('Member One')
+    await wrapper.find('[aria-pressed="false"]').trigger('click')
+    expect(wrapper.find('[data-testid="organization-model-ranking"]').text()).toContain('3.0K')
     wrapper.unmount()
   })
 
   it('shows zero usage as zero and refreshes independently', async () => {
     const empty = { total_tokens: 0, actual_cost: 0 }
-    api.getDesktopOrganizationUsageStatistics.mockResolvedValue({ ...statistics, today: empty, week: empty, month: empty, total: empty })
+    api.getDesktopOrganizationUsageStatistics.mockResolvedValue({ ...statistics, today: empty, week: empty, month: empty, total: empty, last_30_days: empty, daily: [], models: [], members: [], observed_members: 0 })
     const wrapper = view()
     await flushPromises()
     expect(wrapper.find('[data-testid="organization-usage-total"]').text()).toContain('$0.0000')
     expect(wrapper.find('[data-testid="organization-usage-total"] [title]').attributes('title')).toBe('0')
+    expect(wrapper.find('[data-testid="usage-trend-chart"]').exists()).toBe(false)
     await wrapper.find('button').trigger('click')
     await flushPromises()
     expect(api.getDesktopOrganizationUsageStatistics).toHaveBeenCalledTimes(2)

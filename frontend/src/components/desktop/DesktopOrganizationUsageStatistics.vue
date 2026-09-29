@@ -1,7 +1,7 @@
 <template>
-  <section class="space-y-3" :aria-label="t('admin.desktop.usageStatistics.title')" :aria-busy="loading" data-testid="organization-usage-statistics">
+  <section class="space-y-3" :aria-label="t(view === 'insights' ? 'admin.desktop.usageStatistics.tab' : 'admin.desktop.usageStatistics.title')" :aria-busy="loading" data-testid="organization-usage-statistics">
     <div class="flex flex-wrap items-center justify-between gap-2">
-      <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ t('admin.desktop.usageStatistics.title') }}</h3>
+      <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ t(view === 'insights' ? 'admin.desktop.usageStatistics.tab' : 'admin.desktop.usageStatistics.title') }}</h3>
       <button class="btn btn-ghost btn-sm gap-1.5" type="button" :disabled="loading" @click="load">
         <Icon name="refresh" size="sm" aria-hidden="true" />{{ t('common.refresh') }}
       </button>
@@ -10,7 +10,7 @@
       {{ t('admin.desktop.usageStatistics.loadFailed') }}
       <button class="ml-2 underline" type="button" @click="load">{{ t('admin.desktop.usageStatistics.retry') }}</button>
     </div>
-    <div v-else class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div v-else-if="view === 'summary'" class="grid grid-cols-2 gap-3 lg:grid-cols-4">
       <article v-for="period in periods" :key="period.key" class="min-w-0 rounded-xl border border-gray-200 bg-white p-4 dark:border-dark-700 dark:bg-dark-800" :data-testid="`organization-usage-${period.key}`">
         <div class="flex items-center justify-between gap-2 text-sm text-gray-500 dark:text-dark-400">
           <h4>{{ t(`admin.desktop.usageStatistics.${period.key}`) }}</h4>
@@ -23,8 +23,9 @@
         </div>
       </article>
     </div>
+    <DesktopOrganizationUsageInsights v-if="view === 'insights' && statistics && !error" :statistics="statistics" />
     <p v-if="loading" class="text-xs text-gray-500 dark:text-dark-400" role="status">{{ t('common.loading') }}</p>
-    <p v-else-if="statistics" class="text-xs leading-relaxed text-gray-500 dark:text-dark-400">{{ t('admin.desktop.usageStatistics.hint', { timezone: statistics.timezone }) }}</p>
+    <p v-else-if="view === 'summary' && statistics" class="text-xs leading-relaxed text-gray-500 dark:text-dark-400">{{ t('admin.desktop.usageStatistics.hint', { timezone: statistics.timezone }) }}</p>
   </section>
 </template>
 
@@ -34,9 +35,10 @@ import { useI18n } from 'vue-i18n'
 import { getDesktopOrganizationUsageStatistics } from '@/api/desktopOrganizationUsage'
 import type { DesktopOrganizationUsageStatistics } from '@/api/desktopOrganizationUsage'
 import Icon from '@/components/icons/Icon.vue'
+import DesktopOrganizationUsageInsights from './DesktopOrganizationUsageInsights.vue'
 import { formatCompactNumber } from '@/utils/format'
 
-const props = defineProps<{ organizationId: string; selfManaged: boolean }>()
+const props = withDefaults(defineProps<{ organizationId: string; selfManaged: boolean; view?: 'summary' | 'insights' }>(), { view: 'summary' })
 const { t } = useI18n()
 const periods = [{ key: 'today', icon: 'clock' }, { key: 'week', icon: 'calendar' }, { key: 'month', icon: 'chartBar' }, { key: 'total', icon: 'database' }] as const
 const statistics = ref<DesktopOrganizationUsageStatistics | null>(null)

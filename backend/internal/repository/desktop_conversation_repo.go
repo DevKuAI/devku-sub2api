@@ -174,14 +174,20 @@ func desktopConversationMetadata(row *dbent.DesktopConversationRecord) service.D
 func (r *desktopConversationRepository) Statistics(ctx context.Context, organizationID int64, filters service.DesktopConversationFilters, periods service.DesktopConversationPeriods) (*service.DesktopConversationStatistics, error) {
 	ctx = mixins.SkipSoftDelete(ctx)
 	var rows []struct {
-		TodayRecords int64 `json:"today_records"`
-		TodayPrompts int64 `json:"today_prompts"`
-		WeekRecords  int64 `json:"week_records"`
-		WeekPrompts  int64 `json:"week_prompts"`
-		MonthRecords int64 `json:"month_records"`
-		MonthPrompts int64 `json:"month_prompts"`
-		TotalRecords int64 `json:"total_records"`
-		TotalPrompts int64 `json:"total_prompts"`
+		TodayRecords              int64 `json:"today_records"`
+		TodayPrompts              int64 `json:"today_prompts"`
+		WeekRecords               int64 `json:"week_records"`
+		WeekPrompts               int64 `json:"week_prompts"`
+		MonthRecords              int64 `json:"month_records"`
+		MonthPrompts              int64 `json:"month_prompts"`
+		Last30DaysRecords         int64 `json:"last_30_days_records"`
+		Last30DaysPrompts         int64 `json:"last_30_days_prompts"`
+		CapturedLast30Days        int64 `json:"captured_last_30_days"`
+		ResponseMissingLast30Days int64 `json:"response_missing_last_30_days"`
+		WorkbuddyLast30Days       int64 `json:"workbuddy_last_30_days"`
+		ChatGPTCodexLast30Days    int64 `json:"chatgpt_codex_last_30_days"`
+		TotalRecords              int64 `json:"total_records"`
+		TotalPrompts              int64 `json:"total_prompts"`
 	}
 	countsSince := func(start time.Time, prefix string) []dbent.AggregateFunc {
 		// Only server-generated timestamps are formatted here; request filters use Ent predicates.
@@ -199,6 +205,19 @@ func (r *desktopConversationRepository) Statistics(ctx context.Context, organiza
 	}
 	aggregates := append(countsSince(periods.Today, "today"), countsSince(periods.Week, "week")...)
 	aggregates = append(aggregates, countsSince(periods.Month, "month")...)
+	aggregates = append(aggregates, countsSince(periods.Last30Days, "last_30_days")...)
+	for _, dimension := range []struct{ column, value, alias string }{
+		{desktopconversationrecord.FieldCaptureStatus, "captured", "captured_last_30_days"},
+		{desktopconversationrecord.FieldCaptureStatus, "response_missing", "response_missing_last_30_days"},
+		{desktopconversationrecord.FieldClient, "workbuddy", "workbuddy_last_30_days"},
+		{desktopconversationrecord.FieldClient, "chatgpt_codex", "chatgpt_codex_last_30_days"},
+	} {
+		dimension := dimension
+		aggregates = append(aggregates, func(s *sql.Selector) string {
+			return sql.As(fmt.Sprintf("COUNT(*) FILTER (WHERE %s >= '%s'::timestamptz AND %s = '%s')",
+				s.C(desktopconversationrecord.FieldReceivedAt), periods.Last30Days.UTC().Format(time.RFC3339Nano), s.C(dimension.column), dimension.value), dimension.alias)
+		})
+	}
 	aggregates = append(aggregates, dbent.As(dbent.Count(), "total_records"), func(s *sql.Selector) string {
 		return sql.As("COALESCE(SUM("+s.C(desktopconversationrecord.FieldPromptCount)+"), 0)", "total_prompts")
 	})
@@ -208,9 +227,14 @@ func (r *desktopConversationRepository) Statistics(ctx context.Context, organiza
 	}
 	row := rows[0]
 	return &service.DesktopConversationStatistics{
-		Today: service.DesktopConversationCounts{RecordCount: row.TodayRecords, PromptCount: row.TodayPrompts},
-		Week:  service.DesktopConversationCounts{RecordCount: row.WeekRecords, PromptCount: row.WeekPrompts},
-		Month: service.DesktopConversationCounts{RecordCount: row.MonthRecords, PromptCount: row.MonthPrompts},
-		Total: service.DesktopConversationCounts{RecordCount: row.TotalRecords, PromptCount: row.TotalPrompts},
+		Today:                     service.DesktopConversationCounts{RecordCount: row.TodayRecords, PromptCount: row.TodayPrompts},
+		Week:                      service.DesktopConversationCounts{RecordCount: row.WeekRecords, PromptCount: row.WeekPrompts},
+		Month:                     service.DesktopConversationCounts{RecordCount: row.MonthRecords, PromptCount: row.MonthPrompts},
+		Last30Days:                service.DesktopConversationCounts{RecordCount: row.Last30DaysRecords, PromptCount: row.Last30DaysPrompts},
+		CapturedLast30Days:        row.CapturedLast30Days,
+		ResponseMissingLast30Days: row.ResponseMissingLast30Days,
+		WorkbuddyLast30Days:       row.WorkbuddyLast30Days,
+		ChatGPTCodexLast30Days:    row.ChatGPTCodexLast30Days,
+		Total:                     service.DesktopConversationCounts{RecordCount: row.TotalRecords, PromptCount: row.TotalPrompts},
 	}, nil
 }

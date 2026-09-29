@@ -1285,6 +1285,8 @@ paths:
         费用使用 actual_cost，令牌包含输入、输出、缓存写入和缓存读取令牌。
         覆盖当前企业全部成员及历史模型令牌关联，包含停用和已删除成员，不受成员筛选或分页影响。
         累计基于当前保留的用量日志，不包含承载用户其他普通 API Key 的用量。
+        同时返回近 30 个本地自然日（含今日）的每日趋势、Token 分类，以及按实际费用排序的前 10 个模型和成员。
+        observed_members 仅表示该期间有计费日志的成员，不代表完整采用率；requests 仅表示计费日志数。
         统计截止 as_of（不含该时刻）；空数据返回 0。接口受 DESKTOP_ENABLED 控制，不依赖对话上报开关。
       security:
         - AdminBearer: []
@@ -1323,6 +1325,8 @@ paths:
         费用使用 actual_cost，令牌包含输入、输出、缓存写入和缓存读取令牌。
         覆盖当前企业全部成员及历史模型令牌关联，包含停用和已删除成员，不受成员筛选或分页影响。
         累计基于当前保留的用量日志，不包含承载用户其他普通 API Key 的用量。
+        同时返回近 30 个本地自然日（含今日）的每日趋势、Token 分类，以及按实际费用排序的前 10 个模型和成员。
+        observed_members 仅表示该期间有计费日志的成员，不代表完整采用率；requests 仅表示计费日志数。
         统计截止 as_of（不含该时刻）；空数据返回 0。接口受 DESKTOP_ENABLED 控制，不依赖对话上报开关。
         企业范围由当前 Web 登录账号确定，不接受客户端指定企业。
       security:
@@ -2425,7 +2429,7 @@ components:
 
     DesktopOrganizationUsageStatistics:
       type: object
-      required: [timezone, as_of, today, week, month, total]
+      required: [timezone, as_of, today, week, month, total, last_30_days, daily, breakdown, models, members, observed_members]
       properties:
         timezone:
           type: string
@@ -2442,6 +2446,54 @@ components:
           $ref: '#/components/schemas/DesktopOrganizationUsagePeriod'
         total:
           $ref: '#/components/schemas/DesktopOrganizationUsagePeriod'
+        last_30_days:
+          $ref: '#/components/schemas/DesktopOrganizationUsagePeriod'
+        daily:
+          type: array
+          description: 近 30 个本地自然日，按日期升序，零用量日保留。
+          items:
+            allOf:
+              - $ref: '#/components/schemas/DesktopOrganizationUsagePeriod'
+              - type: object
+                required: [date]
+                properties:
+                  date: {type: string, format: date}
+        breakdown:
+          type: object
+          required: [input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens]
+          properties:
+            input_tokens: {type: integer, format: int64}
+            output_tokens: {type: integer, format: int64}
+            cache_creation_tokens: {type: integer, format: int64}
+            cache_read_tokens: {type: integer, format: int64}
+        models:
+          type: array
+          maxItems: 10
+          items:
+            allOf:
+              - $ref: '#/components/schemas/DesktopOrganizationUsagePeriod'
+              - type: object
+                required: [model, requests]
+                properties:
+                  model: {type: string}
+                  requests: {type: integer, format: int64}
+        members:
+          type: array
+          maxItems: 10
+          items:
+            allOf:
+              - $ref: '#/components/schemas/DesktopOrganizationUsagePeriod'
+              - type: object
+                required: [member_id, name, deleted, requests]
+                properties:
+                  member_id: {type: string}
+                  name: {type: string}
+                  deleted: {type: boolean}
+                  requests: {type: integer, format: int64}
+        observed_members:
+          type: integer
+          format: int64
+          description: 近 30 天有计费日志的去重成员数，含已删除成员。
 
     DesktopOrganizationUsageStatisticsResponse:
       type: object
@@ -2465,3 +2517,9 @@ components:
           week: {total_tokens: 2500000, actual_cost: 2.5}
           month: {total_tokens: 8000000, actual_cost: 12.75}
           total: {total_tokens: 4000000000, actual_cost: 150.1234}
+          last_30_days: {total_tokens: 8000000, actual_cost: 12.75}
+          daily: [{date: '2026-09-22', total_tokens: 1250, actual_cost: 0.125}]
+          breakdown: {input_tokens: 100, output_tokens: 150, cache_creation_tokens: 200, cache_read_tokens: 800}
+          models: [{model: gpt-5, requests: 2, total_tokens: 1250, actual_cost: 0.125}]
+          members: [{member_id: mem_example, name: Example, deleted: false, requests: 2, total_tokens: 1250, actual_cost: 0.125}]
+          observed_members: 1

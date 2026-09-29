@@ -35,10 +35,14 @@ func TestDesktopOrganizationUsageIncludesHistoricalKeysAndIsolatesOrganizations(
 	month := time.Date(2026, 8, 31, 16, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 9, 22, 4, 0, 0, 0, time.UTC)
 	insert := func(userID, keyID int64, unit int, at time.Time) {
-		_, err := integrationEntClient.UsageLog.Create().SetUserID(userID).SetAPIKeyID(keyID).SetAccountID(account.ID).
+		builder := integrationEntClient.UsageLog.Create().SetUserID(userID).SetAPIKeyID(keyID).SetAccountID(account.ID).
 			SetRequestID(uuid.NewString()).SetModel("model").SetInputTokens(unit).SetOutputTokens(unit * 2).
 			SetCacheCreationTokens(unit * 3).SetCacheReadTokens(unit * 4).SetActualCost(float64(unit) / 10).
-			SetTotalCost(float64(unit)).SetCreatedAt(at).Save(ctx)
+			SetTotalCost(float64(unit)).SetCreatedAt(at)
+		if unit == 6 {
+			builder.SetRequestedModel("requested-model")
+		}
+		_, err := builder.Save(ctx)
 		require.NoError(t, err)
 	}
 	insert(one.user.ID, oldKey, 1, month.Add(-time.Second))
@@ -68,11 +72,33 @@ func TestDesktopOrganizationUsageIncludesHistoricalKeysAndIsolatesOrganizations(
 		require.Equal(t, tc.tokens, tc.period.TotalTokens)
 		require.InDelta(t, tc.cost, tc.period.ActualCost, 0.000001)
 	}
+	require.Len(t, result.Daily, 30)
+	require.Equal(t, "2026-08-24", result.Daily[0].Date)
+	require.Equal(t, "2026-09-22", result.Daily[29].Date)
+	require.EqualValues(t, 210, result.Last30Days.TotalTokens)
+	require.InDelta(t, 2.1, result.Last30Days.ActualCost, 0.000001)
+	require.Equal(t, service.DesktopUsageBreakdown{InputTokens: 21, OutputTokens: 42, CacheCreationTokens: 63, CacheReadTokens: 84}, result.Breakdown)
+	require.EqualValues(t, 2, result.ObservedMembers)
+	require.Len(t, result.Models, 2)
+	require.Equal(t, "model", result.Models[0].Model)
+	require.EqualValues(t, 5, result.Models[0].Requests)
+	require.Equal(t, "requested-model", result.Models[1].Model)
+	require.EqualValues(t, 1, result.Models[1].Requests)
+	require.Len(t, result.Members, 2)
+	require.Equal(t, member.PublicID, result.Members[0].MemberID)
+	require.True(t, result.Members[0].Deleted)
+	require.EqualValues(t, 5, result.Members[0].Requests)
+	require.Equal(t, second.PublicID, result.Members[1].MemberID)
 	result, err = repo.GetDesktopOrganizationUsage(ctx, two.organization.ID, today, week, month, end)
 	require.NoError(t, err)
 	require.EqualValues(t, 100, result.Total.TotalTokens)
 	require.InDelta(t, 1.0, result.Total.ActualCost, 0.000001)
+	require.EqualValues(t, 1, result.ObservedMembers)
 	result, err = repo.GetDesktopOrganizationUsage(ctx, -1, today, week, month, end)
 	require.NoError(t, err)
-	require.Equal(t, &service.DesktopOrganizationUsageStatistics{}, result)
+	require.Zero(t, result.Total)
+	require.Zero(t, result.Last30Days)
+	require.Len(t, result.Daily, 30)
+	require.Empty(t, result.Models)
+	require.Empty(t, result.Members)
 }

@@ -34,7 +34,7 @@ describe('Desktop conversation records', () => {
     vi.clearAllMocks()
     api.listDesktopConversations.mockResolvedValue({ items: [record], total: 1, page: 1, page_size: 20, pages: 1 })
     api.getDesktopConversation.mockResolvedValue(detail)
-    api.getDesktopConversationStatistics.mockResolvedValue({ timezone: 'Asia/Shanghai', as_of: '2026-09-22T04:00:00Z', today: { record_count: 3, prompt_count: 5 }, week: { record_count: 12, prompt_count: 20 }, month: { record_count: 30, prompt_count: 45 }, total: { record_count: 80, prompt_count: 100 } })
+    api.getDesktopConversationStatistics.mockResolvedValue({ timezone: 'Asia/Shanghai', as_of: '2026-09-22T04:00:00Z', today: { record_count: 3, prompt_count: 5 }, week: { record_count: 12, prompt_count: 20 }, month: { record_count: 30, prompt_count: 45 }, total: { record_count: 80, prompt_count: 100 }, last_30_days: { record_count: 30, prompt_count: 45 }, captured_last_30_days: 25, response_missing_last_30_days: 5, workbuddy_last_30_days: 10, chatgpt_codex_last_30_days: 20 })
   })
 
   it('loads only metadata until selected, renders plain text, and preserves missing responses', async () => {
@@ -218,6 +218,7 @@ describe('Desktop conversation records', () => {
     const wrapper = view()
     await flushPromises()
     expect(wrapper.find('[data-testid="statistics-total"]').text()).toContain('80')
+    expect(wrapper.find('[data-testid="conversation-reporting-breakdown"]').text()).toContain('25')
     expect(api.getDesktopConversationStatistics).toHaveBeenLastCalledWith('org_one', false, {}, expect.any(AbortSignal))
     const initialCalls = api.getDesktopConversationStatistics.mock.calls.length
     await wrapper.find('input[type="search"]').setValue('  Member  ')
@@ -257,7 +258,7 @@ describe('Desktop conversation records', () => {
     await flushPromises()
     expect(wrapper.find('[data-testid="statistics-total"]').text()).toContain('—')
     const signal = api.getDesktopConversationStatistics.mock.calls[0][3] as AbortSignal
-    const empty = { timezone: 'UTC', as_of: '2026-09-22T04:00:00Z', today: { record_count: 0, prompt_count: 0 }, week: { record_count: 0, prompt_count: 0 }, month: { record_count: 0, prompt_count: 0 }, total: { record_count: 0, prompt_count: 0 } }
+    const empty = { timezone: 'UTC', as_of: '2026-09-22T04:00:00Z', today: { record_count: 0, prompt_count: 0 }, week: { record_count: 0, prompt_count: 0 }, month: { record_count: 0, prompt_count: 0 }, total: { record_count: 0, prompt_count: 0 }, last_30_days: { record_count: 0, prompt_count: 0 }, captured_last_30_days: 0, response_missing_last_30_days: 0, workbuddy_last_30_days: 0, chatgpt_codex_last_30_days: 0 }
     api.getDesktopConversationStatistics.mockResolvedValue(empty)
     await wrapper.setProps({ organizationId: 'org_two', selfManaged: true })
     await flushPromises()

@@ -60,6 +60,11 @@ export interface DesktopConversationStatistics {
   week: DesktopConversationCounts
   month: DesktopConversationCounts
   total: DesktopConversationCounts
+  last_30_days: DesktopConversationCounts
+  captured_last_30_days: number
+  response_missing_last_30_days: number
+  workbuddy_last_30_days: number
+  chatgpt_codex_last_30_days: number
 }
 
 function basePath(organizationID: string, selfManaged: boolean): string {

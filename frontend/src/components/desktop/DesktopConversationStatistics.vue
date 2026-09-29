@@ -23,10 +23,16 @@
         <p class="mt-2 break-words text-xs tabular-nums text-gray-500 dark:text-dark-400">{{ t('admin.desktop.conversations.statistics.prompts', { count: statistics ? statistics[period.key].prompt_count.toLocaleString() : '—' }) }}</p>
       </article>
     </div>
+    <div v-if="statistics && !error" class="grid gap-4 border-t border-gray-200 pt-4 text-sm dark:border-dark-700 sm:grid-cols-3" data-testid="conversation-reporting-breakdown">
+      <div><p class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.conversations.statistics.last30Days') }}</p><p class="mt-1 font-semibold tabular-nums">{{ statistics.last_30_days.record_count.toLocaleString() }} {{ t('admin.desktop.conversations.statistics.records') }}</p></div>
+      <div><p class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.conversations.statistics.captureStatus') }}</p><p class="mt-1 tabular-nums">{{ t('admin.desktop.conversations.captured') }} {{ statistics.captured_last_30_days.toLocaleString() }} · {{ t('admin.desktop.conversations.responseMissing') }} {{ statistics.response_missing_last_30_days.toLocaleString() }}</p></div>
+      <div><p class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.conversations.statistics.clients') }}</p><p class="mt-1 tabular-nums">ChatGPT Codex {{ statistics.chatgpt_codex_last_30_days.toLocaleString() }} · Workbuddy {{ statistics.workbuddy_last_30_days.toLocaleString() }}</p></div>
+    </div>
     <p v-if="loading" class="text-xs text-gray-500 dark:text-dark-400" role="status">{{ t('common.loading') }}</p>
     <p v-else-if="statistics" class="text-xs leading-relaxed text-gray-500 dark:text-dark-400">
       {{ t('admin.desktop.conversations.statistics.hint', { timezone: statistics.timezone }) }}
     </p>
+    <p v-if="statistics && !error" class="text-xs leading-relaxed text-gray-500 dark:text-dark-400">{{ t('admin.desktop.conversations.statistics.reportingHint') }}</p>
   </section>
 </template>
 

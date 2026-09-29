@@ -284,7 +284,7 @@ func TestDesktopConversationStatisticsPeriodsFiltersAndIsolation(t *testing.T) {
 	}
 	periods := service.DesktopConversationPeriods{
 		Today: parse("2026-09-21T16:00:00Z"), Week: parse("2026-09-20T16:00:00Z"),
-		Month: parse("2026-08-31T16:00:00Z"), AsOf: parse("2026-09-22T04:00:00Z"),
+		Month: parse("2026-08-31T16:00:00Z"), Last30Days: parse("2026-08-23T00:00:00Z"), AsOf: parse("2026-09-22T04:00:00Z"),
 	}
 	repo := NewDesktopConversationRepository(integrationEntClient)
 	installation := uuid.NewString()
@@ -293,6 +293,10 @@ func TestDesktopConversationStatisticsPeriodsFiltersAndIsolation(t *testing.T) {
 			RecordID: uuid.NewString(), Client: client, InstallationID: installation, SessionID: "statistics-session",
 			StartedAt: periods.AsOf.Add(-time.Minute), StoppedAt: periods.AsOf,
 			Prompts: make([]service.DesktopTextSegment, promptCount), CaptureStatus: "response_missing",
+		}
+		if client == "chatgpt_codex" {
+			input.CaptureStatus = "captured"
+			input.Response = &service.DesktopTextSegment{Text: "reply"}
 		}
 		_, err := repo.Create(ctx, orgID, memberID, input)
 		require.NoError(t, err)
@@ -317,6 +321,11 @@ func TestDesktopConversationStatisticsPeriodsFiltersAndIsolation(t *testing.T) {
 	require.Equal(t, counts(4, 15), stats.Week)
 	require.Equal(t, counts(5, 20), stats.Month)
 	require.Equal(t, counts(6, 27), stats.Total)
+	require.Equal(t, counts(6, 27), stats.Last30Days)
+	require.EqualValues(t, 1, stats.CapturedLast30Days)
+	require.EqualValues(t, 5, stats.ResponseMissingLast30Days)
+	require.EqualValues(t, 5, stats.WorkbuddyLast30Days)
+	require.EqualValues(t, 1, stats.ChatGPTCodexLast30Days)
 
 	_, err = one.repo.DeleteMember(ctx, one.organization.PublicID, member.PublicID)
 	require.NoError(t, err)
@@ -324,6 +333,8 @@ func TestDesktopConversationStatisticsPeriodsFiltersAndIsolation(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, counts(2, 6), stats.Today)
 	require.Equal(t, counts(5, 21), stats.Total)
+	require.Zero(t, stats.CapturedLast30Days)
+	require.EqualValues(t, 5, stats.WorkbuddyLast30Days)
 	stats, err = repo.Statistics(ctx, one.organization.ID, service.DesktopConversationFilters{ReceivedFrom: &periods.Week, ReceivedTo: &periods.Today}, periods)
 	require.NoError(t, err)
 	require.Equal(t, counts(0, 0), stats.Today)
@@ -335,8 +346,10 @@ func TestDesktopConversationStatisticsPeriodsFiltersAndIsolation(t *testing.T) {
 	stats, err = repo.Statistics(ctx, two.organization.ID, service.DesktopConversationFilters{RecordID: todayID}, periods)
 	require.NoError(t, err)
 	require.Equal(t, counts(0, 0), stats.Total)
+	require.Zero(t, stats.CapturedLast30Days)
 	require.Equal(t, counts(0, 0), stats.Today)
 	stats, err = repo.Statistics(ctx, one.organization.ID, service.DesktopConversationFilters{CaptureStatus: "captured"}, periods)
 	require.NoError(t, err)
-	require.Equal(t, counts(0, 0), stats.Total)
+	require.Equal(t, counts(1, 6), stats.Total)
+	require.EqualValues(t, 1, stats.CapturedLast30Days)
 }

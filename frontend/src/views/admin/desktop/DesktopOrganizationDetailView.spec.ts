@@ -183,11 +183,27 @@ describe('DesktopOrganizationDetailView', () => {
       await flushPromises()
       const statistics = wrapper.findComponent({ name: 'DesktopOrganizationUsageStatistics' })
       expect(statistics.exists()).toBe(true)
-      expect(statistics.props()).toEqual({ organizationId: 'org_one', selfManaged: mountPage === mountManagedView })
+      expect(statistics.props()).toEqual({ organizationId: 'org_one', selfManaged: mountPage === mountManagedView, view: 'summary' })
       ;(wrapper.vm as any).memberSearch = 'Someone'
       ;(wrapper.vm as any).memberStatus = 'disabled'
       await flushPromises()
-      expect(statistics.props()).toEqual({ organizationId: 'org_one', selfManaged: mountPage === mountManagedView })
+      expect(statistics.props()).toEqual({ organizationId: 'org_one', selfManaged: mountPage === mountManagedView, view: 'summary' })
+      wrapper.unmount()
+    }
+  })
+
+  it('opens the usage tab first for administrators and enterprise users', async () => {
+    for (const mountPage of [mountView, mountManagedView]) {
+      route.query.tab = 'unknown'
+      const wrapper = mountPage()
+      await flushPromises()
+      expect(wrapper.findAll('[role="tab"]')[0].attributes('id')).toBe('desktop-organization-tab-usage')
+      expect(wrapper.get('#desktop-organization-tab-usage').attributes('aria-selected')).toBe('true')
+      expect(wrapper.get('#desktop-organization-panel-usage').exists()).toBe(true)
+      expect(wrapper.find('#desktop-organization-panel-members').exists()).toBe(false)
+      expect(wrapper.findComponent({ name: 'DesktopOrganizationUsageStatistics' }).props()).toEqual({
+        organizationId: 'org_one', selfManaged: mountPage === mountManagedView, view: 'insights',
+      })
       wrapper.unmount()
     }
   })
@@ -204,6 +220,8 @@ describe('DesktopOrganizationDetailView', () => {
     await memberTab.trigger('keydown', { key: 'ArrowRight' })
 
     expect(router.replace).toHaveBeenCalledWith({ query: { tab: 'configuration' } })
+    await memberTab.trigger('keydown', { key: 'Home' })
+    expect(router.replace).toHaveBeenLastCalledWith({ query: { tab: 'usage' } })
     wrapper.unmount()
   })
 
@@ -527,8 +545,8 @@ describe('DesktopOrganizationDetailView', () => {
     expect(tab.exists()).toBe(enabled === true)
     expect(wrapper.find('desktop-conversation-records-stub').exists()).toBe(enabled === true)
     if (enabled !== true) {
-      expect(router.replace).toHaveBeenCalledWith({ query: { tab: 'members' } })
-      expect(wrapper.find('#desktop-organization-panel-members').exists()).toBe(true)
+      expect(router.replace).toHaveBeenCalledWith({ query: { tab: 'usage' } })
+      expect(wrapper.find('#desktop-organization-panel-usage').exists()).toBe(true)
     }
     wrapper.unmount()
   })
