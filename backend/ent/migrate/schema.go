@@ -885,6 +885,7 @@ var (
 		{Name: "source_turn_id", Type: field.TypeString, Nullable: true, Size: 512, SchemaType: map[string]string{"postgres": "varchar(512)"}},
 		{Name: "started_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "stopped_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "duration_ms", Type: field.TypeInt64, Nullable: true},
 		{Name: "received_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "cwd", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
 		{Name: "prompts", Type: field.TypeJSON},
@@ -902,13 +903,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "desktop_conversation_records_desktop_organizations_organization",
-				Columns:    []*schema.Column{DesktopConversationRecordsColumns[14]},
+				Columns:    []*schema.Column{DesktopConversationRecordsColumns[15]},
 				RefColumns: []*schema.Column{DesktopOrganizationsColumns[0]},
 				OnDelete:   schema.Restrict,
 			},
 			{
 				Symbol:     "desktop_conversation_records_desktop_members_member",
-				Columns:    []*schema.Column{DesktopConversationRecordsColumns[15]},
+				Columns:    []*schema.Column{DesktopConversationRecordsColumns[16]},
 				RefColumns: []*schema.Column{DesktopMembersColumns[0]},
 				OnDelete:   schema.Restrict,
 			},
@@ -917,24 +918,24 @@ var (
 			{
 				Name:    "idx_desktop_conversation_record_unique",
 				Unique:  true,
-				Columns: []*schema.Column{DesktopConversationRecordsColumns[14], DesktopConversationRecordsColumns[1]},
+				Columns: []*schema.Column{DesktopConversationRecordsColumns[15], DesktopConversationRecordsColumns[1]},
 			},
 			{
 				Name:    "idx_desktop_conversation_received",
 				Unique:  false,
-				Columns: []*schema.Column{DesktopConversationRecordsColumns[14], DesktopConversationRecordsColumns[8], DesktopConversationRecordsColumns[0]},
+				Columns: []*schema.Column{DesktopConversationRecordsColumns[15], DesktopConversationRecordsColumns[9], DesktopConversationRecordsColumns[0]},
 				Annotation: &entsql.IndexAnnotation{
 					DescColumns: map[string]bool{
 						DesktopConversationRecordsColumns[0].Name: true,
 
-						DesktopConversationRecordsColumns[8].Name: true,
+						DesktopConversationRecordsColumns[9].Name: true,
 					},
 				},
 			},
 			{
 				Name:    "idx_desktop_conversation_thread",
 				Unique:  false,
-				Columns: []*schema.Column{DesktopConversationRecordsColumns[14], DesktopConversationRecordsColumns[15], DesktopConversationRecordsColumns[3], DesktopConversationRecordsColumns[2], DesktopConversationRecordsColumns[4], DesktopConversationRecordsColumns[8], DesktopConversationRecordsColumns[0]},
+				Columns: []*schema.Column{DesktopConversationRecordsColumns[15], DesktopConversationRecordsColumns[16], DesktopConversationRecordsColumns[3], DesktopConversationRecordsColumns[2], DesktopConversationRecordsColumns[4], DesktopConversationRecordsColumns[9], DesktopConversationRecordsColumns[0]},
 			},
 		},
 	}

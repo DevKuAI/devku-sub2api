@@ -106,6 +106,7 @@ import type { DesktopConversation, DesktopConversationDetail } from '@/api/deskt
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { formatDateTime } from '@/utils/format'
+import { formatDesktopConversationDuration } from '@/utils/desktopConversationDuration'
 import DesktopConversationText from './DesktopConversationText.vue'
 
 const props = defineProps<{
@@ -146,6 +147,7 @@ const detailMetadata = computed(() => {
     { label: t('admin.desktop.member'), value: `${value.member_name} (${value.member_id})` },
     { label: t('admin.desktop.conversations.startedAt'), value: formatDateTime(value.started_at) },
     { label: t('admin.desktop.conversations.stoppedAt'), value: formatDateTime(value.stopped_at) },
+    { label: t('admin.desktop.conversations.duration'), value: formatDesktopConversationDuration(value.duration_ms) },
     { label: t('admin.desktop.conversations.installationID'), value: value.installation_id },
     { label: t('admin.desktop.conversations.sessionID'), value: value.source_session_id },
     { label: t('admin.desktop.conversations.turnID'), value: value.source_turn_id },

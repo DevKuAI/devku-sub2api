@@ -19,6 +19,7 @@ export interface DesktopConversation {
   source_turn_id: string | null
   started_at: string
   stopped_at: string
+  duration_ms: number | null
   received_at: string
   cwd: string | null
   capture_status: 'captured' | 'response_missing'
@@ -52,6 +53,9 @@ export interface DesktopConversationQuery extends DesktopConversationFilters {
 export interface DesktopConversationCounts {
   record_count: number
   prompt_count: number
+  duration_record_count: number
+  total_duration_ms: number
+  average_duration_ms: number | null
 }
 
 export interface DesktopConversationStatistics {

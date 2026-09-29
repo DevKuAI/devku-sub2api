@@ -8,8 +8,11 @@ import (
 )
 
 type DesktopConversationCounts struct {
-	RecordCount int64 `json:"record_count"`
-	PromptCount int64 `json:"prompt_count"`
+	RecordCount         int64    `json:"record_count"`
+	PromptCount         int64    `json:"prompt_count"`
+	DurationRecordCount int64    `json:"duration_record_count"`
+	TotalDurationMS     int64    `json:"total_duration_ms"`
+	AverageDurationMS   *float64 `json:"average_duration_ms"`
 }
 
 type DesktopConversationDay struct {

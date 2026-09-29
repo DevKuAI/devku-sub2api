@@ -21,6 +21,7 @@
         <template #cell-member_name="{ row }"><div class="max-w-48 break-words">{{ row.member_name }}<span v-if="row.member_deleted" class="ml-2 text-xs text-gray-500">{{ t('admin.desktop.conversations.deletedMember') }}</span></div></template>
         <template #cell-client="{ value }">{{ clientLabel(value) }}</template>
         <template #cell-capture_status="{ value }"><span :class="value === 'response_missing' ? 'text-amber-700 dark:text-amber-400' : ''">{{ statusLabel(value) }}</span></template>
+        <template #cell-duration_ms="{ value }"><span class="whitespace-nowrap tabular-nums" data-testid="conversation-duration">{{ formatDesktopConversationDuration(value) }}</span></template>
         <template #cell-received_at="{ value }"><span class="whitespace-nowrap">{{ formatDateTime(value) }}</span></template>
         <template #cell-source_session_id="{ value }"><span class="block max-w-48 truncate font-mono text-xs" :title="value">{{ value }}</span></template>
         <template #cell-actions="{ row }">
@@ -58,6 +59,7 @@ import DataTable from '@/components/common/DataTable.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import type { Column } from '@/components/common/types'
 import { formatDateTime } from '@/utils/format'
+import { formatDesktopConversationDuration } from '@/utils/desktopConversationDuration'
 import Icon from '@/components/icons/Icon.vue'
 import DesktopConversationViewer from './DesktopConversationViewer.vue'
 import DesktopConversationStatistics from './DesktopConversationStatistics.vue'
@@ -82,6 +84,7 @@ const columns = computed<Column[]>(() => [
   { key: 'client', label: t('admin.desktop.conversations.client') },
   { key: 'capture_status', label: t('admin.desktop.conversations.status') },
   { key: 'prompt_count', label: t('admin.desktop.conversations.promptCount') },
+  { key: 'duration_ms', label: t('admin.desktop.conversations.duration') },
   { key: 'received_at', label: t('admin.desktop.conversations.receivedAt') },
   { key: 'source_session_id', label: t('admin.desktop.conversations.sessionID') },
   { key: 'actions', label: t('common.actions') },

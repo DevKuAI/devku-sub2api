@@ -40,6 +40,8 @@ type DesktopConversationRecord struct {
 	StartedAt time.Time `json:"started_at,omitempty"`
 	// StoppedAt holds the value of the "stopped_at" field.
 	StoppedAt time.Time `json:"stopped_at,omitempty"`
+	// DurationMs holds the value of the "duration_ms" field.
+	DurationMs *int64 `json:"duration_ms,omitempty"`
 	// ReceivedAt holds the value of the "received_at" field.
 	ReceivedAt time.Time `json:"received_at,omitempty"`
 	// Cwd holds the value of the "cwd" field.
@@ -98,7 +100,7 @@ func (*DesktopConversationRecord) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case desktopconversationrecord.FieldPrompts, desktopconversationrecord.FieldResponse:
 			values[i] = new([]byte)
-		case desktopconversationrecord.FieldID, desktopconversationrecord.FieldOrganizationID, desktopconversationrecord.FieldMemberID, desktopconversationrecord.FieldPromptCount:
+		case desktopconversationrecord.FieldID, desktopconversationrecord.FieldOrganizationID, desktopconversationrecord.FieldMemberID, desktopconversationrecord.FieldDurationMs, desktopconversationrecord.FieldPromptCount:
 			values[i] = new(sql.NullInt64)
 		case desktopconversationrecord.FieldClient, desktopconversationrecord.FieldSourceSessionID, desktopconversationrecord.FieldSourceTurnID, desktopconversationrecord.FieldCwd, desktopconversationrecord.FieldCaptureStatus:
 			values[i] = new(sql.NullString)
@@ -181,6 +183,13 @@ func (_m *DesktopConversationRecord) assignValues(columns []string, values []any
 				return fmt.Errorf("unexpected type %T for field stopped_at", values[i])
 			} else if value.Valid {
 				_m.StoppedAt = value.Time
+			}
+		case desktopconversationrecord.FieldDurationMs:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field duration_ms", values[i])
+			} else if value.Valid {
+				_m.DurationMs = new(int64)
+				*_m.DurationMs = value.Int64
 			}
 		case desktopconversationrecord.FieldReceivedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -297,6 +306,11 @@ func (_m *DesktopConversationRecord) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("stopped_at=")
 	builder.WriteString(_m.StoppedAt.Format(time.ANSIC))
+	builder.WriteString(", ")
+	if v := _m.DurationMs; v != nil {
+		builder.WriteString("duration_ms=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteString(", ")
 	builder.WriteString("received_at=")
 	builder.WriteString(_m.ReceivedAt.Format(time.ANSIC))

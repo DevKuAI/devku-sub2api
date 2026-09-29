@@ -118,6 +118,8 @@ Cache-Control: no-store
 | `response`、`captureStatus` | 均必填；`captured` 对应响应对象，`response_missing` 对应显式 null |
 | 整体请求 | 含 JSON 转义和空白最多 32 MiB（33,554,432 字节），分块传输同样限制 |
 
+服务端在新记录提交时按 `stoppedAt - startedAt` 计算毫秒用时并保存为 `duration_ms`。既有记录不回填，列表与详情的 `duration_ms` 为 `null`；新记录即使用时为零也返回 `0`。该值来自客户端报告的起止时间，表示本轮对话经过时间，不是模型请求延迟。
+
 所有对象拒绝未知字段、重复字段、字段名大小写别名和尾随 JSON。拒绝无效 UTF-8、无效 Unicode 转义和 PostgreSQL 无法保存的 NUL（U+0000），返回 422，不静默替换正文。只支持 `application/json`；`Content-Encoding` 必须缺省或 `identity`。
 
 上报独立限流：默认每成员每分钟 60 次，同一成员的设备和客户端合并计数，使用首次请求开始的 60 秒窗口。通过 `desktop.conversation_member_per_minute` 或 `DESKTOP_CONVERSATION_MEMBER_PER_MINUTE` 配置正整数；不计入登录失败次数。
@@ -191,7 +193,7 @@ python3 deploy/tests/desktop-conversation-proxy-test.py
 
 统计按服务端接收时间 `received_at` 计算，使用服务器配置时区（默认 `Asia/Shanghai`）。今日从零点起，本周从周一零点起，本月从每月 1 日零点起；返回的 `as_of` 是本次统计的 UTC 截止时刻，包含该时刻。总计覆盖截止时刻前的全部历史记录，包括已删除成员的记录。
 
-`record_count` 为已上报问答记录数，一条记录是一轮问答，不是去重后的会话数；`prompt_count` 为这些记录中提问数之和。统计只聚合元数据，不读取问答正文；无匹配记录时各计数均返回 `0`。
+`record_count` 为已上报问答记录数，一条记录是一轮问答，不是去重后的会话数；`prompt_count` 为这些记录中提问数之和。`duration_record_count` 为有用时的记录数，`total_duration_ms` 为这些记录的用时总和，`average_duration_ms` 只以有用时记录为分母；没有有用时记录时平均值为 `null`。统计只聚合元数据，不读取问答正文；无匹配记录时计数返回 `0`，平均用时保持 `null`。
 
 统计支持与列表相同的成员、客户端、采集状态、记录 ID、原始对话 ID、安装 ID、接收时间筛选。时间筛选与各周期取交集：`received_from` 包含起点，`received_to` 不含终点。统计覆盖筛选结果的所有页，分页和排序不影响计数。页面在点击搜索或重置后同时应用筛选，单独翻页不会重算统计；也可手动刷新统计。统计加载失败时保留列表和问答查看功能。
 

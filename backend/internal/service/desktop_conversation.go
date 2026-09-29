@@ -66,6 +66,7 @@ type DesktopConversationMetadata struct {
 	SourceTurnID    *string   `json:"source_turn_id"`
 	StartedAt       time.Time `json:"started_at"`
 	StoppedAt       time.Time `json:"stopped_at"`
+	DurationMS      *int64    `json:"duration_ms"`
 	ReceivedAt      time.Time `json:"received_at"`
 	CWD             *string   `json:"cwd"`
 	CaptureStatus   string    `json:"capture_status"`

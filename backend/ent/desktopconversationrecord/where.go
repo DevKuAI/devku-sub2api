@@ -101,6 +101,11 @@ func StoppedAt(v time.Time) predicate.DesktopConversationRecord {
 	return predicate.DesktopConversationRecord(sql.FieldEQ(FieldStoppedAt, v))
 }
 
+// DurationMs applies equality check predicate on the "duration_ms" field. It's identical to DurationMsEQ.
+func DurationMs(v int64) predicate.DesktopConversationRecord {
+	return predicate.DesktopConversationRecord(sql.FieldEQ(FieldDurationMs, v))
+}
+
 // ReceivedAt applies equality check predicate on the "received_at" field. It's identical to ReceivedAtEQ.
 func ReceivedAt(v time.Time) predicate.DesktopConversationRecord {
 	return predicate.DesktopConversationRecord(sql.FieldEQ(FieldReceivedAt, v))
@@ -524,6 +529,56 @@ func StoppedAtLT(v time.Time) predicate.DesktopConversationRecord {
 // StoppedAtLTE applies the LTE predicate on the "stopped_at" field.
 func StoppedAtLTE(v time.Time) predicate.DesktopConversationRecord {
 	return predicate.DesktopConversationRecord(sql.FieldLTE(FieldStoppedAt, v))
+}
+
+// DurationMsEQ applies the EQ predicate on the "duration_ms" field.
+func DurationMsEQ(v int64) predicate.DesktopConversationRecord {
+	return predicate.DesktopConversationRecord(sql.FieldEQ(FieldDurationMs, v))
+}
+
+// DurationMsNEQ applies the NEQ predicate on the "duration_ms" field.
+func DurationMsNEQ(v int64) predicate.DesktopConversationRecord {
+	return predicate.DesktopConversationRecord(sql.FieldNEQ(FieldDurationMs, v))
+}
+
+// DurationMsIn applies the In predicate on the "duration_ms" field.
+func DurationMsIn(vs ...int64) predicate.DesktopConversationRecord {
+	return predicate.DesktopConversationRecord(sql.FieldIn(FieldDurationMs, vs...))
+}
+
+// DurationMsNotIn applies the NotIn predicate on the "duration_ms" field.
+func DurationMsNotIn(vs ...int64) predicate.DesktopConversationRecord {
+	return predicate.DesktopConversationRecord(sql.FieldNotIn(FieldDurationMs, vs...))
+}
+
+// DurationMsGT applies the GT predicate on the "duration_ms" field.
+func DurationMsGT(v int64) predicate.DesktopConversationRecord {
+	return predicate.DesktopConversationRecord(sql.FieldGT(FieldDurationMs, v))
+}
+
+// DurationMsGTE applies the GTE predicate on the "duration_ms" field.
+func DurationMsGTE(v int64) predicate.DesktopConversationRecord {
+	return predicate.DesktopConversationRecord(sql.FieldGTE(FieldDurationMs, v))
+}
+
+// DurationMsLT applies the LT predicate on the "duration_ms" field.
+func DurationMsLT(v int64) predicate.DesktopConversationRecord {
+	return predicate.DesktopConversationRecord(sql.FieldLT(FieldDurationMs, v))
+}
+
+// DurationMsLTE applies the LTE predicate on the "duration_ms" field.
+func DurationMsLTE(v int64) predicate.DesktopConversationRecord {
+	return predicate.DesktopConversationRecord(sql.FieldLTE(FieldDurationMs, v))
+}
+
+// DurationMsIsNil applies the IsNil predicate on the "duration_ms" field.
+func DurationMsIsNil() predicate.DesktopConversationRecord {
+	return predicate.DesktopConversationRecord(sql.FieldIsNull(FieldDurationMs))
+}
+
+// DurationMsNotNil applies the NotNil predicate on the "duration_ms" field.
+func DurationMsNotNil() predicate.DesktopConversationRecord {
+	return predicate.DesktopConversationRecord(sql.FieldNotNull(FieldDurationMs))
 }
 
 // ReceivedAtEQ applies the EQ predicate on the "received_at" field.

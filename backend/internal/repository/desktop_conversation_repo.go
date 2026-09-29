@@ -54,7 +54,8 @@ func (r *desktopConversationRepository) Create(ctx context.Context, organization
 		SetRecordID(uuid.MustParse(input.RecordID)).SetOrganizationID(organizationID).SetMemberID(memberID).
 		SetInstallationID(uuid.MustParse(input.InstallationID)).SetClient(input.Client).
 		SetSourceSessionID(input.SessionID).SetNillableSourceTurnID(input.SourceTurnID).
-		SetStartedAt(input.StartedAt).SetStoppedAt(input.StoppedAt).SetNillableCwd(input.CWD).
+		SetStartedAt(input.StartedAt).SetStoppedAt(input.StoppedAt).
+		SetDurationMs(desktopConversationDurationMS(input.StartedAt, input.StoppedAt)).SetNillableCwd(input.CWD).
 		SetPrompts(prompts).SetPromptCount(len(input.Prompts)).SetCaptureStatus(input.CaptureStatus)
 	if input.Response != nil {
 		body, marshalErr := json.Marshal(input.Response)
@@ -163,7 +164,7 @@ func desktopConversationMetadata(row *dbent.DesktopConversationRecord) service.D
 	result := service.DesktopConversationMetadata{
 		RecordID: row.RecordID.String(), InstallationID: row.InstallationID.String(), Client: row.Client,
 		SourceSessionID: row.SourceSessionID, SourceTurnID: row.SourceTurnID, StartedAt: row.StartedAt.UTC(),
-		StoppedAt: row.StoppedAt.UTC(), ReceivedAt: row.ReceivedAt.UTC(), CWD: row.Cwd,
+		StoppedAt: row.StoppedAt.UTC(), DurationMS: row.DurationMs, ReceivedAt: row.ReceivedAt.UTC(), CWD: row.Cwd,
 		CaptureStatus: row.CaptureStatus, PromptCount: row.PromptCount,
 	}
 	if member := row.Edges.Member; member != nil {
@@ -172,18 +173,36 @@ func desktopConversationMetadata(row *dbent.DesktopConversationRecord) service.D
 	return result
 }
 
+func desktopConversationDurationMS(start, stop time.Time) int64 {
+	seconds := stop.Unix() - start.Unix()
+	nanoseconds := int64(stop.Nanosecond() - start.Nanosecond())
+	if nanoseconds < 0 {
+		seconds--
+		nanoseconds += int64(time.Second)
+	}
+	return seconds*1000 + nanoseconds/int64(time.Millisecond)
+}
+
 // Statistics aggregates metadata only in one database snapshot, independent of list pagination.
 func (r *desktopConversationRepository) Statistics(ctx context.Context, organizationID int64, filters service.DesktopConversationFilters, periods service.DesktopConversationPeriods) (*service.DesktopConversationStatistics, error) {
 	ctx = mixins.SkipSoftDelete(ctx)
 	var rows []struct {
 		TodayRecords              int64 `json:"today_records"`
 		TodayPrompts              int64 `json:"today_prompts"`
+		TodayDurationCount        int64 `json:"today_duration_count"`
+		TodayDurationMS           int64 `json:"today_duration_ms"`
 		WeekRecords               int64 `json:"week_records"`
 		WeekPrompts               int64 `json:"week_prompts"`
+		WeekDurationCount         int64 `json:"week_duration_count"`
+		WeekDurationMS            int64 `json:"week_duration_ms"`
 		MonthRecords              int64 `json:"month_records"`
 		MonthPrompts              int64 `json:"month_prompts"`
+		MonthDurationCount        int64 `json:"month_duration_count"`
+		MonthDurationMS           int64 `json:"month_duration_ms"`
 		Last30DaysRecords         int64 `json:"last_30_days_records"`
 		Last30DaysPrompts         int64 `json:"last_30_days_prompts"`
+		Last30DaysDurationCount   int64 `json:"last_30_days_duration_count"`
+		Last30DaysDurationMS      int64 `json:"last_30_days_duration_ms"`
 		CapturedLast30Days        int64 `json:"captured_last_30_days"`
 		ResponseMissingLast30Days int64 `json:"response_missing_last_30_days"`
 		WorkbuddyLast30Days       int64 `json:"workbuddy_last_30_days"`
@@ -196,6 +215,8 @@ func (r *desktopConversationRepository) Statistics(ctx context.Context, organiza
 		ChatGPTCodex              int64 `json:"chatgpt_codex"`
 		TotalRecords              int64 `json:"total_records"`
 		TotalPrompts              int64 `json:"total_prompts"`
+		TotalDurationCount        int64 `json:"total_duration_count"`
+		TotalDurationMS           int64 `json:"total_duration_ms"`
 	}
 	countsSince := func(start time.Time, prefix string) []dbent.AggregateFunc {
 		// Only server-generated timestamps are formatted here; request filters use Ent predicates.
@@ -208,6 +229,12 @@ func (r *desktopConversationRepository) Statistics(ctx context.Context, organiza
 			},
 			func(s *sql.Selector) string {
 				return sql.As("COALESCE(SUM("+s.C(desktopconversationrecord.FieldPromptCount)+") FILTER (WHERE "+condition(s)+"), 0)", prefix+"_prompts")
+			},
+			func(s *sql.Selector) string {
+				return sql.As("COUNT("+s.C(desktopconversationrecord.FieldDurationMs)+") FILTER (WHERE "+condition(s)+")", prefix+"_duration_count")
+			},
+			func(s *sql.Selector) string {
+				return sql.As("COALESCE(SUM("+s.C(desktopconversationrecord.FieldDurationMs)+") FILTER (WHERE "+condition(s)+"), 0)::bigint", prefix+"_duration_ms")
 			},
 		}
 	}
@@ -246,6 +273,10 @@ func (r *desktopConversationRepository) Statistics(ctx context.Context, organiza
 	}
 	aggregates = append(aggregates, dbent.As(dbent.Count(), "total_records"), func(s *sql.Selector) string {
 		return sql.As("COALESCE(SUM("+s.C(desktopconversationrecord.FieldPromptCount)+"), 0)", "total_prompts")
+	}, func(s *sql.Selector) string {
+		return sql.As("COUNT("+s.C(desktopconversationrecord.FieldDurationMs)+")", "total_duration_count")
+	}, func(s *sql.Selector) string {
+		return sql.As("COALESCE(SUM("+s.C(desktopconversationrecord.FieldDurationMs)+"), 0)::bigint", "total_duration_ms")
 	})
 	err := r.query(organizationID, filters).Where(desktopconversationrecord.ReceivedAtLTE(periods.AsOf)).Aggregate(aggregates...).Scan(ctx, &rows)
 	if err != nil || len(rows) != 1 {
@@ -253,10 +284,10 @@ func (r *desktopConversationRepository) Statistics(ctx context.Context, organiza
 	}
 	row := rows[0]
 	result := &service.DesktopConversationStatistics{
-		Today:                     service.DesktopConversationCounts{RecordCount: row.TodayRecords, PromptCount: row.TodayPrompts},
-		Week:                      service.DesktopConversationCounts{RecordCount: row.WeekRecords, PromptCount: row.WeekPrompts},
-		Month:                     service.DesktopConversationCounts{RecordCount: row.MonthRecords, PromptCount: row.MonthPrompts},
-		Last30Days:                service.DesktopConversationCounts{RecordCount: row.Last30DaysRecords, PromptCount: row.Last30DaysPrompts},
+		Today:                     desktopConversationCounts(row.TodayRecords, row.TodayPrompts, row.TodayDurationCount, row.TodayDurationMS),
+		Week:                      desktopConversationCounts(row.WeekRecords, row.WeekPrompts, row.WeekDurationCount, row.WeekDurationMS),
+		Month:                     desktopConversationCounts(row.MonthRecords, row.MonthPrompts, row.MonthDurationCount, row.MonthDurationMS),
+		Last30Days:                desktopConversationCounts(row.Last30DaysRecords, row.Last30DaysPrompts, row.Last30DaysDurationCount, row.Last30DaysDurationMS),
 		CapturedLast30Days:        row.CapturedLast30Days,
 		ResponseMissingLast30Days: row.ResponseMissingLast30Days,
 		WorkbuddyLast30Days:       row.WorkbuddyLast30Days,
@@ -267,7 +298,7 @@ func (r *desktopConversationRepository) Statistics(ctx context.Context, organiza
 		ResponseMissing:           row.ResponseMissing,
 		Workbuddy:                 row.Workbuddy,
 		ChatGPTCodex:              row.ChatGPTCodex,
-		Total:                     service.DesktopConversationCounts{RecordCount: row.TotalRecords, PromptCount: row.TotalPrompts},
+		Total:                     desktopConversationCounts(row.TotalRecords, row.TotalPrompts, row.TotalDurationCount, row.TotalDurationMS),
 		Daily:                     make([]service.DesktopConversationDay, periods.TrendDays),
 	}
 	dayIndex := make(map[string]int, periods.TrendDays)
@@ -281,9 +312,11 @@ func (r *desktopConversationRepository) Statistics(ctx context.Context, organiza
 	}
 	zone := strings.ReplaceAll(timezone.Location().String(), "'", "''")
 	var days []struct {
-		Date    string `json:"date"`
-		Records int64  `json:"records"`
-		Prompts int64  `json:"prompts"`
+		Date          string `json:"date"`
+		Records       int64  `json:"records"`
+		Prompts       int64  `json:"prompts"`
+		DurationCount int64  `json:"duration_count"`
+		DurationMS    int64  `json:"duration_ms"`
 	}
 	err = r.query(organizationID, filters).Where(
 		desktopconversationrecord.ReceivedAtGTE(periods.TrendStart), desktopconversationrecord.ReceivedAtLTE(periods.TrendEnd),
@@ -293,15 +326,27 @@ func (r *desktopConversationRepository) Statistics(ctx context.Context, organiza
 		return sql.As(expr, "date")
 	}, dbent.As(dbent.Count(), "records"), func(s *sql.Selector) string {
 		return sql.As("COALESCE(SUM("+s.C(desktopconversationrecord.FieldPromptCount)+"), 0)", "prompts")
+	}, func(s *sql.Selector) string {
+		return sql.As("COUNT("+s.C(desktopconversationrecord.FieldDurationMs)+")", "duration_count")
+	}, func(s *sql.Selector) string {
+		return sql.As("COALESCE(SUM("+s.C(desktopconversationrecord.FieldDurationMs)+"), 0)::bigint", "duration_ms")
 	}).Scan(ctx, &days)
 	if err != nil {
 		return nil, service.ErrDesktopConversationStorage
 	}
 	for _, day := range days {
 		if index, ok := dayIndex[day.Date]; ok {
-			result.Daily[index].RecordCount = day.Records
-			result.Daily[index].PromptCount = day.Prompts
+			result.Daily[index].DesktopConversationCounts = desktopConversationCounts(day.Records, day.Prompts, day.DurationCount, day.DurationMS)
 		}
 	}
 	return result, nil
+}
+
+func desktopConversationCounts(records, prompts, durationCount, durationMS int64) service.DesktopConversationCounts {
+	result := service.DesktopConversationCounts{RecordCount: records, PromptCount: prompts, DurationRecordCount: durationCount, TotalDurationMS: durationMS}
+	if durationCount > 0 {
+		average := float64(durationMS) / float64(durationCount)
+		result.AverageDurationMS = &average
+	}
+	return result
 }

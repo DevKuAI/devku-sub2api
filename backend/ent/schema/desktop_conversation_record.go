@@ -32,6 +32,7 @@ func (DesktopConversationRecord) Fields() []ent.Field {
 		field.String("source_turn_id").MaxRuneLen(512).SchemaType(map[string]string{dialect.Postgres: "varchar(512)"}).Optional().Nillable().Immutable(),
 		field.Time("started_at").SchemaType(map[string]string{dialect.Postgres: "timestamptz"}).Immutable(),
 		field.Time("stopped_at").SchemaType(map[string]string{dialect.Postgres: "timestamptz"}).Immutable(),
+		field.Int64("duration_ms").Optional().Nillable().NonNegative().Immutable(),
 		field.Time("received_at").Default(time.Now).SchemaType(map[string]string{dialect.Postgres: "timestamptz"}).Immutable(),
 		field.String("cwd").SchemaType(map[string]string{dialect.Postgres: "text"}).Optional().Nillable().Immutable(),
 		field.JSON("prompts", json.RawMessage{}).Immutable(),

@@ -49,10 +49,13 @@ func TestDesktopConversationPersistenceIsolationAndHistory(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, input.Prompts, detail.Prompts)
 	require.Equal(t, input.Response, detail.Response)
+	require.NotNil(t, detail.DurationMS)
+	require.Equal(t, input.StoppedAt.Sub(input.StartedAt).Milliseconds(), *detail.DurationMS)
 	params := pagination.DefaultPagination()
 	items, result, err := repo.List(ctx, one.organization.ID, params, service.DesktopConversationFilters{})
 	require.NoError(t, err)
 	require.EqualValues(t, 1, result.Total)
+	require.Equal(t, detail.DurationMS, items[0].DurationMS)
 	raw, err := json.Marshal(items)
 	require.NoError(t, err)
 	require.NotContains(t, string(raw), "first\\nline")
@@ -112,6 +115,8 @@ func TestDesktopConversationThreadTupleAndStablePages(t *testing.T) {
 		require.EqualValues(t, 2, page.Total)
 		require.Len(t, items, 1)
 		require.Equal(t, id, items[0].RecordID)
+		require.NotNil(t, items[0].DurationMS)
+		require.Zero(t, *items[0].DurationMS)
 		detail, err := repo.Get(ctx, fixture.organization.ID, id)
 		require.NoError(t, err)
 		require.Nil(t, detail.Response)
@@ -315,7 +320,12 @@ func TestDesktopConversationStatisticsPeriodsFiltersAndIsolation(t *testing.T) {
 	insert(one.organization.ID, other.ID, "chatgpt_codex", "2026-09-21T16:00:00Z", 6)
 	insert(two.organization.ID, outside.ID, "workbuddy", "2026-09-21T16:00:00Z", 8)
 	counts := func(records, prompts int64) service.DesktopConversationCounts {
-		return service.DesktopConversationCounts{RecordCount: records, PromptCount: prompts}
+		result := service.DesktopConversationCounts{RecordCount: records, PromptCount: prompts, DurationRecordCount: records, TotalDurationMS: records * 60_000}
+		if records > 0 {
+			average := float64(60_000)
+			result.AverageDurationMS = &average
+		}
+		return result
 	}
 	stats, err := repo.Statistics(ctx, one.organization.ID, service.DesktopConversationFilters{}, periods)
 	require.NoError(t, err)
@@ -360,4 +370,26 @@ func TestDesktopConversationStatisticsPeriodsFiltersAndIsolation(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, counts(1, 6), stats.Total)
 	require.EqualValues(t, 1, stats.CapturedLast30Days)
+	_, err = integrationDB.ExecContext(ctx, "UPDATE desktop_conversation_records SET duration_ms = NULL WHERE organization_id = $1 AND record_id = $2", one.organization.ID, todayID)
+	require.NoError(t, err)
+	stats, err = repo.Statistics(ctx, one.organization.ID, service.DesktopConversationFilters{}, periods)
+	require.NoError(t, err)
+	require.EqualValues(t, 6, stats.Total.RecordCount)
+	require.EqualValues(t, 5, stats.Total.DurationRecordCount)
+	require.EqualValues(t, 300_000, stats.Total.TotalDurationMS)
+	require.InDelta(t, 60_000, *stats.Total.AverageDurationMS, 0.001)
+	detail, err := repo.Get(ctx, one.organization.ID, todayID)
+	require.NoError(t, err)
+	require.Nil(t, detail.DurationMS)
+	items, _, err := repo.List(ctx, one.organization.ID, pagination.DefaultPagination(), service.DesktopConversationFilters{RecordID: todayID})
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	require.Nil(t, items[0].DurationMS)
+	_, err = integrationDB.ExecContext(ctx, "UPDATE desktop_conversation_records SET duration_ms = NULL WHERE organization_id = $1", one.organization.ID)
+	require.NoError(t, err)
+	stats, err = repo.Statistics(ctx, one.organization.ID, service.DesktopConversationFilters{}, periods)
+	require.NoError(t, err)
+	require.Zero(t, stats.Total.DurationRecordCount)
+	require.Zero(t, stats.Total.TotalDurationMS)
+	require.Nil(t, stats.Total.AverageDurationMS)
 }

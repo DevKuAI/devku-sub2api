@@ -32,6 +32,8 @@ const (
 	FieldStartedAt = "started_at"
 	// FieldStoppedAt holds the string denoting the stopped_at field in the database.
 	FieldStoppedAt = "stopped_at"
+	// FieldDurationMs holds the string denoting the duration_ms field in the database.
+	FieldDurationMs = "duration_ms"
 	// FieldReceivedAt holds the string denoting the received_at field in the database.
 	FieldReceivedAt = "received_at"
 	// FieldCwd holds the string denoting the cwd field in the database.
@@ -78,6 +80,7 @@ var Columns = []string{
 	FieldSourceTurnID,
 	FieldStartedAt,
 	FieldStoppedAt,
+	FieldDurationMs,
 	FieldReceivedAt,
 	FieldCwd,
 	FieldPrompts,
@@ -103,6 +106,8 @@ var (
 	SourceSessionIDValidator func(string) error
 	// SourceTurnIDValidator is a validator for the "source_turn_id" field. It is called by the builders before save.
 	SourceTurnIDValidator func(string) error
+	// DurationMsValidator is a validator for the "duration_ms" field. It is called by the builders before save.
+	DurationMsValidator func(int64) error
 	// DefaultReceivedAt holds the default value on creation for the "received_at" field.
 	DefaultReceivedAt func() time.Time
 	// CaptureStatusValidator is a validator for the "capture_status" field. It is called by the builders before save.
@@ -162,6 +167,11 @@ func ByStartedAt(opts ...sql.OrderTermOption) OrderOption {
 // ByStoppedAt orders the results by the stopped_at field.
 func ByStoppedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldStoppedAt, opts...).ToFunc()
+}
+
+// ByDurationMs orders the results by the duration_ms field.
+func ByDurationMs(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDurationMs, opts...).ToFunc()
 }
 
 // ByReceivedAt orders the results by the received_at field.

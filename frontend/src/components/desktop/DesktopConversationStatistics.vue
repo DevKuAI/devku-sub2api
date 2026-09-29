@@ -21,12 +21,15 @@
           <span class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.conversations.statistics.records') }}</span>
         </div>
         <p class="mt-2 break-words text-xs tabular-nums text-gray-500 dark:text-dark-400">{{ t('admin.desktop.conversations.statistics.prompts', { count: statistics ? statistics[period.key].prompt_count.toLocaleString() : '—' }) }}</p>
+        <p class="mt-1 break-words text-xs tabular-nums text-gray-500 dark:text-dark-400">{{ t('admin.desktop.conversations.statistics.durationTotal', { value: statistics && statistics[period.key].duration_record_count ? formatDesktopConversationDuration(statistics[period.key].total_duration_ms) : '—' }) }}</p>
+        <p class="mt-1 break-words text-xs tabular-nums text-gray-500 dark:text-dark-400">{{ t('admin.desktop.conversations.statistics.durationAverage', { value: formatDesktopConversationDuration(statistics?.[period.key].average_duration_ms), count: statistics ? statistics[period.key].duration_record_count.toLocaleString() : '—' }) }}</p>
       </article>
     </div>
     <div v-if="view === 'usage' && statistics && !error" class="space-y-4" data-testid="conversation-usage-analysis">
-      <div class="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-        <div v-for="item in usageMetrics" :key="item.key"><p class="text-xs text-gray-500 dark:text-dark-400">{{ t(`admin.desktop.conversations.statistics.${item.key}`) }}</p><p class="mt-1 font-semibold tabular-nums text-gray-900 dark:text-gray-100">{{ item.value.toLocaleString() }}</p></div>
+      <div class="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3 lg:grid-cols-6">
+        <div v-for="item in usageMetrics" :key="item.key"><p class="text-xs text-gray-500 dark:text-dark-400">{{ t(`admin.desktop.conversations.statistics.${item.key}`) }}</p><p class="mt-1 font-semibold tabular-nums text-gray-900 dark:text-gray-100">{{ item.display }}</p></div>
       </div>
+      <p class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.conversations.statistics.durationCoverage', { measured: statistics.total.duration_record_count.toLocaleString(), total: statistics.total.record_count.toLocaleString() }) }}</p>
       <div v-if="statistics.daily.some(day => day.record_count > 0)" class="h-48" role="img" :aria-label="t('admin.desktop.conversations.statistics.trend')"><Line :data="trendData" :options="trendOptions" /></div>
       <p v-else class="py-6 text-sm text-gray-500 dark:text-dark-400">{{ t('admin.desktop.conversations.statistics.noRecords') }}</p>
       <div class="sr-only"><table><caption>{{ t('admin.desktop.conversations.statistics.trend') }}</caption><thead><tr><th>{{ t('admin.desktop.usageStatistics.date') }}</th><th>{{ t('admin.desktop.conversations.statistics.records') }}</th><th>{{ t('admin.desktop.conversations.statistics.promptsLabel') }}</th></tr></thead><tbody><tr v-for="day in statistics.daily" :key="day.date"><td>{{ day.date }}</td><td>{{ day.record_count }}</td><td>{{ day.prompt_count }}</td></tr></tbody></table></div>
@@ -45,6 +48,7 @@
       {{ t('admin.desktop.conversations.statistics.hint', { timezone: statistics.timezone }) }}
     </p>
     <p v-if="statistics && !error" class="text-xs leading-relaxed text-gray-500 dark:text-dark-400">{{ t('admin.desktop.conversations.statistics.reportingHint') }}</p>
+    <p v-if="statistics && !error" class="text-xs leading-relaxed text-gray-500 dark:text-dark-400">{{ t('admin.desktop.conversations.statistics.durationHint') }}</p>
   </section>
 </template>
 
@@ -57,6 +61,7 @@ import { getDesktopConversationStatistics } from '@/api/desktopConversations'
 import type { DesktopConversationFilters, DesktopConversationStatistics } from '@/api/desktopConversations'
 import type { DesktopAnalyticsRange } from '@/api/desktopOrganizationUsage'
 import Icon from '@/components/icons/Icon.vue'
+import { formatDesktopConversationDuration } from '@/utils/desktopConversationDuration'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler)
 
@@ -70,10 +75,12 @@ const periods = [
 ] as const
 const statistics = ref<DesktopConversationStatistics | null>(null)
 const usageMetrics = computed(() => statistics.value ? [
-  { key: 'recordsLabel', value: statistics.value.total.record_count },
-  { key: 'promptsLabel', value: statistics.value.total.prompt_count },
-  { key: 'membersLabel', value: statistics.value.distinct_members },
-  { key: 'sessionsLabel', value: statistics.value.distinct_sessions },
+  { key: 'recordsLabel', display: statistics.value.total.record_count.toLocaleString() },
+  { key: 'promptsLabel', display: statistics.value.total.prompt_count.toLocaleString() },
+  { key: 'membersLabel', display: statistics.value.distinct_members.toLocaleString() },
+  { key: 'sessionsLabel', display: statistics.value.distinct_sessions.toLocaleString() },
+  { key: 'totalDurationLabel', display: statistics.value.total.duration_record_count ? formatDesktopConversationDuration(statistics.value.total.total_duration_ms) : '—' },
+  { key: 'averageDurationLabel', display: formatDesktopConversationDuration(statistics.value.total.average_duration_ms) },
 ] : [])
 const trendData = computed(() => ({
   labels: statistics.value?.daily.map(day => day.date.slice(5)) || [],

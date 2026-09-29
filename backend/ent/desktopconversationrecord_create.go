@@ -88,6 +88,20 @@ func (_c *DesktopConversationRecordCreate) SetStoppedAt(v time.Time) *DesktopCon
 	return _c
 }
 
+// SetDurationMs sets the "duration_ms" field.
+func (_c *DesktopConversationRecordCreate) SetDurationMs(v int64) *DesktopConversationRecordCreate {
+	_c.mutation.SetDurationMs(v)
+	return _c
+}
+
+// SetNillableDurationMs sets the "duration_ms" field if the given value is not nil.
+func (_c *DesktopConversationRecordCreate) SetNillableDurationMs(v *int64) *DesktopConversationRecordCreate {
+	if v != nil {
+		_c.SetDurationMs(*v)
+	}
+	return _c
+}
+
 // SetReceivedAt sets the "received_at" field.
 func (_c *DesktopConversationRecordCreate) SetReceivedAt(v time.Time) *DesktopConversationRecordCreate {
 	_c.mutation.SetReceivedAt(v)
@@ -232,6 +246,11 @@ func (_c *DesktopConversationRecordCreate) check() error {
 	if _, ok := _c.mutation.StoppedAt(); !ok {
 		return &ValidationError{Name: "stopped_at", err: errors.New(`ent: missing required field "DesktopConversationRecord.stopped_at"`)}
 	}
+	if v, ok := _c.mutation.DurationMs(); ok {
+		if err := desktopconversationrecord.DurationMsValidator(v); err != nil {
+			return &ValidationError{Name: "duration_ms", err: fmt.Errorf(`ent: validator failed for field "DesktopConversationRecord.duration_ms": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.ReceivedAt(); !ok {
 		return &ValidationError{Name: "received_at", err: errors.New(`ent: missing required field "DesktopConversationRecord.received_at"`)}
 	}
@@ -314,6 +333,10 @@ func (_c *DesktopConversationRecordCreate) createSpec() (*DesktopConversationRec
 	if value, ok := _c.mutation.StoppedAt(); ok {
 		_spec.SetField(desktopconversationrecord.FieldStoppedAt, field.TypeTime, value)
 		_node.StoppedAt = value
+	}
+	if value, ok := _c.mutation.DurationMs(); ok {
+		_spec.SetField(desktopconversationrecord.FieldDurationMs, field.TypeInt64, value)
+		_node.DurationMs = &value
 	}
 	if value, ok := _c.mutation.ReceivedAt(); ok {
 		_spec.SetField(desktopconversationrecord.FieldReceivedAt, field.TypeTime, value)
@@ -462,6 +485,9 @@ func (u *DesktopConversationRecordUpsertOne) UpdateNewValues() *DesktopConversat
 		}
 		if _, exists := u.create.mutation.StoppedAt(); exists {
 			s.SetIgnore(desktopconversationrecord.FieldStoppedAt)
+		}
+		if _, exists := u.create.mutation.DurationMs(); exists {
+			s.SetIgnore(desktopconversationrecord.FieldDurationMs)
 		}
 		if _, exists := u.create.mutation.ReceivedAt(); exists {
 			s.SetIgnore(desktopconversationrecord.FieldReceivedAt)
@@ -714,6 +740,9 @@ func (u *DesktopConversationRecordUpsertBulk) UpdateNewValues() *DesktopConversa
 			}
 			if _, exists := b.mutation.StoppedAt(); exists {
 				s.SetIgnore(desktopconversationrecord.FieldStoppedAt)
+			}
+			if _, exists := b.mutation.DurationMs(); exists {
+				s.SetIgnore(desktopconversationrecord.FieldDurationMs)
 			}
 			if _, exists := b.mutation.ReceivedAt(); exists {
 				s.SetIgnore(desktopconversationrecord.FieldReceivedAt)

@@ -960,16 +960,20 @@ func init() {
 	desktopconversationrecordDescSourceTurnID := desktopconversationrecordFields[6].Descriptor()
 	// desktopconversationrecord.SourceTurnIDValidator is a validator for the "source_turn_id" field. It is called by the builders before save.
 	desktopconversationrecord.SourceTurnIDValidator = desktopconversationrecordDescSourceTurnID.Validators[0].(func(string) error)
+	// desktopconversationrecordDescDurationMs is the schema descriptor for duration_ms field.
+	desktopconversationrecordDescDurationMs := desktopconversationrecordFields[9].Descriptor()
+	// desktopconversationrecord.DurationMsValidator is a validator for the "duration_ms" field. It is called by the builders before save.
+	desktopconversationrecord.DurationMsValidator = desktopconversationrecordDescDurationMs.Validators[0].(func(int64) error)
 	// desktopconversationrecordDescReceivedAt is the schema descriptor for received_at field.
-	desktopconversationrecordDescReceivedAt := desktopconversationrecordFields[9].Descriptor()
+	desktopconversationrecordDescReceivedAt := desktopconversationrecordFields[10].Descriptor()
 	// desktopconversationrecord.DefaultReceivedAt holds the default value on creation for the received_at field.
 	desktopconversationrecord.DefaultReceivedAt = desktopconversationrecordDescReceivedAt.Default.(func() time.Time)
 	// desktopconversationrecordDescCaptureStatus is the schema descriptor for capture_status field.
-	desktopconversationrecordDescCaptureStatus := desktopconversationrecordFields[13].Descriptor()
+	desktopconversationrecordDescCaptureStatus := desktopconversationrecordFields[14].Descriptor()
 	// desktopconversationrecord.CaptureStatusValidator is a validator for the "capture_status" field. It is called by the builders before save.
 	desktopconversationrecord.CaptureStatusValidator = desktopconversationrecordDescCaptureStatus.Validators[0].(func(string) error)
 	// desktopconversationrecordDescPromptCount is the schema descriptor for prompt_count field.
-	desktopconversationrecordDescPromptCount := desktopconversationrecordFields[14].Descriptor()
+	desktopconversationrecordDescPromptCount := desktopconversationrecordFields[15].Descriptor()
 	// desktopconversationrecord.PromptCountValidator is a validator for the "prompt_count" field. It is called by the builders before save.
 	desktopconversationrecord.PromptCountValidator = func() func(int) error {
 		validators := desktopconversationrecordDescPromptCount.Validators

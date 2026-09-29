@@ -85,6 +85,9 @@ func (_u *DesktopConversationRecordUpdate) sqlSave(ctx context.Context) (_node i
 	if _u.mutation.SourceTurnIDCleared() {
 		_spec.ClearField(desktopconversationrecord.FieldSourceTurnID, field.TypeString)
 	}
+	if _u.mutation.DurationMsCleared() {
+		_spec.ClearField(desktopconversationrecord.FieldDurationMs, field.TypeInt64)
+	}
 	if _u.mutation.CwdCleared() {
 		_spec.ClearField(desktopconversationrecord.FieldCwd, field.TypeString)
 	}
@@ -198,6 +201,9 @@ func (_u *DesktopConversationRecordUpdateOne) sqlSave(ctx context.Context) (_nod
 	}
 	if _u.mutation.SourceTurnIDCleared() {
 		_spec.ClearField(desktopconversationrecord.FieldSourceTurnID, field.TypeString)
+	}
+	if _u.mutation.DurationMsCleared() {
+		_spec.ClearField(desktopconversationrecord.FieldDurationMs, field.TypeInt64)
 	}
 	if _u.mutation.CwdCleared() {
 		_spec.ClearField(desktopconversationrecord.FieldCwd, field.TypeString)

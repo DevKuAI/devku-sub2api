@@ -10,7 +10,7 @@ import DesktopConversationStatistics from '../DesktopConversationStatistics.vue'
 const statistics = {
   timezone: 'Asia/Shanghai', as_of: '2026-09-22T04:00:00Z',
   today: { record_count: 3, prompt_count: 5 }, week: { record_count: 12, prompt_count: 20 },
-  month: { record_count: 30, prompt_count: 45 }, total: { record_count: 8, prompt_count: 15 },
+  month: { record_count: 30, prompt_count: 45 }, total: { record_count: 8, prompt_count: 15, duration_record_count: 6, total_duration_ms: 360_000, average_duration_ms: 60_000 },
   last_30_days: { record_count: 30, prompt_count: 45 },
   captured_last_30_days: 25, response_missing_last_30_days: 5,
   workbuddy_last_30_days: 10, chatgpt_codex_last_30_days: 20,
@@ -29,6 +29,8 @@ describe('Desktop conversation usage analytics', () => {
     expect(wrapper.find('[data-testid="statistics-today"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="conversation-usage-analysis"]').text()).toContain('8')
     expect(wrapper.find('[data-testid="conversation-usage-analysis"]').text()).toContain('6')
+    expect(wrapper.find('[data-testid="conversation-usage-analysis"]').text()).toContain('6m 0s')
+    expect(wrapper.find('[data-testid="conversation-usage-analysis"]').text()).toContain('1m 0s')
     expect(wrapper.find('[data-testid="conversation-trend-chart"]').exists()).toBe(true)
     await wrapper.setProps({ range: { days: 7 } })
     await flushPromises()
@@ -37,7 +39,7 @@ describe('Desktop conversation usage analytics', () => {
   })
 
   it('shows an empty state without a blank chart', async () => {
-    api.getDesktopConversationStatistics.mockResolvedValue({ ...statistics, total: { record_count: 0, prompt_count: 0 }, daily: [{ date: '2026-09-22', record_count: 0, prompt_count: 0 }] })
+    api.getDesktopConversationStatistics.mockResolvedValue({ ...statistics, total: { record_count: 0, prompt_count: 0, duration_record_count: 0, total_duration_ms: 0, average_duration_ms: null }, daily: [{ date: '2026-09-22', record_count: 0, prompt_count: 0 }] })
     const wrapper = mount(DesktopConversationStatistics, { props: { organizationId: 'org_one', selfManaged: false, filters: {}, range: { days: 7 }, view: 'usage' } })
     await flushPromises()
     expect(wrapper.find('[data-testid="conversation-trend-chart"]').exists()).toBe(false)

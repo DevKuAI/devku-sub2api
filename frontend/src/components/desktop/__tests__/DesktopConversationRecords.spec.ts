@@ -13,13 +13,15 @@ const record: DesktopConversation = {
   record_id: 'record_one', organization_id: 'org_one', member_id: 'mem_one', member_name: 'Member', member_deleted: false,
   client: 'workbuddy', installation_id: 'device_one', source_session_id: 'source_one', source_turn_id: null,
   started_at: '2026-09-18T00:00:00Z', stopped_at: '2026-09-18T00:01:00Z', received_at: '2026-09-18T00:01:01Z',
+  duration_ms: 60_000,
   cwd: '/workspace', capture_status: 'captured', prompt_count: 1,
 }
 const detail: DesktopConversationDetail = { ...record, schema_version: 2, prompts: [{ text: '<script>private</script>', truncated: true }], response: { text: 'answer', truncated: false } }
 const DataTableStub = defineComponent({
   props: ['data', 'columns', 'loading'],
-  template: '<div><slot v-if="!loading && !data.length" name="empty" /><div v-for="row in data" :key="row.record_id"><slot name="cell-member_name" :row="row" /><slot name="cell-actions" :row="row" /></div></div>',
+  template: '<div><slot v-if="!loading && !data.length" name="empty" /><div v-for="row in data" :key="row.record_id"><slot name="cell-member_name" :row="row" /><slot name="cell-duration_ms" :value="row.duration_ms" /><slot name="cell-actions" :row="row" /></div></div>',
 })
+const counts = (recordCount: number, promptCount: number) => ({ record_count: recordCount, prompt_count: promptCount, duration_record_count: recordCount, total_duration_ms: recordCount * 60_000, average_duration_ms: recordCount ? 60_000 : null })
 function view() {
   return mount(DesktopConversationRecords, { props: { organizationId: 'org_one', selfManaged: false }, global: { stubs: { DataTable: DataTableStub, Pagination: true, teleport: true } } })
 }
@@ -34,13 +36,14 @@ describe('Desktop conversation records', () => {
     vi.clearAllMocks()
     api.listDesktopConversations.mockResolvedValue({ items: [record], total: 1, page: 1, page_size: 20, pages: 1 })
     api.getDesktopConversation.mockResolvedValue(detail)
-    api.getDesktopConversationStatistics.mockResolvedValue({ timezone: 'Asia/Shanghai', as_of: '2026-09-22T04:00:00Z', today: { record_count: 3, prompt_count: 5 }, week: { record_count: 12, prompt_count: 20 }, month: { record_count: 30, prompt_count: 45 }, total: { record_count: 80, prompt_count: 100 }, last_30_days: { record_count: 30, prompt_count: 45 }, captured_last_30_days: 25, response_missing_last_30_days: 5, workbuddy_last_30_days: 10, chatgpt_codex_last_30_days: 20 })
+    api.getDesktopConversationStatistics.mockResolvedValue({ timezone: 'Asia/Shanghai', as_of: '2026-09-22T04:00:00Z', today: counts(3, 5), week: counts(12, 20), month: counts(30, 45), total: counts(80, 100), last_30_days: counts(30, 45), captured_last_30_days: 25, response_missing_last_30_days: 5, workbuddy_last_30_days: 10, chatgpt_codex_last_30_days: 20 })
   })
 
   it('loads only metadata until selected, renders plain text, and preserves missing responses', async () => {
     const wrapper = view()
     await flushPromises()
     expect(api.getDesktopConversation).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-testid="conversation-duration"]').text()).toBe('1m 0s')
     await wrapper.findAll('button').find((button) => button.text().includes('viewDetail'))!.trigger('click')
     await flushPromises()
     expect(wrapper.find('pre').text()).toBe('<script>private</script>')
@@ -50,6 +53,19 @@ describe('Desktop conversation records', () => {
     await wrapper.findAll('button').find((button) => button.text().includes('viewDetail'))!.trigger('click')
     await flushPromises()
     expect(wrapper.text()).toContain('conversations.responseMissing')
+    wrapper.unmount()
+  })
+
+  it('shows an unknown duration for historical records', async () => {
+    api.listDesktopConversations.mockResolvedValue({ items: [{ ...record, duration_ms: null }], total: 1, page: 1, page_size: 20, pages: 1 })
+    api.getDesktopConversation.mockResolvedValue({ ...detail, duration_ms: null })
+    const wrapper = view()
+    await flushPromises()
+    expect(wrapper.find('[data-testid="conversation-statistics"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="conversation-duration"]').text()).toBe('—')
+    await wrapper.findAll('button').find(button => button.text().includes('viewDetail'))!.trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[role="dialog"]').text()).toContain('—')
     wrapper.unmount()
   })
 
@@ -258,7 +274,7 @@ describe('Desktop conversation records', () => {
     await flushPromises()
     expect(wrapper.find('[data-testid="statistics-total"]').text()).toContain('—')
     const signal = api.getDesktopConversationStatistics.mock.calls[0][3] as AbortSignal
-    const empty = { timezone: 'UTC', as_of: '2026-09-22T04:00:00Z', today: { record_count: 0, prompt_count: 0 }, week: { record_count: 0, prompt_count: 0 }, month: { record_count: 0, prompt_count: 0 }, total: { record_count: 0, prompt_count: 0 }, last_30_days: { record_count: 0, prompt_count: 0 }, captured_last_30_days: 0, response_missing_last_30_days: 0, workbuddy_last_30_days: 0, chatgpt_codex_last_30_days: 0 }
+    const empty = { timezone: 'UTC', as_of: '2026-09-22T04:00:00Z', today: counts(0, 0), week: counts(0, 0), month: counts(0, 0), total: counts(0, 0), last_30_days: counts(0, 0), captured_last_30_days: 0, response_missing_last_30_days: 0, workbuddy_last_30_days: 0, chatgpt_codex_last_30_days: 0 }
     api.getDesktopConversationStatistics.mockResolvedValue(empty)
     await wrapper.setProps({ organizationId: 'org_two', selfManaged: true })
     await flushPromises()

@@ -20957,6 +20957,8 @@ type DesktopConversationRecordMutation struct {
 	source_turn_id      *string
 	started_at          *time.Time
 	stopped_at          *time.Time
+	duration_ms         *int64
+	addduration_ms      *int64
 	received_at         *time.Time
 	cwd                 *string
 	prompts             *jsontext.Value
@@ -21411,6 +21413,76 @@ func (m *DesktopConversationRecordMutation) ResetStoppedAt() {
 	m.stopped_at = nil
 }
 
+// SetDurationMs sets the "duration_ms" field.
+func (m *DesktopConversationRecordMutation) SetDurationMs(i int64) {
+	m.duration_ms = &i
+	m.addduration_ms = nil
+}
+
+// DurationMs returns the value of the "duration_ms" field in the mutation.
+func (m *DesktopConversationRecordMutation) DurationMs() (r int64, exists bool) {
+	v := m.duration_ms
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDurationMs returns the old "duration_ms" field's value of the DesktopConversationRecord entity.
+// If the DesktopConversationRecord object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopConversationRecordMutation) OldDurationMs(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDurationMs is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDurationMs requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDurationMs: %w", err)
+	}
+	return oldValue.DurationMs, nil
+}
+
+// AddDurationMs adds i to the "duration_ms" field.
+func (m *DesktopConversationRecordMutation) AddDurationMs(i int64) {
+	if m.addduration_ms != nil {
+		*m.addduration_ms += i
+	} else {
+		m.addduration_ms = &i
+	}
+}
+
+// AddedDurationMs returns the value that was added to the "duration_ms" field in this mutation.
+func (m *DesktopConversationRecordMutation) AddedDurationMs() (r int64, exists bool) {
+	v := m.addduration_ms
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearDurationMs clears the value of the "duration_ms" field.
+func (m *DesktopConversationRecordMutation) ClearDurationMs() {
+	m.duration_ms = nil
+	m.addduration_ms = nil
+	m.clearedFields[desktopconversationrecord.FieldDurationMs] = struct{}{}
+}
+
+// DurationMsCleared returns if the "duration_ms" field was cleared in this mutation.
+func (m *DesktopConversationRecordMutation) DurationMsCleared() bool {
+	_, ok := m.clearedFields[desktopconversationrecord.FieldDurationMs]
+	return ok
+}
+
+// ResetDurationMs resets all changes to the "duration_ms" field.
+func (m *DesktopConversationRecordMutation) ResetDurationMs() {
+	m.duration_ms = nil
+	m.addduration_ms = nil
+	delete(m.clearedFields, desktopconversationrecord.FieldDurationMs)
+}
+
 // SetReceivedAt sets the "received_at" field.
 func (m *DesktopConversationRecordMutation) SetReceivedAt(t time.Time) {
 	m.received_at = &t
@@ -21792,7 +21864,7 @@ func (m *DesktopConversationRecordMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *DesktopConversationRecordMutation) Fields() []string {
-	fields := make([]string, 0, 15)
+	fields := make([]string, 0, 16)
 	if m.record_id != nil {
 		fields = append(fields, desktopconversationrecord.FieldRecordID)
 	}
@@ -21819,6 +21891,9 @@ func (m *DesktopConversationRecordMutation) Fields() []string {
 	}
 	if m.stopped_at != nil {
 		fields = append(fields, desktopconversationrecord.FieldStoppedAt)
+	}
+	if m.duration_ms != nil {
+		fields = append(fields, desktopconversationrecord.FieldDurationMs)
 	}
 	if m.received_at != nil {
 		fields = append(fields, desktopconversationrecord.FieldReceivedAt)
@@ -21864,6 +21939,8 @@ func (m *DesktopConversationRecordMutation) Field(name string) (ent.Value, bool)
 		return m.StartedAt()
 	case desktopconversationrecord.FieldStoppedAt:
 		return m.StoppedAt()
+	case desktopconversationrecord.FieldDurationMs:
+		return m.DurationMs()
 	case desktopconversationrecord.FieldReceivedAt:
 		return m.ReceivedAt()
 	case desktopconversationrecord.FieldCwd:
@@ -21903,6 +21980,8 @@ func (m *DesktopConversationRecordMutation) OldField(ctx context.Context, name s
 		return m.OldStartedAt(ctx)
 	case desktopconversationrecord.FieldStoppedAt:
 		return m.OldStoppedAt(ctx)
+	case desktopconversationrecord.FieldDurationMs:
+		return m.OldDurationMs(ctx)
 	case desktopconversationrecord.FieldReceivedAt:
 		return m.OldReceivedAt(ctx)
 	case desktopconversationrecord.FieldCwd:
@@ -21987,6 +22066,13 @@ func (m *DesktopConversationRecordMutation) SetField(name string, value ent.Valu
 		}
 		m.SetStoppedAt(v)
 		return nil
+	case desktopconversationrecord.FieldDurationMs:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDurationMs(v)
+		return nil
 	case desktopconversationrecord.FieldReceivedAt:
 		v, ok := value.(time.Time)
 		if !ok {
@@ -22037,6 +22123,9 @@ func (m *DesktopConversationRecordMutation) SetField(name string, value ent.Valu
 // this mutation.
 func (m *DesktopConversationRecordMutation) AddedFields() []string {
 	var fields []string
+	if m.addduration_ms != nil {
+		fields = append(fields, desktopconversationrecord.FieldDurationMs)
+	}
 	if m.addprompt_count != nil {
 		fields = append(fields, desktopconversationrecord.FieldPromptCount)
 	}
@@ -22048,6 +22137,8 @@ func (m *DesktopConversationRecordMutation) AddedFields() []string {
 // was not set, or was not defined in the schema.
 func (m *DesktopConversationRecordMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
+	case desktopconversationrecord.FieldDurationMs:
+		return m.AddedDurationMs()
 	case desktopconversationrecord.FieldPromptCount:
 		return m.AddedPromptCount()
 	}
@@ -22059,6 +22150,13 @@ func (m *DesktopConversationRecordMutation) AddedField(name string) (ent.Value, 
 // type.
 func (m *DesktopConversationRecordMutation) AddField(name string, value ent.Value) error {
 	switch name {
+	case desktopconversationrecord.FieldDurationMs:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddDurationMs(v)
+		return nil
 	case desktopconversationrecord.FieldPromptCount:
 		v, ok := value.(int)
 		if !ok {
@@ -22076,6 +22174,9 @@ func (m *DesktopConversationRecordMutation) ClearedFields() []string {
 	var fields []string
 	if m.FieldCleared(desktopconversationrecord.FieldSourceTurnID) {
 		fields = append(fields, desktopconversationrecord.FieldSourceTurnID)
+	}
+	if m.FieldCleared(desktopconversationrecord.FieldDurationMs) {
+		fields = append(fields, desktopconversationrecord.FieldDurationMs)
 	}
 	if m.FieldCleared(desktopconversationrecord.FieldCwd) {
 		fields = append(fields, desktopconversationrecord.FieldCwd)
@@ -22099,6 +22200,9 @@ func (m *DesktopConversationRecordMutation) ClearField(name string) error {
 	switch name {
 	case desktopconversationrecord.FieldSourceTurnID:
 		m.ClearSourceTurnID()
+		return nil
+	case desktopconversationrecord.FieldDurationMs:
+		m.ClearDurationMs()
 		return nil
 	case desktopconversationrecord.FieldCwd:
 		m.ClearCwd()
@@ -22140,6 +22244,9 @@ func (m *DesktopConversationRecordMutation) ResetField(name string) error {
 		return nil
 	case desktopconversationrecord.FieldStoppedAt:
 		m.ResetStoppedAt()
+		return nil
+	case desktopconversationrecord.FieldDurationMs:
+		m.ResetDurationMs()
 		return nil
 	case desktopconversationrecord.FieldReceivedAt:
 		m.ResetReceivedAt()

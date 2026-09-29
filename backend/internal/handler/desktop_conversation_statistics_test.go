@@ -47,8 +47,9 @@ func (r *conversationStatisticsRecords) Statistics(_ context.Context, organizati
 	r.calls++
 	r.organizationID, r.filters = organizationID, filters
 	r.periods = periods
+	average := float64(60_000)
 	return &service.DesktopConversationStatistics{
-		Total:           service.DesktopConversationCounts{RecordCount: 123, PromptCount: 456},
+		Total:           service.DesktopConversationCounts{RecordCount: 123, PromptCount: 456, DurationRecordCount: 100, TotalDurationMS: 6_000_000, AverageDurationMS: &average},
 		DistinctMembers: 12, DistinctSessions: 34,
 		Daily: []service.DesktopConversationDay{{Date: "2026-09-22", DesktopConversationCounts: service.DesktopConversationCounts{RecordCount: 2, PromptCount: 3}}},
 	}, r.err
@@ -110,6 +111,9 @@ func TestDesktopConversationStatisticsHTTP(t *testing.T) {
 				require.Zero(t, envelope.Code)
 				require.EqualValues(t, 123, envelope.Data.Total.RecordCount)
 				require.EqualValues(t, 456, envelope.Data.Total.PromptCount)
+				require.EqualValues(t, 100, envelope.Data.Total.DurationRecordCount)
+				require.EqualValues(t, 6_000_000, envelope.Data.Total.TotalDurationMS)
+				require.InDelta(t, 60_000, *envelope.Data.Total.AverageDurationMS, 0.001)
 				require.EqualValues(t, 12, envelope.Data.DistinctMembers)
 				require.EqualValues(t, 34, envelope.Data.DistinctSessions)
 				require.Len(t, envelope.Data.Daily, 1)
