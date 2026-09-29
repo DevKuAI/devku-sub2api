@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	handlerdto "github.com/Wei-Shaw/sub2api/internal/handler/dto"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
@@ -309,7 +310,11 @@ func adminDesktopBindingError(c *gin.Context, err error) {
 
 func (h *DesktopHandler) OrganizationUsageStatistics(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
-	result, err := h.desktop.OrganizationUsageStatistics(c.Request.Context(), c.Param("organization_id"), 0)
+	rangeInput, err := handlerdto.ParseDesktopAnalyticsRange(c.Request.URL.Query())
+	if response.ErrorFrom(c, err) {
+		return
+	}
+	result, err := h.desktop.OrganizationUsageStatistics(c.Request.Context(), c.Param("organization_id"), 0, rangeInput)
 	if response.ErrorFrom(c, err) {
 		return
 	}

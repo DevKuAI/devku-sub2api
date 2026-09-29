@@ -15,4 +15,11 @@ describe('Desktop organization usage API', () => {
     await getDesktopOrganizationUsageStatistics('org_untrusted', true)
     expect(client.get).toHaveBeenCalledWith('/desktop/organization/usage/statistics', { signal: undefined })
   })
+  it('passes the selected date range without changing the organization scope', async () => {
+    const controller = new AbortController()
+    await getDesktopOrganizationUsageStatistics('org/one', false, controller.signal, { from: '2026-09-01', to: '2026-09-07' })
+    expect(client.get).toHaveBeenCalledWith('/admin/desktop/organizations/org%2Fone/usage/statistics', {
+      signal: controller.signal, params: { from: '2026-09-01', to: '2026-09-07' },
+    })
+  })
 })

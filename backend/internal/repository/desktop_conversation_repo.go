@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"entgo.io/ent/dialect/sql"
@@ -14,6 +15,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/desktoporganization"
 	"github.com/Wei-Shaw/sub2api/ent/schema/mixins"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/google/uuid"
 )
@@ -186,6 +188,12 @@ func (r *desktopConversationRepository) Statistics(ctx context.Context, organiza
 		ResponseMissingLast30Days int64 `json:"response_missing_last_30_days"`
 		WorkbuddyLast30Days       int64 `json:"workbuddy_last_30_days"`
 		ChatGPTCodexLast30Days    int64 `json:"chatgpt_codex_last_30_days"`
+		DistinctMembers           int64 `json:"distinct_members"`
+		DistinctSessions          int64 `json:"distinct_sessions"`
+		Captured                  int64 `json:"captured"`
+		ResponseMissing           int64 `json:"response_missing"`
+		Workbuddy                 int64 `json:"workbuddy"`
+		ChatGPTCodex              int64 `json:"chatgpt_codex"`
 		TotalRecords              int64 `json:"total_records"`
 		TotalPrompts              int64 `json:"total_prompts"`
 	}
@@ -218,6 +226,24 @@ func (r *desktopConversationRepository) Statistics(ctx context.Context, organiza
 				s.C(desktopconversationrecord.FieldReceivedAt), periods.Last30Days.UTC().Format(time.RFC3339Nano), s.C(dimension.column), dimension.value), dimension.alias)
 		})
 	}
+	aggregates = append(aggregates, func(s *sql.Selector) string {
+		return sql.As("COUNT(DISTINCT "+s.C(desktopconversationrecord.FieldMemberID)+")", "distinct_members")
+	}, func(s *sql.Selector) string {
+		return sql.As(fmt.Sprintf("COUNT(DISTINCT (%s, %s, %s, %s))",
+			s.C(desktopconversationrecord.FieldMemberID), s.C(desktopconversationrecord.FieldClient),
+			s.C(desktopconversationrecord.FieldInstallationID), s.C(desktopconversationrecord.FieldSourceSessionID)), "distinct_sessions")
+	})
+	for _, dimension := range []struct{ column, value, alias string }{
+		{desktopconversationrecord.FieldCaptureStatus, "captured", "captured"},
+		{desktopconversationrecord.FieldCaptureStatus, "response_missing", "response_missing"},
+		{desktopconversationrecord.FieldClient, "workbuddy", "workbuddy"},
+		{desktopconversationrecord.FieldClient, "chatgpt_codex", "chatgpt_codex"},
+	} {
+		dimension := dimension
+		aggregates = append(aggregates, func(s *sql.Selector) string {
+			return sql.As(fmt.Sprintf("COUNT(*) FILTER (WHERE %s = '%s')", s.C(dimension.column), dimension.value), dimension.alias)
+		})
+	}
 	aggregates = append(aggregates, dbent.As(dbent.Count(), "total_records"), func(s *sql.Selector) string {
 		return sql.As("COALESCE(SUM("+s.C(desktopconversationrecord.FieldPromptCount)+"), 0)", "total_prompts")
 	})
@@ -226,7 +252,7 @@ func (r *desktopConversationRepository) Statistics(ctx context.Context, organiza
 		return nil, service.ErrDesktopConversationStorage
 	}
 	row := rows[0]
-	return &service.DesktopConversationStatistics{
+	result := &service.DesktopConversationStatistics{
 		Today:                     service.DesktopConversationCounts{RecordCount: row.TodayRecords, PromptCount: row.TodayPrompts},
 		Week:                      service.DesktopConversationCounts{RecordCount: row.WeekRecords, PromptCount: row.WeekPrompts},
 		Month:                     service.DesktopConversationCounts{RecordCount: row.MonthRecords, PromptCount: row.MonthPrompts},
@@ -235,6 +261,47 @@ func (r *desktopConversationRepository) Statistics(ctx context.Context, organiza
 		ResponseMissingLast30Days: row.ResponseMissingLast30Days,
 		WorkbuddyLast30Days:       row.WorkbuddyLast30Days,
 		ChatGPTCodexLast30Days:    row.ChatGPTCodexLast30Days,
+		DistinctMembers:           row.DistinctMembers,
+		DistinctSessions:          row.DistinctSessions,
+		Captured:                  row.Captured,
+		ResponseMissing:           row.ResponseMissing,
+		Workbuddy:                 row.Workbuddy,
+		ChatGPTCodex:              row.ChatGPTCodex,
 		Total:                     service.DesktopConversationCounts{RecordCount: row.TotalRecords, PromptCount: row.TotalPrompts},
-	}, nil
+		Daily:                     make([]service.DesktopConversationDay, periods.TrendDays),
+	}
+	dayIndex := make(map[string]int, periods.TrendDays)
+	for i := range result.Daily {
+		date := periods.TrendStart.In(timezone.Location()).AddDate(0, 0, i).Format("2006-01-02")
+		result.Daily[i].Date = date
+		dayIndex[date] = i
+	}
+	if periods.TrendDays == 0 {
+		return result, nil
+	}
+	zone := strings.ReplaceAll(timezone.Location().String(), "'", "''")
+	var days []struct {
+		Date    string `json:"date"`
+		Records int64  `json:"records"`
+		Prompts int64  `json:"prompts"`
+	}
+	err = r.query(organizationID, filters).Where(
+		desktopconversationrecord.ReceivedAtGTE(periods.TrendStart), desktopconversationrecord.ReceivedAtLTE(periods.TrendEnd),
+	).Aggregate(func(s *sql.Selector) string {
+		expr := fmt.Sprintf("to_char(%s AT TIME ZONE '%s', 'YYYY-MM-DD')", s.C(desktopconversationrecord.FieldReceivedAt), zone)
+		s.GroupBy(expr)
+		return sql.As(expr, "date")
+	}, dbent.As(dbent.Count(), "records"), func(s *sql.Selector) string {
+		return sql.As("COALESCE(SUM("+s.C(desktopconversationrecord.FieldPromptCount)+"), 0)", "prompts")
+	}).Scan(ctx, &days)
+	if err != nil {
+		return nil, service.ErrDesktopConversationStorage
+	}
+	for _, day := range days {
+		if index, ok := dayIndex[day.Date]; ok {
+			result.Daily[index].RecordCount = day.Records
+			result.Daily[index].PromptCount = day.Prompts
+		}
+	}
+	return result, nil
 }

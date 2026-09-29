@@ -95,6 +95,8 @@ function mountView() {
         AppLayout: { template: '<main><slot /></main>' },
         DataTable: true,
         DesktopOrganizationUsageStatistics: true,
+        DesktopAnalyticsRangePicker: true,
+        DesktopConversationStatistics: true,
         DesktopConversationRecords: true,
         Pagination: true,
         BaseDialog: true,
@@ -116,6 +118,8 @@ function mountManagedView() {
         AppLayout: { template: '<main><slot /></main>' },
         DataTable: true,
         DesktopOrganizationUsageStatistics: true,
+        DesktopAnalyticsRangePicker: true,
+        DesktopConversationStatistics: true,
         DesktopConversationRecords: true,
         Pagination: true,
         BaseDialog: true,
@@ -136,6 +140,8 @@ function mountViewWithRealMemberForm() {
 				AppLayout: { template: '<main><slot /></main>' },
 				DataTable: true,
         DesktopOrganizationUsageStatistics: true,
+        DesktopAnalyticsRangePicker: true,
+        DesktopConversationStatistics: true,
 				Pagination: true,
 				ConfirmDialog: true,
 				StatusBadge: true,
@@ -202,10 +208,54 @@ describe('DesktopOrganizationDetailView', () => {
       expect(wrapper.get('#desktop-organization-panel-usage').exists()).toBe(true)
       expect(wrapper.find('#desktop-organization-panel-members').exists()).toBe(false)
       expect(wrapper.findComponent({ name: 'DesktopOrganizationUsageStatistics' }).props()).toEqual({
-        organizationId: 'org_one', selfManaged: mountPage === mountManagedView, view: 'insights',
+        organizationId: 'org_one', selfManaged: mountPage === mountManagedView, view: 'insights', range: { days: 30 },
       })
       wrapper.unmount()
     }
+  })
+
+  it('keeps usage and conversation statistics on the same selected period', async () => {
+    route.query.tab = 'usage'
+    desktopAPI.getOrganization.mockResolvedValue({ ...organization, conversation_reporting_enabled: true })
+    const wrapper = mountView()
+    await flushPromises()
+    wrapper.findComponent({ name: 'DesktopAnalyticsRangePicker' }).vm.$emit('update:modelValue', { days: 7 })
+    await flushPromises()
+    expect(wrapper.findComponent({ name: 'DesktopOrganizationUsageStatistics' }).props('range')).toEqual({ days: 7 })
+    expect(wrapper.findComponent({ name: 'DesktopConversationStatistics' }).props('range')).toEqual({ days: 7 })
+    wrapper.unmount()
+  })
+
+  it.each([true, false, undefined])('shows conversation statistics in usage only when reporting=%s', async (enabled) => {
+    route.query.tab = 'usage'
+    for (const mountPage of [mountView, mountManagedView]) {
+      const api = mountPage === mountManagedView ? managedDesktopAPI : desktopAPI
+      api.getOrganization.mockResolvedValue({ ...organization, conversation_reporting_enabled: enabled })
+      const wrapper = mountPage()
+      await flushPromises()
+      const conversationStatistics = wrapper.findComponent({ name: 'DesktopConversationStatistics' })
+      expect(conversationStatistics.exists()).toBe(enabled === true)
+      if (enabled) {
+        expect(conversationStatistics.props()).toEqual({
+          organizationId: 'org_one', selfManaged: mountPage === mountManagedView, filters: {}, range: { days: 30 }, view: 'usage',
+        })
+      }
+      wrapper.unmount()
+    }
+  })
+
+  it('removes usage-tab conversation statistics when reporting is turned off', async () => {
+    route.query.tab = 'usage'
+    managedDesktopAPI.getOrganization.mockResolvedValueOnce({ ...organization, conversation_reporting_enabled: true })
+      .mockResolvedValueOnce({ ...organization, conversation_reporting_enabled: false })
+    const wrapper = mountManagedView()
+    await flushPromises()
+    expect(wrapper.findComponent({ name: 'DesktopConversationStatistics' }).exists()).toBe(true)
+    await (wrapper.vm as any).loadOrganization()
+    await flushPromises()
+    expect(wrapper.findComponent({ name: 'DesktopConversationStatistics' }).exists()).toBe(false)
+    expect(wrapper.findComponent({ name: 'DesktopOrganizationUsageStatistics' }).exists()).toBe(true)
+    wrapper.unmount()
   })
 
   it('supports the ARIA tabs keyboard model', async () => {

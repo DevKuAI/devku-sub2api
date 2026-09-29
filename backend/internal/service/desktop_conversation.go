@@ -94,6 +94,7 @@ type DesktopConversationFilters struct {
 	InstallationID  string
 	ReceivedFrom    *time.Time
 	ReceivedTo      *time.Time
+	AnalyticsRange  *DesktopAnalyticsRangeInput
 }
 
 type DesktopConversationRepository interface {

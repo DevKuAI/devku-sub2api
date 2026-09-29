@@ -11,6 +11,14 @@ export interface DesktopUsageDay extends DesktopOrganizationUsagePeriod {
 
 export interface DesktopUsageRank extends DesktopOrganizationUsagePeriod {
   requests: number
+  cost_rank: number
+  token_rank: number
+}
+
+export interface DesktopAnalyticsRange {
+  days?: 7 | 30 | 90
+  from?: string
+  to?: string
 }
 
 export interface DesktopUsageModel extends DesktopUsageRank {
@@ -31,6 +39,12 @@ export interface DesktopOrganizationUsageStatistics {
   month: DesktopOrganizationUsagePeriod
   total: DesktopOrganizationUsagePeriod
   last_30_days: DesktopOrganizationUsagePeriod
+  selected: DesktopOrganizationUsagePeriod
+  previous: DesktopOrganizationUsagePeriod
+  range_start: string
+  range_end: string
+  previous_start: string
+  previous_end: string
   daily: DesktopUsageDay[]
   breakdown: {
     input_tokens: number
@@ -43,8 +57,8 @@ export interface DesktopOrganizationUsageStatistics {
   observed_members: number
 }
 
-export async function getDesktopOrganizationUsageStatistics(organizationID: string, selfManaged: boolean, signal?: AbortSignal): Promise<DesktopOrganizationUsageStatistics> {
+export async function getDesktopOrganizationUsageStatistics(organizationID: string, selfManaged: boolean, signal?: AbortSignal, range?: DesktopAnalyticsRange): Promise<DesktopOrganizationUsageStatistics> {
   const basePath = selfManaged ? '/desktop/organization' : `/admin/desktop/organizations/${encodeURIComponent(organizationID)}`
-  const { data } = await apiClient.get<DesktopOrganizationUsageStatistics>(`${basePath}/usage/statistics`, { signal })
+  const { data } = await apiClient.get<DesktopOrganizationUsageStatistics>(`${basePath}/usage/statistics`, range ? { signal, params: range } : { signal })
   return data
 }

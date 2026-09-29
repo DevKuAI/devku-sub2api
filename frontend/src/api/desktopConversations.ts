@@ -1,5 +1,6 @@
 import { apiClient } from './client'
 import type { PaginatedResponse } from '@/types'
+import type { DesktopAnalyticsRange } from './desktopOrganizationUsage'
 
 export interface DesktopConversationSegment {
   text: string
@@ -65,6 +66,15 @@ export interface DesktopConversationStatistics {
   response_missing_last_30_days: number
   workbuddy_last_30_days: number
   chatgpt_codex_last_30_days: number
+  distinct_members: number
+  distinct_sessions: number
+  captured: number
+  response_missing: number
+  workbuddy: number
+  chatgpt_codex: number
+  daily: (DesktopConversationCounts & { date: string })[]
+  range_start?: string
+  range_end?: string
 }
 
 function basePath(organizationID: string, selfManaged: boolean): string {
@@ -83,7 +93,7 @@ export async function getDesktopConversation(organizationID: string, selfManaged
   return data
 }
 
-export async function getDesktopConversationStatistics(organizationID: string, selfManaged: boolean, filters: DesktopConversationFilters, signal?: AbortSignal): Promise<DesktopConversationStatistics> {
-  const { data } = await apiClient.get<DesktopConversationStatistics>(`${basePath(organizationID, selfManaged)}/statistics`, { params: filters, signal })
+export async function getDesktopConversationStatistics(organizationID: string, selfManaged: boolean, filters: DesktopConversationFilters, signal?: AbortSignal, range?: DesktopAnalyticsRange): Promise<DesktopConversationStatistics> {
+  const { data } = await apiClient.get<DesktopConversationStatistics>(`${basePath(organizationID, selfManaged)}/statistics`, { params: { ...filters, ...range }, signal })
   return data
 }

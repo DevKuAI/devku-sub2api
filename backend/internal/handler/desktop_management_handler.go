@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
@@ -230,7 +231,11 @@ func (h *DesktopHandler) ManagedOrganizationUsageStatistics(c *gin.Context) {
 	if !ok {
 		return
 	}
-	result, err := h.desktop.OrganizationUsageStatistics(c.Request.Context(), "", userID)
+	rangeInput, err := dto.ParseDesktopAnalyticsRange(c.Request.URL.Query())
+	if response.ErrorFrom(c, err) {
+		return
+	}
+	result, err := h.desktop.OrganizationUsageStatistics(c.Request.Context(), "", userID, rangeInput)
 	if response.ErrorFrom(c, err) {
 		return
 	}

@@ -77,3 +77,25 @@ func TestDesktopConversationStatisticsAuthorizationAndFilters(t *testing.T) {
 	_, err = svc.ConversationStatistics(context.Background(), "org_one", 0, DesktopConversationFilters{})
 	require.ErrorIs(t, err, ErrDesktopConversationStorage)
 }
+
+func TestDesktopConversationStatisticsSelectedRange(t *testing.T) {
+	original := timezone.Location().String()
+	t.Cleanup(func() { require.NoError(t, timezone.Init(original)) })
+	require.NoError(t, timezone.Init("Asia/Shanghai"))
+	now := time.Date(2026, 9, 22, 4, 0, 0, 0, time.UTC)
+	records := &desktopConversationStatisticsStub{}
+	svc := &DesktopService{repo: &desktopRepositoryStub{organization: &DesktopOrganization{ID: 7}}, conversations: records, now: func() time.Time { return now }}
+	stats, err := svc.ConversationStatistics(context.Background(), "org_one", 0, DesktopConversationFilters{
+		AnalyticsRange: &DesktopAnalyticsRangeInput{FromDate: "2026-09-19", ToDate: "2026-09-21"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, "2026-09-19", stats.RangeStart)
+	require.Equal(t, "2026-09-21", stats.RangeEnd)
+	require.Equal(t, 3, records.periods.TrendDays)
+	require.Equal(t, records.periods.TrendStart, *records.filters.ReceivedFrom)
+	require.Equal(t, records.periods.TrendEnd, *records.filters.ReceivedTo)
+	_, err = svc.ConversationStatistics(context.Background(), "org_one", 0, DesktopConversationFilters{
+		AnalyticsRange: &DesktopAnalyticsRangeInput{Days: 7}, ReceivedFrom: &now,
+	})
+	require.ErrorIs(t, err, ErrDesktopValidation)
+}

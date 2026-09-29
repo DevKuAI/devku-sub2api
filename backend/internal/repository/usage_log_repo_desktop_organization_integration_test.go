@@ -4,6 +4,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -34,6 +35,9 @@ func TestDesktopOrganizationUsageIncludesHistoricalKeysAndIsolatesOrganizations(
 	week := time.Date(2026, 9, 20, 16, 0, 0, 0, time.UTC)
 	month := time.Date(2026, 8, 31, 16, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 9, 22, 4, 0, 0, 0, time.UTC)
+	selected, err := (service.DesktopAnalyticsRangeInput{}).Resolve(end)
+	require.NoError(t, err)
+	windows := service.DesktopUsageWindows{Today: today, Week: week, Month: month, AsOf: end, Selected: selected}
 	insert := func(userID, keyID int64, unit int, at time.Time) {
 		builder := integrationEntClient.UsageLog.Create().SetUserID(userID).SetAPIKeyID(keyID).SetAccountID(account.ID).
 			SetRequestID(uuid.NewString()).SetModel("model").SetInputTokens(unit).SetOutputTokens(unit * 2).
@@ -60,7 +64,7 @@ func TestDesktopOrganizationUsageIncludesHistoricalKeysAndIsolatesOrganizations(
 	_, err = integrationDB.ExecContext(ctx, "UPDATE desktop_members SET status='disabled' WHERE id=$1", second.ID)
 	require.NoError(t, err)
 	repo := newUsageLogRepositoryWithSQL(integrationEntClient, integrationDB)
-	result, err := repo.GetDesktopOrganizationUsage(ctx, one.organization.ID, today, week, month, end)
+	result, err := repo.GetDesktopOrganizationUsage(ctx, one.organization.ID, windows)
 	require.NoError(t, err)
 	for _, tc := range []struct {
 		period service.DesktopOrganizationUsagePeriod
@@ -89,12 +93,45 @@ func TestDesktopOrganizationUsageIncludesHistoricalKeysAndIsolatesOrganizations(
 	require.True(t, result.Members[0].Deleted)
 	require.EqualValues(t, 5, result.Members[0].Requests)
 	require.Equal(t, second.PublicID, result.Members[1].MemberID)
-	result, err = repo.GetDesktopOrganizationUsage(ctx, two.organization.ID, today, week, month, end)
+	require.EqualValues(t, 210, result.Selected.TotalTokens)
+	require.Zero(t, result.Previous.TotalTokens)
+	custom, err := (service.DesktopAnalyticsRangeInput{FromDate: "2026-09-21", ToDate: "2026-09-21"}).Resolve(end)
+	require.NoError(t, err)
+	windows.Selected = custom
+	customResult, err := repo.GetDesktopOrganizationUsage(ctx, one.organization.ID, windows)
+	require.NoError(t, err)
+	require.Len(t, customResult.Daily, 1)
+	require.EqualValues(t, 100, customResult.Selected.TotalTokens)
+	require.EqualValues(t, 30, customResult.Previous.TotalTokens)
+	require.EqualValues(t, 210, customResult.Last30Days.TotalTokens)
+	windows.Selected = selected
+	for i := 0; i < 11; i++ {
+		_, err := integrationEntClient.UsageLog.Create().SetUserID(one.user.ID).SetAPIKeyID(*second.CurrentAPIKeyID).
+			SetAccountID(account.ID).SetRequestID(uuid.NewString()).SetModel(fmt.Sprintf("cost-model-%02d", i)).
+			SetInputTokens(1).SetActualCost(float64(i+1) / 10).SetCreatedAt(today).Save(ctx)
+		require.NoError(t, err)
+	}
+	_, err = integrationEntClient.UsageLog.Create().SetUserID(one.user.ID).SetAPIKeyID(*second.CurrentAPIKeyID).
+		SetAccountID(account.ID).SetRequestID(uuid.NewString()).SetModel("token-heavy").
+		SetInputTokens(100000).SetActualCost(0.01).SetCreatedAt(today).Save(ctx)
+	require.NoError(t, err)
+	ranked, err := repo.GetDesktopOrganizationUsage(ctx, one.organization.ID, windows)
+	require.NoError(t, err)
+	var tokenHeavy *service.DesktopUsageModel
+	for i := range ranked.Models {
+		if ranked.Models[i].Model == "token-heavy" {
+			tokenHeavy = &ranked.Models[i]
+		}
+	}
+	require.NotNil(t, tokenHeavy)
+	require.EqualValues(t, 1, tokenHeavy.TokenRank)
+	require.Greater(t, tokenHeavy.CostRank, int64(10))
+	result, err = repo.GetDesktopOrganizationUsage(ctx, two.organization.ID, windows)
 	require.NoError(t, err)
 	require.EqualValues(t, 100, result.Total.TotalTokens)
 	require.InDelta(t, 1.0, result.Total.ActualCost, 0.000001)
 	require.EqualValues(t, 1, result.ObservedMembers)
-	result, err = repo.GetDesktopOrganizationUsage(ctx, -1, today, week, month, end)
+	result, err = repo.GetDesktopOrganizationUsage(ctx, -1, windows)
 	require.NoError(t, err)
 	require.Zero(t, result.Total)
 	require.Zero(t, result.Last30Days)

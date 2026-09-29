@@ -34,11 +34,12 @@ import { onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getDesktopOrganizationUsageStatistics } from '@/api/desktopOrganizationUsage'
 import type { DesktopOrganizationUsageStatistics } from '@/api/desktopOrganizationUsage'
+import type { DesktopAnalyticsRange } from '@/api/desktopOrganizationUsage'
 import Icon from '@/components/icons/Icon.vue'
 import DesktopOrganizationUsageInsights from './DesktopOrganizationUsageInsights.vue'
 import { formatCompactNumber } from '@/utils/format'
 
-const props = withDefaults(defineProps<{ organizationId: string; selfManaged: boolean; view?: 'summary' | 'insights' }>(), { view: 'summary' })
+const props = withDefaults(defineProps<{ organizationId: string; selfManaged: boolean; view?: 'summary' | 'insights'; range?: DesktopAnalyticsRange }>(), { view: 'summary' })
 const { t } = useI18n()
 const periods = [{ key: 'today', icon: 'clock' }, { key: 'week', icon: 'calendar' }, { key: 'month', icon: 'chartBar' }, { key: 'total', icon: 'database' }] as const
 const statistics = ref<DesktopOrganizationUsageStatistics | null>(null)
@@ -56,7 +57,9 @@ async function load() {
   if (!props.organizationId) return
   loading.value = true
   try {
-    const result = await getDesktopOrganizationUsageStatistics(props.organizationId, props.selfManaged, request.signal)
+    const result = props.view === 'insights'
+      ? await getDesktopOrganizationUsageStatistics(props.organizationId, props.selfManaged, request.signal, props.range)
+      : await getDesktopOrganizationUsageStatistics(props.organizationId, props.selfManaged, request.signal)
     if (!request.signal.aborted) statistics.value = result
   } catch {
     if (!request.signal.aborted) error.value = true
@@ -64,6 +67,6 @@ async function load() {
     if (!request.signal.aborted) loading.value = false
   }
 }
-watch(() => [props.organizationId, props.selfManaged], load, { immediate: true })
+watch(() => [props.organizationId, props.selfManaged, props.range], load, { immediate: true })
 onBeforeUnmount(() => controller?.abort())
 </script>

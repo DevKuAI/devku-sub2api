@@ -28,5 +28,9 @@ describe('Desktop conversation API', () => {
     expect(client.get).toHaveBeenNthCalledWith(1, '/admin/desktop/organizations/org%2Fone/conversation-records/statistics', { params: filters, signal: controller.signal })
     expect(client.get).toHaveBeenNthCalledWith(2, '/desktop/organization/conversation-records/statistics', { params: filters, signal: controller.signal })
   })
+  it('passes a shared analytics range to conversation statistics', async () => {
+    await getDesktopConversationStatistics('org_one', true, {}, undefined, { days: 7 })
+    expect(client.get).toHaveBeenCalledWith('/desktop/organization/conversation-records/statistics', { params: { days: 7 }, signal: undefined })
+  })
 
 })

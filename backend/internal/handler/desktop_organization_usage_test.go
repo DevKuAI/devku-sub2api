@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/handler"
@@ -20,12 +19,19 @@ import (
 type organizationUsageHTTPRepository struct {
 	service.DesktopUsageRepository
 	organizationID int64
+	windows        service.DesktopUsageWindows
 	err            error
 }
 
-func (r *organizationUsageHTTPRepository) GetDesktopOrganizationUsage(_ context.Context, organizationID int64, _, _, _, _ time.Time) (*service.DesktopOrganizationUsageStatistics, error) {
+func (r *organizationUsageHTTPRepository) GetDesktopOrganizationUsage(_ context.Context, organizationID int64, windows service.DesktopUsageWindows) (*service.DesktopOrganizationUsageStatistics, error) {
 	r.organizationID = organizationID
-	return &service.DesktopOrganizationUsageStatistics{Total: service.DesktopOrganizationUsagePeriod{TotalTokens: 1234, ActualCost: 1.25}}, r.err
+	r.windows = windows
+	return &service.DesktopOrganizationUsageStatistics{
+		Total:    service.DesktopOrganizationUsagePeriod{TotalTokens: 1234, ActualCost: 1.25},
+		Selected: service.DesktopOrganizationUsagePeriod{TotalTokens: 234, ActualCost: 0.25},
+		Previous: service.DesktopOrganizationUsagePeriod{TotalTokens: 123, ActualCost: 0.15},
+		Models:   []service.DesktopUsageModel{{Model: "model-one", CostRank: 2, TokenRank: 1}},
+	}, r.err
 }
 
 func TestDesktopOrganizationUsageStatisticsHTTP(t *testing.T) {
@@ -33,10 +39,15 @@ func TestDesktopOrganizationUsageStatisticsHTTP(t *testing.T) {
 	for _, tc := range []struct {
 		name                                            string
 		managed, authenticated, missing, storageFailure bool
+		query                                           string
 		want                                            int
 	}{
 		{name: "admin", authenticated: true, want: 200},
 		{name: "managed without conversation reporting", managed: true, authenticated: true, want: 200},
+		{name: "admin selected period", authenticated: true, query: "&days=7", want: 200},
+		{name: "managed custom period", managed: true, authenticated: true, query: "&from=2020-01-01&to=2020-01-07", want: 200},
+		{name: "invalid selected period", managed: true, authenticated: true, query: "&days=8", want: 422},
+		{name: "mixed selected periods", authenticated: true, query: "&days=7&from=2020-01-01&to=2020-01-07", want: 422},
 		{name: "unauthenticated", managed: true, want: 401},
 		{name: "organization unavailable", managed: true, authenticated: true, missing: true, want: 404},
 		{name: "admin organization unavailable", authenticated: true, missing: true, want: 404},
@@ -66,13 +77,21 @@ func TestDesktopOrganizationUsageStatisticsHTTP(t *testing.T) {
 				router.GET("/api/v1/admin/desktop/organizations/:organization_id/usage/statistics", adminhandler.NewDesktopHandler(svc).OrganizationUsageStatistics)
 			}
 			result := httptest.NewRecorder()
-			router.ServeHTTP(result, httptest.NewRequest(http.MethodGet, path+"?organization_id=org_other&page=9&search=nobody", nil))
+			router.ServeHTTP(result, httptest.NewRequest(http.MethodGet, path+"?organization_id=org_other&page=9&search=nobody"+tc.query, nil))
 			require.Equal(t, tc.want, result.Code, result.Body.String())
 			require.Equal(t, "no-store", result.Header().Get("Cache-Control"))
 			if tc.want == 200 {
 				require.Contains(t, result.Body.String(), `"total_tokens":1234`)
 				require.Contains(t, result.Body.String(), `"actual_cost":1.25`)
+				require.Contains(t, result.Body.String(), `"selected":{"total_tokens":234,"actual_cost":0.25}`)
+				require.Contains(t, result.Body.String(), `"token_rank":1`)
 				require.EqualValues(t, 7, usage.organizationID)
+				if tc.query == "&days=7" {
+					require.Equal(t, 7, usage.windows.Selected.Days)
+				}
+				if tc.query == "&from=2020-01-01&to=2020-01-07" {
+					require.Equal(t, "2020-01-01", usage.windows.Selected.StartDate)
+				}
 				if tc.managed {
 					require.EqualValues(t, 42, identity.scopedUserID)
 				}

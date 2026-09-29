@@ -10,7 +10,7 @@ import (
 
 // GetDesktopOrganizationUsage includes historical key assignments and deleted members.
 // The join is scoped by membership, not the carrier user's unrelated API keys.
-func (r *usageLogRepository) GetDesktopOrganizationUsage(ctx context.Context, organizationID int64, todayStart, weekStart, monthStart, endTime time.Time) (*service.DesktopOrganizationUsageStatistics, error) {
+func (r *usageLogRepository) GetDesktopOrganizationUsage(ctx context.Context, organizationID int64, windows service.DesktopUsageWindows) (*service.DesktopOrganizationUsageStatistics, error) {
 	const query = `
   SELECT
    COALESCE(SUM(ul.input_tokens + ul.output_tokens + ul.cache_creation_tokens + ul.cache_read_tokens)
@@ -30,7 +30,7 @@ func (r *usageLogRepository) GetDesktopOrganizationUsage(ctx context.Context, or
   WHERE member.organization_id = $1 AND ul.created_at < $5
  `
 	result := &service.DesktopOrganizationUsageStatistics{}
-	if err := scanSingleRow(ctx, r.sql, query, []any{organizationID, todayStart, weekStart, monthStart, endTime},
+	if err := scanSingleRow(ctx, r.sql, query, []any{organizationID, windows.Today, windows.Week, windows.Month, windows.AsOf},
 		&result.Today.TotalTokens, &result.Today.ActualCost,
 		&result.Week.TotalTokens, &result.Week.ActualCost,
 		&result.Month.TotalTokens, &result.Month.ActualCost,
@@ -38,17 +38,43 @@ func (r *usageLogRepository) GetDesktopOrganizationUsage(ctx context.Context, or
 	); err != nil {
 		return nil, err
 	}
-	if err := r.loadDesktopUsageInsights(ctx, organizationID, endTime, result); err != nil {
+	if err := r.loadDesktopUsageInsights(ctx, organizationID, windows.Selected, result); err != nil {
 		return nil, err
 	}
+	last30Start := timezone.StartOfDay(windows.AsOf).AddDate(0, 0, -29)
+	if windows.Selected.Start.Equal(last30Start) && windows.Selected.End.Equal(windows.AsOf) {
+		result.Last30Days = result.Selected
+	} else {
+		last30, err := r.sumDesktopUsage(ctx, organizationID, last30Start, windows.AsOf)
+		if err != nil {
+			return nil, err
+		}
+		result.Last30Days = last30
+	}
+	previous, err := r.sumDesktopUsage(ctx, organizationID, windows.Selected.PreviousStart, windows.Selected.PreviousEnd)
+	if err != nil {
+		return nil, err
+	}
+	result.Previous = previous
 	return result, nil
 }
 
-func (r *usageLogRepository) loadDesktopUsageInsights(ctx context.Context, organizationID int64, endTime time.Time, result *service.DesktopOrganizationUsageStatistics) error {
+func (r *usageLogRepository) sumDesktopUsage(ctx context.Context, organizationID int64, start, end time.Time) (service.DesktopOrganizationUsagePeriod, error) {
+	const query = `SELECT COALESCE(SUM(ul.input_tokens + ul.output_tokens + ul.cache_creation_tokens + ul.cache_read_tokens), 0),
+		COALESCE(SUM(ul.actual_cost), 0)
+		FROM desktop_members member JOIN desktop_member_api_keys assignment ON assignment.member_id = member.id
+		JOIN usage_logs ul ON ul.api_key_id = assignment.api_key_id
+		WHERE member.organization_id = $1 AND ul.created_at >= $2 AND ul.created_at < $3`
+	result := service.DesktopOrganizationUsagePeriod{}
+	err := scanSingleRow(ctx, r.sql, query, []any{organizationID, start, end}, &result.TotalTokens, &result.ActualCost)
+	return result, err
+}
+
+func (r *usageLogRepository) loadDesktopUsageInsights(ctx context.Context, organizationID int64, selection service.DesktopAnalyticsRange, result *service.DesktopOrganizationUsageStatistics) error {
 	location := timezone.Location()
-	start := timezone.StartOfDay(endTime).AddDate(0, 0, -29)
-	result.Daily = make([]service.DesktopUsageDay, 30)
-	dayIndex := make(map[string]int, 30)
+	start, endTime := selection.Start, selection.End
+	result.Daily = make([]service.DesktopUsageDay, selection.Days)
+	dayIndex := make(map[string]int, selection.Days)
 	for i := range result.Daily {
 		date := start.AddDate(0, 0, i).Format("2006-01-02")
 		result.Daily[i].Date = date
@@ -83,8 +109,8 @@ func (r *usageLogRepository) loadDesktopUsageInsights(ctx context.Context, organ
 		tokens := input + output + cacheCreation + cacheRead
 		result.Daily[index].TotalTokens = tokens
 		result.Daily[index].ActualCost = cost
-		result.Last30Days.TotalTokens += tokens
-		result.Last30Days.ActualCost += cost
+		result.Selected.TotalTokens += tokens
+		result.Selected.ActualCost += cost
 		result.Breakdown.InputTokens += input
 		result.Breakdown.OutputTokens += output
 		result.Breakdown.CacheCreationTokens += cacheCreation
@@ -99,20 +125,28 @@ func (r *usageLogRepository) loadDesktopUsageInsights(ctx context.Context, organ
 	}
 
 	const modelQuery = `
-		SELECT COALESCE(NULLIF(ul.requested_model, ''), ul.model), COUNT(*),
-			SUM(ul.input_tokens + ul.output_tokens + ul.cache_creation_tokens + ul.cache_read_tokens), SUM(ul.actual_cost)
-		FROM desktop_members member
-		JOIN desktop_member_api_keys assignment ON assignment.member_id = member.id
-		JOIN usage_logs ul ON ul.api_key_id = assignment.api_key_id
-		WHERE member.organization_id = $1 AND ul.created_at >= $2 AND ul.created_at < $3
-		GROUP BY 1 ORDER BY 4 DESC, 3 DESC, 1 LIMIT 10`
+		WITH totals AS (
+			SELECT COALESCE(NULLIF(ul.requested_model, ''), ul.model) AS model, COUNT(*) AS requests,
+				SUM(ul.input_tokens + ul.output_tokens + ul.cache_creation_tokens + ul.cache_read_tokens) AS total_tokens,
+				SUM(ul.actual_cost) AS actual_cost
+			FROM desktop_members member
+			JOIN desktop_member_api_keys assignment ON assignment.member_id = member.id
+			JOIN usage_logs ul ON ul.api_key_id = assignment.api_key_id
+			WHERE member.organization_id = $1 AND ul.created_at >= $2 AND ul.created_at < $3
+			GROUP BY 1
+		), ranked AS (
+			SELECT *, ROW_NUMBER() OVER (ORDER BY actual_cost DESC, total_tokens DESC, model) AS cost_rank,
+				ROW_NUMBER() OVER (ORDER BY total_tokens DESC, actual_cost DESC, model) AS token_rank FROM totals
+		)
+		SELECT model, requests, total_tokens, actual_cost, cost_rank, token_rank
+		FROM ranked WHERE cost_rank <= 10 OR token_rank <= 10 ORDER BY cost_rank`
 	rows, err = r.sql.QueryContext(ctx, modelQuery, organizationID, start.UTC(), endTime)
 	if err != nil {
 		return err
 	}
 	for rows.Next() {
 		var item service.DesktopUsageModel
-		if err = rows.Scan(&item.Model, &item.Requests, &item.TotalTokens, &item.ActualCost); err != nil {
+		if err = rows.Scan(&item.Model, &item.Requests, &item.TotalTokens, &item.ActualCost, &item.CostRank, &item.TokenRank); err != nil {
 			break
 		}
 		result.Models = append(result.Models, item)
@@ -126,22 +160,29 @@ func (r *usageLogRepository) loadDesktopUsageInsights(ctx context.Context, organ
 	}
 
 	const memberQuery = `
-		SELECT member.public_id, member.name, member.deleted_at IS NOT NULL, COUNT(*),
-			SUM(ul.input_tokens + ul.output_tokens + ul.cache_creation_tokens + ul.cache_read_tokens),
-			SUM(ul.actual_cost), COUNT(*) OVER ()
-		FROM desktop_members member
-		JOIN desktop_member_api_keys assignment ON assignment.member_id = member.id
-		JOIN usage_logs ul ON ul.api_key_id = assignment.api_key_id
-		WHERE member.organization_id = $1 AND ul.created_at >= $2 AND ul.created_at < $3
-		GROUP BY member.id, member.public_id, member.name, member.deleted_at
-		ORDER BY 6 DESC, 5 DESC, member.public_id LIMIT 10`
+		WITH totals AS (
+			SELECT member.public_id, member.name, member.deleted_at IS NOT NULL AS deleted, COUNT(*) AS requests,
+				SUM(ul.input_tokens + ul.output_tokens + ul.cache_creation_tokens + ul.cache_read_tokens) AS total_tokens,
+				SUM(ul.actual_cost) AS actual_cost
+			FROM desktop_members member
+			JOIN desktop_member_api_keys assignment ON assignment.member_id = member.id
+			JOIN usage_logs ul ON ul.api_key_id = assignment.api_key_id
+			WHERE member.organization_id = $1 AND ul.created_at >= $2 AND ul.created_at < $3
+			GROUP BY member.id, member.public_id, member.name, member.deleted_at
+		), ranked AS (
+			SELECT *, ROW_NUMBER() OVER (ORDER BY actual_cost DESC, total_tokens DESC, public_id) AS cost_rank,
+				ROW_NUMBER() OVER (ORDER BY total_tokens DESC, actual_cost DESC, public_id) AS token_rank,
+				COUNT(*) OVER () AS observed_members FROM totals
+		)
+		SELECT public_id, name, deleted, requests, total_tokens, actual_cost, cost_rank, token_rank, observed_members
+		FROM ranked WHERE cost_rank <= 10 OR token_rank <= 10 ORDER BY cost_rank`
 	rows, err = r.sql.QueryContext(ctx, memberQuery, organizationID, start.UTC(), endTime)
 	if err != nil {
 		return err
 	}
 	for rows.Next() {
 		var item service.DesktopUsageMember
-		if err = rows.Scan(&item.MemberID, &item.Name, &item.Deleted, &item.Requests, &item.TotalTokens, &item.ActualCost, &result.ObservedMembers); err != nil {
+		if err = rows.Scan(&item.MemberID, &item.Name, &item.Deleted, &item.Requests, &item.TotalTokens, &item.ActualCost, &item.CostRank, &item.TokenRank, &result.ObservedMembers); err != nil {
 			break
 		}
 		result.Members = append(result.Members, item)

@@ -139,6 +139,10 @@ func (h *DesktopHandler) ManagedConversationStatistics(c *gin.Context) {
 	if response.ErrorFrom(c, err) {
 		return
 	}
+	filters.AnalyticsRange, err = dto.ParseDesktopAnalyticsRange(c.Request.URL.Query())
+	if response.ErrorFrom(c, err) {
+		return
+	}
 	result, err := h.desktop.ConversationStatistics(c.Request.Context(), "", userID, filters)
 	if response.ErrorFrom(c, err) {
 		return

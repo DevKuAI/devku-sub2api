@@ -284,7 +284,9 @@ func TestDesktopConversationStatisticsPeriodsFiltersAndIsolation(t *testing.T) {
 	}
 	periods := service.DesktopConversationPeriods{
 		Today: parse("2026-09-21T16:00:00Z"), Week: parse("2026-09-20T16:00:00Z"),
-		Month: parse("2026-08-31T16:00:00Z"), Last30Days: parse("2026-08-23T00:00:00Z"), AsOf: parse("2026-09-22T04:00:00Z"),
+		Month: parse("2026-08-31T16:00:00Z"), Last30Days: parse("2026-08-23T00:00:00Z"),
+		TrendStart: parse("2026-08-24T00:00:00Z"), TrendEnd: parse("2026-09-22T04:00:00Z"), TrendDays: 30,
+		AsOf: parse("2026-09-22T04:00:00Z"),
 	}
 	repo := NewDesktopConversationRepository(integrationEntClient)
 	installation := uuid.NewString()
@@ -326,6 +328,12 @@ func TestDesktopConversationStatisticsPeriodsFiltersAndIsolation(t *testing.T) {
 	require.EqualValues(t, 5, stats.ResponseMissingLast30Days)
 	require.EqualValues(t, 5, stats.WorkbuddyLast30Days)
 	require.EqualValues(t, 1, stats.ChatGPTCodexLast30Days)
+	require.Len(t, stats.Daily, 30)
+	require.Equal(t, "2026-08-24", stats.Daily[0].Date)
+	require.Equal(t, "2026-09-22", stats.Daily[29].Date)
+	require.Equal(t, counts(1, 4), stats.Daily[29].DesktopConversationCounts)
+	require.EqualValues(t, 2, stats.DistinctMembers)
+	require.EqualValues(t, 2, stats.DistinctSessions)
 
 	_, err = one.repo.DeleteMember(ctx, one.organization.PublicID, member.PublicID)
 	require.NoError(t, err)

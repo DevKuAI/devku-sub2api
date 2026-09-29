@@ -15,11 +15,20 @@ const statistics: UsageStatistics = {
   month: { total_tokens: 8_000_000, actual_cost: 12.75 },
   total: { total_tokens: 4_000_000_000, actual_cost: 150.123456 },
   last_30_days: { total_tokens: 3000, actual_cost: 1.5 },
+  selected: { total_tokens: 3000, actual_cost: 1.5 },
+  previous: { total_tokens: 1500, actual_cost: 0.75 },
+  range_start: '2026-08-24', range_end: '2026-09-22', previous_start: '2026-07-25', previous_end: '2026-08-23',
   daily: [{ date: '2026-09-22', total_tokens: 3000, actual_cost: 1.5 }],
   breakdown: { input_tokens: 100, output_tokens: 200, cache_creation_tokens: 300, cache_read_tokens: 2400 },
-  models: [{ model: 'model-one', requests: 2, total_tokens: 3000, actual_cost: 1.5 }],
-  members: [{ member_id: 'mem_one', name: 'Member One', deleted: true, requests: 2, total_tokens: 3000, actual_cost: 1.5 }],
-  observed_members: 1,
+  models: [
+    { model: 'model-one', requests: 2, total_tokens: 1000, actual_cost: 1, cost_rank: 1, token_rank: 2 },
+    { model: 'model-two', requests: 1, total_tokens: 2000, actual_cost: 0.5, cost_rank: 2, token_rank: 1 },
+  ],
+  members: [
+    { member_id: 'mem_one', name: 'Member One', deleted: true, requests: 2, total_tokens: 1000, actual_cost: 1, cost_rank: 1, token_rank: 2 },
+    { member_id: 'mem_two', name: 'Member Two', deleted: false, requests: 1, total_tokens: 2000, actual_cost: 0.5, cost_rank: 2, token_rank: 1 },
+  ],
+  observed_members: 2,
 }
 const view = (selfManaged = false, mode: 'summary' | 'insights' = 'summary') => mount(DesktopOrganizationUsageStatistics, { props: { organizationId: 'org_one', selfManaged, view: mode } })
 
@@ -42,20 +51,25 @@ describe('Desktop organization usage statistics', () => {
   it.each([false, true])('shows trends and rankings only in the usage tab for selfManaged=%s', async (selfManaged) => {
     const wrapper = view(selfManaged, 'insights')
     await flushPromises()
-    expect(api.getDesktopOrganizationUsageStatistics).toHaveBeenCalledWith('org_one', selfManaged, expect.any(AbortSignal))
+    expect(api.getDesktopOrganizationUsageStatistics).toHaveBeenCalledWith('org_one', selfManaged, expect.any(AbortSignal), undefined)
     expect(wrapper.find('[data-testid="organization-usage-today"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="usage-trend-chart"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="organization-last-30-days"]').text()).toContain('$1.5000')
-    expect(wrapper.find('[data-testid="organization-model-ranking"]').text()).toContain('model-one')
+    expect(wrapper.find('[data-testid="organization-model-ranking"] li').text()).toContain('model-one')
     expect(wrapper.find('[data-testid="organization-member-ranking"]').text()).toContain('Member One')
     await wrapper.find('[aria-pressed="false"]').trigger('click')
-    expect(wrapper.find('[data-testid="organization-model-ranking"]').text()).toContain('3.0K')
+    expect(wrapper.find('[data-testid="organization-model-ranking"] li').text()).toContain('model-two')
+    expect(wrapper.find('[data-testid="organization-model-ranking"] li').text()).toContain('2.0K')
+    expect(wrapper.find('[data-testid="organization-member-ranking"] li').text()).toContain('Member Two')
+    await wrapper.setProps({ range: { days: 7 } })
+    await flushPromises()
+    expect(api.getDesktopOrganizationUsageStatistics).toHaveBeenLastCalledWith('org_one', selfManaged, expect.any(AbortSignal), { days: 7 })
     wrapper.unmount()
   })
 
   it('shows zero usage as zero and refreshes independently', async () => {
     const empty = { total_tokens: 0, actual_cost: 0 }
-    api.getDesktopOrganizationUsageStatistics.mockResolvedValue({ ...statistics, today: empty, week: empty, month: empty, total: empty, last_30_days: empty, daily: [], models: [], members: [], observed_members: 0 })
+    api.getDesktopOrganizationUsageStatistics.mockResolvedValue({ ...statistics, today: empty, week: empty, month: empty, total: empty, last_30_days: empty, selected: empty, daily: [], models: [], members: [], observed_members: 0 })
     const wrapper = view()
     await flushPromises()
     expect(wrapper.find('[data-testid="organization-usage-total"]').text()).toContain('$0.0000')

@@ -36,6 +36,10 @@ func (h *DesktopHandler) ConversationStatistics(c *gin.Context) {
 	if response.ErrorFrom(c, err) {
 		return
 	}
+	filters.AnalyticsRange, err = dto.ParseDesktopAnalyticsRange(c.Request.URL.Query())
+	if response.ErrorFrom(c, err) {
+		return
+	}
 	result, err := h.desktop.ConversationStatistics(c.Request.Context(), c.Param("organization_id"), 0, filters)
 	if response.ErrorFrom(c, err) {
 		return

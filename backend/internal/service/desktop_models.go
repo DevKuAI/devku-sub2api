@@ -228,7 +228,7 @@ type DesktopAuthorizedMember struct {
 }
 
 type DesktopUsageRepository interface {
-	GetDesktopOrganizationUsage(ctx context.Context, organizationID int64, todayStart, weekStart, monthStart, endTime time.Time) (*DesktopOrganizationUsageStatistics, error)
+	GetDesktopOrganizationUsage(ctx context.Context, organizationID int64, windows DesktopUsageWindows) (*DesktopOrganizationUsageStatistics, error)
 	GetAPIKeysStatsAggregated(ctx context.Context, apiKeyIDs []int64, startTime, endTime time.Time) (*usagestats.UsageStats, error)
 	GetDesktopMembersUsage(ctx context.Context, memberIDs []int64, todayStart, last30DaysStart, endTime time.Time) (map[int64]*DesktopMemberUsage, error)
 }

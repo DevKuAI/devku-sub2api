@@ -1285,13 +1285,18 @@ paths:
         费用使用 actual_cost，令牌包含输入、输出、缓存写入和缓存读取令牌。
         覆盖当前企业全部成员及历史模型令牌关联，包含停用和已删除成员，不受成员筛选或分页影响。
         累计基于当前保留的用量日志，不包含承载用户其他普通 API Key 的用量。
-        同时返回近 30 个本地自然日（含今日）的每日趋势、Token 分类，以及按实际费用排序的前 10 个模型和成员。
-        observed_members 仅表示该期间有计费日志的成员，不代表完整采用率；requests 仅表示计费日志数。
+        默认分析近 30 个本地自然日（含今日）；可选最近 7、30、90 天，或指定不超过 90 天的日期范围。
+        当结束日期为今日时，仅统计到 as_of；previous 为上一等长时段相同时间边界的用量。
+        daily、breakdown、models、members 和 observed_members 均使用所选期间，排行返回费用或令牌用量前 10 的并集。
+        observed_members 仅表示所选期间有计费日志的成员，不代表完整采用率；requests 仅表示计费日志数。
         统计截止 as_of（不含该时刻）；空数据返回 0。接口受 DESKTOP_ENABLED 控制，不依赖对话上报开关。
       security:
         - AdminBearer: []
       parameters:
         - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/DesktopAnalyticsDays'
+        - $ref: '#/components/parameters/DesktopAnalyticsFrom'
+        - $ref: '#/components/parameters/DesktopAnalyticsTo'
       responses:
         '200':
           description: 企业费用及令牌用量统计
@@ -1325,12 +1330,18 @@ paths:
         费用使用 actual_cost，令牌包含输入、输出、缓存写入和缓存读取令牌。
         覆盖当前企业全部成员及历史模型令牌关联，包含停用和已删除成员，不受成员筛选或分页影响。
         累计基于当前保留的用量日志，不包含承载用户其他普通 API Key 的用量。
-        同时返回近 30 个本地自然日（含今日）的每日趋势、Token 分类，以及按实际费用排序的前 10 个模型和成员。
-        observed_members 仅表示该期间有计费日志的成员，不代表完整采用率；requests 仅表示计费日志数。
+        默认分析近 30 个本地自然日（含今日）；可选最近 7、30、90 天，或指定不超过 90 天的日期范围。
+        当结束日期为今日时，仅统计到 as_of；previous 为上一等长时段相同时间边界的用量。
+        daily、breakdown、models、members 和 observed_members 均使用所选期间，排行返回费用或令牌用量前 10 的并集。
+        observed_members 仅表示所选期间有计费日志的成员，不代表完整采用率；requests 仅表示计费日志数。
         统计截止 as_of（不含该时刻）；空数据返回 0。接口受 DESKTOP_ENABLED 控制，不依赖对话上报开关。
         企业范围由当前 Web 登录账号确定，不接受客户端指定企业。
       security:
         - UserBearer: []
+      parameters:
+        - $ref: '#/components/parameters/DesktopAnalyticsDays'
+        - $ref: '#/components/parameters/DesktopAnalyticsFrom'
+        - $ref: '#/components/parameters/DesktopAnalyticsTo'
       responses:
         '200':
           description: 企业费用及令牌用量统计
@@ -1384,6 +1395,24 @@ components:
         enum: [no-store]
 
   parameters:
+    DesktopAnalyticsDays:
+      name: days
+      in: query
+      required: false
+      description: 最近的本地自然日数，含今日；与 from/to 互斥，未指定时为 30。
+      schema: {type: integer, enum: [7, 30, 90]}
+    DesktopAnalyticsFrom:
+      name: from
+      in: query
+      required: false
+      description: 自选开始日期，须与 to 同时提供，且不能与 days 同时提供。
+      schema: {type: string, format: date}
+    DesktopAnalyticsTo:
+      name: to
+      in: query
+      required: false
+      description: 自选结束日期，包含该日，不晚于服务器当前日期；区间最多 90 天。
+      schema: {type: string, format: date}
     Page:
       name: page
       in: query
@@ -2429,7 +2458,7 @@ components:
 
     DesktopOrganizationUsageStatistics:
       type: object
-      required: [timezone, as_of, today, week, month, total, last_30_days, daily, breakdown, models, members, observed_members]
+      required: [timezone, as_of, today, week, month, total, last_30_days, selected, previous, range_start, range_end, previous_start, previous_end, daily, breakdown, models, members, observed_members]
       properties:
         timezone:
           type: string
@@ -2448,9 +2477,18 @@ components:
           $ref: '#/components/schemas/DesktopOrganizationUsagePeriod'
         last_30_days:
           $ref: '#/components/schemas/DesktopOrganizationUsagePeriod'
+        selected:
+          $ref: '#/components/schemas/DesktopOrganizationUsagePeriod'
+        previous:
+          $ref: '#/components/schemas/DesktopOrganizationUsagePeriod'
+        range_start: {type: string, format: date}
+        range_end: {type: string, format: date}
+        previous_start: {type: string, format: date}
+        previous_end: {type: string, format: date}
         daily:
           type: array
-          description: 近 30 个本地自然日，按日期升序，零用量日保留。
+          maxItems: 90
+          description: 所选期间的本地自然日，按日期升序，零用量日保留。
           items:
             allOf:
               - $ref: '#/components/schemas/DesktopOrganizationUsagePeriod'
@@ -2468,32 +2506,36 @@ components:
             cache_read_tokens: {type: integer, format: int64}
         models:
           type: array
-          maxItems: 10
+          maxItems: 20
           items:
             allOf:
               - $ref: '#/components/schemas/DesktopOrganizationUsagePeriod'
               - type: object
-                required: [model, requests]
+                required: [model, requests, cost_rank, token_rank]
                 properties:
                   model: {type: string}
                   requests: {type: integer, format: int64}
+                  cost_rank: {type: integer, format: int64}
+                  token_rank: {type: integer, format: int64}
         members:
           type: array
-          maxItems: 10
+          maxItems: 20
           items:
             allOf:
               - $ref: '#/components/schemas/DesktopOrganizationUsagePeriod'
               - type: object
-                required: [member_id, name, deleted, requests]
+                required: [member_id, name, deleted, requests, cost_rank, token_rank]
                 properties:
                   member_id: {type: string}
                   name: {type: string}
                   deleted: {type: boolean}
                   requests: {type: integer, format: int64}
+                  cost_rank: {type: integer, format: int64}
+                  token_rank: {type: integer, format: int64}
         observed_members:
           type: integer
           format: int64
-          description: 近 30 天有计费日志的去重成员数，含已删除成员。
+          description: 所选期间有计费日志的去重成员数，含已删除成员。
 
     DesktopOrganizationUsageStatisticsResponse:
       type: object
@@ -2518,8 +2560,14 @@ components:
           month: {total_tokens: 8000000, actual_cost: 12.75}
           total: {total_tokens: 4000000000, actual_cost: 150.1234}
           last_30_days: {total_tokens: 8000000, actual_cost: 12.75}
+          selected: {total_tokens: 8000000, actual_cost: 12.75}
+          previous: {total_tokens: 5000000, actual_cost: 8.25}
+          range_start: '2026-08-24'
+          range_end: '2026-09-22'
+          previous_start: '2026-07-25'
+          previous_end: '2026-08-23'
           daily: [{date: '2026-09-22', total_tokens: 1250, actual_cost: 0.125}]
           breakdown: {input_tokens: 100, output_tokens: 150, cache_creation_tokens: 200, cache_read_tokens: 800}
-          models: [{model: gpt-5, requests: 2, total_tokens: 1250, actual_cost: 0.125}]
-          members: [{member_id: mem_example, name: Example, deleted: false, requests: 2, total_tokens: 1250, actual_cost: 0.125}]
+          models: [{model: gpt-5, requests: 2, total_tokens: 1250, actual_cost: 0.125, cost_rank: 1, token_rank: 1}]
+          members: [{member_id: mem_example, name: Example, deleted: false, requests: 2, total_tokens: 1250, actual_cost: 0.125, cost_rank: 1, token_rank: 1}]
           observed_members: 1

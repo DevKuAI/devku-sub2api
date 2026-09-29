@@ -39,13 +39,19 @@ type conversationStatisticsRecords struct {
 	calls          int
 	filters        service.DesktopConversationFilters
 	organizationID int64
+	periods        service.DesktopConversationPeriods
 	err            error
 }
 
-func (r *conversationStatisticsRecords) Statistics(_ context.Context, organizationID int64, filters service.DesktopConversationFilters, _ service.DesktopConversationPeriods) (*service.DesktopConversationStatistics, error) {
+func (r *conversationStatisticsRecords) Statistics(_ context.Context, organizationID int64, filters service.DesktopConversationFilters, periods service.DesktopConversationPeriods) (*service.DesktopConversationStatistics, error) {
 	r.calls++
 	r.organizationID, r.filters = organizationID, filters
-	return &service.DesktopConversationStatistics{Total: service.DesktopConversationCounts{RecordCount: 123, PromptCount: 456}}, r.err
+	r.periods = periods
+	return &service.DesktopConversationStatistics{
+		Total:           service.DesktopConversationCounts{RecordCount: 123, PromptCount: 456},
+		DistinctMembers: 12, DistinctSessions: 34,
+		Daily: []service.DesktopConversationDay{{Date: "2026-09-22", DesktopConversationCounts: service.DesktopConversationCounts{RecordCount: 2, PromptCount: 3}}},
+	}, r.err
 }
 
 func TestDesktopConversationStatisticsHTTP(t *testing.T) {
@@ -59,6 +65,10 @@ func TestDesktopConversationStatisticsHTTP(t *testing.T) {
 	}{
 		{"admin", false, true, false, "?client=workbuddy&member_search=Member", 200, false},
 		{"managed", true, true, true, "?organization_id=org_other&client=workbuddy", 200, false},
+		{"admin selected period", false, true, true, "?client=workbuddy&days=7", 200, false},
+		{"managed custom period", true, true, true, "?client=workbuddy&from=2020-01-01&to=2020-01-07", 200, false},
+		{"invalid selected period", false, true, true, "?days=8", 422, false},
+		{"mixed time filters", true, true, true, "?days=7&received_from=2020-01-01T00:00:00Z", 422, false},
 		{"unauthenticated", true, false, true, "", 401, false},
 		{"reporting disabled", true, true, false, "", 403, false},
 		{"invalid UUID", false, true, true, "?record_id=invalid", 422, false},
@@ -100,10 +110,16 @@ func TestDesktopConversationStatisticsHTTP(t *testing.T) {
 				require.Zero(t, envelope.Code)
 				require.EqualValues(t, 123, envelope.Data.Total.RecordCount)
 				require.EqualValues(t, 456, envelope.Data.Total.PromptCount)
+				require.EqualValues(t, 12, envelope.Data.DistinctMembers)
+				require.EqualValues(t, 34, envelope.Data.DistinctSessions)
+				require.Len(t, envelope.Data.Daily, 1)
 				require.NotEmpty(t, envelope.Data.Timezone)
 				require.False(t, envelope.Data.AsOf.IsZero())
 				require.EqualValues(t, 7, records.organizationID)
 				require.Equal(t, "workbuddy", records.filters.Client)
+				if tc.query == "?client=workbuddy&days=7" {
+					require.Equal(t, 7, records.periods.TrendDays)
+				}
 				if tc.managed {
 					require.EqualValues(t, 42, identity.scopedUserID)
 				}

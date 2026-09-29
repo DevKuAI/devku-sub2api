@@ -28,8 +28,12 @@
         <button v-for="(tab, index) in tabs" :id="tabId(tab.value)" :key="tab.value" class="shrink-0 border-b-2 px-4 py-3 text-sm font-medium" :class="activeTab === tab.value ? 'border-primary-500 text-primary-600 dark:text-primary-400' : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-dark-400 dark:hover:text-gray-200'" type="button" role="tab" :aria-controls="panelId(tab.value)" :aria-selected="activeTab === tab.value" :tabindex="activeTab === tab.value ? 0 : -1" @click="setTab(tab.value)" @keydown="handleTabKeydown($event, index)">{{ tab.label }}</button>
       </div>
 
-      <section v-if="activeTab === 'usage'" :id="panelId('usage')" class="min-w-0" role="tabpanel" :aria-labelledby="tabId('usage')">
-        <DesktopOrganizationUsageStatistics v-if="organization" :organization-id="organizationID" :self-managed="selfManaged" view="insights" />
+      <section v-if="activeTab === 'usage'" :id="panelId('usage')" class="min-w-0 space-y-6" role="tabpanel" :aria-labelledby="tabId('usage')">
+        <DesktopAnalyticsRangePicker v-model="analyticsRange" />
+        <DesktopOrganizationUsageStatistics v-if="organization" :organization-id="organizationID" :self-managed="selfManaged" :range="analyticsRange" view="insights" />
+        <div v-if="organization?.conversation_reporting_enabled" class="border-t border-gray-200 pt-6 dark:border-dark-700">
+          <DesktopConversationStatistics :organization-id="organizationID" :self-managed="selfManaged" :filters="unfilteredConversationFilters" :range="analyticsRange" view="usage" />
+        </div>
       </section>
 
       <section v-else-if="activeTab === 'members'" :id="panelId('members')" class="min-w-0 space-y-4" role="tabpanel" :aria-labelledby="tabId('members')">
@@ -207,7 +211,10 @@ import Select from '@/components/common/Select.vue'
 import Input from '@/components/common/Input.vue'
 import Icon from '@/components/icons/Icon.vue'
 import DesktopConversationRecords from '@/components/desktop/DesktopConversationRecords.vue'
+import DesktopConversationStatistics from '@/components/desktop/DesktopConversationStatistics.vue'
+import DesktopAnalyticsRangePicker from '@/components/desktop/DesktopAnalyticsRangePicker.vue'
 import DesktopOrganizationUsageStatistics from '@/components/desktop/DesktopOrganizationUsageStatistics.vue'
+import type { DesktopAnalyticsRange } from '@/api/desktopOrganizationUsage'
 import BIGrantManagement from '@/components/bi/BIGrantManagement.vue'
 
 type DetailTab = 'usage' | 'members' | 'configuration' | 'conversations' | 'grants'
@@ -226,6 +233,8 @@ const organizationID = computed(() => selfManaged ? (organization.value?.public_
 const organizationAPI = computed(() => selfManaged ? desktopOrganizationAPI : adminAPI.desktop)
 const dashboardPath = computed(() => authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
 const canViewConversations = computed(() => !selfManaged || organization.value?.conversation_reporting_enabled === true)
+const unfilteredConversationFilters = {}
+const analyticsRange = ref<DesktopAnalyticsRange>({ days: 30 })
 const tabs = computed(() => {
   const result: { value: DetailTab; label: string }[] = [{ value: 'usage', label: t('admin.desktop.usageStatistics.tab') }, { value: 'members', label: t('admin.desktop.members') }, { value: 'configuration', label: t('admin.desktop.configuration') }]
   if (canViewConversations.value) result.push({ value: 'conversations', label: t('admin.desktop.conversations.title') })
