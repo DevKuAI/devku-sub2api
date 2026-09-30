@@ -28,8 +28,35 @@
     <BaseDialog :show="editing" :title="t(editingGrant ? 'bi.editGrant' : 'bi.addGrant')" width="wide" @close="closeEditor">
       <form id="bi-grant-form" class="space-y-4" @submit.prevent="save">
         <div>
-          <label for="bi-grant-user" class="mb-1 block text-sm">{{ t('bi.userID') }}</label>
-          <input id="bi-grant-user" v-model.number="form.user_id" type="number" min="1" step="1" required class="input" :disabled="busy || !!editingGrant" />
+          <label for="bi-grant-user" class="mb-1 block text-sm">{{ t('bi.selectUser') }}</label>
+          <Select
+            id="bi-grant-user"
+            :model-value="form.user_id || null"
+            :options="userOptions"
+            :placeholder="t('bi.selectUserPlaceholder')"
+            :search-placeholder="t('bi.searchUser')"
+            :empty-text="t(usersLoadFailed ? 'bi.userSearchFailed' : 'bi.noUsers')"
+            :loading="usersLoading"
+            :disabled="busy || !!editingGrant"
+            :error="!!userSelectionError"
+            :aria-label="t('bi.selectUser')"
+            :aria-describedby="userSelectionError ? 'bi-grant-user-hint bi-grant-user-error' : 'bi-grant-user-hint'"
+            searchable
+            remote
+            @update:model-value="form.user_id = Number($event) || 0"
+            @change="onUserChange"
+            @search="loadUsers"
+          />
+          <p id="bi-grant-user-hint" class="input-hint">
+            {{ t('bi.userIDHint') }}
+            <a href="/admin/users" target="_blank" rel="noopener noreferrer" class="font-medium text-primary-600 underline dark:text-primary-400">{{ t('bi.openUserManagement') }}</a>
+          </p>
+          <p v-if="userSelectionError" id="bi-grant-user-error" class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ userSelectionError }}</p>
+          <dl v-if="selectedUser" class="mt-3 grid gap-3 border-t border-gray-200 pt-3 text-sm dark:border-dark-700 sm:grid-cols-3">
+            <div><dt class="text-xs text-gray-500 dark:text-dark-400">{{ t('bi.userName') }}</dt><dd class="mt-1 break-words font-medium">{{ selectedUser.username || '—' }}</dd></div>
+            <div><dt class="text-xs text-gray-500 dark:text-dark-400">{{ t('bi.userEmail') }}</dt><dd class="mt-1 break-all">{{ selectedUser.email || t(usersLoadFailed ? 'bi.userDetailsUnavailable' : 'common.loading') }}</dd></div>
+            <div><dt class="text-xs text-gray-500 dark:text-dark-400">{{ t('bi.userID') }}</dt><dd class="mt-1 font-medium tabular-nums">{{ selectedUser.id }}</dd></div>
+          </dl>
         </div>
         <div>
           <label for="bi-grant-role" class="mb-1 block text-sm">{{ t('bi.role') }}</label>
@@ -37,10 +64,12 @@
             <option v-for="role in roles" :key="role" :value="role">{{ t(`bi.roles.${role}`) }}</option>
           </select>
         </div>
-        <label class="flex items-center gap-2 text-sm"><input v-model="form.all_teams" type="checkbox" :disabled="busy" />{{ t('bi.allTeams') }}</label>
+        <label class="flex items-center gap-2 text-sm"><input v-model="form.all_teams" type="checkbox" :disabled="busy" aria-describedby="bi-grant-all-teams-hint" />{{ t('bi.allTeams') }}</label>
+        <p id="bi-grant-all-teams-hint" class="input-hint">{{ t('bi.allTeamsHint') }}</p>
         <div v-if="!form.all_teams">
           <label for="bi-grant-teams" class="mb-1 block text-sm">{{ t('bi.teams') }}</label>
-          <input id="bi-grant-teams" v-model="teamText" class="input" :disabled="busy" />
+          <input id="bi-grant-teams" v-model="teamText" class="input" :disabled="busy" aria-describedby="bi-grant-teams-hint" />
+          <p id="bi-grant-teams-hint" class="input-hint">{{ t('bi.teamsHint') }}</p>
         </div>
         <fieldset class="grid grid-cols-1 gap-3 sm:grid-cols-2" :disabled="busy">
           <legend class="mb-2 text-sm font-medium">{{ t('bi.capabilities') }}</legend>
@@ -62,10 +91,13 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { adminAPI } from '@/api/admin'
+import type { AdminUser } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import Select from '@/components/common/Select.vue'
 import { isBIEnabled, listGrants, revokeGrant, saveGrant, type BIGrant, type BIGrantInput } from '@/api/bi'
 
 const props = defineProps<{ organizationId: string }>()
@@ -77,6 +109,11 @@ const error = ref('')
 const editError = ref('')
 const grants = ref<BIGrant[]>([])
 const capabilities = ref<string[]>([])
+const users = ref<AdminUser[]>([])
+const selectedUser = ref<Pick<AdminUser, 'id' | 'username' | 'email'> | null>(null)
+const usersLoading = ref(false)
+const usersLoadFailed = ref(false)
+const userSelectionError = ref('')
 const page = ref(1)
 const hasMore = ref(false)
 const editing = ref(false)
@@ -87,6 +124,18 @@ const teamText = ref('')
 const form = reactive<BIGrantInput>({ user_id: 0, role: 'viewer', all_teams: false, team_ids: [], capabilities: [], expected_revision: 0 })
 let generation = 0
 let loadGeneration = 0
+let editorGeneration = 0
+let usersController: AbortController | undefined
+
+const userOptions = computed(() => {
+  const byID = new Map<number, Pick<AdminUser, 'id' | 'username' | 'email'>>()
+  if (selectedUser.value) byID.set(selectedUser.value.id, selectedUser.value)
+  for (const user of users.value) byID.set(user.id, user)
+  return [...byID.values()].map(user => ({
+    value: user.id,
+    label: [user.username, user.email, `#${user.id}`].filter(Boolean).join(' · '),
+  }))
+})
 
 function message(cause: unknown) { return t((cause as { status?: number }).status === 409 ? 'bi.reload' : 'bi.failed') }
 
@@ -106,18 +155,68 @@ async function load(nextPage = 1) {
 }
 
 function openEditor(grant?: BIGrant) {
+  const current = ++editorGeneration
+  usersController?.abort()
+  users.value = []
+  usersLoadFailed.value = false
+  userSelectionError.value = ''
+  selectedUser.value = grant ? { id: grant.user_id, username: grant.display_name, email: '' } : null
   editingGrant.value = grant || null
   Object.assign(form, { user_id: grant?.user_id || 0, role: grant?.role || 'viewer', all_teams: grant?.all_teams || false,
     team_ids: [...(grant?.team_ids || [])], capabilities: [...(grant?.capabilities || [])], expected_revision: grant?.revision || 0 })
   teamText.value = form.team_ids.join(', ')
   editError.value = ''
   editing.value = true
+  if (grant) {
+    void adminAPI.users.getById(grant.user_id).then(user => {
+      if (current === editorGeneration) selectedUser.value = user
+    }).catch(() => {
+      if (current === editorGeneration) usersLoadFailed.value = true
+    })
+  } else {
+    void loadUsers()
+  }
 }
 
-function closeEditor() { if (!busy.value) editing.value = false }
+function closeEditor() {
+  if (busy.value) return
+  editing.value = false
+  ++editorGeneration
+  usersController?.abort()
+}
+
+async function loadUsers(search = '') {
+  usersController?.abort()
+  const controller = new AbortController()
+  usersController = controller
+  usersLoading.value = true
+  usersLoadFailed.value = false
+  try {
+    const result = await adminAPI.users.list(1, 20, { status: 'active', search: search.trim() || undefined }, { signal: controller.signal })
+    if (!controller.signal.aborted) users.value = result.items
+  } catch {
+    if (!controller.signal.aborted) {
+      users.value = []
+      usersLoadFailed.value = true
+    }
+  } finally {
+    if (usersController === controller) usersLoading.value = false
+  }
+}
+
+function onUserChange(value: string | number | boolean | null) {
+  const userID = Number(value)
+  selectedUser.value = users.value.find(user => user.id === userID) || (selectedUser.value?.id === userID ? selectedUser.value : null)
+  userSelectionError.value = ''
+}
 
 async function save() {
   if (busy.value) return
+  if (!Number.isInteger(form.user_id) || form.user_id <= 0) {
+    userSelectionError.value = t('bi.selectUserRequired')
+    document.getElementById('bi-grant-user')?.focus()
+    return
+  }
   busy.value = true
   editError.value = ''
   const current = generation
@@ -146,6 +245,10 @@ async function revoke() {
 watch(() => props.organizationId, async () => {
   const current = ++generation
   ++loadGeneration
+  ++editorGeneration
+  usersController?.abort()
+  users.value = []
+  selectedUser.value = null
   loading.value = true
   enabled.value = false
   editing.value = false
@@ -164,5 +267,5 @@ watch(() => props.organizationId, async () => {
   finally { if (current === generation) loading.value = false }
 }, { immediate: true })
 
-onBeforeUnmount(() => { generation++; loadGeneration++ })
+onBeforeUnmount(() => { generation++; loadGeneration++; editorGeneration++; usersController?.abort() })
 </script>

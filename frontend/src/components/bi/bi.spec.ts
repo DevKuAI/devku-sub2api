@@ -5,11 +5,14 @@ const api = vi.hoisted(() => ({
   isBIEnabled: vi.fn(), listBindings: vi.fn(), approveBinding: vi.fn(), revokeBinding: vi.fn(),
   listGrants: vi.fn(), saveGrant: vi.fn(), revokeGrant: vi.fn(),
 }))
+const userAPI = vi.hoisted(() => ({ list: vi.fn(), getById: vi.fn() }))
 vi.mock('@/api/bi', () => api)
+vi.mock('@/api/admin', () => ({ adminAPI: { users: userAPI } }))
 vi.mock('@/stores/auth', () => ({ useAuthStore: () => ({ user: { email: 'manager@example.com' } }) }))
 vi.mock('vue-i18n', async (original) => ({ ...await original<typeof import('vue-i18n')>(), useI18n: () => ({ t: (key: string) => key }) }))
 import BIBindingsView from '@/views/user/BIBindingsView.vue'
 import BIGrantManagement from './BIGrantManagement.vue'
+import Select from '@/components/common/Select.vue'
 
 const global = {
   stubs: {
@@ -32,6 +35,65 @@ describe('BI management flows', () => {
     api.isBIEnabled.mockResolvedValue(true)
     api.listBindings.mockResolvedValue({ items: [], next_cursor: null, has_more: false, snapshot_id: 'snapshot' })
     api.listGrants.mockResolvedValue({ items: [], page: 1, has_more: false, capabilities: ['analytics:read', 'reports:share'] })
+    userAPI.list.mockResolvedValue({ items: [{ id: 42, username: 'Manager', email: 'manager@example.com', status: 'active' }], total: 1 })
+    userAPI.getById.mockResolvedValue({ id: 12, username: 'Existing manager', email: 'existing@example.com', status: 'active' })
+  })
+
+  it('searches active users, displays the selected identity, and submits its ID with imported teams', async () => {
+    const wrapper = mount(BIGrantManagement, { props: { organizationId: 'org-one' }, global })
+    await flushPromises()
+    await wrapper.findAll('button').find(button => button.text() === 'bi.addGrant')!.trigger('click')
+    await flushPromises()
+
+    const userSelect = wrapper.get('#bi-grant-user')
+    expect(userSelect.element.tagName).toBe('BUTTON')
+    expect(userSelect.attributes('aria-describedby')).toBe('bi-grant-user-hint')
+    expect(userSelect.text()).toContain('bi.selectUserPlaceholder')
+    expect(wrapper.get('#bi-grant-user-hint').text()).toContain('bi.userIDHint')
+    expect(wrapper.get('#bi-grant-user-hint a').attributes()).toMatchObject({ href: '/admin/users', target: '_blank' })
+    expect(wrapper.get('#bi-grant-teams-hint').text()).toBe('bi.teamsHint')
+    expect(userAPI.list).toHaveBeenCalledWith(1, 20, { status: 'active', search: undefined }, { signal: expect.any(AbortSignal) })
+
+    await wrapper.get('#bi-grant-form').trigger('submit')
+    expect(wrapper.get('#bi-grant-user-error').text()).toBe('bi.selectUserRequired')
+
+    const select = wrapper.findComponent(Select)
+    select.vm.$emit('search', 'manager@example.com')
+    await flushPromises()
+    expect(userAPI.list).toHaveBeenLastCalledWith(1, 20, { status: 'active', search: 'manager@example.com' }, { signal: expect.any(AbortSignal) })
+    select.vm.$emit('update:modelValue', 42)
+    select.vm.$emit('change', 42)
+    await flushPromises()
+    expect(wrapper.find('#bi-grant-user-error').exists()).toBe(false)
+    expect(wrapper.get('#bi-grant-form dl').text()).toContain('Manager')
+    expect(wrapper.get('#bi-grant-form dl').text()).toContain('manager@example.com')
+    expect(wrapper.get('#bi-grant-form dl').text()).toContain('42')
+
+    await wrapper.get('#bi-grant-teams').setValue('hr:team, hr:ops')
+    await wrapper.get('input[value="analytics:read"]').setValue(true)
+    await wrapper.get('#bi-grant-form').trigger('submit')
+    await flushPromises()
+
+    expect(api.saveGrant).toHaveBeenCalledWith('org-one', expect.objectContaining({ user_id: 42, team_ids: ['hr:team', 'hr:ops'] }))
+    wrapper.unmount()
+  })
+
+  it('shows the current account details when editing an existing grant', async () => {
+    api.listGrants.mockResolvedValue({
+      items: [{ manager_id: 'manager', user_id: 12, display_name: 'Existing manager', role: 'viewer', all_teams: true, team_ids: [], capabilities: ['analytics:read'], revision: 3, revoked: false }],
+      page: 1, has_more: false, capabilities: ['analytics:read'],
+    })
+    const wrapper = mount(BIGrantManagement, { props: { organizationId: 'org-one' }, global })
+    await flushPromises()
+    await wrapper.get('li button').trigger('click')
+    await flushPromises()
+
+    expect(userAPI.getById).toHaveBeenCalledWith(12)
+    expect(wrapper.get('#bi-grant-user').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('#bi-grant-form dl').text()).toContain('Existing manager')
+    expect(wrapper.get('#bi-grant-form dl').text()).toContain('existing@example.com')
+    expect(wrapper.get('#bi-grant-form dl').text()).toContain('12')
+    wrapper.unmount()
   })
 
   it('requires explicit approval and sends only the normalized challenge code', async () => {
