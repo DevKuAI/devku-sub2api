@@ -84,6 +84,8 @@ export default {
           enabledHint: '开启后执行网关内容审计，并记录脱敏后的请求内容；关闭后不记录请求内容，管理员侧边栏入口同时隐藏。',
           cyberSessionBlock: 'cyber 会话自动屏蔽',
           cyberSessionBlockHint: '开启后,被上游网络安全策略(cyber_policy)拦截的会话将在 TTL 内被本地屏蔽,不再发往上游。仅屏蔽该会话,不影响同 Key 其他会话。',
+          riskControlUserAllowlist: '风控白名单',
+          riskControlUserAllowlistHint: '输入任意邮箱关键词进行模糊搜索。 白名单中的用户不会触发封号或本地屏蔽，但仍然无法突破上游拦截。该功能通常用于可信的下游中转站。',
           cyberSessionBlockTTL: '屏蔽时长(秒)',
         },
         affiliate: {
