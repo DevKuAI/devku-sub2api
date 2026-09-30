@@ -67,6 +67,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useMutationObserver } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler } from 'chart.js'
 import { Line } from 'vue-chartjs'
@@ -79,6 +80,8 @@ const props = defineProps<{ statistics: DesktopOrganizationUsageStatistics }>()
 const { t } = useI18n()
 const metrics = ['cost', 'tokens'] as const
 const selectedMetric = ref<(typeof metrics)[number]>('cost')
+const isDark = ref(document.documentElement.classList.contains('dark'))
+useMutationObserver(document.documentElement, () => { isDark.value = document.documentElement.classList.contains('dark') }, { attributes: true, attributeFilter: ['class'] })
 const hasUsage = computed(() => props.statistics.selected.actual_cost !== 0 || props.statistics.selected.total_tokens !== 0)
 const rankingKey = computed(() => selectedMetric.value === 'cost' ? 'cost_rank' : 'token_rank')
 const rankedModels = computed(() => props.statistics.models.filter(model => model[rankingKey.value] <= 10).sort((a, b) => a[rankingKey.value] - b[rankingKey.value]))
@@ -96,16 +99,21 @@ const chartData = computed(() => ({
     pointHoverRadius: 4,
   }],
 }))
-const chartOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  interaction: { mode: 'index' as const, intersect: false },
-  plugins: { legend: { display: false } },
-  scales: {
-    x: { grid: { display: false }, ticks: { maxTicksLimit: 6, maxRotation: 0 } },
-    y: { beginAtZero: true, ticks: { maxTicksLimit: 5 } },
-  },
-}
+const chartOptions = computed(() => {
+  const text = isDark.value ? '#9ca3af' : '#4b5563'
+  const grid = isDark.value ? 'rgba(148, 163, 184, 0.18)' : '#e5e7eb'
+  return {
+    animation: false as const,
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'index' as const, intersect: false },
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { display: false }, ticks: { color: text, maxTicksLimit: 6, maxRotation: 0 } },
+      y: { beginAtZero: true, grid: { color: grid }, ticks: { color: text, maxTicksLimit: 5 } },
+    },
+  }
+})
 const breakdownParts = computed(() => [
   { key: 'inputTokens', value: props.statistics.breakdown.input_tokens },
   { key: 'outputTokens', value: props.statistics.breakdown.output_tokens },

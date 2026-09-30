@@ -170,6 +170,25 @@ describe('DesktopOrganizationDetailView', () => {
     route.query.tab = 'members'
   })
 
+  it.each([false, true])('retries failed organization loading with selfManaged=%s', async (selfManaged) => {
+    const api = selfManaged ? managedDesktopAPI : desktopAPI
+    api.getOrganization.mockRejectedValueOnce(new Error('offline'))
+    const wrapper = selfManaged ? mountManagedView() : mountView()
+    await flushPromises()
+
+    expect(wrapper.get('[role="alert"]').text()).toContain('admin.desktop.organizationLoadFailed')
+    expect(wrapper.find('[data-testid="export-member-usage"]').exists()).toBe(false)
+
+    await wrapper.get('[role="alert"] button').trigger('click')
+    await flushPromises()
+
+    expect(api.getOrganization).toHaveBeenCalledTimes(2)
+    expect(api.listMembers).toHaveBeenCalled()
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="export-member-usage"]').exists()).toBe(true)
+    wrapper.unmount()
+  })
+
   it('hydrates the assigned gateway user separately and preserves tab state in the URL', async () => {
     const wrapper = mountView()
     await flushPromises()

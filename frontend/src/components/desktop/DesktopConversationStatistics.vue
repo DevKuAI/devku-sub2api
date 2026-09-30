@@ -54,6 +54,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { useMutationObserver } from '@vueuse/core'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler } from 'chart.js'
 import { Line } from 'vue-chartjs'
 import { useI18n } from 'vue-i18n'
@@ -67,6 +68,8 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip,
 
 const props = withDefaults(defineProps<{ organizationId: string; selfManaged: boolean; filters: DesktopConversationFilters; range?: DesktopAnalyticsRange; view?: 'records' | 'usage' }>(), { view: 'records' })
 const { t } = useI18n()
+const isDark = ref(document.documentElement.classList.contains('dark'))
+useMutationObserver(document.documentElement, () => { isDark.value = document.documentElement.classList.contains('dark') }, { attributes: true, attributeFilter: ['class'] })
 const periods = [
   { key: 'today', icon: 'clock' },
   { key: 'week', icon: 'calendar' },
@@ -86,7 +89,20 @@ const trendData = computed(() => ({
   labels: statistics.value?.daily.map(day => day.date.slice(5)) || [],
   datasets: [{ label: t('admin.desktop.conversations.statistics.recordsLabel'), data: statistics.value?.daily.map(day => day.record_count) || [], borderColor: '#0d9488', backgroundColor: 'rgba(13, 148, 136, 0.12)', fill: true, pointRadius: 0, pointHoverRadius: 4, tension: 0.25 }],
 }))
-const trendOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { maxTicksLimit: 6, maxRotation: 0 } }, y: { beginAtZero: true, ticks: { precision: 0, maxTicksLimit: 5 } } } }
+const trendOptions = computed(() => {
+  const text = isDark.value ? '#9ca3af' : '#4b5563'
+  const grid = isDark.value ? 'rgba(148, 163, 184, 0.18)' : '#e5e7eb'
+  return {
+    animation: false as const,
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { display: false }, ticks: { color: text, maxTicksLimit: 6, maxRotation: 0 } },
+      y: { beginAtZero: true, grid: { color: grid }, ticks: { color: text, precision: 0, maxTicksLimit: 5 } },
+    },
+  }
+})
 const loading = ref(false)
 const error = ref(false)
 let controller: AbortController | undefined

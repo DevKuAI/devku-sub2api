@@ -16,7 +16,7 @@
           <h4>{{ t(`admin.desktop.usageStatistics.${period.key}`) }}</h4>
           <Icon :name="period.icon" size="md" class="shrink-0 text-primary-500 dark:text-primary-400" aria-hidden="true" />
         </div>
-        <p class="mt-3 break-all text-xl font-semibold tabular-nums text-gray-900 dark:text-gray-100 sm:text-2xl">{{ statistics ? `$${statistics[period.key].actual_cost.toFixed(4)}` : '—' }}</p>
+        <p class="mt-3 break-all text-base font-semibold tabular-nums text-gray-900 dark:text-gray-100 sm:text-2xl">{{ statistics ? `$${statistics[period.key].actual_cost.toFixed(4)}` : '—' }}</p>
         <div class="mt-2 flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1 text-xs">
           <span class="text-gray-500 dark:text-dark-400">{{ t('admin.desktop.usageTokens') }}</span>
           <span class="break-all font-medium tabular-nums text-gray-700 dark:text-dark-200" :title="statistics?.[period.key].total_tokens.toLocaleString()">{{ statistics ? formatCompactNumber(statistics[period.key].total_tokens) : '—' }}</span>

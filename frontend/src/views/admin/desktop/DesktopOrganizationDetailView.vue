@@ -1,28 +1,32 @@
 <template>
-  <AppLayout>
+  <AppLayout plain-background>
     <div class="mx-auto min-w-0 max-w-7xl space-y-6">
       <div class="flex flex-wrap items-start gap-3">
-        <button v-if="!selfManaged" class="btn btn-secondary px-3" type="button" :title="t('common.back')" :aria-label="t('common.back')" @click="router.push('/admin/desktop/organizations')">
+        <button v-if="!selfManaged" class="btn btn-secondary min-h-11 px-3" type="button" :title="t('common.back')" :aria-label="t('common.back')" @click="router.push('/admin/desktop/organizations')">
           <Icon name="arrowLeft" size="md" />
         </button>
         <div class="min-w-0 flex-1">
           <div class="flex flex-wrap items-center gap-3">
-            <h1 class="break-words text-xl font-semibold text-gray-900 dark:text-white">{{ organization?.name || t('common.loading') }}</h1>
+            <h1 class="break-words text-balance text-xl font-semibold text-gray-900 dark:text-white">{{ organization?.name || t(organizationError ? 'admin.desktop.detailTitle' : 'common.loading') }}</h1>
             <StatusBadge v-if="organization" :status="organization.status" :label="statusLabel(organization.status)" />
           </div>
-          <p v-if="organization" class="mt-1 font-mono text-sm text-gray-500 dark:text-dark-400">{{ organization.code }}</p>
+          <p v-if="organization" class="mt-1 break-all font-mono text-sm text-gray-500 dark:text-dark-400">{{ organization.code }}</p>
         </div>
-        <button v-if="organization && !selfManaged" class="btn btn-secondary" type="button" @click="openEditOrganization">
-          <Icon name="edit" size="sm" class="mr-1" />{{ t('common.edit') }}
+        <button v-if="organization && !selfManaged" class="btn btn-secondary min-h-11 min-w-11 shrink-0 px-3 sm:min-w-0 sm:px-4" type="button" :title="t('common.edit')" :aria-label="t('common.edit')" @click="openEditOrganization">
+          <Icon name="edit" size="sm" /><span class="hidden sm:inline">{{ t('common.edit') }}</span>
         </button>
       </div>
-
-      <div v-if="organization" class="grid grid-cols-1 gap-x-8 gap-y-4 border-y border-gray-200 py-5 dark:border-dark-700 sm:grid-cols-2 lg:grid-cols-4">
-        <div class="min-w-0"><div class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.gatewayUser') }}</div><div class="mt-1 truncate text-sm font-medium">{{ organization.gateway_user.username || organization.gateway_user.email }}</div><div class="truncate text-xs text-gray-500">{{ organization.gateway_user.email }}</div></div>
-        <div class="min-w-0"><div class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.group') }}</div><div class="mt-1 break-words text-sm font-medium">{{ organization.group.name }}</div></div>
-        <div><div class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.memberCapacity') }}</div><div class="mt-1 text-sm font-medium tabular-nums">{{ organization.member_count }} / {{ organization.member_limit }}</div></div>
-        <div><div class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.configuration') }}</div><div class="mt-1 text-sm font-medium">{{ organization.target_config_assigned ? t('admin.desktop.configured') : t('admin.desktop.notConfigured') }}</div></div>
+      <div v-if="organizationError" class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300" role="alert">
+        {{ t('admin.desktop.organizationLoadFailed') }}
+        <button class="ml-2 font-medium underline" type="button" @click="retryOrganization">{{ t('admin.desktop.retryOrganization') }}</button>
       </div>
+
+      <dl v-if="organization" class="grid grid-cols-2 gap-x-4 gap-y-4 border-y border-gray-200 py-5 dark:border-dark-700 sm:gap-x-8 lg:grid-cols-4">
+        <div class="min-w-0"><dt class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.gatewayUser') }}</dt><dd class="mt-1 break-words text-sm font-medium">{{ organization.gateway_user.username || organization.gateway_user.email }}</dd><dd class="break-all text-xs text-gray-500 dark:text-dark-400">{{ organization.gateway_user.email }}</dd></div>
+        <div class="min-w-0"><dt class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.group') }}</dt><dd class="mt-1 break-words text-sm font-medium">{{ organization.group.name }}</dd></div>
+        <div class="min-w-0"><dt class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.memberCapacity') }}</dt><dd class="mt-1 text-sm font-medium tabular-nums">{{ organization.member_count }} / {{ organization.member_limit }}</dd></div>
+        <div class="min-w-0"><dt class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.configuration') }}</dt><dd class="mt-1 text-sm font-medium">{{ organization.target_config_assigned ? t('admin.desktop.configured') : t('admin.desktop.notConfigured') }}</dd></div>
+      </dl>
 
       <div class="flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-dark-700" role="tablist" :aria-label="t('admin.desktop.detailTabs')">
         <button v-for="(tab, index) in tabs" :id="tabId(tab.value)" :key="tab.value" class="shrink-0 border-b-2 px-4 py-3 text-sm font-medium" :class="activeTab === tab.value ? 'border-primary-500 text-primary-600 dark:text-primary-400' : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-dark-400 dark:hover:text-gray-200'" type="button" role="tab" :aria-controls="panelId(tab.value)" :aria-selected="activeTab === tab.value" :tabindex="activeTab === tab.value ? 0 : -1" @click="setTab(tab.value)" @keydown="handleTabKeydown($event, index)">{{ tab.label }}</button>
@@ -38,20 +42,21 @@
 
       <section v-else-if="activeTab === 'members'" :id="panelId('members')" class="min-w-0 space-y-4" role="tabpanel" :aria-labelledby="tabId('members')">
         <DesktopOrganizationUsageStatistics v-if="organization" :organization-id="organizationID" :self-managed="selfManaged" />
-        <div class="flex flex-wrap items-center gap-3">
-          <div class="min-w-0 flex-1 sm:max-w-72"><input v-model="memberSearch" class="input" type="search" :placeholder="t('admin.desktop.searchMembers')" @input="scheduleMembers" /></div>
-          <Select v-model="memberStatus" class="w-40" :options="statusOptions" @change="resetMembers" />
-          <div class="ml-auto flex items-center gap-2">
-            <button class="btn btn-secondary" type="button" data-testid="export-member-usage" :disabled="membersExporting || !organization || organization.public_id !== organizationID" :aria-busy="membersExporting" :title="t('admin.desktop.memberUsageExport.hint')" @click="exportMemberUsage">
+        <div v-if="organization" class="flex flex-wrap items-end gap-3">
+          <label class="w-full min-w-0 space-y-1 sm:max-w-72 sm:flex-1"><span class="block text-xs font-medium text-gray-600 dark:text-gray-300">{{ t('admin.desktop.memberSearchLabel') }}</span><input v-model="memberSearch" class="input" type="search" :placeholder="t('admin.desktop.searchMembers')" @input="scheduleMembers" /></label>
+          <div class="w-40 space-y-1"><span class="block text-xs font-medium text-gray-600 dark:text-gray-300">{{ t('common.status') }}</span><Select v-model="memberStatus" :options="statusOptions" :aria-label="t('common.status')" @change="resetMembers" /></div>
+          <div class="ml-auto flex w-full flex-wrap items-center gap-2 sm:w-auto">
+            <button class="btn btn-secondary shrink-0 whitespace-nowrap" type="button" data-testid="export-member-usage" :disabled="membersExporting || !organization || organization.public_id !== organizationID" :aria-busy="membersExporting" :title="t('admin.desktop.memberUsageExport.hint')" @click="exportMemberUsage">
               <Icon :name="membersExporting ? 'refresh' : 'download'" size="md" class="mr-1" :class="{ 'animate-spin': membersExporting }" />{{ t(membersExporting ? 'admin.desktop.memberUsageExport.exporting' : 'admin.desktop.memberUsageExport.button') }}
             </button>
             <button class="btn btn-secondary" type="button" :disabled="membersLoading" :title="t('common.refresh')" :aria-label="t('common.refresh')" @click="loadMembers"><Icon name="refresh" size="md" :class="membersLoading ? 'animate-spin' : ''" /></button>
-            <button class="btn btn-primary" type="button" :disabled="organization?.status !== 'active' || memberLimitReached" :title="memberLimitReached ? t('admin.desktop.errors.MEMBER_LIMIT_REACHED') : undefined" @click="openCreateMember"><Icon name="plus" size="md" class="mr-1" />{{ t('admin.desktop.createMember') }}</button>
+            <button class="btn btn-primary w-full shrink-0 whitespace-nowrap sm:w-auto" type="button" :disabled="!canCreateMember" @click="openCreateMember"><Icon name="plus" size="md" class="mr-1" />{{ t('admin.desktop.createMember') }}</button>
           </div>
         </div>
-        <div class="min-w-0">
+        <p v-if="organization && (organization.status !== 'active' || memberLimitReached)" class="text-sm text-amber-700 dark:text-amber-300" role="status">{{ t(organization.status !== 'active' ? 'admin.desktop.errors.ORGANIZATION_DISABLED' : 'admin.desktop.errors.MEMBER_LIMIT_REACHED') }}</p>
+        <div v-if="organization" class="min-w-0">
           <DataTable :columns="memberColumns" :data="members" :loading="membersLoading" row-key="public_id">
-            <template #cell-name="{ row }"><div class="min-w-0 max-w-64"><div class="truncate font-medium text-gray-900 dark:text-white">{{ row.name }}</div><div class="mt-1 font-mono text-xs text-gray-500">{{ row.public_id }}</div></div></template>
+            <template #cell-name="{ row }"><div class="min-w-0 max-w-64"><div class="break-words font-medium text-gray-900 dark:text-white">{{ row.name }}</div><div class="mt-1 break-all font-mono text-xs text-gray-500 dark:text-dark-400">{{ row.public_id }}</div></div></template>
             <template #cell-status="{ row }"><StatusBadge :status="row.status" :label="statusLabel(row.status)" /></template>
             <template #cell-model_token_status="{ row }"><span :class="['badge', tokenBadge(row.model_token_status)]">{{ tokenStatusLabel(row.model_token_status) }}</span></template>
             <template #cell-usage_cost="{ row }">
@@ -94,6 +99,9 @@
                 <button class="action-button" type="button" :title="t('admin.desktop.rotateModelToken')" :aria-label="t('admin.desktop.rotateModelToken')" @click="confirmRotate(row)"><Icon name="refresh" size="sm" /></button>
                 <button class="action-button action-button-danger" type="button" :title="t('common.delete')" :aria-label="t('common.delete')" @click="confirmDeleteMember(row)"><Icon name="trash" size="sm" /></button>
               </div>
+            </template>
+            <template #empty>
+              <EmptyState :title="t(hasMemberFilters ? 'admin.desktop.noMatchingMembers' : 'admin.desktop.noMembers')" :description="memberEmptyDescription" :action-text="hasMemberFilters ? t('common.reset') : canCreateMember ? t('admin.desktop.createMember') : undefined" :action-icon="!hasMemberFilters" @action="hasMemberFilters ? clearMemberFilters() : openCreateMember()" />
             </template>
           </DataTable>
           <Pagination v-if="memberPagination.total > 0" :page="memberPagination.page" :page-size="memberPagination.page_size" :total="memberPagination.total" @update:page="changeMemberPage" @update:page-size="changeMemberPageSize" />
@@ -207,6 +215,7 @@ import Pagination from '@/components/common/Pagination.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import StatusBadge from '@/components/common/StatusBadge.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
 import Select from '@/components/common/Select.vue'
 import Input from '@/components/common/Input.vue'
 import Icon from '@/components/icons/Icon.vue'
@@ -225,6 +234,7 @@ const router = useRouter()
 const appStore = useAppStore()
 const authStore = useAuthStore()
 const organization = ref<DesktopOrganization | null>(null)
+const organizationError = ref(false)
 const configurationTargets = computed(() => [
   { name: 'ChatGPT Codex', config: organization.value?.target_config?.targets.chatgpt_codex },
   { name: 'Workbuddy', config: organization.value?.target_config?.targets.workbuddy },
@@ -247,6 +257,7 @@ const membersLoading = ref(false)
 const membersExporting = ref(false)
 const memberSearch = ref('')
 const memberStatus = ref<DesktopStatus | ''>('')
+const hasMemberFilters = computed(() => Boolean(memberSearch.value.trim() || memberStatus.value))
 const memberPagination = reactive({ page: 1, page_size: getPersistedPageSize(), total: 0 })
 const showOrganizationEdit = ref(false)
 const organizationSaving = ref(false)
@@ -272,6 +283,13 @@ let gatewayController: AbortController | undefined
 
 const gatewayUserLocked = computed(() => (organization.value?.member_count ?? 0) > 0)
 const memberLimitReached = computed(() => Boolean(organization.value && organization.value.member_count >= organization.value.member_limit))
+const canCreateMember = computed(() => organization.value?.status === 'active' && !memberLimitReached.value)
+const memberEmptyDescription = computed(() => {
+  if (hasMemberFilters.value) return t('admin.desktop.noMatchingMembersDescription')
+  if (organization.value?.status !== 'active') return t('admin.desktop.errors.ORGANIZATION_DISABLED')
+  if (memberLimitReached.value) return t('admin.desktop.errors.MEMBER_LIMIT_REACHED')
+  return t('admin.desktop.noMembersDescription')
+})
 const statusOptions = computed(() => [{ value: '', label: t('common.all') }, { value: 'active', label: t('common.active') }, { value: 'disabled', label: t('common.disabled') }])
 const editableStatusOptions = computed(() => statusOptions.value.slice(1))
 const memberColumns = computed<Column[]>(() => [
@@ -320,22 +338,26 @@ function handleTabKeydown(event: KeyboardEvent, index: number) {
 }
 
 async function loadOrganization(): Promise<boolean> {
+  organizationError.value = false
+  if (!selfManaged && organization.value?.public_id !== organizationID.value) organization.value = null
   try {
     const result = await organizationAPI.value.getOrganization(organizationID.value)
     if (!result) {
       organization.value = null
       if (selfManaged) void router.replace(dashboardPath.value)
+      else organizationError.value = true
       return false
     }
     organization.value = result
     currentGatewayUser.value = selfManaged ? null : await adminAPI.desktop.getGatewayUser(result.gateway_user.id)
     applyConfiguration(result.target_config)
     return true
-  } catch (error) {
-    appStore.showError(errorMessage(error))
+  } catch {
+    organizationError.value = true
     return false
   }
 }
+async function retryOrganization() { if (await loadOrganization()) await loadMembers() }
 async function loadMembers() {
   memberController?.abort(); memberController = new AbortController(); membersLoading.value = true
   try {
@@ -346,6 +368,7 @@ async function loadMembers() {
 }
 function scheduleMembers() { clearTimeout(memberTimer); memberTimer = setTimeout(resetMembers, 300) }
 function resetMembers() { memberPagination.page = 1; void loadMembers() }
+function clearMemberFilters() { memberSearch.value = ''; memberStatus.value = ''; resetMembers() }
 function changeMemberPage(page: number) { memberPagination.page = page; void loadMembers() }
 function changeMemberPageSize(size: number) { memberPagination.page_size = size; memberPagination.page = 1; void loadMembers() }
 
@@ -517,4 +540,7 @@ onBeforeUnmount(() => { clearTimeout(memberTimer); memberController?.abort(); ga
 <style scoped>
 .action-button { @apply rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-primary-600 dark:hover:bg-dark-700 dark:hover:text-primary-400; }
 .action-button-danger { @apply hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400; }
+@media (max-width: 639px) {
+  :deep(.input) { font-size: 1rem; }
+}
 </style>

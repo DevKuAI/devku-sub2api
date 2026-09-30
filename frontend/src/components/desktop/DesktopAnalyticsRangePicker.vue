@@ -2,8 +2,8 @@
   <div class="space-y-3" data-testid="desktop-analytics-range-picker">
     <div class="flex flex-wrap items-center gap-3">
       <span class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('admin.desktop.usageStatistics.range') }}</span>
-      <div class="inline-flex max-w-full overflow-x-auto rounded border border-gray-200 p-0.5 dark:border-dark-700" role="group" :aria-label="t('admin.desktop.usageStatistics.range')">
-        <button v-for="option in options" :key="option.value" type="button" class="shrink-0 rounded px-3 py-1.5 text-xs font-medium" :class="mode === option.value ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900' : 'text-gray-600 dark:text-gray-300'" :aria-pressed="mode === option.value" @click="select(option.value)">
+      <div class="grid w-full grid-cols-2 gap-0.5 rounded border border-gray-200 p-0.5 dark:border-dark-700 sm:inline-flex sm:w-auto" role="group" :aria-label="t('admin.desktop.usageStatistics.range')">
+        <button v-for="option in options" :key="option.value" type="button" class="rounded px-3 py-1.5 text-xs font-medium" :class="mode === option.value ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900' : 'text-gray-600 dark:text-gray-300'" :aria-pressed="mode === option.value" @click="select(option.value)">
           {{ t(`admin.desktop.usageStatistics.${option.value}`) }}
         </button>
       </div>
