@@ -30,28 +30,29 @@
 
 1. 原站管理员通过既有登录、验证码和 2FA 流程进入 `/admin/desktop/organizations`。
 2. 选择已批准的测试企业，或通过原企业管理入口创建测试企业。记录企业 `public_id`；BI 使用同一个 ID。企业必须处于 active 状态。现有 group 是模型/计费配置，不作为部门导入。
-3. 在企业详情的「小程序企业授权」中，为真实测试管理账号添加授权。账号 ID 来自原站账号管理，不能使用 Desktop 员工 ID、手机号或模型 API Key 代替。
+3. 在企业详情的「小程序企业授权」中，搜索并选择真实测试管理账号，添加授权。不能使用 Desktop 员工 ID、手机号或模型 API Key 代替。
 4. 设置角色、团队范围和功能 capability。首个经确认的测试 Owner 可使用 `org_admin`；角色名称不会自动赋予其他 capability。完整链路测试需要 `analytics:read`、`knowledge:read`、`sources:read`、`evaluations:read`、`members:read`、`reports:read`、`reports:create`、`reports:copy` 和 `reports:share`。
 5. 为权限验收另设只读账号及受限团队账号。团队 ID 使用组织来源导入的稳定 ID。绑定微信本身不产生企业授权。
 
 通过 API 维护授权时，使用原站管理员认证与响应 envelope：
 
-以下 3 个操作的完整请求、响应及错误分支见 [原站授权管理 OpenAPI](./admin.openapi.json)，可与主 OpenAPI 分别导入 API 客户端。
+以下 4 个操作的完整请求、响应及错误分支见 [原站授权管理 OpenAPI](./admin.openapi.json)，可与主 OpenAPI 分别导入 API 客户端。
 
 | 操作 | 路径及要求 |
 | --- | --- |
 | 读取授权 | `GET /api/v1/admin/bi/organizations/{organization_id}/grants?page=1`，每页 50 条 |
 | 新建/更新 | `PUT /api/v1/admin/bi/organizations/{organization_id}/grants`；首次 `expected_revision=0`，编辑须发送当前 revision |
 | 撤销 | `POST /api/v1/admin/bi/organizations/{organization_id}/grants/{manager_id}/revoke`；请求体包含当前 `expected_revision` |
+| 代确认微信绑定 | `POST /api/v1/admin/bi/organizations/{organization_id}/grants/{manager_id}/bindings/approve`；管理员输入目标用户小程序显示的 `user_code` 并设置 `confirm_binding=true` |
 
 若返回 409，重新读取授权后再决定变更，不覆盖他人的新 revision。`all_teams=true` 时 `team_ids=[]`；受限账号显式列出已授权团队。
 
 ## 3. 完成微信绑定闭环
 
 1. 移动端通过 `wx.login`（Taro 客户端使用对应封装）取得一次性 code，调用 `POST /api/bi/v1/auth/wechat`，提交 `code` 和 `client_version`。
-2. 未绑定时，响应包含 `result=binding_required`、`binding_ticket`、8 位 `user_code`、到期时间和 `/bi/bind`。管理者在原站登录本人账号，打开该路径并确认小程序显示的绑定码。
-3. 原站绑定接口要求新签发的网页 JWT：`iss=devku-sub2api`、`aud=sub2api-web`。旧网页 Token 仍可访问原有网页接口；绑定入口返回 401 时，重新完成原站登录或由原登录流程刷新 Token。
-4. 移动端获得新的微信 code 后调用 `POST /api/bi/v1/auth/bindings/exchange`，提交 `binding_ticket` 和 `code`。尚未审批时返回 202/PendingBinding，按 `retry_after_seconds` 等待；审批后返回小程序会话。票据过期时重新开始绑定流程。
+2. 未绑定时，响应包含 `result=binding_required`、`binding_ticket`、8 位 `user_code`、到期时间和兼容入口 `/bi/bind`。目标用户将小程序显示的绑定码提供给管理员。
+3. 管理员在该企业详情的「小程序企业授权」列表中，找到目标账号并点击「绑定微信」，核对账号后输入绑定码并确认。此操作要求原站管理员身份和 step-up 校验，且目标账号在该企业有有效授权；审计记录管理员、目标账号和企业。原站 `/bi/bind` 仍可供账号本人自助绑定或撤销。
+4. 移动端获得新的微信 code 后调用 `POST /api/bi/v1/auth/bindings/exchange`，提交 `binding_ticket` 和 `code`。尚未审批时返回 202/PendingBinding，按 `retry_after_seconds` 等待；管理员确认后返回小程序会话。票据过期时重新开始绑定流程。
 5. 使用返回的 MobileBearer 调用 `GET /api/bi/v1/me` 和 `GET /api/bi/v1/organizations`。企业列表只能包含显式授权的企业；没有授权时应为空。
 6. 分别执行退出、撤销微信绑定、撤销企业授权、停用原账号。检查旧会话、Context、报告和分享的实际响应。企业撤权不等同于账号退出，记录对应的 401、403 或 404，不把这些状态混为一种成功结果。
 

@@ -107,6 +107,14 @@ func registerBIAdminRoutes(admin *gin.RouterGroup, h *handler.Handlers, cfg *con
 		}
 		h.BI.AdminRevokeGrant(c, actor.UserID)
 	})
+	group.POST("/:manager_id/bindings/approve", gin.HandlerFunc(stepUpAuth), func(c *gin.Context) {
+		actor, ok := middleware.GetAuthSubjectFromContext(c)
+		if !ok {
+			bi.WriteError(c, bi.ErrUnauthenticated)
+			return
+		}
+		h.BI.AdminApproveBindingForGrant(c, actor.UserID)
+	})
 
 	biAdmin := admin.Group("/bi")
 	biAdmin.GET("/overview", h.BI.AdminOverview)

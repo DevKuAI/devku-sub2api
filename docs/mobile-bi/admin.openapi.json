@@ -3,7 +3,7 @@
   "info": {
     "title": "得酷 BI 原站授权管理 API",
     "version": "1.1.0",
-    "description": "API v1.1.0 的 27 个原站授权与运维操作。bi.enabled=true 时注册，复用原站管理员认证、审计、合规确认及面板限流。与 openapi.yaml 的 59 个小程序/采集操作分别导入。当前已本地实现，尚未完成真实环境验收。"
+    "description": "API v1.1.0 的 28 个原站授权与运维操作。bi.enabled=true 时注册，复用原站管理员认证、审计、合规确认及面板限流。与 openapi.yaml 的 59 个小程序/采集操作分别导入。当前已本地实现，尚未完成真实环境验收。"
   },
   "servers": [
     {
@@ -517,6 +517,56 @@
               }
             }
           }
+        }
+      }
+    },
+    "/api/v1/admin/bi/organizations/{organization_id}/grants/{manager_id}/bindings/approve": {
+      "parameters": [
+        {
+          "name": "organization_id",
+          "in": "path",
+          "required": true,
+          "description": "现有 Desktop 企业 public_id。",
+          "schema": { "$ref": "#/components/schemas/Id" }
+        },
+        {
+          "name": "manager_id",
+          "in": "path",
+          "required": true,
+          "description": "本企业有效授权返回的 BI manager_id。",
+          "schema": { "$ref": "#/components/schemas/Id" }
+        }
+      ],
+      "post": {
+        "operationId": "approveBIGrantBinding",
+        "tags": ["企业授权"],
+        "summary": "管理员为已授权账号确认小程序微信绑定",
+        "description": "管理员完成 step-up 后，输入目标用户小程序显示的 8 位绑定码并显式确认。目标账号必须启用，且在本企业有有效授权；绑定不会新增或扩大企业权限。操作记录管理员、目标账号和企业。绑定码默认 10 分钟有效。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AdminApproveBinding" },
+              "example": { "user_code": "ABCD1234", "confirm_binding": true }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "绑定已审批，小程序仍需使用原票据和新的微信 code 兑换会话。",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AdminApproveBindingResponse" },
+                "example": { "code": 0, "message": "success", "data": { "approved": true } }
+              }
+            }
+          },
+          "400": { "description": "绑定码或确认参数不合法", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "401": { "description": "管理员认证失败或目标账号不可用", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "403": { "description": "需要管理员身份或 step-up 校验", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "description": "本企业无此有效授权", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "409": { "description": "该微信身份已绑定其他账号", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "410": { "description": "绑定码过期或已撤销", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
         }
       }
     },
@@ -3196,6 +3246,30 @@
         "required": [
           "expected_revision"
         ]
+      },
+      "AdminApproveBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "user_code": { "type": "string", "pattern": "^[A-Z0-9]{8}$" },
+          "confirm_binding": { "const": true }
+        },
+        "required": ["user_code", "confirm_binding"]
+      },
+      "AdminApproveBindingResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": { "const": 0 },
+          "message": { "const": "success" },
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": { "approved": { "const": true } },
+            "required": ["approved"]
+          }
+        },
+        "required": ["code", "message", "data"]
       },
       "GrantResponse": {
         "type": "object",

@@ -15,12 +15,14 @@
           <p class="font-medium">{{ grant.display_name || grant.user_id }} · {{ t(`bi.roles.${grant.role}`) }}</p>
           <p class="text-sm text-gray-500">{{ grant.revoked ? t('bi.grantRevoked') : grant.all_teams ? t('bi.allTeams') : grant.team_ids.join(', ') }}</p>
         </div>
-        <div class="flex gap-2">
+        <div class="flex flex-wrap gap-2">
           <button class="btn btn-secondary" type="button" :disabled="busy" @click="openEditor(grant)">{{ t('common.edit') }}</button>
+          <button v-if="!grant.revoked" class="btn btn-secondary" type="button" :disabled="busy" @click="openBinding(grant)">{{ t('bi.bindWechat') }}</button>
           <button v-if="!grant.revoked" class="btn btn-secondary text-red-600" type="button" :disabled="busy" @click="revokeTarget = grant">{{ t('bi.revokeGrant') }}</button>
         </div>
       </li>
     </ul>
+    <p v-if="bindingNotice" role="status" class="text-sm text-green-700 dark:text-green-300">{{ bindingNotice }}</p>
     <div v-if="enabled" class="flex flex-wrap gap-2">
       <button type="button" class="btn btn-secondary" :disabled="busy || loading" @click="load(1)">{{ t('common.refresh') }}</button>
       <button v-if="hasMore" type="button" class="btn btn-secondary" :disabled="busy || loading" @click="load(page + 1)">{{ t('bi.loadMore') }}</button>
@@ -86,6 +88,24 @@
         </div>
       </template>
     </BaseDialog>
+    <BaseDialog :show="!!bindingTarget" :title="t('bi.bindWechat')" width="narrow" @close="closeBinding">
+      <form id="bi-admin-binding-form" class="space-y-4" @submit.prevent="approveGrantBindingCode">
+        <p class="text-sm text-gray-600 dark:text-dark-300">{{ t('bi.bindWechatTarget', { account: bindingTarget?.display_name || '', id: bindingTarget?.user_id || '' }) }}</p>
+        <div>
+          <label for="bi-admin-binding-code" class="mb-1 block text-sm font-medium">{{ t('bi.userCode') }}</label>
+          <input id="bi-admin-binding-code" v-model="bindingCode" class="input max-w-xs font-mono uppercase" maxlength="8" pattern="[A-Za-z0-9]{8}" autocomplete="off" required :disabled="busy" aria-describedby="bi-admin-binding-hint" />
+          <p id="bi-admin-binding-hint" class="input-hint">{{ t('bi.adminBindingHint') }}</p>
+        </div>
+        <label class="flex items-start gap-2 text-sm"><input v-model="bindingConfirmed" type="checkbox" required :disabled="busy" class="mt-1" />{{ t('bi.adminBindingConfirm') }}</label>
+        <p v-if="bindingError" role="alert" class="text-sm text-red-600 dark:text-red-400">{{ bindingError }}</p>
+      </form>
+      <template #footer>
+        <div class="flex justify-end gap-3">
+          <button class="btn btn-secondary" type="button" :disabled="busy" @click="closeBinding">{{ t('common.cancel') }}</button>
+          <button class="btn btn-primary" form="bi-admin-binding-form" type="submit" :disabled="busy || !bindingConfirmed || !validBindingCode" :aria-busy="busy">{{ t('bi.approve') }}</button>
+        </div>
+      </template>
+    </BaseDialog>
     <ConfirmDialog :show="!!revokeTarget" :title="t('bi.revokeGrant')" :message="t('bi.revokeGrantMessage')" :loading="busy" danger @confirm="revoke" @cancel="revokeTarget = null" />
   </section>
 </template>
@@ -98,7 +118,7 @@ import type { AdminUser } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Select from '@/components/common/Select.vue'
-import { isBIEnabled, listGrants, revokeGrant, saveGrant, type BIGrant, type BIGrantInput } from '@/api/bi'
+import { approveGrantBinding, isBIEnabled, listGrants, revokeGrant, saveGrant, type BIGrant, type BIGrantInput } from '@/api/bi'
 
 const props = defineProps<{ organizationId: string }>()
 const { t } = useI18n()
@@ -119,6 +139,11 @@ const hasMore = ref(false)
 const editing = ref(false)
 const editingGrant = ref<BIGrant | null>(null)
 const revokeTarget = ref<BIGrant | null>(null)
+const bindingTarget = ref<BIGrant | null>(null)
+const bindingCode = ref('')
+const bindingConfirmed = ref(false)
+const bindingError = ref('')
+const bindingNotice = ref('')
 const roles = ['org_admin', 'team_manager', 'viewer'] as const
 const teamText = ref('')
 const form = reactive<BIGrantInput>({ user_id: 0, role: 'viewer', all_teams: false, team_ids: [], capabilities: [], expected_revision: 0 })
@@ -136,6 +161,7 @@ const userOptions = computed(() => {
     label: [user.username, user.email, `#${user.id}`].filter(Boolean).join(' · '),
   }))
 })
+const validBindingCode = computed(() => /^[A-Z0-9]{8}$/.test(bindingCode.value.trim().toUpperCase()))
 
 function message(cause: unknown) { return t((cause as { status?: number }).status === 409 ? 'bi.reload' : 'bi.failed') }
 
@@ -210,6 +236,36 @@ function onUserChange(value: string | number | boolean | null) {
   userSelectionError.value = ''
 }
 
+function openBinding(grant: BIGrant) {
+  bindingTarget.value = grant
+  bindingCode.value = ''
+  bindingConfirmed.value = false
+  bindingError.value = ''
+  bindingNotice.value = ''
+}
+
+function closeBinding() {
+  if (!busy.value) bindingTarget.value = null
+}
+
+async function approveGrantBindingCode() {
+  if (!bindingTarget.value || busy.value || !bindingConfirmed.value || !validBindingCode.value) return
+  busy.value = true
+  bindingError.value = ''
+  const current = generation
+  try {
+    await approveGrantBinding(props.organizationId, bindingTarget.value.manager_id, bindingCode.value.trim().toUpperCase())
+    if (current !== generation) return
+    bindingTarget.value = null
+    bindingNotice.value = t('bi.adminBindingApproved')
+  } catch (cause) {
+    if (current === generation) {
+      const code = (cause as { code?: string; reason?: string }).code || (cause as { reason?: string }).reason
+      bindingError.value = t(code === 'BINDING_EXPIRED' ? 'bi.expired' : code === 'BINDING_CONFLICT' ? 'bi.conflict' : code === 'NOT_FOUND' ? 'bi.adminBindingGrantMissing' : 'bi.failed')
+    }
+  } finally { busy.value = false }
+}
+
 async function save() {
   if (busy.value) return
   if (!Number.isInteger(form.user_id) || form.user_id <= 0) {
@@ -253,6 +309,8 @@ watch(() => props.organizationId, async () => {
   enabled.value = false
   editing.value = false
   revokeTarget.value = null
+  bindingTarget.value = null
+  bindingNotice.value = ''
   grants.value = []
   capabilities.value = []
   page.value = 1

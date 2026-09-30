@@ -18,6 +18,27 @@ func ensureManager(ctx context.Context, tx *sql.Tx, userID int64) (string, error
 }
 
 func (s *Service) ApproveBinding(ctx context.Context, userID int64, code, requestID string) error {
+	return s.approveBinding(ctx, userID, code, requestID, "", "", 0)
+}
+
+func (s *Service) ApproveBindingForGrant(ctx context.Context, organizationID, managerID, code string, actorUserID int64, requestID string) error {
+	var userID int64
+	err := s.db.QueryRowContext(ctx, `SELECT m.user_id FROM bi_manager_grants g
+		JOIN bi_managers m ON m.id=g.manager_id
+		JOIN bi_organizations o ON o.id=g.organization_id
+		JOIN desktop_organizations d ON d.id=o.desktop_organization_id
+		WHERE g.manager_id=$1 AND g.organization_id=$2 AND g.revoked_at IS NULL
+		AND d.deleted_at IS NULL AND d.status='active'`, managerID, organizationID).Scan(&userID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+	return s.approveBinding(ctx, userID, code, requestID, organizationID, managerID, actorUserID)
+}
+
+func (s *Service) approveBinding(ctx context.Context, userID int64, code, requestID, organizationID, managerID string, actorUserID int64) error {
 	if !bindingCodePattern.MatchString(code) {
 		return invalid("user_code", "Expected an eight-character binding code")
 	}
@@ -44,9 +65,27 @@ func (s *Service) ApproveBinding(ctx context.Context, userID int64, code, reques
 		if !expires.After(s.now()) || (status != "pending" && status != "approved") {
 			return ErrBindingExpired
 		}
-		managerID, err := ensureManager(ctx, tx, userID)
-		if err != nil {
-			return err
+		if organizationID == "" {
+			var err error
+			managerID, err = ensureManager(ctx, tx, userID)
+			if err != nil {
+				return err
+			}
+		} else {
+			var verifiedUserID int64
+			err := tx.QueryRowContext(ctx, `SELECT m.user_id FROM bi_manager_grants g
+				JOIN bi_managers m ON m.id=g.manager_id
+				JOIN bi_organizations o ON o.id=g.organization_id
+				JOIN desktop_organizations d ON d.id=o.desktop_organization_id
+				WHERE g.manager_id=$1 AND g.organization_id=$2 AND m.user_id=$3
+				AND g.revoked_at IS NULL AND d.deleted_at IS NULL AND d.status='active'
+				FOR SHARE OF g,d`, managerID, organizationID, userID).Scan(&verifiedUserID)
+			if errors.Is(err, sql.ErrNoRows) {
+				return ErrNotFound
+			}
+			if err != nil {
+				return err
+			}
 		}
 		b, err := s.activeBinding(ctx, tx, openHash)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -64,6 +103,10 @@ func (s *Service) ApproveBinding(ctx context.Context, userID int64, code, reques
 		}
 		if _, err := tx.ExecContext(ctx, `UPDATE bi_binding_challenges SET status='approved',binding_id=$1 WHERE code_hash=$2`, b.ID, codeHash); err != nil {
 			return err
+		}
+		if organizationID != "" {
+			return insertAdminSecurityEvent(ctx, tx, actorUserID, "binding.approve_by_admin", b.ID, organizationID, requestID,
+				map[string]any{"manager_id": managerID, "user_id": userID})
 		}
 		return recordSecurityEvent(ctx, tx, managerID, "binding.approve", b.ID, requestID)
 	})

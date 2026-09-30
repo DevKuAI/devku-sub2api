@@ -10,6 +10,7 @@
 - 主接口与后台接口的路径均已注册；主文档实现状态已更新为 implemented-local。后台运维接口的路径清单已加入 `admin.openapi.json`，但新增运维操作的请求/响应 Schema 仍需继续补齐。
 - `TestEmbeddedSchemasMatchOpenAPIVersion110` 及响应校验：嵌入 Schema 与交接契约一致；分析、内容、报告的实际 HTTP 响应通过对应 Schema 校验。
 - `TestBindingApprovalRaceAndOneTimeExchange`、`TestWeChatCodeReplayAndUnlinkInvalidatesOutstandingChallenges`、`TestRefreshRaceRevokesFamilyAndLogoutIsImmediate`：绑定争用、一次性兑换、code 重放、解绑和 refresh 并发。
+- `TestAdminBindingApprovalRequiresActiveEnterpriseGrant`、`TestBIAdminBindingApprovalRequiresStepUp`：管理员代目标账号确认绑定码时校验企业有效授权、step-up 和审计；真实微信设备上的交接仍待联调。
 - `TestGrantsAreExplicitScopedAndRevokeImmediately`、`TestAnalysisContextIsImmutableAndNeverWidens`：企业授权隔离、Context 所属用户/企业校验、撤权与过期、固定 data revision。
 - `TestImportAdmissionSerializesSourceAndSurvivesCredentialRotation`、`TestImportsResolveCyclicVersionsAndRejectWholeInvalidBatches`：幂等域、source 并发、checkpoint、循环引用和全批原子性。
 - `TestImportRecoveryPublishesOnlyAfterViewsAreBuilt`、`TestSourceHistoryAndACLRestrictionsSurviveFailedPublication`：租约隔离、恢复、无半批读取、失败发布不放开 ACL。

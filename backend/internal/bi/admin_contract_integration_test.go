@@ -30,6 +30,7 @@ func TestBIAdminResponsesMatchSupplementalOpenAPI(t *testing.T) {
 	r.GET("/:organization_id/grants", h.AdminListGrants)
 	r.PUT("/:organization_id/grants", func(c *gin.Context) { h.AdminSaveGrant(c, p.UserID) })
 	r.POST("/:organization_id/grants/:manager_id/revoke", func(c *gin.Context) { h.AdminRevokeGrant(c, p.UserID) })
+	r.POST("/:organization_id/grants/:manager_id/bindings/approve", func(c *gin.Context) { h.AdminApproveBindingForGrant(c, p.UserID) })
 	request := func(method, path, body string, status int, schema string) []byte {
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, httptest.NewRequest(method, "/"+c.OrganizationID+path, strings.NewReader(body)))
@@ -52,6 +53,10 @@ func TestBIAdminResponsesMatchSupplementalOpenAPI(t *testing.T) {
 	var saved struct{ Data Grant }
 	require.NoError(t, json.Unmarshal(request("PUT", "/grants", string(body), 200, "GrantResponse"), &saved))
 	require.Equal(t, grant.Revision+1, saved.Data.Revision)
+	challenge := loginChallenge(t, s)
+	bindPath := "/grants/" + p.ManagerID + "/bindings/approve"
+	request("POST", bindPath, `{"user_code":"`+challenge.UserCode+`","confirm_binding":false}`, 400, "Error")
+	request("POST", bindPath, `{"user_code":"`+challenge.UserCode+`","confirm_binding":true}`, 200, "AdminApproveBindingResponse")
 	request("PUT", "/grants", string(body), 409, "Error")
 	request("PUT", "/grants", `{`, 400, "Error")
 	request("GET", "/grants?page=0", "", 400, "Error")

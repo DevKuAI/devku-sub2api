@@ -145,6 +145,41 @@ func TestBindingApprovalRaceAndOneTimeExchange(t *testing.T) {
 	require.ErrorIs(t, err, ErrBindingExpired)
 }
 
+func TestAdminBindingApprovalRequiresActiveEnterpriseGrant(t *testing.T) {
+	s, _, ids := authFixture(t)
+	ctx := context.Background()
+	var groupID int64
+	require.NoError(t, integrationDB.QueryRow(`INSERT INTO groups(name) VALUES($1) RETURNING id`, randomToken("group_")).Scan(&groupID))
+	organizationID := fmt.Sprintf("bind_org_%d", ids[0])
+	_, err := integrationDB.Exec(`INSERT INTO desktop_organizations(public_id,code,name,gateway_user_id,group_id)
+		VALUES($1,$2,'Binding test',$3,$4)`, organizationID, fmt.Sprintf("bo%d", ids[0]), ids[0], groupID)
+	require.NoError(t, err)
+	challenge := loginChallenge(t, s)
+	require.ErrorIs(t, s.ApproveBindingForGrant(ctx, organizationID, "missing", challenge.UserCode, ids[0], "missing-grant"), ErrNotFound)
+	zero := int64(0)
+	grant, err := s.SaveGrant(ctx, organizationID, GrantInput{UserID: ids[1], Role: "viewer", AllTeams: true,
+		TeamIDs: []string{}, Capabilities: []string{"analytics:read"}, ExpectedRevision: &zero}, ids[0], "grant")
+	require.NoError(t, err)
+	require.ErrorIs(t, s.ApproveBindingForGrant(ctx, "other-org", grant.ManagerID, challenge.UserCode, ids[0], "wrong-org"), ErrNotFound)
+	require.NoError(t, s.RevokeGrant(ctx, organizationID, grant.ManagerID, grant.Revision, ids[0], "revoke-grant"))
+	require.ErrorIs(t, s.ApproveBindingForGrant(ctx, organizationID, grant.ManagerID, challenge.UserCode, ids[0], "revoked-grant"), ErrNotFound)
+	nextRevision := grant.Revision + 1
+	grant, err = s.SaveGrant(ctx, organizationID, GrantInput{UserID: ids[1], Role: "viewer", AllTeams: true,
+		TeamIDs: []string{}, Capabilities: []string{"analytics:read"}, ExpectedRevision: &nextRevision}, ids[0], "restore-grant")
+	require.NoError(t, err)
+	require.NoError(t, s.ApproveBindingForGrant(ctx, organizationID, grant.ManagerID, challenge.UserCode, ids[0], "admin-approve"))
+	session, err := s.ExchangeBinding(ctx, challenge.BindingTicket, randomToken("code_"))
+	require.NoError(t, err)
+	principal, err := s.Authorize(ctx, session.AccessToken)
+	require.NoError(t, err)
+	require.Equal(t, ids[1], principal.UserID)
+	var actorID, targetUserID int64
+	require.NoError(t, integrationDB.QueryRow(`SELECT actor_user_id,(metadata->>'user_id')::bigint FROM bi_security_events
+		WHERE action='binding.approve_by_admin' AND request_id='admin-approve' AND organization_id=$1`, organizationID).Scan(&actorID, &targetUserID))
+	require.Equal(t, ids[0], actorID)
+	require.Equal(t, ids[1], targetUserID)
+}
+
 func TestWeChatCodeReplayAndUnlinkInvalidatesOutstandingChallenges(t *testing.T) {
 	s, _, ids := authFixture(t)
 	ctx := context.Background()

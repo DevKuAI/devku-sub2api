@@ -80,3 +80,10 @@ export async function revokeGrant(organizationID: string, grant: BIGrant): Promi
     expected_revision: grant.revision,
   })
 }
+
+export async function approveGrantBinding(organizationID: string, managerID: string, userCode: string): Promise<void> {
+  await apiClient.post(`/admin/bi/organizations/${encodeURIComponent(organizationID)}/grants/${encodeURIComponent(managerID)}/bindings/approve`, {
+    user_code: userCode,
+    confirm_binding: true,
+  })
+}

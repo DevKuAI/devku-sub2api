@@ -47,3 +47,20 @@ func (h *Handler) AdminRevokeGrant(c *gin.Context, actorUserID int64) {
 	err := h.service.RevokeGrant(c.Request.Context(), c.Param("organization_id"), c.Param("manager_id"), *input.ExpectedRevision, actorUserID, c.GetString("bi.request_id"))
 	adminRespond(c, gin.H{"revoked": true}, err)
 }
+
+func (h *Handler) AdminApproveBindingForGrant(c *gin.Context, actorUserID int64) {
+	var input struct {
+		UserCode string `json:"user_code"`
+		Confirm  bool   `json:"confirm_binding"`
+	}
+	if !decodeRequest(c, &input) {
+		return
+	}
+	if !input.Confirm {
+		adminRespond(c, nil, invalid("confirm_binding", "Explicit binding confirmation is required"))
+		return
+	}
+	err := h.service.ApproveBindingForGrant(c.Request.Context(), c.Param("organization_id"), c.Param("manager_id"),
+		input.UserCode, actorUserID, c.GetString("bi.request_id"))
+	adminRespond(c, gin.H{"approved": true}, err)
+}

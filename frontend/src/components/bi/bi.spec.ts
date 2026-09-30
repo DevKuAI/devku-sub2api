@@ -3,7 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 
 const api = vi.hoisted(() => ({
   isBIEnabled: vi.fn(), listBindings: vi.fn(), approveBinding: vi.fn(), revokeBinding: vi.fn(),
-  listGrants: vi.fn(), saveGrant: vi.fn(), revokeGrant: vi.fn(),
+  listGrants: vi.fn(), saveGrant: vi.fn(), revokeGrant: vi.fn(), approveGrantBinding: vi.fn(),
 }))
 const userAPI = vi.hoisted(() => ({ list: vi.fn(), getById: vi.fn() }))
 vi.mock('@/api/bi', () => api)
@@ -96,6 +96,44 @@ describe('BI management flows', () => {
     wrapper.unmount()
   })
 
+  it('lets an admin approve a binding code for an active enterprise grant', async () => {
+    api.listGrants.mockResolvedValue({
+      items: [{ manager_id: 'bim_target', user_id: 42, display_name: 'Manager', role: 'viewer', all_teams: true, team_ids: [], capabilities: ['analytics:read'], revision: 1, revoked: false }],
+      page: 1, has_more: false, capabilities: ['analytics:read'],
+    })
+    const wrapper = mount(BIGrantManagement, { props: { organizationId: 'org-one' }, global })
+    await flushPromises()
+    await wrapper.findAll('li button').find(button => button.text() === 'bi.bindWechat')!.trigger('click')
+    expect(wrapper.get('#bi-admin-binding-form').text()).toContain('bi.bindWechatTarget')
+    await wrapper.get('#bi-admin-binding-code').setValue('abcd1234')
+    await wrapper.get('#bi-admin-binding-form').trigger('submit')
+    expect(api.approveGrantBinding).not.toHaveBeenCalled()
+    await wrapper.get('#bi-admin-binding-form input[type="checkbox"]').setValue(true)
+    await wrapper.get('#bi-admin-binding-form').trigger('submit')
+    await flushPromises()
+    expect(api.approveGrantBinding).toHaveBeenCalledWith('org-one', 'bim_target', 'ABCD1234')
+    expect(wrapper.get('[role="status"]').text()).toBe('bi.adminBindingApproved')
+    wrapper.unmount()
+  })
+
+  it('shows a binding failure without claiming approval', async () => {
+    api.listGrants.mockResolvedValue({
+      items: [{ manager_id: 'bim_target', user_id: 42, display_name: 'Manager', role: 'viewer', all_teams: true, team_ids: [], capabilities: ['analytics:read'], revision: 1, revoked: false }],
+      page: 1, has_more: false, capabilities: ['analytics:read'],
+    })
+    api.approveGrantBinding.mockRejectedValue({ code: 'NOT_FOUND' })
+    const wrapper = mount(BIGrantManagement, { props: { organizationId: 'org-one' }, global })
+    await flushPromises()
+    await wrapper.findAll('li button').find(button => button.text() === 'bi.bindWechat')!.trigger('click')
+    await wrapper.get('#bi-admin-binding-code').setValue('ABCD1234')
+    await wrapper.get('#bi-admin-binding-form input[type="checkbox"]').setValue(true)
+    await wrapper.get('#bi-admin-binding-form').trigger('submit')
+    await flushPromises()
+    expect(wrapper.get('#bi-admin-binding-form [role="alert"]').text()).toBe('bi.adminBindingGrantMissing')
+    expect(wrapper.find('[role="status"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
   it('requires explicit approval and sends only the normalized challenge code', async () => {
     const wrapper = mount(BIBindingsView, { global })
     await flushPromises()
@@ -174,7 +212,7 @@ describe('BI management flows', () => {
       await wrapper.get('#bi-grant-role').setValue('org_admin')
       await wrapper.get('#bi-grant-form').trigger('submit')
     } else {
-      await wrapper.findAll('li button')[1]!.trigger('click')
+      await wrapper.findAll('li button').find(button => button.text() === 'bi.revokeGrant')!.trigger('click')
       await wrapper.get('[data-confirm]').trigger('click')
     }
     await flushPromises()
