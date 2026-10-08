@@ -15,7 +15,7 @@ import (
 
 func TestDesktopOrganizationUsageIncludesHistoricalKeysAndIsolatesOrganizations(t *testing.T) {
 	ctx := context.Background()
-	one := newDesktopRepositoryFixture(t, "usageone", 10)
+	one := newDesktopRepositoryFixture(t, "usageone", 30)
 	two := newDesktopRepositoryFixture(t, "otherusage", 10)
 	member := one.createMember(t, "usageone", 1)
 	second := one.createMember(t, "usagetwo", 2)
@@ -43,7 +43,7 @@ func TestDesktopOrganizationUsageIncludesHistoricalKeysAndIsolatesOrganizations(
 			SetRequestID(uuid.NewString()).SetModel("model").SetInputTokens(unit).SetOutputTokens(unit * 2).
 			SetCacheCreationTokens(unit * 3).SetCacheReadTokens(unit * 4).SetActualCost(float64(unit) / 10).
 			SetTotalCost(float64(unit)).SetCreatedAt(at)
-		if unit == 6 {
+		if unit == 2 || unit == 6 {
 			builder.SetRequestedModel("requested-model")
 		}
 		_, err := builder.Save(ctx)
@@ -85,9 +85,9 @@ func TestDesktopOrganizationUsageIncludesHistoricalKeysAndIsolatesOrganizations(
 	require.EqualValues(t, 2, result.ObservedMembers)
 	require.Len(t, result.Models, 2)
 	require.Equal(t, "model", result.Models[0].Model)
-	require.EqualValues(t, 5, result.Models[0].Requests)
+	require.EqualValues(t, 4, result.Models[0].Requests)
 	require.Equal(t, "requested-model", result.Models[1].Model)
-	require.EqualValues(t, 1, result.Models[1].Requests)
+	require.EqualValues(t, 2, result.Models[1].Requests)
 	require.Len(t, result.Members, 2)
 	require.Equal(t, member.PublicID, result.Members[0].MemberID)
 	require.True(t, result.Members[0].Deleted)
@@ -95,6 +95,17 @@ func TestDesktopOrganizationUsageIncludesHistoricalKeysAndIsolatesOrganizations(
 	require.Equal(t, second.PublicID, result.Members[1].MemberID)
 	require.EqualValues(t, 210, result.Selected.TotalTokens)
 	require.Zero(t, result.Previous.TotalTokens)
+	require.Len(t, result.MemberModels, 3)
+	memberModels := map[string]service.DesktopUsageMemberModel{}
+	for _, item := range result.MemberModels {
+		memberModels[item.MemberID+"/"+item.Model] = item
+	}
+	require.Equal(t, service.DesktopUsageMemberModel{
+		MemberID: member.PublicID, Name: member.Name, Deleted: true, Model: "model", Requests: 4, TotalTokens: 130,
+		DesktopUsageBreakdown: service.DesktopUsageBreakdown{InputTokens: 13, OutputTokens: 26, CacheCreationTokens: 39, CacheReadTokens: 52},
+	}, memberModels[member.PublicID+"/model"])
+	require.EqualValues(t, 20, memberModels[member.PublicID+"/requested-model"].TotalTokens)
+	require.EqualValues(t, 60, memberModels[second.PublicID+"/requested-model"].TotalTokens)
 	custom, err := (service.DesktopAnalyticsRangeInput{FromDate: "2026-09-21", ToDate: "2026-09-21"}).Resolve(end)
 	require.NoError(t, err)
 	windows.Selected = custom
@@ -104,6 +115,12 @@ func TestDesktopOrganizationUsageIncludesHistoricalKeysAndIsolatesOrganizations(
 	require.EqualValues(t, 100, customResult.Selected.TotalTokens)
 	require.EqualValues(t, 30, customResult.Previous.TotalTokens)
 	require.EqualValues(t, 210, customResult.Last30Days.TotalTokens)
+	require.Len(t, customResult.MemberModels, 2)
+	var customTokens int64
+	for _, item := range customResult.MemberModels {
+		customTokens += item.TotalTokens
+	}
+	require.Equal(t, customResult.Selected.TotalTokens, customTokens)
 	windows.Selected = selected
 	for i := 0; i < 11; i++ {
 		_, err := integrationEntClient.UsageLog.Create().SetUserID(one.user.ID).SetAPIKeyID(*second.CurrentAPIKeyID).
@@ -126,11 +143,27 @@ func TestDesktopOrganizationUsageIncludesHistoricalKeysAndIsolatesOrganizations(
 	require.NotNil(t, tokenHeavy)
 	require.EqualValues(t, 1, tokenHeavy.TokenRank)
 	require.Greater(t, tokenHeavy.CostRank, int64(10))
+	require.Len(t, ranked.MemberModels, 15)
+	for i := 0; i < 11; i++ {
+		extra := one.createMember(t, fmt.Sprintf("extrausage%02d", i), int64(i+3))
+		insert(one.user.ID, *extra.CurrentAPIKeyID, 1, today)
+	}
+	complete, err := repo.GetDesktopOrganizationUsage(ctx, one.organization.ID, windows)
+	require.NoError(t, err)
+	require.EqualValues(t, 13, complete.ObservedMembers)
+	require.Len(t, complete.MemberModels, 26)
+	var allTokens int64
+	for _, item := range complete.MemberModels {
+		allTokens += item.TotalTokens
+	}
+	require.Equal(t, complete.Selected.TotalTokens, allTokens)
 	result, err = repo.GetDesktopOrganizationUsage(ctx, two.organization.ID, windows)
 	require.NoError(t, err)
 	require.EqualValues(t, 100, result.Total.TotalTokens)
 	require.InDelta(t, 1.0, result.Total.ActualCost, 0.000001)
 	require.EqualValues(t, 1, result.ObservedMembers)
+	require.Len(t, result.MemberModels, 1)
+	require.Equal(t, outside.PublicID, result.MemberModels[0].MemberID)
 	result, err = repo.GetDesktopOrganizationUsage(ctx, -1, windows)
 	require.NoError(t, err)
 	require.Zero(t, result.Total)
@@ -138,4 +171,6 @@ func TestDesktopOrganizationUsageIncludesHistoricalKeysAndIsolatesOrganizations(
 	require.Len(t, result.Daily, 30)
 	require.Empty(t, result.Models)
 	require.Empty(t, result.Members)
+	require.NotNil(t, result.MemberModels)
+	require.Empty(t, result.MemberModels)
 }

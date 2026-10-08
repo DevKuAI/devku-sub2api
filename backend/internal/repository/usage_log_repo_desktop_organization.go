@@ -191,5 +191,38 @@ func (r *usageLogRepository) loadDesktopUsageInsights(ctx context.Context, organ
 		err = rows.Err()
 	}
 	_ = rows.Close()
+	if err != nil {
+		return err
+	}
+	result.MemberModels, err = r.loadDesktopMemberModelUsage(ctx, organizationID, selection)
 	return err
+}
+
+func (r *usageLogRepository) loadDesktopMemberModelUsage(ctx context.Context, organizationID int64, selection service.DesktopAnalyticsRange) ([]service.DesktopUsageMemberModel, error) {
+	const query = `
+		SELECT member.public_id, member.name, member.deleted_at IS NOT NULL,
+			COALESCE(NULLIF(ul.requested_model, ''), ul.model) AS model, COUNT(*),
+			SUM(ul.input_tokens), SUM(ul.output_tokens), SUM(ul.cache_creation_tokens), SUM(ul.cache_read_tokens),
+			SUM(ul.input_tokens + ul.output_tokens + ul.cache_creation_tokens + ul.cache_read_tokens) AS total_tokens
+		FROM desktop_members member
+		JOIN desktop_member_api_keys assignment ON assignment.member_id = member.id
+		JOIN usage_logs ul ON ul.api_key_id = assignment.api_key_id
+		WHERE member.organization_id = $1 AND ul.created_at >= $2 AND ul.created_at < $3
+		GROUP BY member.id, member.public_id, member.name, member.deleted_at, 4
+		ORDER BY member.name, member.public_id, total_tokens DESC, model`
+	rows, err := r.sql.QueryContext(ctx, query, organizationID, selection.Start.UTC(), selection.End)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	result := []service.DesktopUsageMemberModel{}
+	for rows.Next() {
+		var item service.DesktopUsageMemberModel
+		if err := rows.Scan(&item.MemberID, &item.Name, &item.Deleted, &item.Model, &item.Requests,
+			&item.InputTokens, &item.OutputTokens, &item.CacheCreationTokens, &item.CacheReadTokens, &item.TotalTokens); err != nil {
+			return nil, err
+		}
+		result = append(result, item)
+	}
+	return result, rows.Err()
 }

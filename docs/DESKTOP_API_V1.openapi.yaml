@@ -1287,7 +1287,8 @@ paths:
         累计基于当前保留的用量日志，不包含承载用户其他普通 API Key 的用量。
         默认分析近 30 个本地自然日（含今日）；可选最近 7、30、90 天，或指定不超过 90 天的日期范围。
         当结束日期为今日时，仅统计到 as_of；previous 为上一等长时段相同时间边界的用量。
-        daily、breakdown、models、members 和 observed_members 均使用所选期间，排行返回费用或令牌用量前 10 的并集。
+        daily、breakdown、models、members、member_models 和 observed_members 均使用所选期间，排行返回费用或令牌用量前 10 的并集。
+        member_models 返回全部有计费日志的成员与模型组合，包含历史 API Key 和已删除成员的留存用量，不受排行限制；无用量组合不返回。
         observed_members 仅表示所选期间有计费日志的成员，不代表完整采用率；requests 仅表示计费日志数。
         统计截止 as_of（不含该时刻）；空数据返回 0。接口受 DESKTOP_ENABLED 控制，不依赖对话上报开关。
       security:
@@ -1332,7 +1333,8 @@ paths:
         累计基于当前保留的用量日志，不包含承载用户其他普通 API Key 的用量。
         默认分析近 30 个本地自然日（含今日）；可选最近 7、30、90 天，或指定不超过 90 天的日期范围。
         当结束日期为今日时，仅统计到 as_of；previous 为上一等长时段相同时间边界的用量。
-        daily、breakdown、models、members 和 observed_members 均使用所选期间，排行返回费用或令牌用量前 10 的并集。
+        daily、breakdown、models、members、member_models 和 observed_members 均使用所选期间，排行返回费用或令牌用量前 10 的并集。
+        member_models 返回全部有计费日志的成员与模型组合，包含历史 API Key 和已删除成员的留存用量，不受排行限制；无用量组合不返回。
         observed_members 仅表示所选期间有计费日志的成员，不代表完整采用率；requests 仅表示计费日志数。
         统计截止 as_of（不含该时刻）；空数据返回 0。接口受 DESKTOP_ENABLED 控制，不依赖对话上报开关。
         企业范围由当前 Web 登录账号确定，不接受客户端指定企业。
@@ -2458,7 +2460,7 @@ components:
 
     DesktopOrganizationUsageStatistics:
       type: object
-      required: [timezone, as_of, today, week, month, total, last_30_days, selected, previous, range_start, range_end, previous_start, previous_end, daily, breakdown, models, members, observed_members]
+      required: [timezone, as_of, today, week, month, total, last_30_days, selected, previous, range_start, range_end, previous_start, previous_end, daily, breakdown, models, members, member_models, observed_members]
       properties:
         timezone:
           type: string
@@ -2532,6 +2534,23 @@ components:
                   requests: {type: integer, format: int64}
                   cost_rank: {type: integer, format: int64}
                   token_rank: {type: integer, format: int64}
+        member_models:
+          type: array
+          description: 所选期间按成员和模型汇总的全部计费用量。按成员名称、成员 ID、总 Token 降序和模型名称排序；无用量时为空数组。
+          items:
+            type: object
+            required: [member_id, name, deleted, model, requests, input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens, total_tokens]
+            properties:
+              member_id: {type: string, description: 成员公开 ID。}
+              name: {type: string, description: 成员名称。}
+              deleted: {type: boolean, description: 成员是否已删除。}
+              model: {type: string, description: 优先使用 requested_model，为空时回退到 model。}
+              requests: {type: integer, format: int64, description: 计费日志数。}
+              input_tokens: {type: integer, format: int64}
+              output_tokens: {type: integer, format: int64}
+              cache_creation_tokens: {type: integer, format: int64}
+              cache_read_tokens: {type: integer, format: int64}
+              total_tokens: {type: integer, format: int64, description: 输入、输出、缓存写入和缓存读取 Token 之和。}
         observed_members:
           type: integer
           format: int64
@@ -2570,4 +2589,5 @@ components:
           breakdown: {input_tokens: 100, output_tokens: 150, cache_creation_tokens: 200, cache_read_tokens: 800}
           models: [{model: gpt-5, requests: 2, total_tokens: 1250, actual_cost: 0.125, cost_rank: 1, token_rank: 1}]
           members: [{member_id: mem_example, name: Example, deleted: false, requests: 2, total_tokens: 1250, actual_cost: 0.125, cost_rank: 1, token_rank: 1}]
+          member_models: [{member_id: mem_example, name: Example, deleted: false, model: gpt-5, requests: 2, input_tokens: 100, output_tokens: 150, cache_creation_tokens: 200, cache_read_tokens: 800, total_tokens: 1250}]
           observed_members: 1

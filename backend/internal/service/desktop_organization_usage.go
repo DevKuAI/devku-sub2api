@@ -47,6 +47,16 @@ type DesktopUsageMember struct {
 	DesktopOrganizationUsagePeriod
 }
 
+type DesktopUsageMemberModel struct {
+	MemberID    string `json:"member_id"`
+	Name        string `json:"name"`
+	Deleted     bool   `json:"deleted"`
+	Model       string `json:"model"`
+	Requests    int64  `json:"requests"`
+	TotalTokens int64  `json:"total_tokens"`
+	DesktopUsageBreakdown
+}
+
 type DesktopOrganizationUsageStatistics struct {
 	Timezone        string                         `json:"timezone"`
 	AsOf            time.Time                      `json:"as_of"`
@@ -65,6 +75,7 @@ type DesktopOrganizationUsageStatistics struct {
 	Breakdown       DesktopUsageBreakdown          `json:"breakdown"`
 	Models          []DesktopUsageModel            `json:"models"`
 	Members         []DesktopUsageMember           `json:"members"`
+	MemberModels    []DesktopUsageMemberModel      `json:"member_models"`
 	ObservedMembers int64                          `json:"observed_members"`
 }
 

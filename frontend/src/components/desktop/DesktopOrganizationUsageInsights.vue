@@ -56,6 +56,8 @@
       </section>
     </div>
 
+    <DesktopMemberModelUsage :rows="statistics.member_models" />
+
     <section class="border-t border-gray-200 pt-5 dark:border-dark-700" :aria-label="t('admin.desktop.usageStatistics.tokenBreakdown')">
       <h4 class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ t('admin.desktop.usageStatistics.tokenBreakdown') }}</h4>
       <dl class="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
@@ -73,6 +75,7 @@ import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement
 import { Line } from 'vue-chartjs'
 import type { DesktopOrganizationUsageStatistics, DesktopUsageRank } from '@/api/desktopOrganizationUsage'
 import { formatCompactNumber } from '@/utils/format'
+import DesktopMemberModelUsage from './DesktopMemberModelUsage.vue'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler)
 

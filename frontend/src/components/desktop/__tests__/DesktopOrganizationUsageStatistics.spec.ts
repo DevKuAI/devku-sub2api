@@ -28,6 +28,10 @@ const statistics: UsageStatistics = {
     { member_id: 'mem_one', name: 'Member One', deleted: true, requests: 2, total_tokens: 1000, actual_cost: 1, cost_rank: 1, token_rank: 2 },
     { member_id: 'mem_two', name: 'Member Two', deleted: false, requests: 1, total_tokens: 2000, actual_cost: 0.5, cost_rank: 2, token_rank: 1 },
   ],
+  member_models: [
+    { member_id: 'mem_one', name: 'Member One', deleted: true, model: 'model-one', requests: 2, input_tokens: 100, output_tokens: 200, cache_creation_tokens: 300, cache_read_tokens: 400, total_tokens: 1000 },
+    { member_id: 'mem_two', name: 'Member Two', deleted: false, model: 'model-two', requests: 1, input_tokens: 0, output_tokens: 0, cache_creation_tokens: 0, cache_read_tokens: 2000, total_tokens: 2000 },
+  ],
   observed_members: 2,
 }
 const view = (selfManaged = false, mode: 'summary' | 'insights' = 'summary') => mount(DesktopOrganizationUsageStatistics, { props: { organizationId: 'org_one', selfManaged, view: mode } })
@@ -45,6 +49,7 @@ describe('Desktop organization usage statistics', () => {
     expect(wrapper.find('[data-testid="organization-usage-total"]').text()).toContain('$150.1235')
     expect(wrapper.find('[data-testid="organization-usage-total"] [title]').attributes('title')).toBe((4_000_000_000).toLocaleString())
     expect(wrapper.find('[data-testid="usage-trend-chart"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="organization-member-model-usage"]').exists()).toBe(false)
     wrapper.unmount()
   })
 
@@ -57,6 +62,12 @@ describe('Desktop organization usage statistics', () => {
     expect(wrapper.find('[data-testid="organization-last-30-days"]').text()).toContain('$1.5000')
     expect(wrapper.find('[data-testid="organization-model-ranking"] li').text()).toContain('model-one')
     expect(wrapper.find('[data-testid="organization-member-ranking"]').text()).toContain('Member One')
+    const detail = wrapper.find('[data-testid="organization-member-model-usage"]')
+    expect(detail.text()).toContain('Member One')
+    expect(detail.text()).toContain('Member Two')
+    expect(detail.text()).toContain('model-one')
+    expect(detail.text()).toContain('model-two')
+    expect(detail.text()).toContain('conversations.deletedMember')
     await wrapper.find('[aria-pressed="false"]').trigger('click')
     expect(wrapper.find('[data-testid="organization-model-ranking"] li').text()).toContain('model-two')
     expect(wrapper.find('[data-testid="organization-model-ranking"] li').text()).toContain('2.0K')
@@ -69,7 +80,7 @@ describe('Desktop organization usage statistics', () => {
 
   it('shows zero usage as zero and refreshes independently', async () => {
     const empty = { total_tokens: 0, actual_cost: 0 }
-    api.getDesktopOrganizationUsageStatistics.mockResolvedValue({ ...statistics, today: empty, week: empty, month: empty, total: empty, last_30_days: empty, selected: empty, daily: [], models: [], members: [], observed_members: 0 })
+    api.getDesktopOrganizationUsageStatistics.mockResolvedValue({ ...statistics, today: empty, week: empty, month: empty, total: empty, last_30_days: empty, selected: empty, daily: [], models: [], members: [], member_models: [], observed_members: 0 })
     const wrapper = view()
     await flushPromises()
     expect(wrapper.find('[data-testid="organization-usage-total"]').text()).toContain('$0.0000')

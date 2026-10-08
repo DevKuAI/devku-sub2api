@@ -5,6 +5,8 @@ FRONTEND_CRITICAL_VITEST := \
 	src/views/admin/desktop/DesktopResourcesView.spec.ts \
 	src/api/__tests__/desktopConversations.spec.ts \
 	src/components/desktop/__tests__/DesktopConversationRecords.spec.ts \
+	src/components/desktop/__tests__/DesktopMemberModelUsage.spec.ts \
+	src/components/desktop/__tests__/DesktopOrganizationUsageStatistics.spec.ts \
 	src/i18n/__tests__/localeKeyCompleteness.spec.ts \
 	src/api/__tests__/client.spec.ts \
 	src/api/__tests__/tokenRefresh.spec.ts \

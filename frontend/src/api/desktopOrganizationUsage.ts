@@ -31,6 +31,19 @@ export interface DesktopUsageMember extends DesktopUsageRank {
   deleted: boolean
 }
 
+export interface DesktopUsageMemberModel {
+  member_id: string
+  name: string
+  deleted: boolean
+  model: string
+  requests: number
+  input_tokens: number
+  output_tokens: number
+  cache_creation_tokens: number
+  cache_read_tokens: number
+  total_tokens: number
+}
+
 export interface DesktopOrganizationUsageStatistics {
   timezone: string
   as_of: string
@@ -54,6 +67,7 @@ export interface DesktopOrganizationUsageStatistics {
   }
   models: DesktopUsageModel[]
   members: DesktopUsageMember[]
+  member_models: DesktopUsageMemberModel[]
   observed_members: number
 }
 

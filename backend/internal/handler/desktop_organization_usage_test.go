@@ -31,6 +31,10 @@ func (r *organizationUsageHTTPRepository) GetDesktopOrganizationUsage(_ context.
 		Selected: service.DesktopOrganizationUsagePeriod{TotalTokens: 234, ActualCost: 0.25},
 		Previous: service.DesktopOrganizationUsagePeriod{TotalTokens: 123, ActualCost: 0.15},
 		Models:   []service.DesktopUsageModel{{Model: "model-one", CostRank: 2, TokenRank: 1}},
+		MemberModels: []service.DesktopUsageMemberModel{{
+			MemberID: "mem_one", Name: "Member One", Deleted: true, Model: "model-one", Requests: 2, TotalTokens: 234,
+			DesktopUsageBreakdown: service.DesktopUsageBreakdown{InputTokens: 10, OutputTokens: 20, CacheCreationTokens: 30, CacheReadTokens: 174},
+		}},
 	}, r.err
 }
 
@@ -85,6 +89,7 @@ func TestDesktopOrganizationUsageStatisticsHTTP(t *testing.T) {
 				require.Contains(t, result.Body.String(), `"actual_cost":1.25`)
 				require.Contains(t, result.Body.String(), `"selected":{"total_tokens":234,"actual_cost":0.25}`)
 				require.Contains(t, result.Body.String(), `"token_rank":1`)
+				require.Contains(t, result.Body.String(), `"member_models":[{"member_id":"mem_one","name":"Member One","deleted":true,"model":"model-one","requests":2,"total_tokens":234,"input_tokens":10,"output_tokens":20,"cache_creation_tokens":30,"cache_read_tokens":174}]`)
 				require.EqualValues(t, 7, usage.organizationID)
 				if tc.query == "&days=7" {
 					require.Equal(t, 7, usage.windows.Selected.Days)
