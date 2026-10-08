@@ -1,101 +1,128 @@
 <template>
-  <div class="space-y-6 border-t border-gray-200 pt-5 dark:border-dark-700" data-testid="organization-usage-insights">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <h4 class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ t('admin.desktop.usageStatistics.trend') }}</h4>
-        <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.usageStatistics.selectedRange', { from: statistics.range_start, to: statistics.range_end }) }}</p>
+  <div ref="analyticsRoot" class="desktop-analytics space-y-6" data-testid="organization-usage-insights">
+    <header>
+      <p class="analytics-caption">{{ t('admin.desktop.usageStatistics.periodDetails', { from: statistics.range_start, to: statistics.range_end, timezone: statistics.timezone }) }}</p>
+    </header>
+    <dl class="analytics-grid" data-testid="organization-last-30-days">
+      <div class="analytics-panel">
+        <dt class="analytics-caption">{{ t('admin.desktop.usageStatistics.selectedCost') }} · USD</dt>
+        <dd class="analytics-value"><bdi>{{ formatter.cost(statistics.selected.actual_cost) }}</bdi></dd>
+        <dd class="analytics-caption mt-3">{{ t('admin.desktop.usageStatistics.previousComparison', { amount: formatter.cost(statistics.previous.actual_cost), change: percentageChange(statistics.selected.actual_cost, statistics.previous.actual_cost) }) }}</dd>
       </div>
-      <div class="inline-flex rounded border border-gray-200 p-0.5 dark:border-dark-700" role="group" :aria-label="t('admin.desktop.usageStatistics.trendMetric')">
-        <button v-for="metric in metrics" :key="metric" type="button" class="rounded px-3 py-1.5 text-xs font-medium" :class="selectedMetric === metric ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900' : 'text-gray-600 dark:text-gray-300'" :aria-pressed="selectedMetric === metric" @click="selectedMetric = metric">
-          {{ t(`admin.desktop.usageStatistics.${metric}`) }}
-        </button>
+      <div class="analytics-panel">
+        <dt class="analytics-caption">{{ t('admin.desktop.usageStatistics.selectedTokens') }}</dt>
+        <dd class="analytics-value"><bdi>{{ formatTokens(statistics.selected.total_tokens) }}</bdi></dd>
+        <dd class="analytics-caption mt-3">{{ t('admin.desktop.usageStatistics.previousComparison', { amount: formatTokens(statistics.previous.total_tokens), change: percentageChange(statistics.selected.total_tokens, statistics.previous.total_tokens) }) }}</dd>
       </div>
-    </div>
-    <dl class="grid grid-cols-2 gap-4 text-sm" data-testid="organization-last-30-days">
-      <div><dt class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.usageStatistics.selectedCost') }}</dt><dd class="mt-1 font-semibold tabular-nums text-gray-900 dark:text-gray-100">${{ statistics.selected.actual_cost.toFixed(4) }}</dd><p class="mt-1 text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.usageStatistics.previousComparison', { amount: `$${statistics.previous.actual_cost.toFixed(4)}`, change: percentageChange(statistics.selected.actual_cost, statistics.previous.actual_cost) }) }}</p></div>
-      <div><dt class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.usageStatistics.selectedTokens') }}</dt><dd class="mt-1 font-semibold tabular-nums text-gray-900 dark:text-gray-100" :title="statistics.selected.total_tokens.toLocaleString()">{{ formatCompactNumber(statistics.selected.total_tokens) }}</dd><p class="mt-1 text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.usageStatistics.previousComparison', { amount: formatCompactNumber(statistics.previous.total_tokens), change: percentageChange(statistics.selected.total_tokens, statistics.previous.total_tokens) }) }}</p></div>
     </dl>
-    <p class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.usageStatistics.comparisonRange', { from: statistics.previous_start, to: statistics.previous_end }) }}</p>
-    <div v-if="hasUsage" class="h-56" role="img" :aria-label="t('admin.desktop.usageStatistics.trend')">
-      <Line :data="chartData" :options="chartOptions" />
-    </div>
-    <p v-else class="py-10 text-center text-sm text-gray-500 dark:text-dark-400">{{ t('admin.desktop.usageStatistics.noUsage') }}</p>
-    <div class="sr-only"><table>
-      <caption>{{ t('admin.desktop.usageStatistics.trend') }}</caption>
-      <thead><tr><th>{{ t('admin.desktop.usageStatistics.date') }}</th><th>{{ t('admin.desktop.usageStatistics.cost') }}</th><th>{{ t('admin.desktop.usageStatistics.tokens') }}</th></tr></thead>
-      <tbody><tr v-for="day in statistics.daily" :key="day.date"><td>{{ day.date }}</td><td>{{ day.actual_cost }}</td><td>{{ day.total_tokens }}</td></tr></tbody>
-    </table></div>
-
-    <div class="grid gap-6 border-t border-gray-200 pt-5 dark:border-dark-700 lg:grid-cols-2">
-      <section class="min-w-0" :aria-label="t('admin.desktop.usageStatistics.models')">
-        <h4 class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ t('admin.desktop.usageStatistics.models') }}</h4>
-        <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.usageStatistics.rankingHint') }}</p>
-        <ol v-if="rankedModels.length" class="mt-4 space-y-3" data-testid="organization-model-ranking">
-          <li v-for="model in rankedModels" :key="model.model">
-            <div class="flex items-baseline justify-between gap-3 text-sm"><span class="min-w-0 break-all text-gray-800 dark:text-gray-200">{{ model.model }}</span><span class="shrink-0 tabular-nums">{{ formatValue(model) }}</span></div>
-            <div class="mt-1 h-1.5 rounded bg-gray-100 dark:bg-dark-700"><div class="h-full rounded bg-teal-600 dark:bg-teal-400" :style="{ width: `${percentage(model)}%` }" /></div>
-            <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.usageStatistics.billingRecords', { count: model.requests.toLocaleString() }) }}</p>
-          </li>
-        </ol>
-        <p v-else class="mt-4 text-sm text-gray-500 dark:text-dark-400">{{ t('admin.desktop.usageStatistics.noUsage') }}</p>
-      </section>
-      <section class="min-w-0" :aria-label="t('admin.desktop.usageStatistics.members')">
-        <div class="flex flex-wrap items-baseline justify-between gap-2">
-          <h4 class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ t('admin.desktop.usageStatistics.members') }}</h4>
-          <span class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.usageStatistics.observedMembers', { count: statistics.observed_members.toLocaleString() }) }}</span>
+    <section class="analytics-panel space-y-4" :aria-label="t('admin.desktop.usageStatistics.trend')">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div class="min-w-0">
+          <h4 class="analytics-heading">{{ t('admin.desktop.usageStatistics.trend') }}</h4>
+          <p class="analytics-caption mt-1">{{ t('admin.desktop.usageStatistics.metricScope') }}</p>
         </div>
-        <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.usageStatistics.memberHint') }}</p>
-        <ol v-if="rankedMembers.length" class="mt-4 space-y-3" data-testid="organization-member-ranking">
-          <li v-for="member in rankedMembers" :key="member.member_id">
-            <div class="flex items-baseline justify-between gap-3 text-sm"><span class="min-w-0 break-words text-gray-800 dark:text-gray-200">{{ member.name }} <span v-if="member.deleted" class="text-xs text-gray-500">{{ t('admin.desktop.conversations.deletedMember') }}</span></span><span class="shrink-0 tabular-nums">{{ formatValue(member) }}</span></div>
-            <div class="mt-1 h-1.5 rounded bg-gray-100 dark:bg-dark-700"><div class="h-full rounded bg-amber-500" :style="{ width: `${percentage(member)}%` }" /></div>
-            <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.usageStatistics.billingRecords', { count: member.requests.toLocaleString() }) }}</p>
-          </li>
-        </ol>
-        <p v-else class="mt-4 text-sm text-gray-500 dark:text-dark-400">{{ t('admin.desktop.usageStatistics.noUsage') }}</p>
-      </section>
-    </div>
+        <div class="flex flex-wrap gap-2" role="group" :aria-label="t('admin.desktop.usageStatistics.trendMetric')">
+          <button v-for="metric in metrics" :key="metric" type="button" class="analytics-button" :aria-pressed="selectedMetric === metric" :data-testid="`usage-metric-${metric}`" @click="selectedMetric = metric">
+            <Icon v-if="selectedMetric === metric" name="check" size="xs" aria-hidden="true" />{{ t(`admin.desktop.usageStatistics.${metric}`) }}
+          </button>
+        </div>
+      </div>
+      <p class="analytics-caption">{{ t('admin.desktop.usageStatistics.comparisonRange', { from: statistics.previous_start, to: statistics.previous_end }) }}</p>
+      <div v-if="hasUsage" class="h-64 min-w-0" role="img" :aria-label="t('admin.desktop.usageStatistics.trend')">
+        <Line :data="chartData" :options="chartOptions" />
+      </div>
+      <div v-else class="space-y-2 py-8 text-center">
+        <p class="analytics-heading">{{ t('admin.desktop.usageStatistics.noUsage') }}</p>
+        <p class="analytics-caption">{{ t('admin.desktop.usageStatistics.noMemberUsageHint') }}</p>
+      </div>
+      <DesktopAnalyticsDailyData :caption="t('admin.desktop.usageStatistics.trend')" :rows="statistics.daily" :columns="dailyColumns" />
+    </section>
 
-    <DesktopMemberModelUsage :rows="statistics.member_models" />
-
-    <section class="border-t border-gray-200 pt-5 dark:border-dark-700" :aria-label="t('admin.desktop.usageStatistics.tokenBreakdown')">
-      <h4 class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ t('admin.desktop.usageStatistics.tokenBreakdown') }}</h4>
-      <dl class="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-        <div v-for="part in breakdownParts" :key="part.key"><dt class="text-xs text-gray-500 dark:text-dark-400">{{ t(`admin.desktop.usageStatistics.${part.key}`) }}</dt><dd class="mt-1 font-medium tabular-nums text-gray-900 dark:text-gray-100" :title="part.value.toLocaleString()">{{ formatCompactNumber(part.value) }}</dd></div>
+    <section class="analytics-panel space-y-4" :aria-label="t('admin.desktop.usageStatistics.tokenBreakdown')">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div class="min-w-0"><h4 class="analytics-heading">{{ t('admin.desktop.usageStatistics.tokenBreakdown') }}</h4><p class="analytics-caption mt-1">{{ t('admin.desktop.usageStatistics.tokenUnitHint') }}</p></div>
+        <div class="flex flex-wrap gap-2" role="group" :aria-label="t('admin.desktop.usageStatistics.numberDisplay')">
+          <button v-for="mode in numberModes" :key="mode" type="button" class="analytics-button" :aria-pressed="numberMode === mode" :data-testid="`usage-token-${mode}`" @click="numberMode = mode"><Icon v-if="numberMode === mode" name="check" size="xs" aria-hidden="true" />{{ t(`admin.desktop.usageStatistics.${mode === 'compact' ? 'compactTokens' : 'exactTokens'}`) }}</button>
+        </div>
+      </div>
+      <dl class="grid grid-cols-2 gap-5">
+        <div v-for="part in breakdownParts" :key="part.key" class="min-w-0"><dt class="analytics-caption">{{ t(`admin.desktop.usageStatistics.${part.key}`) }}</dt><dd class="analytics-value"><bdi>{{ formatTokens(part.value) }}</bdi></dd></div>
       </dl>
     </section>
+
+    <div class="analytics-grid">
+      <section class="analytics-panel" :aria-label="t('admin.desktop.usageStatistics.models')">
+        <h4 class="analytics-heading">{{ t('admin.desktop.usageStatistics.models') }}</h4>
+        <p class="analytics-caption mt-1">{{ t('admin.desktop.usageStatistics.rankingHint') }} {{ t(`admin.desktop.usageStatistics.${selectedMetric}`) }}</p>
+        <ol v-if="rankedModels.length" class="mt-5 space-y-5" data-testid="organization-model-ranking">
+          <li v-for="model in rankedModels" :key="model.model">
+            <div class="analytics-rank-row text-sm text-gray-900 dark:text-gray-100"><span class="min-w-0 break-all"><bdi>{{ model.model }}</bdi></span><span class="analytics-rank-value"><bdi>{{ formatValue(model) }}</bdi></span></div>
+            <div class="analytics-bar" aria-hidden="true"><div :style="{ width: `${percentage(model)}%` }" /></div>
+            <p class="analytics-caption mt-1">{{ t('admin.desktop.usageStatistics.shareAndRecords', { percent: percentage(model).toFixed(1), count: formatter.number(model.requests) }) }}</p>
+          </li>
+        </ol>
+        <p v-else class="analytics-caption mt-4">{{ t('admin.desktop.usageStatistics.noUsage') }}</p>
+      </section>
+      <section class="analytics-panel" :aria-label="t('admin.desktop.usageStatistics.members')">
+        <h4 class="analytics-heading">{{ t('admin.desktop.usageStatistics.members') }}</h4>
+        <p class="analytics-caption mt-1">{{ t('admin.desktop.usageStatistics.observedMembers', { count: formatter.number(statistics.observed_members) }) }} · {{ t(`admin.desktop.usageStatistics.${selectedMetric}`) }}</p>
+        <p class="analytics-caption mt-1">{{ t('admin.desktop.usageStatistics.memberHint') }} {{ t('admin.desktop.usageStatistics.rankingHint') }}</p>
+        <ol v-if="rankedMembers.length" class="mt-5 space-y-5" data-testid="organization-member-ranking">
+          <li v-for="member in rankedMembers" :key="member.member_id">
+            <div class="analytics-rank-row text-sm text-gray-900 dark:text-gray-100"><span class="min-w-0 break-words"><bdi>{{ member.name }}</bdi> <span v-if="member.deleted" class="analytics-caption">{{ t('admin.desktop.conversations.deletedMember') }}</span></span><span class="analytics-rank-value"><bdi>{{ formatValue(member) }}</bdi></span></div>
+            <div class="analytics-bar" aria-hidden="true"><div :style="{ width: `${percentage(member)}%` }" /></div>
+            <p class="analytics-caption mt-1">{{ t('admin.desktop.usageStatistics.shareAndRecords', { percent: percentage(member).toFixed(1), count: formatter.number(member.requests) }) }}</p>
+          </li>
+        </ol>
+        <p v-else class="analytics-caption mt-4">{{ t('admin.desktop.usageStatistics.noUsage') }}</p>
+      </section>
+    </div>
+    <DesktopMemberModelUsage v-model:number-mode="numberMode" :rows="statistics.member_models" @refresh="emit('refresh')" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useMutationObserver } from '@vueuse/core'
+import { useDesktopAnalyticsColors } from '@/composables/useDesktopAnalyticsColors'
 import { useI18n } from 'vue-i18n'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler } from 'chart.js'
 import { Line } from 'vue-chartjs'
 import type { DesktopOrganizationUsageStatistics, DesktopUsageRank } from '@/api/desktopOrganizationUsage'
-import { formatCompactNumber } from '@/utils/format'
+import { createDesktopUsageFormatter, type TokenNumberMode } from '@/utils/desktopUsageFormat'
+import Icon from '@/components/icons/Icon.vue'
+import DesktopAnalyticsDailyData from './DesktopAnalyticsDailyData.vue'
+import '@/styles/desktopAnalytics.css'
 import DesktopMemberModelUsage from './DesktopMemberModelUsage.vue'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler)
 
 const props = defineProps<{ statistics: DesktopOrganizationUsageStatistics }>()
-const { t } = useI18n()
+const emit = defineEmits<{ refresh: [] }>()
+const { t, locale } = useI18n()
+const numberMode = ref<TokenNumberMode>('compact')
+const numberModes = ['compact', 'exact'] as const
+const formatter = computed(() => createDesktopUsageFormatter(locale?.value || 'zh-CN'))
+const formatTokens = (value: number) => formatter.value.tokens(value, numberMode.value)
+const dailyColumns = computed(() => [
+  { key: 'actual_cost' as const, label: `${t('admin.desktop.usageStatistics.cost')} · USD`, format: formatter.value.cost },
+  { key: 'total_tokens' as const, label: 'Token', format: formatter.value.number },
+])
 const metrics = ['cost', 'tokens'] as const
 const selectedMetric = ref<(typeof metrics)[number]>('cost')
-const isDark = ref(document.documentElement.classList.contains('dark'))
-useMutationObserver(document.documentElement, () => { isDark.value = document.documentElement.classList.contains('dark') }, { attributes: true, attributeFilter: ['class'] })
 const hasUsage = computed(() => props.statistics.selected.actual_cost !== 0 || props.statistics.selected.total_tokens !== 0)
 const rankingKey = computed(() => selectedMetric.value === 'cost' ? 'cost_rank' : 'token_rank')
 const rankedModels = computed(() => props.statistics.models.filter(model => model[rankingKey.value] <= 10).sort((a, b) => a[rankingKey.value] - b[rankingKey.value]))
 const rankedMembers = computed(() => props.statistics.members.filter(member => member[rankingKey.value] <= 10).sort((a, b) => a[rankingKey.value] - b[rankingKey.value]))
+const analyticsRoot = ref<HTMLElement | null>(null)
+const chartColors = useDesktopAnalyticsColors(analyticsRoot)
 const chartData = computed(() => ({
   labels: props.statistics.daily.map(day => day.date.slice(5)),
   datasets: [{
     label: t(`admin.desktop.usageStatistics.${selectedMetric.value}`),
     data: props.statistics.daily.map(day => day[selectedMetric.value === 'cost' ? 'actual_cost' : 'total_tokens']),
-    borderColor: selectedMetric.value === 'cost' ? '#0d9488' : '#d97706',
-    backgroundColor: selectedMetric.value === 'cost' ? 'rgba(13, 148, 136, 0.12)' : 'rgba(217, 119, 6, 0.12)',
+    borderColor: chartColors.value.line,
+    borderWidth: 2,
+    backgroundColor: chartColors.value.fill,
     fill: true,
     tension: 0.25,
     pointRadius: 0,
@@ -103,17 +130,16 @@ const chartData = computed(() => ({
   }],
 }))
 const chartOptions = computed(() => {
-  const text = isDark.value ? '#9ca3af' : '#4b5563'
-  const grid = isDark.value ? 'rgba(148, 163, 184, 0.18)' : '#e5e7eb'
+  const { text, grid } = chartColors.value
   return {
     animation: false as const,
     responsive: true,
     maintainAspectRatio: false,
     interaction: { mode: 'index' as const, intersect: false },
-    plugins: { legend: { display: false } },
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: (item: { parsed: { y: number | null } }) => selectedMetric.value === 'cost' ? formatter.value.cost(item.parsed.y ?? 0) : `${formatter.value.number(item.parsed.y ?? 0)} Token` } } },
     scales: {
       x: { grid: { display: false }, ticks: { color: text, maxTicksLimit: 6, maxRotation: 0 } },
-      y: { beginAtZero: true, grid: { color: grid }, ticks: { color: text, maxTicksLimit: 5 } },
+      y: { beginAtZero: true, grid: { color: grid }, ticks: { color: text, maxTicksLimit: 5, callback: (value: string | number) => selectedMetric.value === 'cost' ? `$${Number(value).toLocaleString(locale?.value || 'en', { maximumFractionDigits: 4 })}` : formatter.value.tokens(Number(value)) } },
     },
   }
 })
@@ -124,7 +150,7 @@ const breakdownParts = computed(() => [
   { key: 'cacheReadTokens', value: props.statistics.breakdown.cache_read_tokens },
 ])
 function formatValue(value: DesktopUsageRank) {
-  return selectedMetric.value === 'cost' ? `$${value.actual_cost.toFixed(4)}` : formatCompactNumber(value.total_tokens)
+  return selectedMetric.value === 'cost' ? formatter.value.cost(value.actual_cost) : formatTokens(value.total_tokens)
 }
 function percentageChange(current: number, previous: number) {
   if (previous === 0) return t('admin.desktop.usageStatistics.noComparison')
