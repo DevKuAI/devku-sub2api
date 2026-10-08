@@ -10,9 +10,11 @@ function collectStrings(value: LocaleValue): string[] {
 }
 
 describe('Desktop locale copy', () => {
-  it('uses Chinese labels for translatable technical terms', () => {
+  it('uses Chinese management labels while allowing Token as a usage unit', () => {
     const copy = collectStrings(zh.admin.desktop).join('\n')
 
-    expect(copy).not.toMatch(/\b(?:User|Group|Token|Key|active)\b|Provider ID|Wire API/)
+    expect(copy).not.toMatch(/\b(?:User|Group|Key|active)\b|Provider ID|Wire API/)
+    const managementCopy = collectStrings({ ...zh.admin.desktop, usageStatistics: {} }).join('\n')
+    expect(managementCopy).not.toMatch(/\bToken\b/)
   })
 })
