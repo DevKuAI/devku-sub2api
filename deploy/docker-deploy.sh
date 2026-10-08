@@ -6,6 +6,7 @@
 #   - Downloads docker-compose.local.yml and .env.example
 #   - Generates secure secrets (JWT_SECRET, DESKTOP_JWT_SECRET,
 #     TOTP_ENCRYPTION_KEY, POSTGRES_PASSWORD)
+#   - Generates a random admin login email (ADMIN_EMAIL)
 #   - Creates necessary data directories
 #
 # After running this script, you can start services with:
@@ -49,6 +50,14 @@ generate_secret() {
 # Generate a standard base64 secret accepted by Desktop JWT validation
 generate_desktop_jwt_secret() {
     openssl rand -base64 32
+}
+
+# Generate a random admin login email so new installs never use a guessable default
+generate_admin_email() {
+    local suffix
+    suffix=$(openssl rand -hex 6) || return 1
+    [ -n "$suffix" ] || return 1
+    echo "admin-${suffix}@sub2api.local"
 }
 
 # Check if command exists
@@ -169,6 +178,7 @@ main() {
     DESKTOP_JWT_SECRET=$(generate_desktop_jwt_secret)
     TOTP_ENCRYPTION_KEY=$(generate_secret)
     POSTGRES_PASSWORD=$(generate_secret)
+    ADMIN_EMAIL=$(generate_admin_email)
 
     # Create .env from .env.example
     cp .env.example .env
@@ -178,6 +188,7 @@ main() {
     replace_env_value DESKTOP_JWT_SECRET "$DESKTOP_JWT_SECRET"
     replace_env_value TOTP_ENCRYPTION_KEY "$TOTP_ENCRYPTION_KEY"
     replace_env_value POSTGRES_PASSWORD "$POSTGRES_PASSWORD"
+    replace_env_value ADMIN_EMAIL "$ADMIN_EMAIL"
 
     # Create data directories
     print_info "Creating data directories..."
@@ -198,6 +209,7 @@ main() {
     echo "  JWT_SECRET:            ${JWT_SECRET}"
     echo "  DESKTOP_JWT_SECRET:    generated and saved to .env"
     echo "  TOTP_ENCRYPTION_KEY:   ${TOTP_ENCRYPTION_KEY}"
+    echo "  ADMIN_EMAIL:           ${ADMIN_EMAIL}  (admin login username)"
     echo ""
     print_warning "These credentials have been saved to .env file."
     print_warning "Please keep them secure and do not share publicly!"

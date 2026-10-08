@@ -77,6 +77,8 @@ do
   assert_contains_once "$compose_file" '      - JWT_ACCESS_TOKEN_EXPIRE_MINUTES=${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-0}'
   assert_contains_once "$compose_file" '      - SERVER_H2C_ENABLED=${SERVER_H2C_ENABLED:-false}'
   assert_contains_once "$compose_file" '      - LOG_FORMAT=${LOG_FORMAT:-console}'
+  assert_contains_once "$compose_file" '      - ADMIN_EMAIL=${ADMIN_EMAIL:-}'
+  assert_contains_once "$compose_file" '      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}'
 done
 
 for compose_file in \

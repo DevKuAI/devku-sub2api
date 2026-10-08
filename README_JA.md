@@ -238,8 +238,10 @@ JWT_SECRET=your_jwt_secret_here
 TOTP_ENCRYPTION_KEY=your_totp_key_here
 
 # オプション: 管理者アカウント
-ADMIN_EMAIL=admin@example.com
-ADMIN_PASSWORD=your_admin_password
+# 空欄の場合、初回起動時にランダムなメールアドレス（ログインユーザー名）とパスワードが自動生成され、ログに出力されます。
+# admin@example.com のような推測されやすい値は総当たり攻撃の標的になるため避けてください。
+ADMIN_EMAIL=
+ADMIN_PASSWORD=
 
 # オプション: カスタムポート
 SERVER_PORT=8080
@@ -288,9 +290,9 @@ docker compose -f docker-compose.local.yml logs -f sub2api
 
 ブラウザで `http://YOUR_SERVER_IP:8080` を開いてください。
 
-管理者パスワードが自動生成された場合は、ログで確認できます:
+管理者メールアドレス（ログインユーザー名）またはパスワードが自動生成された場合は、ログで確認できます:
 ```bash
-docker compose -f docker-compose.local.yml logs sub2api | grep "admin password"
+docker compose -f docker-compose.local.yml logs sub2api | grep "Generated admin"
 ```
 
 #### アップグレード
@@ -555,6 +557,31 @@ OAuth / Setup Token の画像リクエストでは、Responses の制御モデ�
 - API Key の任意の使用制限: `SIMPLE_MODE_KEY_RATE_LIMIT_ENABLED=true` を設定すると、各 API Key に設定した 5 時間、1 日、7 日の費用上限を適用します。既定値は `false` です。有効にしても残高とサブスクリプションからの引き落としは行いません。
 - 使用制限はデータベースを正とし、API Key の期間別使用量だけを記録します。リクエスト完了後の計上によるソフト上限のため、同時実行中のリクエストによって最終費用が上限を超える場合があります。有効化前の使用量は遡って計上しません。
 - セキュリティに関する注意: 本番環境では `SIMPLE_MODE_CONFIRM=true` も設定する必要があります
+
+---
+
+## TypeSafe / Jev サポート
+
+Sub2API は TypeSafe API Key アカウントをサポートし、Jev のネイティブな非ストリーミング System One プロトコルでモデルを呼び出せます。
+
+- プラットフォーム：`typesafe`、アカウント種別：API Key
+- デフォルトの上流：`https://api.typesafe.ai`
+- 公開エンドポイント：`POST /v1/systemone`
+- モデル：`jev-latest`。TypeSafe グループの `/v1/models` にも表示されます
+- 質問種別：`noul`、`choice`、`score`
+
+リクエストと成功レスポンスは System One のネイティブ JSON 構造を維持します。このエンドポイントは Chat Completions、Responses、Anthropic Messages、ストリーミングクライアントと互換性がありません。
+
+質問の検証は TypeSafe OpenAPI の wire schema（SDK v0.5.7 でも使用）に従います。すべての質問種別で `instructions` は省略または `null` にできます。Noul の `criteria` も省略または `null` にでき、`true` / `false` の説明と Choice の説明には文字列、オブジェクト、配列、`null` を使用できます。Score の `criteria` は文字列、オブジェクト、配列の説明を含む空でない配列であり、1 段階のみでも有効です。SDK の整数キー付き Score マップは送信前に SDK が配列へ変換します。
+
+```bash
+curl https://your-sub2api.example.com/v1/systemone \
+  -H 'Authorization: Bearer sk-your-sub2api-key' \
+  -H 'Content-Type: application/json' \
+  --data '{"model":"jev-latest","state":"Text to evaluate","questions":{"safety":{"type":"noul","instructions":"Evaluate whether the text is unsafe"}}}'
+```
+
+`jev-latest` の内蔵価格は入力 100 万 tokens あたり `$0.042`、出力は `$0` です。チャネル価格で両方を上書きできます。認証情報、残高、権限、レート制限、過負荷、サーバー、ネットワークのエラー（`401`、`402`、`403`、`429`、`529`、`5xx`、通信エラー）は既存のアカウントエラーポリシー（カスタムエラーコードと一時的なスケジューリング除外ルールを含む）に従い、別のアカウントへ切り替えます。リクエストエラー（`400`、`413`、`422`）は別のアカウントで再試行せず、アカウント状態も変更しません。TypeSafe グループ（TypeSafe にルーティングされる Composite リクエストを含む）では、Messages、Chat Completions、Responses、count_tokens リクエストに `404` を返します。
 
 ---
 

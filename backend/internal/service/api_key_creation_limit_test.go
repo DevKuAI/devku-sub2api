@@ -100,6 +100,34 @@ func TestAPIKeyServiceCreateReturnsLimitReachedFromAtomicRepository(t *testing.T
 	require.Equal(t, 1, repo.atomicCalls)
 }
 
+func TestAPIKeyServiceCreateCombinesHourlyAndAtomicUserLimits(t *testing.T) {
+	repo := &atomicCreationLimitAPIKeyRepoStub{}
+	_, cache := newCreateLimitStubs()
+	cfg := &config.Config{}
+	cfg.APIKeyCreate.MaxPerUserPerHour = 2
+	svc := &APIKeyService{
+		apiKeyRepo: repo,
+		userRepo:   &mockUserRepo{getByIDUser: &User{ID: 7, APIKeyLimit: 1}},
+		cache:      cache,
+		cfg:        cfg,
+	}
+
+	_, err := svc.Create(context.Background(), 7, CreateAPIKeyRequest{Name: "first"})
+	require.NoError(t, err)
+	require.Equal(t, 1, repo.atomicCalls)
+	require.Zero(t, repo.createCalls)
+
+	repo.atomicErr = ErrAPIKeyLimitReached
+	_, err = svc.Create(context.Background(), 7, CreateAPIKeyRequest{Name: "user limit"})
+	require.ErrorIs(t, err, ErrAPIKeyLimitReached)
+	require.Equal(t, 2, repo.atomicCalls)
+
+	_, err = svc.Create(context.Background(), 7, CreateAPIKeyRequest{Name: "hourly limit"})
+	require.ErrorIs(t, err, ErrAPIKeyCreateLimited)
+	require.Equal(t, 2, repo.atomicCalls)
+	require.Zero(t, repo.createCalls)
+}
+
 func TestAPIKeyServiceGetCreationQuota(t *testing.T) {
 	tests := []struct {
 		name string
