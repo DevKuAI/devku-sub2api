@@ -1063,8 +1063,14 @@ func init() {
 			return nil
 		}
 	}()
+	// desktopmemberDescRemark is the schema descriptor for remark field.
+	desktopmemberDescRemark := desktopmemberFields[4].Descriptor()
+	// desktopmember.DefaultRemark holds the default value on creation for the remark field.
+	desktopmember.DefaultRemark = desktopmemberDescRemark.Default.(string)
+	// desktopmember.RemarkValidator is a validator for the "remark" field. It is called by the builders before save.
+	desktopmember.RemarkValidator = desktopmemberDescRemark.Validators[0].(func(string) error)
 	// desktopmemberDescPhone is the schema descriptor for phone field.
-	desktopmemberDescPhone := desktopmemberFields[4].Descriptor()
+	desktopmemberDescPhone := desktopmemberFields[5].Descriptor()
 	// desktopmember.PhoneValidator is a validator for the "phone" field. It is called by the builders before save.
 	desktopmember.PhoneValidator = func() func(string) error {
 		validators := desktopmemberDescPhone.Validators
@@ -1082,19 +1088,19 @@ func init() {
 		}
 	}()
 	// desktopmemberDescStatus is the schema descriptor for status field.
-	desktopmemberDescStatus := desktopmemberFields[5].Descriptor()
+	desktopmemberDescStatus := desktopmemberFields[6].Descriptor()
 	// desktopmember.DefaultStatus holds the default value on creation for the status field.
 	desktopmember.DefaultStatus = desktopmemberDescStatus.Default.(string)
 	// desktopmember.StatusValidator is a validator for the "status" field. It is called by the builders before save.
 	desktopmember.StatusValidator = desktopmemberDescStatus.Validators[0].(func(string) error)
 	// desktopmemberDescAuthVersion is the schema descriptor for auth_version field.
-	desktopmemberDescAuthVersion := desktopmemberFields[6].Descriptor()
+	desktopmemberDescAuthVersion := desktopmemberFields[7].Descriptor()
 	// desktopmember.DefaultAuthVersion holds the default value on creation for the auth_version field.
 	desktopmember.DefaultAuthVersion = desktopmemberDescAuthVersion.Default.(int64)
 	// desktopmember.AuthVersionValidator is a validator for the "auth_version" field. It is called by the builders before save.
 	desktopmember.AuthVersionValidator = desktopmemberDescAuthVersion.Validators[0].(func(int64) error)
 	// desktopmemberDescAPIKeySuspendedByOrganization is the schema descriptor for api_key_suspended_by_organization field.
-	desktopmemberDescAPIKeySuspendedByOrganization := desktopmemberFields[7].Descriptor()
+	desktopmemberDescAPIKeySuspendedByOrganization := desktopmemberFields[8].Descriptor()
 	// desktopmember.DefaultAPIKeySuspendedByOrganization holds the default value on creation for the api_key_suspended_by_organization field.
 	desktopmember.DefaultAPIKeySuspendedByOrganization = desktopmemberDescAPIKeySuspendedByOrganization.Default.(bool)
 	desktopmemberapikeyFields := schema.DesktopMemberAPIKey{}.Fields()

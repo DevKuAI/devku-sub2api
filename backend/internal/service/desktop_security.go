@@ -32,6 +32,14 @@ func NormalizeDesktopPhone(phone string) (string, error) {
 	return phonenumbers.Format(parsed, phonenumbers.E164), nil
 }
 
+func NormalizeDesktopRemark(remark string) (string, error) {
+	remark = norm.NFC.String(strings.TrimSpace(remark))
+	if len([]rune(remark)) > 500 {
+		return "", ErrDesktopValidation.WithMetadata(map[string]string{"field": "remark"})
+	}
+	return remark, nil
+}
+
 func GenerateDesktopPublicID(prefix string) (string, error) {
 	random := make([]byte, 16)
 	if _, err := rand.Read(random); err != nil {

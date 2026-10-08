@@ -13,6 +13,7 @@ vi.mock('@/api/client', () => ({ apiClient: apiClientMock }))
 import {
   createUpdateRelease,
   createOrganization,
+  createMember,
   getGatewayUser,
   listAvailableGatewayUsers,
   listOrganizations,
@@ -25,6 +26,13 @@ import {
 describe('Desktop admin API', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+  })
+
+  it('preserves member remarks and a caller-provided import idempotency key', async () => {
+    apiClientMock.post.mockResolvedValue({ data: {} })
+    const input = { name: 'Member', phone: '13800138000', remark: 'Team' }
+    await createMember('org one', input, 'desktop-member-import-fixed-row-3')
+    expect(apiClientMock.post).toHaveBeenCalledWith('/admin/desktop/organizations/org%20one/members', input, { headers: { 'Idempotency-Key': 'desktop-member-import-fixed-row-3' } })
   })
 
   it('queries only users available for Desktop assignment', async () => {

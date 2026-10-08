@@ -1704,7 +1704,7 @@ components:
 
     DesktopMember:
       type: object
-      required: [public_id, name, phone, status, model_token_status, created_at, updated_at]
+      required: [public_id, name, remark, phone, status, model_token_status, created_at, updated_at]
       properties:
         public_id:
           type: string
@@ -1712,6 +1712,11 @@ components:
         name:
           type: string
           example: 张明
+        remark:
+          type: string
+          maxLength: 500
+          description: 成员备注；未填写时为空字符串。
+          example: 财务部
         phone:
           type: string
           description: 规范化后的 E.164 完整手机号
@@ -1836,6 +1841,11 @@ components:
         name:
           type: string
           minLength: 1
+        remark:
+          type: string
+          maxLength: 500
+          default: ''
+          description: 可选备注，去除首尾空白后保存。
         phone:
           type: string
           description: 中国大陆 11 位手机号或 `+86` E.164 格式
@@ -1848,6 +1858,10 @@ components:
         name:
           type: string
           minLength: 1
+        remark:
+          type: string
+          maxLength: 500
+          description: 可选备注；省略时保留原值，空字符串清除备注。只修改备注不撤销成员登录凭据。
         phone:
           type: string
           description: 中国大陆 11 位手机号或 `+86` E.164 格式

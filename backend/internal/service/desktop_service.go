@@ -86,12 +86,12 @@ func (s *DesktopService) GetManagedOrganization(ctx context.Context, userID int6
 	return organization, nil
 }
 
-func (s *DesktopService) CreateManagedMember(ctx context.Context, userID int64, name, phone string) (*DesktopMember, error) {
+func (s *DesktopService) CreateManagedMember(ctx context.Context, userID int64, name, phone, remark string) (*DesktopMember, error) {
 	managed, organization, err := s.managedService(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-	return managed.CreateMember(ctx, organization.PublicID, name, phone)
+	return managed.CreateMember(ctx, organization.PublicID, name, phone, remark)
 }
 
 func (s *DesktopService) ListManagedMembersWithUsage(ctx context.Context, userID int64, params pagination.PaginationParams, filters DesktopMemberListFilters) ([]DesktopMember, *pagination.PaginationResult, error) {
@@ -170,7 +170,7 @@ func (s *DesktopService) UpdateTargetConfig(ctx context.Context, publicID string
 	return s.repo.UpdateTargetConfig(ctx, publicID, target)
 }
 
-func (s *DesktopService) CreateMember(ctx context.Context, organizationPublicID, name, phone string) (*DesktopMember, error) {
+func (s *DesktopService) CreateMember(ctx context.Context, organizationPublicID, name, phone, remark string) (*DesktopMember, error) {
 	organization, err := s.repo.GetOrganization(ctx, organizationPublicID)
 	if err != nil {
 		return nil, err
@@ -179,6 +179,10 @@ func (s *DesktopService) CreateMember(ctx context.Context, organizationPublicID,
 		return nil, ErrDesktopOrganizationDisabled
 	}
 	member, err := s.buildDesktopMember(organizationPublicID, name, phone)
+	if err != nil {
+		return nil, err
+	}
+	member.Remark, err = NormalizeDesktopRemark(remark)
 	if err != nil {
 		return nil, err
 	}
@@ -234,6 +238,13 @@ func (s *DesktopService) ListMembersWithUsage(ctx context.Context, organizationP
 }
 
 func (s *DesktopService) UpdateMember(ctx context.Context, organizationPublicID, memberPublicID string, input DesktopUpdateMemberInput, phone *string) (*DesktopMember, error) {
+	if input.Remark != nil {
+		remark, err := NormalizeDesktopRemark(*input.Remark)
+		if err != nil {
+			return nil, err
+		}
+		input.Remark = &remark
+	}
 	if input.Name != nil {
 		name, err := NormalizeDesktopName(*input.Name)
 		if err != nil {

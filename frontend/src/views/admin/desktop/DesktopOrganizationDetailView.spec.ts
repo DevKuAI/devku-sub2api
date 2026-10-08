@@ -170,6 +170,44 @@ describe('DesktopOrganizationDetailView', () => {
     route.query.tab = 'members'
   })
 
+  it.each([false, true])('shows import and optional remarks in create and edit forms with selfManaged=%s', async (selfManaged) => {
+    const wrapper = selfManaged ? mountManagedView() : mountView()
+    const api = selfManaged ? managedDesktopAPI : desktopAPI
+    await flushPromises()
+    const vm = wrapper.vm as any
+    const keys = vm.memberColumns.map((column: { key: string }) => column.key)
+    expect(keys.slice(0, 3)).toEqual(['name', 'remark', 'phone'])
+    await wrapper.get('[data-testid="import-members"]').trigger('click')
+    expect(vm.showMemberImport).toBe(true)
+    vm.openCreateMember()
+    Object.assign(vm.memberForm, { name: 'Created', phone: '13800138000', remark: '' })
+    await vm.saveMember()
+    expect(api.createMember).toHaveBeenCalledWith('org_one', { name: 'Created', phone: '13800138000', remark: '' })
+    vm.openCreateMember()
+    Object.assign(vm.memberForm, { name: 'Noted', phone: '13900138000', remark: ' 财务部 ' })
+    await vm.saveMember()
+    expect(api.createMember).toHaveBeenLastCalledWith('org_one', { name: 'Noted', phone: '13900138000', remark: '财务部' })
+    vm.openEditMember({ ...member, remark: '财务部' })
+    expect(vm.memberForm.remark).toBe('财务部')
+    vm.memberForm.remark = ''
+    await vm.saveMember()
+    expect(api.updateMember).toHaveBeenLastCalledWith('org_one', 'mem_one', { remark: '' })
+    wrapper.unmount()
+  })
+
+  it('renders an optional remark textarea in the real member form', async () => {
+    const wrapper = mountViewWithRealMemberForm()
+    await flushPromises()
+    ;(wrapper.vm as any).openCreateMember()
+    await flushPromises()
+    const textarea = wrapper.get('[data-testid="member-remark"]')
+    expect(textarea.attributes('required')).toBeUndefined()
+    expect(textarea.attributes('maxlength')).toBe('500')
+    await textarea.setValue('财务部')
+    expect((wrapper.vm as any).memberForm.remark).toBe('财务部')
+    wrapper.unmount()
+  })
+
   it.each([false, true])('retries failed organization loading with selfManaged=%s', async (selfManaged) => {
     const api = selfManaged ? managedDesktopAPI : desktopAPI
     api.getOrganization.mockRejectedValueOnce(new Error('offline'))
@@ -449,12 +487,11 @@ describe('DesktopOrganizationDetailView', () => {
 		expect(vm.memberForm.phone).toBe('+8613800000000')
 
 		await vm.saveMember()
-		expect(desktopAPI.updateMember).toHaveBeenLastCalledWith('org_one', 'mem_one', { name: 'Member' })
+		expect(desktopAPI.updateMember).not.toHaveBeenCalled()
 
 		vm.memberForm.phone = '13800000000'
 		await vm.saveMember()
 		expect(desktopAPI.updateMember).toHaveBeenLastCalledWith('org_one', 'mem_one', {
-			name: 'Member',
 			phone: '13800000000',
 		})
 		wrapper.unmount()

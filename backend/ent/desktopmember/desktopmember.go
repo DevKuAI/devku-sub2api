@@ -29,6 +29,8 @@ const (
 	FieldName = "name"
 	// FieldNameNormalized holds the string denoting the name_normalized field in the database.
 	FieldNameNormalized = "name_normalized"
+	// FieldRemark holds the string denoting the remark field in the database.
+	FieldRemark = "remark"
 	// FieldPhone holds the string denoting the phone field in the database.
 	FieldPhone = "phone"
 	// FieldStatus holds the string denoting the status field in the database.
@@ -69,6 +71,7 @@ var Columns = []string{
 	FieldOrganizationID,
 	FieldName,
 	FieldNameNormalized,
+	FieldRemark,
 	FieldPhone,
 	FieldStatus,
 	FieldAuthVersion,
@@ -105,6 +108,10 @@ var (
 	NameValidator func(string) error
 	// NameNormalizedValidator is a validator for the "name_normalized" field. It is called by the builders before save.
 	NameNormalizedValidator func(string) error
+	// DefaultRemark holds the default value on creation for the "remark" field.
+	DefaultRemark string
+	// RemarkValidator is a validator for the "remark" field. It is called by the builders before save.
+	RemarkValidator func(string) error
 	// PhoneValidator is a validator for the "phone" field. It is called by the builders before save.
 	PhoneValidator func(string) error
 	// DefaultStatus holds the default value on creation for the "status" field.
@@ -160,6 +167,11 @@ func ByName(opts ...sql.OrderTermOption) OrderOption {
 // ByNameNormalized orders the results by the name_normalized field.
 func ByNameNormalized(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldNameNormalized, opts...).ToFunc()
+}
+
+// ByRemark orders the results by the remark field.
+func ByRemark(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRemark, opts...).ToFunc()
 }
 
 // ByPhone orders the results by the phone field.

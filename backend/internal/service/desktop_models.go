@@ -73,6 +73,7 @@ type DesktopMember struct {
 	OrganizationID                int64
 	Name                          string
 	NameNormalized                string
+	Remark                        string
 	Phone                         string
 	Status                        string
 	AuthVersion                   int64
@@ -215,6 +216,7 @@ type DesktopCreateMemberInput struct {
 
 type DesktopUpdateMemberInput struct {
 	Name             *string
+	Remark           *string
 	NameNormalized   *string
 	Phone            *string
 	Status           *string

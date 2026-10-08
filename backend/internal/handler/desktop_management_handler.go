@@ -22,12 +22,14 @@ const (
 )
 
 type desktopManagedCreateMemberRequest struct {
-	Name  string `json:"name" binding:"required"`
-	Phone string `json:"phone" binding:"required"`
+	Name   string `json:"name" binding:"required"`
+	Phone  string `json:"phone" binding:"required"`
+	Remark string `json:"remark"`
 }
 
 type desktopManagedUpdateMemberRequest struct {
 	Name   *string `json:"name"`
+	Remark *string `json:"remark"`
 	Phone  *string `json:"phone"`
 	Status *string `json:"status"`
 }
@@ -62,6 +64,7 @@ type desktopManagedGroupDTO struct {
 type desktopManagedMemberDTO struct {
 	PublicID         string                      `json:"public_id"`
 	Name             string                      `json:"name"`
+	Remark           string                      `json:"remark"`
 	Phone            string                      `json:"phone"`
 	Status           string                      `json:"status"`
 	ModelTokenStatus string                      `json:"model_token_status"`
@@ -112,7 +115,7 @@ func (h *DesktopHandler) CreateManagedMember(c *gin.Context) {
 		return
 	}
 	executeUserIdempotentJSON(c, desktopManagedMemberCreateIdempotencyScope, req, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
-		member, err := h.desktop.CreateManagedMember(ctx, userID, req.Name, req.Phone)
+		member, err := h.desktop.CreateManagedMember(ctx, userID, req.Name, req.Phone, req.Remark)
 		if err != nil {
 			return nil, err
 		}
@@ -153,7 +156,7 @@ func (h *DesktopHandler) UpdateManagedMember(c *gin.Context) {
 		return
 	}
 	member, err := h.desktop.UpdateManagedMember(c.Request.Context(), userID, c.Param("member_id"), service.DesktopUpdateMemberInput{
-		Name: req.Name, Status: req.Status,
+		Name: req.Name, Remark: req.Remark, Status: req.Status,
 	}, req.Phone)
 	if response.ErrorFrom(c, err) {
 		return
@@ -212,7 +215,7 @@ func desktopManagedOrganizationFromService(value *service.DesktopOrganization) d
 
 func desktopManagedMemberFromService(value *service.DesktopMember) desktopManagedMemberDTO {
 	return desktopManagedMemberDTO{
-		PublicID: value.PublicID, Name: value.Name, Phone: value.Phone, Status: value.Status,
+		PublicID: value.PublicID, Name: value.Name, Remark: value.Remark, Phone: value.Phone, Status: value.Status,
 		ModelTokenStatus: value.ModelTokenStatus(), Usage: value.Usage, CreatedAt: value.CreatedAt, UpdatedAt: value.UpdatedAt,
 	}
 }

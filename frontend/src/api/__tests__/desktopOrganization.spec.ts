@@ -16,6 +16,13 @@ describe('Desktop managed organization API', () => {
     vi.clearAllMocks()
   })
 
+  it('preserves remarks and import retries while using only the authenticated organization', async () => {
+    apiClientMock.post.mockResolvedValue({ data: {} })
+    const input = { name: 'Member', phone: '13800138000', remark: 'Team' }
+    await desktopOrganizationAPI.createMember('org_untrusted', input, 'desktop-member-import-fixed-row-3')
+    expect(apiClientMock.post).toHaveBeenCalledWith('/desktop/organization/members', input, { headers: { 'Idempotency-Key': 'desktop-member-import-fixed-row-3' } })
+  })
+
   it('treats a 204 response as no associated organization', async () => {
     apiClientMock.get.mockResolvedValue({ data: '', status: 204 })
 

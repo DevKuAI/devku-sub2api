@@ -81,6 +81,21 @@ func TestDesktopManagedOrganizationDTOExposesReadOnlyMemberLimit(t *testing.T) {
 	require.Contains(t, string(payload), `"member_limit":10`)
 }
 
+func TestDesktopManagedMemberRemarkContract(t *testing.T) {
+	payload, err := json.Marshal(desktopManagedMemberFromService(&service.DesktopMember{Remark: "财务部"}))
+	require.NoError(t, err)
+	require.Contains(t, string(payload), `"remark":"财务部"`)
+	var create desktopManagedCreateMemberRequest
+	require.NoError(t, json.Unmarshal([]byte(`{"name":"Member","phone":"13800138000"}`), &create))
+	require.Empty(t, create.Remark)
+	var update desktopManagedUpdateMemberRequest
+	require.NoError(t, json.Unmarshal([]byte(`{}`), &update))
+	require.Nil(t, update.Remark)
+	require.NoError(t, json.Unmarshal([]byte(`{"remark":""}`), &update))
+	require.NotNil(t, update.Remark)
+	require.Empty(t, *update.Remark)
+}
+
 func TestDesktopManagedOrganizationExposesReportingFlag(t *testing.T) {
 	for _, enabled := range []bool{false, true} {
 		raw, err := json.Marshal(desktopManagedOrganizationFromService(&service.DesktopOrganization{ConversationReportingEnabled: enabled}))

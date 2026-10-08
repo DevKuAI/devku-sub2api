@@ -1,0 +1,2 @@
+ALTER TABLE desktop_members
+    ADD COLUMN IF NOT EXISTS remark VARCHAR(500) NOT NULL DEFAULT '';

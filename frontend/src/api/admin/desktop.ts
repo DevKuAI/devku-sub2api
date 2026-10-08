@@ -89,6 +89,7 @@ export interface DesktopOrganization {
 export interface DesktopMember {
 	public_id: string
 	name: string
+	remark?: string
 	phone: string
   status: DesktopStatus
   model_token_status: DesktopModelTokenStatus
@@ -127,11 +128,13 @@ export interface UpdateDesktopOrganizationRequest {
 export interface CreateDesktopMemberRequest {
   name: string
   phone: string
+  remark?: string
 }
 
 export interface UpdateDesktopMemberRequest {
   name?: string
   phone?: string
+  remark?: string
   status?: DesktopStatus
 }
 
@@ -191,11 +194,11 @@ export async function listMembers(
   return data
 }
 
-export async function createMember(organizationID: string, input: CreateDesktopMemberRequest): Promise<DesktopMember> {
+export async function createMember(organizationID: string, input: CreateDesktopMemberRequest, idempotencyKey?: string): Promise<DesktopMember> {
   const { data } = await apiClient.post<DesktopMember>(
     `/admin/desktop/organizations/${encodeURIComponent(organizationID)}/members`,
     input,
-    { headers: idempotencyHeaders('desktop-member-create') },
+    { headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : idempotencyHeaders('desktop-member-create') },
   )
   return data
 }

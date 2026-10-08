@@ -948,6 +948,7 @@ var (
 		{Name: "public_id", Type: field.TypeString, Unique: true, Size: 40},
 		{Name: "name", Type: field.TypeString, Size: 100},
 		{Name: "name_normalized", Type: field.TypeString, Size: 100},
+		{Name: "remark", Type: field.TypeString, Size: 500, Default: ""},
 		{Name: "phone", Type: field.TypeString, Size: 16},
 		{Name: "status", Type: field.TypeString, Size: 20, Default: "active"},
 		{Name: "auth_version", Type: field.TypeInt64, Default: 1},
@@ -962,7 +963,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "desktop_members_desktop_organizations_members",
-				Columns:    []*schema.Column{DesktopMembersColumns[11]},
+				Columns:    []*schema.Column{DesktopMembersColumns[12]},
 				RefColumns: []*schema.Column{DesktopOrganizationsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -971,7 +972,7 @@ var (
 			{
 				Name:    "idx_desktop_members_org_phone_active",
 				Unique:  true,
-				Columns: []*schema.Column{DesktopMembersColumns[11], DesktopMembersColumns[7]},
+				Columns: []*schema.Column{DesktopMembersColumns[12], DesktopMembersColumns[8]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "deleted_at IS NULL",
 				},
@@ -979,7 +980,7 @@ var (
 			{
 				Name:    "idx_desktop_members_org_status_active",
 				Unique:  false,
-				Columns: []*schema.Column{DesktopMembersColumns[11], DesktopMembersColumns[8]},
+				Columns: []*schema.Column{DesktopMembersColumns[12], DesktopMembersColumns[9]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "deleted_at IS NULL",
 				},

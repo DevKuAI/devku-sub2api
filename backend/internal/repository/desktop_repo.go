@@ -479,6 +479,7 @@ func (r *desktopRepository) CreateMember(ctx context.Context, organizationPublic
 			SetOrganizationID(lockedOrganization.ID).
 			SetName(input.Member.Name).
 			SetNameNormalized(input.Member.NameNormalized).
+			SetRemark(input.Member.Remark).
 			SetPhone(input.Member.Phone).
 			Save(txCtx)
 		if err != nil {
@@ -570,6 +571,9 @@ func (r *desktopRepository) UpdateMember(ctx context.Context, organizationPublic
 		_ = assignment
 		builder := client.DesktopMember.UpdateOne(lockedMember)
 		changed := false
+		if input.Remark != nil {
+			builder.SetRemark(*input.Remark)
+		}
 		if input.Name != nil {
 			builder.SetName(*input.Name).SetNameNormalized(*input.NameNormalized)
 			changed = true
@@ -942,7 +946,7 @@ func desktopOrganizationEntityToService(row *dbent.DesktopOrganization) (*servic
 func desktopMemberEntityToService(row *dbent.DesktopMember) *service.DesktopMember {
 	result := &service.DesktopMember{
 		ID: row.ID, PublicID: row.PublicID, OrganizationID: row.OrganizationID, Name: row.Name,
-		NameNormalized: row.NameNormalized, Phone: row.Phone, Status: row.Status, AuthVersion: row.AuthVersion,
+		NameNormalized: row.NameNormalized, Remark: row.Remark, Phone: row.Phone, Status: row.Status, AuthVersion: row.AuthVersion,
 		APIKeySuspendedByOrganization: row.APIKeySuspendedByOrganization, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 	}
 	for _, assignment := range row.Edges.APIKeyAssignments {

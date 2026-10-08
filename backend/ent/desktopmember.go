@@ -32,6 +32,8 @@ type DesktopMember struct {
 	Name string `json:"name,omitempty"`
 	// NameNormalized holds the value of the "name_normalized" field.
 	NameNormalized string `json:"name_normalized,omitempty"`
+	// Remark holds the value of the "remark" field.
+	Remark string `json:"remark,omitempty"`
 	// Phone holds the value of the "phone" field.
 	Phone string `json:"phone,omitempty"`
 	// Status holds the value of the "status" field.
@@ -86,7 +88,7 @@ func (*DesktopMember) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullBool)
 		case desktopmember.FieldID, desktopmember.FieldOrganizationID, desktopmember.FieldAuthVersion:
 			values[i] = new(sql.NullInt64)
-		case desktopmember.FieldPublicID, desktopmember.FieldName, desktopmember.FieldNameNormalized, desktopmember.FieldPhone, desktopmember.FieldStatus:
+		case desktopmember.FieldPublicID, desktopmember.FieldName, desktopmember.FieldNameNormalized, desktopmember.FieldRemark, desktopmember.FieldPhone, desktopmember.FieldStatus:
 			values[i] = new(sql.NullString)
 		case desktopmember.FieldCreatedAt, desktopmember.FieldUpdatedAt, desktopmember.FieldDeletedAt:
 			values[i] = new(sql.NullTime)
@@ -153,6 +155,12 @@ func (_m *DesktopMember) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field name_normalized", values[i])
 			} else if value.Valid {
 				_m.NameNormalized = value.String
+			}
+		case desktopmember.FieldRemark:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field remark", values[i])
+			} else if value.Valid {
+				_m.Remark = value.String
 			}
 		case desktopmember.FieldPhone:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -246,6 +254,9 @@ func (_m *DesktopMember) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("name_normalized=")
 	builder.WriteString(_m.NameNormalized)
+	builder.WriteString(", ")
+	builder.WriteString("remark=")
+	builder.WriteString(_m.Remark)
 	builder.WriteString(", ")
 	builder.WriteString("phone=")
 	builder.WriteString(_m.Phone)

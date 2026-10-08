@@ -37,9 +37,10 @@ export async function listMembers(
 export async function createMember(
   _organizationID: string,
   input: CreateDesktopMemberRequest,
+  idempotencyKey?: string,
 ): Promise<DesktopMember> {
   const { data } = await apiClient.post<DesktopMember>(`${basePath}/members`, input, {
-    headers: idempotencyHeaders('desktop-managed-member-create'),
+    headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : idempotencyHeaders('desktop-managed-member-create'),
   })
   return data
 }

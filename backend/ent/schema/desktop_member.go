@@ -30,6 +30,7 @@ func (DesktopMember) Fields() []ent.Field {
 		field.Int64("organization_id"),
 		field.String("name").MaxLen(100).NotEmpty(),
 		field.String("name_normalized").MaxLen(100).NotEmpty(),
+		field.String("remark").MaxRuneLen(500).Default(""),
 		field.String("phone").MaxLen(16).NotEmpty(),
 		field.String("status").MaxLen(20).Default("active"),
 		field.Int64("auth_version").Positive().Default(1),

@@ -92,6 +92,7 @@ func TestDesktopAdminMemberDTOExposesFullPhone(t *testing.T) {
 	payload, err := json.Marshal(desktopMemberFromService(&service.DesktopMember{
 		PublicID: "mem_one",
 		Name:     "Member",
+		Remark:   "财务部",
 		Phone:    "+8613800000000",
 		Status:   service.DesktopStatusActive,
 	}))
@@ -99,6 +100,7 @@ func TestDesktopAdminMemberDTOExposesFullPhone(t *testing.T) {
 	require.JSONEq(t, `{
 		"public_id":"mem_one",
 		"name":"Member",
+		"remark":"财务部",
 		"phone":"+8613800000000",
 		"status":"active",
 		"model_token_status":"missing",

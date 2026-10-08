@@ -22374,6 +22374,7 @@ type DesktopMemberMutation struct {
 	public_id                         *string
 	name                              *string
 	name_normalized                   *string
+	remark                            *string
 	phone                             *string
 	status                            *string
 	auth_version                      *int64
@@ -22753,6 +22754,42 @@ func (m *DesktopMemberMutation) ResetNameNormalized() {
 	m.name_normalized = nil
 }
 
+// SetRemark sets the "remark" field.
+func (m *DesktopMemberMutation) SetRemark(s string) {
+	m.remark = &s
+}
+
+// Remark returns the value of the "remark" field in the mutation.
+func (m *DesktopMemberMutation) Remark() (r string, exists bool) {
+	v := m.remark
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRemark returns the old "remark" field's value of the DesktopMember entity.
+// If the DesktopMember object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopMemberMutation) OldRemark(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRemark is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRemark requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRemark: %w", err)
+	}
+	return oldValue.Remark, nil
+}
+
+// ResetRemark resets all changes to the "remark" field.
+func (m *DesktopMemberMutation) ResetRemark() {
+	m.remark = nil
+}
+
 // SetPhone sets the "phone" field.
 func (m *DesktopMemberMutation) SetPhone(s string) {
 	m.phone = &s
@@ -23032,7 +23069,7 @@ func (m *DesktopMemberMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *DesktopMemberMutation) Fields() []string {
-	fields := make([]string, 0, 11)
+	fields := make([]string, 0, 12)
 	if m.created_at != nil {
 		fields = append(fields, desktopmember.FieldCreatedAt)
 	}
@@ -23053,6 +23090,9 @@ func (m *DesktopMemberMutation) Fields() []string {
 	}
 	if m.name_normalized != nil {
 		fields = append(fields, desktopmember.FieldNameNormalized)
+	}
+	if m.remark != nil {
+		fields = append(fields, desktopmember.FieldRemark)
 	}
 	if m.phone != nil {
 		fields = append(fields, desktopmember.FieldPhone)
@@ -23088,6 +23128,8 @@ func (m *DesktopMemberMutation) Field(name string) (ent.Value, bool) {
 		return m.Name()
 	case desktopmember.FieldNameNormalized:
 		return m.NameNormalized()
+	case desktopmember.FieldRemark:
+		return m.Remark()
 	case desktopmember.FieldPhone:
 		return m.Phone()
 	case desktopmember.FieldStatus:
@@ -23119,6 +23161,8 @@ func (m *DesktopMemberMutation) OldField(ctx context.Context, name string) (ent.
 		return m.OldName(ctx)
 	case desktopmember.FieldNameNormalized:
 		return m.OldNameNormalized(ctx)
+	case desktopmember.FieldRemark:
+		return m.OldRemark(ctx)
 	case desktopmember.FieldPhone:
 		return m.OldPhone(ctx)
 	case desktopmember.FieldStatus:
@@ -23184,6 +23228,13 @@ func (m *DesktopMemberMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetNameNormalized(v)
+		return nil
+	case desktopmember.FieldRemark:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRemark(v)
 		return nil
 	case desktopmember.FieldPhone:
 		v, ok := value.(string)
@@ -23306,6 +23357,9 @@ func (m *DesktopMemberMutation) ResetField(name string) error {
 		return nil
 	case desktopmember.FieldNameNormalized:
 		m.ResetNameNormalized()
+		return nil
+	case desktopmember.FieldRemark:
+		m.ResetRemark()
 		return nil
 	case desktopmember.FieldPhone:
 		m.ResetPhone()

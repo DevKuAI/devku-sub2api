@@ -53,12 +53,14 @@ type desktopTargetConfigRequest struct {
 }
 
 type desktopCreateMemberRequest struct {
-	Name  string `json:"name" binding:"required"`
-	Phone string `json:"phone" binding:"required"`
+	Name   string `json:"name" binding:"required"`
+	Phone  string `json:"phone" binding:"required"`
+	Remark string `json:"remark"`
 }
 
 type desktopUpdateMemberRequest struct {
 	Name   *string `json:"name"`
+	Remark *string `json:"remark"`
 	Phone  *string `json:"phone"`
 	Status *string `json:"status"`
 }
@@ -93,6 +95,7 @@ type desktopGroupDTO struct {
 type desktopMemberDTO struct {
 	PublicID         string                      `json:"public_id"`
 	Name             string                      `json:"name"`
+	Remark           string                      `json:"remark"`
 	Phone            string                      `json:"phone"`
 	Status           string                      `json:"status"`
 	ModelTokenStatus string                      `json:"model_token_status"`
@@ -189,7 +192,7 @@ func (h *DesktopHandler) CreateMember(c *gin.Context) {
 		Member         desktopCreateMemberRequest `json:"member"`
 	}{OrganizationID: organizationID, Member: req}
 	result, err := executeAdminIdempotent(c, desktopMemberCreateIdempotencyScope, payload, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
-		member, execErr := h.desktop.CreateMember(ctx, organizationID, req.Name, req.Phone)
+		member, execErr := h.desktop.CreateMember(ctx, organizationID, req.Name, req.Phone, req.Remark)
 		if execErr != nil {
 			return nil, execErr
 		}
@@ -223,7 +226,7 @@ func (h *DesktopHandler) UpdateMember(c *gin.Context) {
 		return
 	}
 	member, err := h.desktop.UpdateMember(c.Request.Context(), c.Param("organization_id"), c.Param("member_id"), service.DesktopUpdateMemberInput{
-		Name: req.Name, Status: req.Status,
+		Name: req.Name, Remark: req.Remark, Status: req.Status,
 	}, req.Phone)
 	if response.ErrorFrom(c, err) {
 		return
@@ -295,7 +298,7 @@ func desktopOrganizationFromService(value *service.DesktopOrganization, includeC
 
 func desktopMemberFromService(value *service.DesktopMember) desktopMemberDTO {
 	return desktopMemberDTO{
-		PublicID: value.PublicID, Name: value.Name, Phone: value.Phone, Status: value.Status,
+		PublicID: value.PublicID, Name: value.Name, Remark: value.Remark, Phone: value.Phone, Status: value.Status,
 		ModelTokenStatus: value.ModelTokenStatus(), Usage: value.Usage, CreatedAt: value.CreatedAt, UpdatedAt: value.UpdatedAt,
 	}
 }

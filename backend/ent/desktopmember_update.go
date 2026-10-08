@@ -98,6 +98,20 @@ func (_u *DesktopMemberUpdate) SetNillableNameNormalized(v *string) *DesktopMemb
 	return _u
 }
 
+// SetRemark sets the "remark" field.
+func (_u *DesktopMemberUpdate) SetRemark(v string) *DesktopMemberUpdate {
+	_u.mutation.SetRemark(v)
+	return _u
+}
+
+// SetNillableRemark sets the "remark" field if the given value is not nil.
+func (_u *DesktopMemberUpdate) SetNillableRemark(v *string) *DesktopMemberUpdate {
+	if v != nil {
+		_u.SetRemark(*v)
+	}
+	return _u
+}
+
 // SetPhone sets the "phone" field.
 func (_u *DesktopMemberUpdate) SetPhone(v string) *DesktopMemberUpdate {
 	_u.mutation.SetPhone(v)
@@ -267,6 +281,11 @@ func (_u *DesktopMemberUpdate) check() error {
 			return &ValidationError{Name: "name_normalized", err: fmt.Errorf(`ent: validator failed for field "DesktopMember.name_normalized": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Remark(); ok {
+		if err := desktopmember.RemarkValidator(v); err != nil {
+			return &ValidationError{Name: "remark", err: fmt.Errorf(`ent: validator failed for field "DesktopMember.remark": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Phone(); ok {
 		if err := desktopmember.PhoneValidator(v); err != nil {
 			return &ValidationError{Name: "phone", err: fmt.Errorf(`ent: validator failed for field "DesktopMember.phone": %w`, err)}
@@ -314,6 +333,9 @@ func (_u *DesktopMemberUpdate) sqlSave(ctx context.Context) (_node int, err erro
 	}
 	if value, ok := _u.mutation.NameNormalized(); ok {
 		_spec.SetField(desktopmember.FieldNameNormalized, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.Remark(); ok {
+		_spec.SetField(desktopmember.FieldRemark, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.Phone(); ok {
 		_spec.SetField(desktopmember.FieldPhone, field.TypeString, value)
@@ -488,6 +510,20 @@ func (_u *DesktopMemberUpdateOne) SetNameNormalized(v string) *DesktopMemberUpda
 func (_u *DesktopMemberUpdateOne) SetNillableNameNormalized(v *string) *DesktopMemberUpdateOne {
 	if v != nil {
 		_u.SetNameNormalized(*v)
+	}
+	return _u
+}
+
+// SetRemark sets the "remark" field.
+func (_u *DesktopMemberUpdateOne) SetRemark(v string) *DesktopMemberUpdateOne {
+	_u.mutation.SetRemark(v)
+	return _u
+}
+
+// SetNillableRemark sets the "remark" field if the given value is not nil.
+func (_u *DesktopMemberUpdateOne) SetNillableRemark(v *string) *DesktopMemberUpdateOne {
+	if v != nil {
+		_u.SetRemark(*v)
 	}
 	return _u
 }
@@ -674,6 +710,11 @@ func (_u *DesktopMemberUpdateOne) check() error {
 			return &ValidationError{Name: "name_normalized", err: fmt.Errorf(`ent: validator failed for field "DesktopMember.name_normalized": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Remark(); ok {
+		if err := desktopmember.RemarkValidator(v); err != nil {
+			return &ValidationError{Name: "remark", err: fmt.Errorf(`ent: validator failed for field "DesktopMember.remark": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Phone(); ok {
 		if err := desktopmember.PhoneValidator(v); err != nil {
 			return &ValidationError{Name: "phone", err: fmt.Errorf(`ent: validator failed for field "DesktopMember.phone": %w`, err)}
@@ -738,6 +779,9 @@ func (_u *DesktopMemberUpdateOne) sqlSave(ctx context.Context) (_node *DesktopMe
 	}
 	if value, ok := _u.mutation.NameNormalized(); ok {
 		_spec.SetField(desktopmember.FieldNameNormalized, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.Remark(); ok {
+		_spec.SetField(desktopmember.FieldRemark, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.Phone(); ok {
 		_spec.SetField(desktopmember.FieldPhone, field.TypeString, value)

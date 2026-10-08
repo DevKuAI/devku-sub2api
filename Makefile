@@ -6,6 +6,12 @@ FRONTEND_CRITICAL_VITEST := \
 	src/api/__tests__/desktopConversations.spec.ts \
 	src/components/desktop/__tests__/DesktopConversationRecords.spec.ts \
 	src/components/desktop/__tests__/DesktopMemberModelUsage.spec.ts \
+	src/components/desktop/__tests__/DesktopMemberImportDialog.spec.ts \
+	src/utils/__tests__/desktopMemberImport.spec.ts \
+	src/utils/__tests__/desktopMemberUsageCsv.spec.ts \
+	src/views/admin/desktop/DesktopOrganizationDetailView.spec.ts \
+	src/api/__tests__/admin.desktop.spec.ts \
+	src/api/__tests__/desktopOrganization.spec.ts \
 	src/components/desktop/__tests__/DesktopOrganizationUsageStatistics.spec.ts \
 	src/i18n/__tests__/localeKeyCompleteness.spec.ts \
 	src/api/__tests__/client.spec.ts \

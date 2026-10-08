@@ -46,6 +46,7 @@
           <label class="w-full min-w-0 space-y-1 sm:max-w-72 sm:flex-1"><span class="block text-xs font-medium text-gray-600 dark:text-gray-300">{{ t('admin.desktop.memberSearchLabel') }}</span><input v-model="memberSearch" class="input" type="search" :placeholder="t('admin.desktop.searchMembers')" @input="scheduleMembers" /></label>
           <div class="w-40 space-y-1"><span class="block text-xs font-medium text-gray-600 dark:text-gray-300">{{ t('common.status') }}</span><Select v-model="memberStatus" :options="statusOptions" :aria-label="t('common.status')" @change="resetMembers" /></div>
           <div class="ml-auto flex w-full flex-wrap items-center gap-2 sm:w-auto">
+            <button class="btn btn-secondary shrink-0 whitespace-nowrap" type="button" data-testid="import-members" :disabled="!canCreateMember" @click="showMemberImport = true"><Icon name="upload" size="md" class="mr-1" />{{ t('admin.desktop.memberImport.button') }}</button>
             <button class="btn btn-secondary shrink-0 whitespace-nowrap" type="button" data-testid="export-member-usage" :disabled="membersExporting || !organization || organization.public_id !== organizationID" :aria-busy="membersExporting" :title="t('admin.desktop.memberUsageExport.hint')" @click="exportMemberUsage">
               <Icon :name="membersExporting ? 'refresh' : 'download'" size="md" class="mr-1" :class="{ 'animate-spin': membersExporting }" />{{ t(membersExporting ? 'admin.desktop.memberUsageExport.exporting' : 'admin.desktop.memberUsageExport.button') }}
             </button>
@@ -57,6 +58,7 @@
         <div v-if="organization" class="min-w-0">
           <DataTable :columns="memberColumns" :data="members" :loading="membersLoading" row-key="public_id">
             <template #cell-name="{ row }"><div class="min-w-0 max-w-64"><div class="break-words font-medium text-gray-900 dark:text-white">{{ row.name }}</div><div class="mt-1 break-all font-mono text-xs text-gray-500 dark:text-dark-400">{{ row.public_id }}</div></div></template>
+            <template #cell-remark="{ row }"><span class="block max-w-64 whitespace-pre-wrap break-words">{{ row.remark || '—' }}</span></template>
             <template #cell-status="{ row }"><StatusBadge :status="row.status" :label="statusLabel(row.status)" /></template>
             <template #cell-model_token_status="{ row }"><span :class="['badge', tokenBadge(row.model_token_status)]">{{ tokenStatusLabel(row.model_token_status) }}</span></template>
             <template #cell-usage_cost="{ row }">
@@ -186,10 +188,12 @@
       <form id="desktop-member-form" class="space-y-4" @submit.prevent="saveMember">
         <Input v-model="memberForm.name" :label="t('admin.desktop.memberName')" required />
 		<Input v-model="memberForm.phone" type="tel" :label="t('admin.desktop.phone')" required placeholder="13800138000" :hint="t('admin.desktop.phoneHint')" />
+        <label class="block space-y-1.5"><span class="input-label block">{{ t('admin.desktop.memberRemark') }}</span><textarea v-model="memberForm.remark" class="input w-full" rows="3" maxlength="500" :placeholder="t('admin.desktop.memberRemarkHint')" data-testid="member-remark" /></label>
       </form>
       <template #footer><div class="flex justify-end gap-3"><button class="btn btn-secondary" type="button" @click="closeMemberDialog">{{ t('common.cancel') }}</button><button class="btn btn-primary" type="submit" form="desktop-member-form" :disabled="memberSaving">{{ memberSaving ? t('common.saving') : t('common.save') }}</button></div></template>
     </BaseDialog>
 
+    <DesktopMemberImportDialog v-if="organization" :show="showMemberImport" :organization-id="organizationID" :self-managed="selfManaged" :available-slots="Math.max(0, organization.member_limit - organization.member_count)" :organization-active="organization.status === 'active'" @close="showMemberImport = false" @imported="reloadAfterMemberImport" />
     <ConfirmDialog :show="confirmState.show" :title="confirmState.title" :message="confirmState.message" :confirm-text="confirmState.confirmText" :loading="confirmPending" danger @confirm="runConfirmedAction" @cancel="closeConfirm" />
   </AppLayout>
 </template>
@@ -223,6 +227,7 @@ import DesktopConversationRecords from '@/components/desktop/DesktopConversation
 import DesktopConversationStatistics from '@/components/desktop/DesktopConversationStatistics.vue'
 import DesktopAnalyticsRangePicker from '@/components/desktop/DesktopAnalyticsRangePicker.vue'
 import DesktopOrganizationUsageStatistics from '@/components/desktop/DesktopOrganizationUsageStatistics.vue'
+import DesktopMemberImportDialog from '@/components/desktop/DesktopMemberImportDialog.vue'
 import type { DesktopAnalyticsRange } from '@/api/desktopOrganizationUsage'
 import BIGrantManagement from '@/components/bi/BIGrantManagement.vue'
 
@@ -268,9 +273,10 @@ const groups = ref<AdminGroup[]>([])
 const groupsLoading = ref(false)
 const organizationForm = reactive({ name: '', status: 'active' as DesktopStatus, gateway_user_id: null as number | null, group_id: null as number | null, member_limit: 10, conversation_reporting_enabled: false })
 const showMemberDialog = ref(false)
+const showMemberImport = ref(false)
 const editingMember = ref<DesktopMember | null>(null)
 const memberSaving = ref(false)
-const memberForm = reactive({ name: '', phone: '' })
+const memberForm = reactive({ name: '', phone: '', remark: '' })
 const configSaving = ref(false)
 const blankTarget = () => ({ enabled: false, provider_id: '', display_name: '', requested_model: '', minimum_app_version: '', restart_required: false })
 const configForm = reactive({ chat: { ...blankTarget(), enabled: true }, work: blankTarget(), includeWorkbuddy: false })
@@ -293,7 +299,7 @@ const memberEmptyDescription = computed(() => {
 const statusOptions = computed(() => [{ value: '', label: t('common.all') }, { value: 'active', label: t('common.active') }, { value: 'disabled', label: t('common.disabled') }])
 const editableStatusOptions = computed(() => statusOptions.value.slice(1))
 const memberColumns = computed<Column[]>(() => [
-	{ key: 'name', label: t('admin.desktop.member') }, { key: 'phone', label: t('admin.desktop.phone') },
+	{ key: 'name', label: t('admin.desktop.member') }, { key: 'remark', label: t('admin.desktop.memberRemark') }, { key: 'phone', label: t('admin.desktop.phone') },
   { key: 'status', label: t('common.status') }, { key: 'model_token_status', label: t('admin.desktop.modelToken') },
   { key: 'usage_cost', label: t('admin.desktop.usageCost') },
   { key: 'usage_tokens', label: t('admin.desktop.usageTokens') },
@@ -460,16 +466,24 @@ async function saveOrganization() {
   } catch (error) { appStore.showError(errorMessage(error)) } finally { organizationSaving.value = false }
 }
 
-function openCreateMember() { editingMember.value = null; Object.assign(memberForm, { name: '', phone: '' }); showMemberDialog.value = true }
-function openEditMember(member: DesktopMember) { editingMember.value = member; Object.assign(memberForm, { name: member.name, phone: member.phone }); showMemberDialog.value = true }
+async function reloadAfterMemberImport() { await Promise.all([loadMembers(), loadOrganization()]) }
+function openCreateMember() { editingMember.value = null; Object.assign(memberForm, { name: '', phone: '', remark: '' }); showMemberDialog.value = true }
+function openEditMember(member: DesktopMember) { editingMember.value = member; Object.assign(memberForm, { name: member.name, phone: member.phone, remark: member.remark || '' }); showMemberDialog.value = true }
 function closeMemberDialog() { if (!memberSaving.value) showMemberDialog.value = false }
 async function saveMember() {
 	if (!editingMember.value && memberLimitReached.value) { appStore.showError(t('admin.desktop.errors.MEMBER_LIMIT_REACHED')); return }
-	if (!memberForm.name.trim() || !memberForm.phone.trim()) { appStore.showError(t('admin.desktop.errors.VALIDATION_FAILED')); return }
+	if (!memberForm.name.trim() || !memberForm.phone.trim() || Array.from(memberForm.remark.trim()).length > 500) { appStore.showError(t('admin.desktop.errors.VALIDATION_FAILED')); return }
 	memberSaving.value = true
 	try {
-		if (editingMember.value) await organizationAPI.value.updateMember(organizationID.value, editingMember.value.public_id, { name: memberForm.name.trim(), ...(memberForm.phone.trim() !== editingMember.value.phone ? { phone: memberForm.phone.trim() } : {}) })
-    else await organizationAPI.value.createMember(organizationID.value, { name: memberForm.name.trim(), phone: memberForm.phone.trim() })
+    if (editingMember.value) {
+      const input = {
+        ...(memberForm.name.trim() !== editingMember.value.name ? { name: memberForm.name.trim() } : {}),
+        ...(memberForm.remark.trim() !== (editingMember.value.remark || '') ? { remark: memberForm.remark.trim() } : {}),
+        ...(memberForm.phone.trim() !== editingMember.value.phone ? { phone: memberForm.phone.trim() } : {}),
+      }
+      if (Object.keys(input).length) await organizationAPI.value.updateMember(organizationID.value, editingMember.value.public_id, input)
+    }
+    else await organizationAPI.value.createMember(organizationID.value, { name: memberForm.name.trim(), phone: memberForm.phone.trim(), remark: memberForm.remark.trim() })
     appStore.showSuccess(t(editingMember.value ? 'admin.desktop.memberUpdated' : 'admin.desktop.memberCreated')); showMemberDialog.value = false; await Promise.all([loadMembers(), loadOrganization()])
   } catch (error) { appStore.showError(errorMessage(error)) } finally { memberSaving.value = false }
 }

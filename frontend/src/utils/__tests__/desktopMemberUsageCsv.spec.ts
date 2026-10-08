@@ -6,6 +6,7 @@ const organization = { name: '测试企业', code: 'company' }
 const member: DesktopMember = {
   public_id: 'mem_one',
   name: '成员甲',
+  remark: '财务部',
   phone: '+8613800000000',
   status: 'active',
   model_token_status: 'active',
@@ -27,7 +28,7 @@ describe('Desktop member usage CSV', () => {
     const csv = createDesktopMemberUsageCsv(organization, [member], t)
     expect(csv.charCodeAt(0)).toBe(0xFEFF)
     expect(csv.split('\r\n')[1]).toBe(
-      "测试企业,company,mem_one,成员甲,'+8613800000000,common.active,admin.desktop.tokenStatus.active,0.12345678,2.5,4000.00000001,1250,2500000,4000000000,2026-09-24T01:23:45Z",
+      "测试企业,company,mem_one,成员甲,财务部,'+8613800000000,common.active,admin.desktop.tokenStatus.active,0.12345678,2.5,4000.00000001,1250,2500000,4000000000,2026-09-24T01:23:45Z",
     )
   })
 
@@ -62,6 +63,6 @@ describe('Desktop member usage CSV', () => {
     expect(csv).not.toContain('PRIVATE-')
     expect(csv).not.toMatch(/\b(?:model_token|api_key|access_token|refresh_token)\b/)
     expect(csv).toContain('admin.desktop.tokenStatus.active')
-    expect(csv.split('\r\n')[1].split(',')).toHaveLength(14)
+    expect(csv.split('\r\n')[1].split(',')).toHaveLength(15)
   })
 })

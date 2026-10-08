@@ -90,6 +90,20 @@ func (_c *DesktopMemberCreate) SetNameNormalized(v string) *DesktopMemberCreate 
 	return _c
 }
 
+// SetRemark sets the "remark" field.
+func (_c *DesktopMemberCreate) SetRemark(v string) *DesktopMemberCreate {
+	_c.mutation.SetRemark(v)
+	return _c
+}
+
+// SetNillableRemark sets the "remark" field if the given value is not nil.
+func (_c *DesktopMemberCreate) SetNillableRemark(v *string) *DesktopMemberCreate {
+	if v != nil {
+		_c.SetRemark(*v)
+	}
+	return _c
+}
+
 // SetPhone sets the "phone" field.
 func (_c *DesktopMemberCreate) SetPhone(v string) *DesktopMemberCreate {
 	_c.mutation.SetPhone(v)
@@ -209,6 +223,10 @@ func (_c *DesktopMemberCreate) defaults() error {
 		v := desktopmember.DefaultUpdatedAt()
 		_c.mutation.SetUpdatedAt(v)
 	}
+	if _, ok := _c.mutation.Remark(); !ok {
+		v := desktopmember.DefaultRemark
+		_c.mutation.SetRemark(v)
+	}
 	if _, ok := _c.mutation.Status(); !ok {
 		v := desktopmember.DefaultStatus
 		_c.mutation.SetStatus(v)
@@ -257,6 +275,14 @@ func (_c *DesktopMemberCreate) check() error {
 	if v, ok := _c.mutation.NameNormalized(); ok {
 		if err := desktopmember.NameNormalizedValidator(v); err != nil {
 			return &ValidationError{Name: "name_normalized", err: fmt.Errorf(`ent: validator failed for field "DesktopMember.name_normalized": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.Remark(); !ok {
+		return &ValidationError{Name: "remark", err: errors.New(`ent: missing required field "DesktopMember.remark"`)}
+	}
+	if v, ok := _c.mutation.Remark(); ok {
+		if err := desktopmember.RemarkValidator(v); err != nil {
+			return &ValidationError{Name: "remark", err: fmt.Errorf(`ent: validator failed for field "DesktopMember.remark": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.Phone(); !ok {
@@ -339,6 +365,10 @@ func (_c *DesktopMemberCreate) createSpec() (*DesktopMember, *sqlgraph.CreateSpe
 	if value, ok := _c.mutation.NameNormalized(); ok {
 		_spec.SetField(desktopmember.FieldNameNormalized, field.TypeString, value)
 		_node.NameNormalized = value
+	}
+	if value, ok := _c.mutation.Remark(); ok {
+		_spec.SetField(desktopmember.FieldRemark, field.TypeString, value)
+		_node.Remark = value
 	}
 	if value, ok := _c.mutation.Phone(); ok {
 		_spec.SetField(desktopmember.FieldPhone, field.TypeString, value)
@@ -504,6 +534,18 @@ func (u *DesktopMemberUpsert) SetNameNormalized(v string) *DesktopMemberUpsert {
 // UpdateNameNormalized sets the "name_normalized" field to the value that was provided on create.
 func (u *DesktopMemberUpsert) UpdateNameNormalized() *DesktopMemberUpsert {
 	u.SetExcluded(desktopmember.FieldNameNormalized)
+	return u
+}
+
+// SetRemark sets the "remark" field.
+func (u *DesktopMemberUpsert) SetRemark(v string) *DesktopMemberUpsert {
+	u.Set(desktopmember.FieldRemark, v)
+	return u
+}
+
+// UpdateRemark sets the "remark" field to the value that was provided on create.
+func (u *DesktopMemberUpsert) UpdateRemark() *DesktopMemberUpsert {
+	u.SetExcluded(desktopmember.FieldRemark)
 	return u
 }
 
@@ -683,6 +725,20 @@ func (u *DesktopMemberUpsertOne) SetNameNormalized(v string) *DesktopMemberUpser
 func (u *DesktopMemberUpsertOne) UpdateNameNormalized() *DesktopMemberUpsertOne {
 	return u.Update(func(s *DesktopMemberUpsert) {
 		s.UpdateNameNormalized()
+	})
+}
+
+// SetRemark sets the "remark" field.
+func (u *DesktopMemberUpsertOne) SetRemark(v string) *DesktopMemberUpsertOne {
+	return u.Update(func(s *DesktopMemberUpsert) {
+		s.SetRemark(v)
+	})
+}
+
+// UpdateRemark sets the "remark" field to the value that was provided on create.
+func (u *DesktopMemberUpsertOne) UpdateRemark() *DesktopMemberUpsertOne {
+	return u.Update(func(s *DesktopMemberUpsert) {
+		s.UpdateRemark()
 	})
 }
 
@@ -1037,6 +1093,20 @@ func (u *DesktopMemberUpsertBulk) SetNameNormalized(v string) *DesktopMemberUpse
 func (u *DesktopMemberUpsertBulk) UpdateNameNormalized() *DesktopMemberUpsertBulk {
 	return u.Update(func(s *DesktopMemberUpsert) {
 		s.UpdateNameNormalized()
+	})
+}
+
+// SetRemark sets the "remark" field.
+func (u *DesktopMemberUpsertBulk) SetRemark(v string) *DesktopMemberUpsertBulk {
+	return u.Update(func(s *DesktopMemberUpsert) {
+		s.SetRemark(v)
+	})
+}
+
+// UpdateRemark sets the "remark" field to the value that was provided on create.
+func (u *DesktopMemberUpsertBulk) UpdateRemark() *DesktopMemberUpsertBulk {
+	return u.Update(func(s *DesktopMemberUpsert) {
+		s.UpdateRemark()
 	})
 }
 
