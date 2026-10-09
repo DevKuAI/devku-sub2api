@@ -742,7 +742,7 @@ type ServerConfig struct {
 type H2CConfig struct {
 	Enabled                      bool   `mapstructure:"enabled"`                          // 是否启用 H2C
 	MaxConcurrentStreams         uint32 `mapstructure:"max_concurrent_streams"`           // 最大并发流数量
-	IdleTimeout                  int    `mapstructure:"idle_timeout"`                     // 空闲超时（秒）
+	IdleTimeout                  int    `mapstructure:"idle_timeout"`                     // 启用 H2C 时 HTTP/1.1 和 HTTP/2 共用的空闲超时（秒）
 	MaxReadFrameSize             int    `mapstructure:"max_read_frame_size"`              // 最大帧大小（字节）
 	MaxUploadBufferPerConnection int    `mapstructure:"max_upload_buffer_per_connection"` // 每个连接的上传缓冲区（字节）
 	MaxUploadBufferPerStream     int    `mapstructure:"max_upload_buffer_per_stream"`     // 每个流的上传缓冲区（字节）

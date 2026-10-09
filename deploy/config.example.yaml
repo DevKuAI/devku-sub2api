@@ -61,6 +61,7 @@ server:
     max_concurrent_streams: 50
     # Idle timeout for connections (seconds)
     # 连接空闲超时时间（秒）
+    # 启用 H2C 时，HTTP/1.1 和 HTTP/2 连接共用该空闲超时
     idle_timeout: 75
     # Max frame size in bytes (default: 1MB)
     # 最大帧大小（字节，默认 1MB）

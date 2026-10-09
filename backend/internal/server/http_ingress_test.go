@@ -53,6 +53,51 @@ func TestProvideHTTPServerEnablesBoundedH2C(t *testing.T) {
 	require.NotNil(t, srv.Protocols)
 	require.True(t, srv.Protocols.UnencryptedHTTP2())
 	require.True(t, srv.Protocols.HTTP1())
+	require.NotNil(t, srv.HTTP2)
+	require.Equal(t, 25, srv.HTTP2.MaxConcurrentStreams)
+	require.Equal(t, 64*1024, srv.HTTP2.MaxReadFrameSize)
+	require.Equal(t, 1024*1024, srv.HTTP2.MaxReceiveBufferPerConnection)
+	require.Equal(t, 256*1024, srv.HTTP2.MaxReceiveBufferPerStream)
+	require.Equal(t, 30*time.Second, srv.IdleTimeout)
+
+	router := gin.New()
+	router.POST("/", func(c *gin.Context) {
+		_, err := io.ReadAll(c.Request.Body)
+		var maxErr *http.MaxBytesError
+		if errors.As(err, &maxErr) {
+			c.Status(http.StatusRequestEntityTooLarge)
+			return
+		}
+		if err != nil {
+			c.Status(http.StatusInternalServerError)
+			return
+		}
+		c.Status(http.StatusOK)
+	})
+	ts := httptest.NewUnstartedServer(nil)
+	ts.Config = ProvideHTTPServer(cfg, router)
+	ts.Start()
+	t.Cleanup(ts.Close)
+	for _, major := range []int{1, 2} {
+		tr := &http.Transport{}
+		if major == 2 {
+			tr.Protocols = new(http.Protocols)
+			tr.Protocols.SetUnencryptedHTTP2(true)
+		}
+		t.Cleanup(tr.CloseIdleConnections)
+		client := &http.Client{Transport: tr, Timeout: 5 * time.Second}
+		for _, size := range []int{1024, 1025} {
+			resp, err := client.Post(ts.URL, "application/octet-stream", strings.NewReader(strings.Repeat("x", size)))
+			require.NoError(t, err)
+			require.NoError(t, resp.Body.Close())
+			require.Equal(t, major, resp.ProtoMajor)
+			if size == 1024 {
+				require.Equal(t, http.StatusOK, resp.StatusCode)
+			} else {
+				require.Equal(t, http.StatusRequestEntityTooLarge, resp.StatusCode)
+			}
+		}
+	}
 }
 
 func TestConfigureTrustedProxies(t *testing.T) {
