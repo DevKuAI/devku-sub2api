@@ -43,6 +43,12 @@ Sub2API 是用于分发和管理上游 AI 服务订阅配额的 API 网关。平
 - **复合分组**：在多 Provider 分组中，将请求模型解析到具体的上游 Provider。
 - **外部系统集成**：通过 iframe 将工单等外部系统嵌入管理后台。
 
+## 上游 v0.2.15 功能与兼容性说明
+
+- **Command Code 与 Cline**：新增两个 Provider 的 API Key 账号。Command Code 根据模型能力选择原生 Messages、Responses 或 Chat Completions 端点；Cline 使用 Chat Completions，并转换入站 Messages 或 Responses 请求。Cline 积分与 ClinePass 限额分别作用于对应模型。
+- **Platform catalog**：账号创建、路由和默认平台配额共用平台清单。数据库迁移移除平台 CHECK 约束，由应用校验平台是否已登记。
+- **输出速度**：使用记录展示单次请求的 output TPS，运维面板展示其分位数和样本量，与系统吞吐量分别统计。长上下文计费标签表示已应用对应定价档位，不再显示为固定倍率。
+
 ## 上游 v0.2.7 功能与兼容性说明
 
 - **Seedance (Ark) 视频任务**：支持原生任务创建、查询和删除。使用前需为 OpenAI 平台的 API Key 账号启用 Seedance 端点能力，并开启分组的媒体权限。首次查询到 `succeeded` 时，按上游 `usage.completion_tokens` 计费；当前不后台轮询，也不通过回调自动结算。需保留 Redis 任务绑定，并在有效期内查询完成结果。配置、访问限制和计费规则见 [Seedance API 指南](docs/seedance-api.md)。

@@ -43,6 +43,12 @@ Sub2API is an API gateway for distributing and managing subscription quotas from
 - **Composite groups:** Resolves requested models to concrete upstream providers within multi-provider groups.
 - **External integrations:** Embeds external systems, such as ticketing tools, in the admin dashboard through an iframe.
 
+## Upstream v0.2.15 features and compatibility
+
+- **Command Code and Cline:** Adds API key accounts for both providers. Command Code selects native Messages, Responses, or Chat Completions endpoints using model capabilities; Cline uses Chat Completions and converts incoming Messages or Responses requests. Cline credit and ClinePass limits affect their respective models independently.
+- **Platform catalog:** Account creation, routing, and default platform quotas share a catalog. The database migration removes platform CHECK constraints; the application validates registered platforms.
+- **Output speed:** Usage records show per-request output TPS. The operations dashboard provides output TPS percentiles and sample counts, separately from system throughput. Long-context billing labels indicate the applied pricing tier rather than a fixed multiplier.
+
 ## Upstream v0.2.7 features and compatibility
 
 - **Seedance (Ark) video tasks:** Supports native task creation, status queries, and deletion. Enable the Seedance endpoint capability on an OpenAI API key account and the group's media permission before use. Billing occurs when a query first observes `succeeded`, using upstream `usage.completion_tokens`; there is no background polling or automatic callback settlement. Preserve Redis task bindings and query completed tasks within their lifetime. See the [configuration, access restrictions, and billing guide](docs/seedance-api.md).
