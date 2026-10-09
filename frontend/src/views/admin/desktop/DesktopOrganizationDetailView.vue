@@ -1,5 +1,5 @@
 <template>
-  <AppLayout plain-background>
+  <AppLayout>
     <div class="mx-auto min-w-0 max-w-7xl space-y-6">
       <div class="flex flex-wrap items-start gap-3">
         <button v-if="!selfManaged" class="btn btn-secondary min-h-11 px-3" type="button" :title="t('common.back')" :aria-label="t('common.back')" @click="router.push('/admin/desktop/organizations')">
