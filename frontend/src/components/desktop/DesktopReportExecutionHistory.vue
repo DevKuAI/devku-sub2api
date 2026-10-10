@@ -1,13 +1,21 @@
 <template>
-  <details v-if="executions.length" class="rounded-lg border border-gray-200 p-3 dark:border-dark-700" data-testid="report-execution-history">
-    <summary class="cursor-pointer text-sm font-medium">{{ t(`${key}.title`, { count: executions.length }) }}</summary>
-    <p class="mt-2 text-xs text-gray-500">{{ t(`${key}.hint`) }}</p>
-    <div class="mt-3 overflow-x-auto" tabindex="0" :aria-label="t(`${key}.label`)">
-      <table class="w-full min-w-[48rem] text-left text-xs">
-        <thead><tr><th class="p-2">{{ t(`${key}.model`) }}</th><th class="p-2">{{ t(`${key}.revision`) }}</th><th class="p-2">{{ t(`${key}.chunk`) }}</th><th class="p-2">{{ t(`${key}.attempt`) }}</th><th class="p-2">{{ t(`${key}.startedAt`) }}</th><th class="p-2">{{ t('common.status') }}</th></tr></thead>
-        <tbody><tr v-for="execution in executions" :key="execution.id" class="border-t border-gray-100 dark:border-dark-700"><td class="p-2">{{ execution.model }}</td><td class="p-2">{{ execution.revision }}</td><td class="p-2">{{ execution.round + 1 }} / {{ execution.chunk }}</td><td class="p-2">{{ execution.attempt }}</td><td class="whitespace-nowrap p-2">{{ formatDateTime(execution.started_at) }}</td><td class="p-2">{{ t(`${key}.statuses.${execution.status}`) }}</td></tr></tbody>
-      </table>
-    </div>
+  <details v-if="executions.length" class="report-history" data-testid="report-execution-history">
+    <summary class="min-h-11 cursor-pointer py-3 text-sm font-medium leading-relaxed">{{ t(`${key}.title`, { count: executions.length }) }}</summary>
+    <p class="analytics-caption mt-1">{{ t(`${key}.hint`) }}</p>
+    <ol class="mt-4 space-y-4" :aria-label="t(`${key}.label`)">
+      <li v-for="execution in executions" :key="execution.id" class="execution-item">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="min-w-0"><p class="analytics-caption">{{ t(`${key}.model`) }}</p><p class="mt-1 break-words text-sm font-medium"><bdi>{{ execution.model }}</bdi></p></div>
+          <span class="execution-status" :data-status="execution.status">{{ t(`${key}.statuses.${execution.status}`) }}</span>
+        </div>
+        <dl class="execution-metadata mt-4">
+          <div><dt class="analytics-caption">{{ t(`${key}.revision`) }}</dt><dd>{{ execution.revision }}</dd></div>
+          <div><dt class="analytics-caption">{{ t(`${key}.chunk`) }}</dt><dd>{{ execution.round + 1 }} / {{ execution.chunk }}</dd></div>
+          <div><dt class="analytics-caption">{{ t(`${key}.attempt`) }}</dt><dd>{{ execution.attempt }}</dd></div>
+          <div><dt class="analytics-caption">{{ t(`${key}.startedAt`) }}</dt><dd>{{ formatDateTime(execution.started_at) }}</dd></div>
+        </dl>
+      </li>
+    </ol>
   </details>
 </template>
 <script setup lang="ts">
@@ -18,3 +26,15 @@ defineProps<{ executions: DesktopReportExecution[] }>()
 const { t } = useI18n()
 const key = 'admin.desktop.reports.executions'
 </script>
+<style scoped>
+.report-history { @apply min-w-0 border-t border-gray-200 pt-2 text-gray-900 dark:border-dark-700 dark:text-gray-100; }
+.execution-item { @apply rounded-lg bg-gray-50 p-4 dark:bg-dark-800; overflow-wrap: anywhere; }
+.execution-metadata { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.execution-metadata dd { @apply mt-1 text-sm leading-relaxed tabular-nums; }
+.execution-status { @apply max-w-full rounded-md bg-gray-100 px-2.5 py-1 text-sm leading-normal text-gray-700 dark:bg-dark-700 dark:text-dark-200; }
+.execution-status[data-status='completed'] { @apply bg-emerald-50 text-emerald-800 dark:bg-dark-900 dark:text-emerald-200; }
+.execution-status[data-status='failed'] { @apply bg-red-50 text-red-700 dark:bg-dark-900 dark:text-red-300; }
+.execution-status[data-status='running'] { @apply bg-primary-50 text-primary-700 dark:bg-dark-900 dark:text-primary-300; }
+.execution-status[data-status='blocked'] { @apply bg-amber-50 text-amber-900 dark:bg-dark-900 dark:text-amber-200; }
+@container (min-width: 36rem) { .execution-metadata { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+</style>
