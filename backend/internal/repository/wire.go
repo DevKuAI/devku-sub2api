@@ -100,6 +100,7 @@ var ProviderSet = wire.NewSet(
 	NewPluginRepository,
 	NewPluginKVStore,
 	NewDesktopRepository,
+	NewDesktopReportRepository,
 	NewDesktopSessionStore,
 	NewDesktopConversationRepository,
 	NewDesktopConversationLimiter,

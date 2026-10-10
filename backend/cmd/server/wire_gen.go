@@ -299,7 +299,8 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	desktopSessionStore := repository.NewDesktopSessionStore(redisClient)
 	desktopConversationRepository := repository.NewDesktopConversationRepository(client)
 	desktopConversationLimiter := repository.NewDesktopConversationLimiter(redisClient, configConfig)
-	desktopService := service.NewDesktopService(desktopRepository, desktopUsageRepository, desktopRefreshStore, desktopLoginLimiter, desktopTokenManager, apiKeyService, configConfig, desktopSessionStore, desktopConversationRepository, desktopConversationLimiter)
+	desktopReportRepository := repository.NewDesktopReportRepository(db, client)
+	desktopService := service.ProvideDesktopService(desktopRepository, desktopUsageRepository, desktopRefreshStore, desktopLoginLimiter, desktopTokenManager, apiKeyService, configConfig, desktopSessionStore, desktopConversationRepository, desktopConversationLimiter, desktopReportRepository)
 	desktopHandler := admin.NewDesktopHandler(desktopService)
 	desktopUpdateRepository := repository.NewDesktopUpdateRepository(client)
 	desktopUpdateArtifactStorageFactory := repository.ProvideDesktopUpdateArtifactStorageFactory()
@@ -382,7 +383,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	channelMonitorRunner := service.ProvideChannelMonitorRunner(channelMonitorService, settingService, channelMonitorQuotaFetcher)
 	channelMonitorV2Aggregator := service.ProvideChannelMonitorV2Aggregator(channelMonitorV2Repository, db, settingService)
 	userPlatformQuotaUsageFlusher := service.ProvideUserPlatformQuotaUsageFlusher(configConfig, billingCache, serviceUserPlatformQuotaRepository, timingWheelService)
-	v := provideCleanup(biHandler, client, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, opsCleanupService, opsScheduledReportService, opsSystemLogSink, opsService, opsIngressRejectAggregator, apiKeyService, authCacheInvalidationWorker, schedulerSnapshotService, tokenRefreshService, accountExpiryService, cnProviderBalanceCheckService, openAICodexVersionSyncService, claudeCodeVersionSyncService, proxyExpiryService, subscriptionExpiryService, usageCleanupService, idempotencyCleanupService, batchImageCleanupService, batchImageWorkerRuntime, pricingService, emailQueueService, billingCacheService, usageRecordWorkerPool, subscriptionService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, grokOAuthService, openAIGatewayService, scheduledTestRunnerService, backupService, paymentOrderExpiryService, channelMonitorRunner, channelMonitorV2Aggregator, userPlatformQuotaUsageFlusher, upstreamBillingProbeService, ollamaCloudUsageService, openCodeGoUsageService, auditLogService, openAIQuotaAutoResetService, promptService, pluginManager)
+	v := provideCleanup(desktopService, biHandler, client, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, opsCleanupService, opsScheduledReportService, opsSystemLogSink, opsService, opsIngressRejectAggregator, apiKeyService, authCacheInvalidationWorker, schedulerSnapshotService, tokenRefreshService, accountExpiryService, cnProviderBalanceCheckService, openAICodexVersionSyncService, claudeCodeVersionSyncService, proxyExpiryService, subscriptionExpiryService, usageCleanupService, idempotencyCleanupService, batchImageCleanupService, batchImageWorkerRuntime, pricingService, emailQueueService, billingCacheService, usageRecordWorkerPool, subscriptionService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, grokOAuthService, openAIGatewayService, scheduledTestRunnerService, backupService, paymentOrderExpiryService, channelMonitorRunner, channelMonitorV2Aggregator, userPlatformQuotaUsageFlusher, upstreamBillingProbeService, ollamaCloudUsageService, openCodeGoUsageService, auditLogService, openAIQuotaAutoResetService, promptService, pluginManager)
 	application := &Application{
 		Server:        httpServer,
 		PromptAudit:   promptService,
@@ -420,6 +421,7 @@ func providePluginHostInfo(buildInfo handler.BuildInfo) service.PluginHostInfo {
 }
 
 func provideCleanup(
+	desktop *service.DesktopService,
 	biHandler *bi.Handler,
 	entClient *ent.Client,
 	rdb *redis.Client,
@@ -480,6 +482,12 @@ func provideCleanup(
 		}
 
 		parallelSteps := []cleanupStep{
+			{"DesktopReports", func() error {
+				if desktop != nil {
+					desktop.Reports().Stop()
+				}
+				return nil
+			}},
 			{"BIWorker", func() error {
 				if biHandler != nil {
 					biHandler.Stop()

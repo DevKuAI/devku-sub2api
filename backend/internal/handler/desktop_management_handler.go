@@ -35,6 +35,8 @@ type desktopManagedUpdateMemberRequest struct {
 }
 
 type desktopManagedOrganizationDTO struct {
+	ConversationSummaryEnabled   bool                         `json:"conversation_summary_enabled"`
+	AnalysisModel                string                       `json:"analysis_model"`
 	ConversationReportingEnabled bool                         `json:"conversation_reporting_enabled"`
 	PublicID                     string                       `json:"public_id"`
 	Code                         string                       `json:"code"`
@@ -203,6 +205,7 @@ func desktopManagedUserID(c *gin.Context) (int64, bool) {
 
 func desktopManagedOrganizationFromService(value *service.DesktopOrganization) desktopManagedOrganizationDTO {
 	return desktopManagedOrganizationDTO{
+		ConversationSummaryEnabled: value.ConversationSummaryEnabled, AnalysisModel: value.AnalysisModel,
 		ConversationReportingEnabled: value.ConversationReportingEnabled,
 		PublicID:                     value.PublicID, Code: value.Code, Name: value.Name, Status: value.Status,
 		GatewayUser: desktopManagedGatewayUserDTO{ID: value.GatewayUserID, Email: value.GatewayUserEmail, Username: value.GatewayUserName},

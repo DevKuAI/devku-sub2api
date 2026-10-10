@@ -75,6 +75,11 @@ func APIKeyAuthWithSubscriptionGoogle(apiKeyService *service.APIKeyService, subs
 			return
 		}
 
+		if apiKey.ManagedBy == "desktop_analysis" && !service.IsDesktopReportRequest(c.Request.Context()) {
+			abortWithGoogleError(c, 403, "This API key is reserved for internal analysis")
+			return
+		}
+
 		// 同 api_key_auth.go：早退中断前也写入 Ops 回退 key，便于错误日志展示
 		// user/group/platform。
 		SetOpsFallbackAPIKey(c, apiKey)

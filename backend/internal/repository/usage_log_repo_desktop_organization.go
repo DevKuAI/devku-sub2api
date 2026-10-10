@@ -24,12 +24,15 @@ func (r *usageLogRepository) GetDesktopOrganizationUsage(ctx context.Context, or
    COALESCE(SUM(ul.actual_cost) FILTER (WHERE ul.created_at >= $4), 0),
    COALESCE(SUM(ul.input_tokens + ul.output_tokens + ul.cache_creation_tokens + ul.cache_read_tokens), 0),
    COALESCE(SUM(ul.actual_cost), 0)
-  FROM desktop_members member
-  JOIN desktop_member_api_keys assignment ON assignment.member_id = member.id
-  JOIN usage_logs ul ON ul.api_key_id = assignment.api_key_id
-  WHERE member.organization_id = $1 AND ul.created_at < $5
+  FROM usage_logs ul WHERE ul.api_key_id IN (
+ SELECT assignment.api_key_id FROM desktop_members member JOIN desktop_member_api_keys assignment ON assignment.member_id=member.id WHERE member.organization_id=$1
+ UNION SELECT id FROM api_keys WHERE desktop_analysis_organization_id=$1
+ ) AND ul.created_at < $5
  `
 	result := &service.DesktopOrganizationUsageStatistics{}
+	if err := scanSingleRow(ctx, r.sql, `SELECT COALESCE(SUM(ul.input_tokens+ul.output_tokens+ul.cache_creation_tokens+ul.cache_read_tokens),0), COALESCE(SUM(ul.actual_cost),0) FROM usage_logs ul JOIN api_keys k ON k.id=ul.api_key_id WHERE k.desktop_analysis_organization_id=$1 AND ul.created_at >= $2 AND ul.created_at < $3`, []any{organizationID, windows.Selected.Start, windows.Selected.End}, &result.Analysis.TotalTokens, &result.Analysis.ActualCost); err != nil {
+		return nil, err
+	}
 	if err := scanSingleRow(ctx, r.sql, query, []any{organizationID, windows.Today, windows.Week, windows.Month, windows.AsOf},
 		&result.Today.TotalTokens, &result.Today.ActualCost,
 		&result.Week.TotalTokens, &result.Week.ActualCost,
@@ -62,9 +65,10 @@ func (r *usageLogRepository) GetDesktopOrganizationUsage(ctx context.Context, or
 func (r *usageLogRepository) sumDesktopUsage(ctx context.Context, organizationID int64, start, end time.Time) (service.DesktopOrganizationUsagePeriod, error) {
 	const query = `SELECT COALESCE(SUM(ul.input_tokens + ul.output_tokens + ul.cache_creation_tokens + ul.cache_read_tokens), 0),
 		COALESCE(SUM(ul.actual_cost), 0)
-		FROM desktop_members member JOIN desktop_member_api_keys assignment ON assignment.member_id = member.id
-		JOIN usage_logs ul ON ul.api_key_id = assignment.api_key_id
-		WHERE member.organization_id = $1 AND ul.created_at >= $2 AND ul.created_at < $3`
+		FROM usage_logs ul WHERE ul.api_key_id IN (
+ SELECT assignment.api_key_id FROM desktop_members member JOIN desktop_member_api_keys assignment ON assignment.member_id=member.id WHERE member.organization_id=$1
+ UNION SELECT id FROM api_keys WHERE desktop_analysis_organization_id=$1
+ ) AND ul.created_at >= $2 AND ul.created_at < $3`
 	result := service.DesktopOrganizationUsagePeriod{}
 	err := scanSingleRow(ctx, r.sql, query, []any{organizationID, start, end}, &result.TotalTokens, &result.ActualCost)
 	return result, err
@@ -86,10 +90,10 @@ func (r *usageLogRepository) loadDesktopUsageInsights(ctx context.Context, organ
 	const dailyQuery = `
 		SELECT to_char(ul.created_at AT TIME ZONE $4, 'YYYY-MM-DD'),
 			SUM(ul.input_tokens), SUM(ul.output_tokens), SUM(ul.cache_creation_tokens), SUM(ul.cache_read_tokens), SUM(ul.actual_cost)
-		FROM desktop_members member
-		JOIN desktop_member_api_keys assignment ON assignment.member_id = member.id
-		JOIN usage_logs ul ON ul.api_key_id = assignment.api_key_id
-		WHERE member.organization_id = $1 AND ul.created_at >= $2 AND ul.created_at < $3
+		FROM usage_logs ul WHERE ul.api_key_id IN (
+ SELECT assignment.api_key_id FROM desktop_members member JOIN desktop_member_api_keys assignment ON assignment.member_id=member.id WHERE member.organization_id=$1
+ UNION SELECT id FROM api_keys WHERE desktop_analysis_organization_id=$1
+ ) AND ul.created_at >= $2 AND ul.created_at < $3
 		GROUP BY 1 ORDER BY 1`
 	rows, err := r.sql.QueryContext(ctx, dailyQuery, organizationID, start.UTC(), endTime, location.String())
 	if err != nil {
@@ -129,10 +133,10 @@ func (r *usageLogRepository) loadDesktopUsageInsights(ctx context.Context, organ
 			SELECT COALESCE(NULLIF(ul.requested_model, ''), ul.model) AS model, COUNT(*) AS requests,
 				SUM(ul.input_tokens + ul.output_tokens + ul.cache_creation_tokens + ul.cache_read_tokens) AS total_tokens,
 				SUM(ul.actual_cost) AS actual_cost
-			FROM desktop_members member
-			JOIN desktop_member_api_keys assignment ON assignment.member_id = member.id
-			JOIN usage_logs ul ON ul.api_key_id = assignment.api_key_id
-			WHERE member.organization_id = $1 AND ul.created_at >= $2 AND ul.created_at < $3
+			FROM usage_logs ul WHERE ul.api_key_id IN (
+ SELECT assignment.api_key_id FROM desktop_members member JOIN desktop_member_api_keys assignment ON assignment.member_id=member.id WHERE member.organization_id=$1
+ UNION SELECT id FROM api_keys WHERE desktop_analysis_organization_id=$1
+ ) AND ul.created_at >= $2 AND ul.created_at < $3
 			GROUP BY 1
 		), ranked AS (
 			SELECT *, ROW_NUMBER() OVER (ORDER BY actual_cost DESC, total_tokens DESC, model) AS cost_rank,

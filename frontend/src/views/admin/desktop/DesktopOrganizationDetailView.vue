@@ -114,6 +114,10 @@
         <DesktopConversationRecords :organization-id="organizationID" :self-managed="selfManaged" />
       </section>
 
+      <section v-else-if="activeTab === 'reports'" :id="panelId('reports')" role="tabpanel" :aria-labelledby="tabId('reports')">
+        <DesktopDailyReports v-if="organization" :organization-id="organizationID" :self-managed="selfManaged" :enabled="organization.conversation_summary_enabled" :analysis-model="organization.analysis_model" />
+      </section>
+
       <section v-else-if="activeTab === 'grants'" :id="panelId('grants')" role="tabpanel" :aria-labelledby="tabId('grants')">
         <BIGrantManagement v-if="!selfManaged && organization" :key="organizationID" :organization-id="organizationID" />
       </section>
@@ -121,6 +125,7 @@
       <section v-else :id="panelId('configuration')" class="min-w-0" role="tabpanel" :aria-labelledby="tabId('configuration')">
         <div v-if="selfManaged" class="space-y-6">
           <p class="text-sm text-gray-500 dark:text-dark-400">{{ t('admin.desktop.configurationReadOnly') }}</p>
+          <dl class="text-sm"><dt class="text-gray-500">{{ t('admin.desktop.reports.enabled') }}</dt><dd>{{ t(organization?.conversation_summary_enabled ? 'common.enabled' : 'common.disabled') }}</dd><dt class="mt-3 text-gray-500">{{ t('admin.desktop.reports.model') }}</dt><dd>{{ organization?.analysis_model || t('admin.desktop.notConfigured') }}</dd></dl>
           <div v-for="target in configurationTargets" :key="target.name" class="border-b border-gray-200 pb-6 dark:border-dark-700">
             <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
               <h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ target.name }}</h2>
@@ -173,9 +178,11 @@
             <input id="desktop-edit-member-limit" v-model.number="organizationForm.member_limit" class="input" type="number" :min="Math.max(1, organization?.member_count || 0)" step="1" required />
           </div>
           <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 p-3 dark:border-dark-700">
-            <input v-model="organizationForm.conversation_reporting_enabled" data-testid="desktop-edit-conversation-reporting" type="checkbox" class="mt-0.5 h-4 w-4 rounded" aria-describedby="desktop-edit-reporting-hint" />
+            <input v-model="organizationForm.conversation_reporting_enabled" @change="!organizationForm.conversation_reporting_enabled && (organizationForm.conversation_summary_enabled = false)" data-testid="desktop-edit-conversation-reporting" type="checkbox" class="mt-0.5 h-4 w-4 rounded" aria-describedby="desktop-edit-reporting-hint" />
             <span class="min-w-0"><span class="text-sm font-medium">{{ t('admin.desktop.conversationReporting') }}</span><span id="desktop-edit-reporting-hint" class="mt-1 block text-xs leading-5 text-gray-500 dark:text-dark-400">{{ t('admin.desktop.conversationReportingHint') }}</span></span>
           </label>
+          <label class="flex items-start gap-3"><input v-model="organizationForm.conversation_summary_enabled" data-testid="desktop-edit-summary" type="checkbox" class="mt-0.5 h-4 w-4 rounded" :disabled="!organizationForm.conversation_reporting_enabled" /><span><span class="text-sm font-medium">{{ t('admin.desktop.reports.enabled') }}</span><span class="mt-1 block text-xs text-gray-500">{{ t('admin.desktop.reports.schedule') }}</span></span></label>
+          <Input v-model="organizationForm.analysis_model" :label="t('admin.desktop.reports.model')" :required="organizationForm.conversation_summary_enabled" :hint="t('admin.desktop.reports.modelHint')" maxlength="200" />
           <div><label class="input-label mb-1.5 block">{{ t('admin.desktop.gatewayUser') }}</label><Select v-model="organizationForm.gateway_user_id" :options="gatewayUserOptions" searchable remote :loading="gatewayUsersLoading" :disabled="gatewayUserLocked" @search="loadGatewayUsers" /></div>
           <div><label class="input-label mb-1.5 block">{{ t('admin.desktop.group') }}</label><Select v-model="organizationForm.group_id" :options="groupOptions" searchable :loading="groupsLoading" /></div>
           <p v-if="gatewayUserLocked" class="text-sm text-gray-500 dark:text-dark-400">{{ t('admin.desktop.provisioningLockedHint') }}</p>
@@ -229,9 +236,10 @@ import DesktopAnalyticsRangePicker from '@/components/desktop/DesktopAnalyticsRa
 import DesktopOrganizationUsageStatistics from '@/components/desktop/DesktopOrganizationUsageStatistics.vue'
 import DesktopMemberImportDialog from '@/components/desktop/DesktopMemberImportDialog.vue'
 import type { DesktopAnalyticsRange } from '@/api/desktopOrganizationUsage'
+import DesktopDailyReports from '@/components/desktop/DesktopDailyReports.vue'
 import BIGrantManagement from '@/components/bi/BIGrantManagement.vue'
 
-type DetailTab = 'usage' | 'members' | 'configuration' | 'conversations' | 'grants'
+type DetailTab = 'usage' | 'members' | 'configuration' | 'conversations' | 'grants' | 'reports'
 const { selfManaged = false } = defineProps<{ selfManaged?: boolean }>()
 const { t, te } = useI18n()
 const route = useRoute()
@@ -253,6 +261,7 @@ const analyticsRange = ref<DesktopAnalyticsRange>({ days: 30 })
 const tabs = computed(() => {
   const result: { value: DetailTab; label: string }[] = [{ value: 'usage', label: t('admin.desktop.usageStatistics.tab') }, { value: 'members', label: t('admin.desktop.members') }, { value: 'configuration', label: t('admin.desktop.configuration') }]
   if (canViewConversations.value) result.push({ value: 'conversations', label: t('admin.desktop.conversations.title') })
+  if (!selfManaged || organization.value?.conversation_summary_enabled) result.push({ value: 'reports', label: t('admin.desktop.reports.title') })
   if (!selfManaged) result.push({ value: 'grants', label: t('bi.grants') })
   return result
 })
@@ -271,7 +280,7 @@ const gatewayUsers = ref<AdminUser[]>([])
 const gatewayUsersLoading = ref(false)
 const groups = ref<AdminGroup[]>([])
 const groupsLoading = ref(false)
-const organizationForm = reactive({ name: '', status: 'active' as DesktopStatus, gateway_user_id: null as number | null, group_id: null as number | null, member_limit: 10, conversation_reporting_enabled: false })
+const organizationForm = reactive({ name: '', status: 'active' as DesktopStatus, gateway_user_id: null as number | null, group_id: null as number | null, member_limit: 10, conversation_reporting_enabled: false, conversation_summary_enabled: false, analysis_model: '' })
 const showMemberDialog = ref(false)
 const showMemberImport = ref(false)
 const editingMember = ref<DesktopMember | null>(null)
@@ -430,7 +439,7 @@ async function loadGatewayUsers(query = '') {
 }
 async function openEditOrganization() {
   if (selfManaged || !organization.value) return
-  Object.assign(organizationForm, { name: organization.value.name, status: organization.value.status, gateway_user_id: organization.value.gateway_user.id, group_id: organization.value.group.id, member_limit: organization.value.member_limit, conversation_reporting_enabled: organization.value.conversation_reporting_enabled === true })
+  Object.assign(organizationForm, { name: organization.value.name, status: organization.value.status, gateway_user_id: organization.value.gateway_user.id, group_id: organization.value.group.id, member_limit: organization.value.member_limit, conversation_reporting_enabled: organization.value.conversation_reporting_enabled === true, conversation_summary_enabled: organization.value.conversation_summary_enabled === true, analysis_model: organization.value.analysis_model || '' })
   showOrganizationEdit.value = true
   groupsLoading.value = true
   void loadGatewayUsers()
@@ -456,9 +465,11 @@ async function saveOrganization() {
   }
   organizationSaving.value = true
   try {
-    const input = { name: organizationForm.name.trim(), status: organizationForm.status } as { name: string; status: DesktopStatus; gateway_user_id?: number; group_id?: number; member_limit?: number; conversation_reporting_enabled?: boolean }
+    const input = { name: organizationForm.name.trim(), status: organizationForm.status } as { name: string; status: DesktopStatus; gateway_user_id?: number; group_id?: number; member_limit?: number; conversation_reporting_enabled?: boolean; conversation_summary_enabled?: boolean; analysis_model?: string }
     input.member_limit = organizationForm.member_limit
     input.conversation_reporting_enabled = organizationForm.conversation_reporting_enabled
+    input.conversation_summary_enabled = organizationForm.conversation_summary_enabled
+    input.analysis_model = organizationForm.analysis_model.trim()
     if (!gatewayUserLocked.value && organizationForm.gateway_user_id && organizationForm.gateway_user_id !== organization.value.gateway_user.id) input.gateway_user_id = organizationForm.gateway_user_id
     if (organizationForm.group_id && organizationForm.group_id !== organization.value.group.id) input.group_id = organizationForm.group_id
     organization.value = await adminAPI.desktop.updateOrganization(organizationID.value, input)
@@ -531,8 +542,8 @@ async function saveConfiguration() {
   catch (error) { appStore.showError(errorMessage(error)) } finally { configSaving.value = false }
 }
 
-watch([canViewConversations, () => organization.value?.public_id], () => {
-  if (selfManaged && organization.value && (route.query.tab === 'grants' || (!canViewConversations.value && route.query.tab === 'conversations'))) setTab('usage')
+watch([canViewConversations, () => organization.value?.conversation_summary_enabled, () => organization.value?.public_id], () => {
+  if (selfManaged && organization.value && (route.query.tab === 'grants' || (route.query.tab === 'reports' && !organization.value.conversation_summary_enabled) || (!canViewConversations.value && route.query.tab === 'conversations'))) setTab('usage')
 })
 
 watch(() => route.params.organizationId, async () => {

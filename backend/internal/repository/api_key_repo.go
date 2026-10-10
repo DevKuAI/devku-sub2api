@@ -84,7 +84,7 @@ func (r *apiKeyRepository) createWithinUserLimit(ctx context.Context, client *db
 	}
 
 	count, err := client.APIKey.Query().
-		Where(apikey.UserIDEQ(key.UserID), apikey.DeletedAtIsNil()).
+		Where(apikey.UserIDEQ(key.UserID), apikey.DeletedAtIsNil(), apikey.DesktopAnalysisOrganizationIDIsNil()).
 		Count(ctx)
 	if err != nil {
 		return err
@@ -189,6 +189,7 @@ func (r *apiKeyRepository) GetByKeyForAuth(ctx context.Context, key string) (*se
 		Where(apikey.KeyEQ(key)).
 		Select(
 			apikey.FieldID,
+			apikey.FieldDesktopAnalysisOrganizationID,
 			apikey.FieldUserID,
 			apikey.FieldGroupID,
 			apikey.FieldName,
@@ -490,7 +491,7 @@ func (r *apiKeyRepository) deleteWithTombstone(ctx context.Context, exec *dbent.
 }
 
 func (r *apiKeyRepository) apiKeyListByUserIDQuery(userID int64, filters service.APIKeyListFilters) *dbent.APIKeyQuery {
-	q := r.activeQuery().Where(apikey.UserIDEQ(userID))
+	q := r.activeQuery().Where(apikey.UserIDEQ(userID), apikey.DesktopAnalysisOrganizationIDIsNil())
 
 	if filters.Search != "" {
 		q = q.Where(apikey.Or(
@@ -672,7 +673,7 @@ func (r *apiKeyRepository) VerifyOwnership(ctx context.Context, userID int64, ap
 }
 
 func (r *apiKeyRepository) CountByUserID(ctx context.Context, userID int64) (int64, error) {
-	count, err := r.activeQuery().Where(apikey.UserIDEQ(userID)).Count(ctx)
+	count, err := r.activeQuery().Where(apikey.UserIDEQ(userID), apikey.DesktopAnalysisOrganizationIDIsNil()).Count(ctx)
 	return int64(count), err
 }
 
@@ -1014,6 +1015,9 @@ func apiKeyEntityToService(m *dbent.APIKey) *service.APIKey {
 	}
 	if m.Edges.Group != nil {
 		out.Group = groupEntityToService(m.Edges.Group)
+	}
+	if m.DesktopAnalysisOrganizationID != nil {
+		out.ManagedBy = "desktop_analysis"
 	}
 	if m.Edges.DesktopMemberAssignment != nil {
 		out.ManagedBy = "desktop"

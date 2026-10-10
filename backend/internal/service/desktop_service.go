@@ -17,6 +17,7 @@ import (
 )
 
 type DesktopService struct {
+	reports             *DesktopReportService
 	sessions            DesktopSessionStore
 	conversations       DesktopConversationRepository
 	conversationLimiter DesktopConversationLimiter
@@ -61,6 +62,14 @@ func (s *DesktopService) CreateOrganization(ctx context.Context, input DesktopCr
 	publicID, err := GenerateDesktopPublicID("org")
 	if err != nil {
 		return nil, err
+	}
+	input.AnalysisModel = strings.TrimSpace(input.AnalysisModel)
+	if err := validateDesktopSummaryConfig(input.ConversationSummaryEnabled, input.ConversationReportingEnabled, input.AnalysisModel); err != nil {
+		return nil, err
+	}
+	if input.ConversationSummaryEnabled {
+		now := s.now()
+		input.SummaryEnabledAt = &now
 	}
 	input.PublicID, input.Code, input.Name = publicID, code, name
 	return s.repo.CreateOrganization(ctx, input)
@@ -152,6 +161,26 @@ func (s *DesktopService) UpdateOrganization(ctx context.Context, publicID string
 	}
 	if input.Status != nil {
 		if err := validateDesktopStatus(*input.Status); err != nil {
+			return nil, err
+		}
+	}
+	if input.ConversationSummaryEnabled != nil || input.AnalysisModel != nil || input.ConversationReportingEnabled != nil {
+		current, err := s.repo.GetOrganization(ctx, publicID)
+		if err != nil {
+			return nil, err
+		}
+		enabled, reporting, model := current.ConversationSummaryEnabled, current.ConversationReportingEnabled, current.AnalysisModel
+		if input.ConversationSummaryEnabled != nil {
+			enabled = *input.ConversationSummaryEnabled
+		}
+		if input.ConversationReportingEnabled != nil {
+			reporting = *input.ConversationReportingEnabled
+		}
+		if input.AnalysisModel != nil {
+			model = strings.TrimSpace(*input.AnalysisModel)
+			input.AnalysisModel = &model
+		}
+		if err := validateDesktopSummaryConfig(enabled, reporting, model); err != nil {
 			return nil, err
 		}
 	}

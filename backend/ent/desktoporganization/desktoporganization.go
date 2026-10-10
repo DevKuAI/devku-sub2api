@@ -33,6 +33,12 @@ const (
 	FieldMemberLimit = "member_limit"
 	// FieldConversationReportingEnabled holds the string denoting the conversation_reporting_enabled field in the database.
 	FieldConversationReportingEnabled = "conversation_reporting_enabled"
+	// FieldConversationSummaryEnabled holds the string denoting the conversation_summary_enabled field in the database.
+	FieldConversationSummaryEnabled = "conversation_summary_enabled"
+	// FieldAnalysisModel holds the string denoting the analysis_model field in the database.
+	FieldAnalysisModel = "analysis_model"
+	// FieldSummaryEnabledAt holds the string denoting the summary_enabled_at field in the database.
+	FieldSummaryEnabledAt = "summary_enabled_at"
 	// FieldAuthVersion holds the string denoting the auth_version field in the database.
 	FieldAuthVersion = "auth_version"
 	// FieldGatewayUserID holds the string denoting the gateway_user_id field in the database.
@@ -84,6 +90,9 @@ var Columns = []string{
 	FieldStatus,
 	FieldMemberLimit,
 	FieldConversationReportingEnabled,
+	FieldConversationSummaryEnabled,
+	FieldAnalysisModel,
+	FieldSummaryEnabledAt,
 	FieldAuthVersion,
 	FieldGatewayUserID,
 	FieldGroupID,
@@ -130,6 +139,12 @@ var (
 	MemberLimitValidator func(int) error
 	// DefaultConversationReportingEnabled holds the default value on creation for the "conversation_reporting_enabled" field.
 	DefaultConversationReportingEnabled bool
+	// DefaultConversationSummaryEnabled holds the default value on creation for the "conversation_summary_enabled" field.
+	DefaultConversationSummaryEnabled bool
+	// DefaultAnalysisModel holds the default value on creation for the "analysis_model" field.
+	DefaultAnalysisModel string
+	// AnalysisModelValidator is a validator for the "analysis_model" field. It is called by the builders before save.
+	AnalysisModelValidator func(string) error
 	// DefaultAuthVersion holds the default value on creation for the "auth_version" field.
 	DefaultAuthVersion int64
 	// AuthVersionValidator is a validator for the "auth_version" field. It is called by the builders before save.
@@ -187,6 +202,21 @@ func ByMemberLimit(opts ...sql.OrderTermOption) OrderOption {
 // ByConversationReportingEnabled orders the results by the conversation_reporting_enabled field.
 func ByConversationReportingEnabled(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldConversationReportingEnabled, opts...).ToFunc()
+}
+
+// ByConversationSummaryEnabled orders the results by the conversation_summary_enabled field.
+func ByConversationSummaryEnabled(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldConversationSummaryEnabled, opts...).ToFunc()
+}
+
+// ByAnalysisModel orders the results by the analysis_model field.
+func ByAnalysisModel(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAnalysisModel, opts...).ToFunc()
+}
+
+// BySummaryEnabledAt orders the results by the summary_enabled_at field.
+func BySummaryEnabledAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSummaryEnabledAt, opts...).ToFunc()
 }
 
 // ByAuthVersion orders the results by the auth_version field.

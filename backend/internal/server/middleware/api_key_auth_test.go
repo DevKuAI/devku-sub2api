@@ -1792,3 +1792,30 @@ func (r *stubUserSubscriptionRepo) IncrementUsage(ctx context.Context, id int64,
 func (r *stubUserSubscriptionRepo) BatchUpdateExpiredStatus(ctx context.Context) (int64, error) {
 	return 0, errors.New("not implemented")
 }
+
+func TestDesktopAnalysisKeyRequiresInternalRequest(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	groupID := int64(7)
+	repo := &stubApiKeyRepo{getByKey: func(context.Context, string) (*service.APIKey, error) {
+		return &service.APIKey{ID: 1, Key: "internal-key", UserID: 2, GroupID: &groupID, Status: service.StatusActive, ManagedBy: "desktop_analysis", User: &service.User{ID: 2, Status: service.StatusActive}, Group: &service.Group{ID: groupID, Status: service.StatusActive, Platform: service.PlatformOpenAI, Hydrated: true}}, nil
+	}}
+	cfg := &config.Config{RunMode: config.RunModeSimple}
+	svc := service.NewAPIKeyService(repo, nil, nil, nil, nil, nil, cfg)
+	router := gin.New()
+	router.Use(gin.HandlerFunc(NewAPIKeyAuthMiddleware(svc, nil, cfg)))
+	router.POST("/v1/responses", func(c *gin.Context) { c.Status(http.StatusOK) })
+	for _, internal := range []bool{false, true} {
+		request := httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(`{}`))
+		request.Header.Set("Authorization", "Bearer internal-key")
+		if internal {
+			request = request.WithContext(service.WithDesktopReportRequest(request.Context()))
+		}
+		result := httptest.NewRecorder()
+		router.ServeHTTP(result, request)
+		if internal {
+			require.Equal(t, http.StatusOK, result.Code, result.Body.String())
+		} else {
+			require.Equal(t, http.StatusForbidden, result.Code)
+		}
+	}
+}

@@ -777,6 +777,9 @@ func (s *APIKeyService) GetByID(ctx context.Context, id int64) (*APIKey, error) 
 	if err != nil {
 		return nil, fmt.Errorf("get api key: %w", err)
 	}
+	if apiKey != nil && apiKey.ManagedBy == "desktop_analysis" && !IsDesktopReportRequest(ctx) {
+		return nil, ErrAPIKeyNotFound
+	}
 	s.compileAPIKeyIPRules(apiKey)
 	if apiKey != nil {
 		apiKey.CurrentConcurrency = s.currentConcurrencyForAPIKey(ctx, apiKey.ID)
@@ -848,7 +851,7 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 	if err != nil {
 		return nil, fmt.Errorf("get api key: %w", err)
 	}
-	if apiKey.ManagedBy == "desktop" {
+	if apiKey.ManagedBy == "desktop" || apiKey.ManagedBy == "desktop_analysis" {
 		return nil, ErrDesktopManagedAPIKey
 	}
 
@@ -1002,7 +1005,7 @@ func (s *APIKeyService) Delete(ctx context.Context, id int64, userID int64) erro
 	if err != nil {
 		return fmt.Errorf("get api key: %w", err)
 	}
-	if apiKey.ManagedBy == "desktop" {
+	if apiKey.ManagedBy == "desktop" || apiKey.ManagedBy == "desktop_analysis" {
 		return ErrDesktopManagedAPIKey
 	}
 

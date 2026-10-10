@@ -45,6 +45,7 @@ export interface DesktopUsageMemberModel {
 }
 
 export interface DesktopOrganizationUsageStatistics {
+  analysis?: DesktopOrganizationUsagePeriod
   timezone: string
   as_of: string
   today: DesktopOrganizationUsagePeriod

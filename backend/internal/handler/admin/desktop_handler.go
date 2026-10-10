@@ -31,6 +31,8 @@ func NewDesktopHandler(desktop *service.DesktopService) *DesktopHandler {
 }
 
 type desktopCreateOrganizationRequest struct {
+	ConversationSummaryEnabled   bool   `json:"conversation_summary_enabled"`
+	AnalysisModel                string `json:"analysis_model"`
 	ConversationReportingEnabled bool   `json:"conversation_reporting_enabled"`
 	Code                         string `json:"code" binding:"required"`
 	Name                         string `json:"name" binding:"required"`
@@ -40,6 +42,8 @@ type desktopCreateOrganizationRequest struct {
 }
 
 type desktopUpdateOrganizationRequest struct {
+	ConversationSummaryEnabled   *bool   `json:"conversation_summary_enabled"`
+	AnalysisModel                *string `json:"analysis_model"`
 	ConversationReportingEnabled *bool   `json:"conversation_reporting_enabled"`
 	Name                         *string `json:"name"`
 	Status                       *string `json:"status"`
@@ -66,6 +70,8 @@ type desktopUpdateMemberRequest struct {
 }
 
 type desktopOrganizationDTO struct {
+	ConversationSummaryEnabled   bool                         `json:"conversation_summary_enabled"`
+	AnalysisModel                string                       `json:"analysis_model"`
 	ConversationReportingEnabled bool                         `json:"conversation_reporting_enabled"`
 	PublicID                     string                       `json:"public_id"`
 	Code                         string                       `json:"code"`
@@ -112,6 +118,7 @@ func (h *DesktopHandler) CreateOrganization(c *gin.Context) {
 	}
 	result, err := executeAdminIdempotent(c, desktopOrganizationCreateIdempotencyScope, req, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
 		organization, execErr := h.desktop.CreateOrganization(ctx, service.DesktopCreateOrganizationInput{
+			ConversationSummaryEnabled: req.ConversationSummaryEnabled, AnalysisModel: req.AnalysisModel,
 			ConversationReportingEnabled: req.ConversationReportingEnabled,
 			Code:                         req.Code, Name: req.Name, GatewayUserID: req.GatewayUserID, GroupID: req.GroupID,
 			MemberLimit: req.MemberLimit,
@@ -157,6 +164,7 @@ func (h *DesktopHandler) UpdateOrganization(c *gin.Context) {
 		return
 	}
 	organization, err := h.desktop.UpdateOrganization(c.Request.Context(), c.Param("organization_id"), service.DesktopUpdateOrganizationInput{
+		ConversationSummaryEnabled: req.ConversationSummaryEnabled, AnalysisModel: req.AnalysisModel,
 		ConversationReportingEnabled: req.ConversationReportingEnabled,
 		Name:                         req.Name, Status: req.Status, GatewayUserID: req.GatewayUserID, GroupID: req.GroupID,
 		MemberLimit: req.MemberLimit,
@@ -283,6 +291,7 @@ func adminDesktopIdempotencyResponse(c *gin.Context, result *service.Idempotency
 
 func desktopOrganizationFromService(value *service.DesktopOrganization, includeConfig bool) desktopOrganizationDTO {
 	dto := desktopOrganizationDTO{
+		ConversationSummaryEnabled: value.ConversationSummaryEnabled, AnalysisModel: value.AnalysisModel,
 		ConversationReportingEnabled: value.ConversationReportingEnabled,
 		PublicID:                     value.PublicID, Code: value.Code, Name: value.Name, Status: value.Status,
 		GatewayUser: desktopGatewayUserDTO{ID: value.GatewayUserID, Email: value.GatewayUserEmail, Username: value.GatewayUserName},

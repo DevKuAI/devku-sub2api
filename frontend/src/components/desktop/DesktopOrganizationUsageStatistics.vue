@@ -6,6 +6,7 @@
         <Icon name="refresh" size="sm" aria-hidden="true" />{{ t('common.refresh') }}
       </button>
     </div>
+    <p v-if="statistics?.analysis" class="text-sm text-gray-500 dark:text-dark-400">{{ t('admin.desktop.reports.analysisUsage') }}: ${{ statistics.analysis.actual_cost.toFixed(4) }} · {{ statistics.analysis.total_tokens.toLocaleString() }} Tokens</p>
     <div v-if="error" class="rounded-xl bg-red-50 p-4 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300" role="alert">
       {{ t('admin.desktop.usageStatistics.loadFailed') }}
       <button class="ms-2 underline" :class="{ 'member-usage-refresh analytics-button': view === 'insights' }" type="button" @click="load">{{ t('admin.desktop.usageStatistics.retry') }}</button>

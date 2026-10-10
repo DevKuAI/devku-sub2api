@@ -75,6 +75,11 @@ func UserID(v int64) predicate.APIKey {
 	return predicate.APIKey(sql.FieldEQ(FieldUserID, v))
 }
 
+// DesktopAnalysisOrganizationID applies equality check predicate on the "desktop_analysis_organization_id" field. It's identical to DesktopAnalysisOrganizationIDEQ.
+func DesktopAnalysisOrganizationID(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldDesktopAnalysisOrganizationID, v))
+}
+
 // Key applies equality check predicate on the "key" field. It's identical to KeyEQ.
 func Key(v string) predicate.APIKey {
 	return predicate.APIKey(sql.FieldEQ(FieldKey, v))
@@ -308,6 +313,56 @@ func UserIDIn(vs ...int64) predicate.APIKey {
 // UserIDNotIn applies the NotIn predicate on the "user_id" field.
 func UserIDNotIn(vs ...int64) predicate.APIKey {
 	return predicate.APIKey(sql.FieldNotIn(FieldUserID, vs...))
+}
+
+// DesktopAnalysisOrganizationIDEQ applies the EQ predicate on the "desktop_analysis_organization_id" field.
+func DesktopAnalysisOrganizationIDEQ(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldDesktopAnalysisOrganizationID, v))
+}
+
+// DesktopAnalysisOrganizationIDNEQ applies the NEQ predicate on the "desktop_analysis_organization_id" field.
+func DesktopAnalysisOrganizationIDNEQ(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNEQ(FieldDesktopAnalysisOrganizationID, v))
+}
+
+// DesktopAnalysisOrganizationIDIn applies the In predicate on the "desktop_analysis_organization_id" field.
+func DesktopAnalysisOrganizationIDIn(vs ...int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldIn(FieldDesktopAnalysisOrganizationID, vs...))
+}
+
+// DesktopAnalysisOrganizationIDNotIn applies the NotIn predicate on the "desktop_analysis_organization_id" field.
+func DesktopAnalysisOrganizationIDNotIn(vs ...int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNotIn(FieldDesktopAnalysisOrganizationID, vs...))
+}
+
+// DesktopAnalysisOrganizationIDGT applies the GT predicate on the "desktop_analysis_organization_id" field.
+func DesktopAnalysisOrganizationIDGT(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGT(FieldDesktopAnalysisOrganizationID, v))
+}
+
+// DesktopAnalysisOrganizationIDGTE applies the GTE predicate on the "desktop_analysis_organization_id" field.
+func DesktopAnalysisOrganizationIDGTE(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGTE(FieldDesktopAnalysisOrganizationID, v))
+}
+
+// DesktopAnalysisOrganizationIDLT applies the LT predicate on the "desktop_analysis_organization_id" field.
+func DesktopAnalysisOrganizationIDLT(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLT(FieldDesktopAnalysisOrganizationID, v))
+}
+
+// DesktopAnalysisOrganizationIDLTE applies the LTE predicate on the "desktop_analysis_organization_id" field.
+func DesktopAnalysisOrganizationIDLTE(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLTE(FieldDesktopAnalysisOrganizationID, v))
+}
+
+// DesktopAnalysisOrganizationIDIsNil applies the IsNil predicate on the "desktop_analysis_organization_id" field.
+func DesktopAnalysisOrganizationIDIsNil() predicate.APIKey {
+	return predicate.APIKey(sql.FieldIsNull(FieldDesktopAnalysisOrganizationID))
+}
+
+// DesktopAnalysisOrganizationIDNotNil applies the NotNil predicate on the "desktop_analysis_organization_id" field.
+func DesktopAnalysisOrganizationIDNotNil() predicate.APIKey {
+	return predicate.APIKey(sql.FieldNotNull(FieldDesktopAnalysisOrganizationID))
 }
 
 // KeyEQ applies the EQ predicate on the "key" field.

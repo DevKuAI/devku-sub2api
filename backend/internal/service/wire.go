@@ -862,7 +862,7 @@ var ProviderSet = wire.NewSet(
 	NewUserService,
 	ProvideAPIKeyService,
 	NewDesktopTokenManager,
-	NewDesktopService,
+	ProvideDesktopService,
 	ProvideDesktopUpdateService,
 	NewDesktopResourceService,
 	ProvideAPIKeyAuthCacheInvalidator,
@@ -1117,4 +1117,11 @@ func ProvideClaudeResetCreditService(accounts AccountRepository, tokens *ClaudeT
 	s := NewClaudeResetCreditService(accounts, tokens, proxies, settings)
 	s.ConfigureRedemption(idem, locks)
 	return s
+}
+
+// ProvideDesktopService adds durable reports while preserving the existing test constructor.
+func ProvideDesktopService(repo DesktopRepository, usage DesktopUsageRepository, refresh DesktopRefreshStore, limiter DesktopLoginLimiter, tokens *DesktopTokenManager, apiKeys *APIKeyService, cfg *config.Config, sessions DesktopSessionStore, conversations DesktopConversationRepository, conversationLimiter DesktopConversationLimiter, reports DesktopReportRepository) *DesktopService {
+	desktop := NewDesktopService(repo, usage, refresh, limiter, tokens, apiKeys, cfg, sessions, conversations, conversationLimiter)
+	desktop.reports = NewDesktopReportService(desktop, reports)
+	return desktop
 }

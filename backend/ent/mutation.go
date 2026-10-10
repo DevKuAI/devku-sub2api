@@ -119,53 +119,55 @@ const (
 // APIKeyMutation represents an operation that mutates the APIKey nodes in the graph.
 type APIKeyMutation struct {
 	config
-	op                               Op
-	typ                              string
-	id                               *int64
-	created_at                       *time.Time
-	updated_at                       *time.Time
-	deleted_at                       *time.Time
-	key                              *string
-	name                             *string
-	status                           *string
-	last_used_at                     *time.Time
-	ip_whitelist                     *[]string
-	appendip_whitelist               []string
-	ip_blacklist                     *[]string
-	appendip_blacklist               []string
-	quota                            *float64
-	addquota                         *float64
-	quota_used                       *float64
-	addquota_used                    *float64
-	expires_at                       *time.Time
-	rate_limit_5h                    *float64
-	addrate_limit_5h                 *float64
-	rate_limit_1d                    *float64
-	addrate_limit_1d                 *float64
-	rate_limit_7d                    *float64
-	addrate_limit_7d                 *float64
-	usage_5h                         *float64
-	addusage_5h                      *float64
-	usage_1d                         *float64
-	addusage_1d                      *float64
-	usage_7d                         *float64
-	addusage_7d                      *float64
-	window_5h_start                  *time.Time
-	window_1d_start                  *time.Time
-	window_7d_start                  *time.Time
-	clearedFields                    map[string]struct{}
-	user                             *int64
-	cleareduser                      bool
-	group                            *int64
-	clearedgroup                     bool
-	usage_logs                       map[int64]struct{}
-	removedusage_logs                map[int64]struct{}
-	clearedusage_logs                bool
-	desktop_member_assignment        *int64
-	cleareddesktop_member_assignment bool
-	done                             bool
-	oldValue                         func(context.Context) (*APIKey, error)
-	predicates                       []predicate.APIKey
+	op                                  Op
+	typ                                 string
+	id                                  *int64
+	created_at                          *time.Time
+	updated_at                          *time.Time
+	deleted_at                          *time.Time
+	desktop_analysis_organization_id    *int64
+	adddesktop_analysis_organization_id *int64
+	key                                 *string
+	name                                *string
+	status                              *string
+	last_used_at                        *time.Time
+	ip_whitelist                        *[]string
+	appendip_whitelist                  []string
+	ip_blacklist                        *[]string
+	appendip_blacklist                  []string
+	quota                               *float64
+	addquota                            *float64
+	quota_used                          *float64
+	addquota_used                       *float64
+	expires_at                          *time.Time
+	rate_limit_5h                       *float64
+	addrate_limit_5h                    *float64
+	rate_limit_1d                       *float64
+	addrate_limit_1d                    *float64
+	rate_limit_7d                       *float64
+	addrate_limit_7d                    *float64
+	usage_5h                            *float64
+	addusage_5h                         *float64
+	usage_1d                            *float64
+	addusage_1d                         *float64
+	usage_7d                            *float64
+	addusage_7d                         *float64
+	window_5h_start                     *time.Time
+	window_1d_start                     *time.Time
+	window_7d_start                     *time.Time
+	clearedFields                       map[string]struct{}
+	user                                *int64
+	cleareduser                         bool
+	group                               *int64
+	clearedgroup                        bool
+	usage_logs                          map[int64]struct{}
+	removedusage_logs                   map[int64]struct{}
+	clearedusage_logs                   bool
+	desktop_member_assignment           *int64
+	cleareddesktop_member_assignment    bool
+	done                                bool
+	oldValue                            func(context.Context) (*APIKey, error)
+	predicates                          []predicate.APIKey
 }
 
 var _ ent.Mutation = (*APIKeyMutation)(nil)
@@ -421,6 +423,76 @@ func (m *APIKeyMutation) OldUserID(ctx context.Context) (v int64, err error) {
 // ResetUserID resets all changes to the "user_id" field.
 func (m *APIKeyMutation) ResetUserID() {
 	m.user = nil
+}
+
+// SetDesktopAnalysisOrganizationID sets the "desktop_analysis_organization_id" field.
+func (m *APIKeyMutation) SetDesktopAnalysisOrganizationID(i int64) {
+	m.desktop_analysis_organization_id = &i
+	m.adddesktop_analysis_organization_id = nil
+}
+
+// DesktopAnalysisOrganizationID returns the value of the "desktop_analysis_organization_id" field in the mutation.
+func (m *APIKeyMutation) DesktopAnalysisOrganizationID() (r int64, exists bool) {
+	v := m.desktop_analysis_organization_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDesktopAnalysisOrganizationID returns the old "desktop_analysis_organization_id" field's value of the APIKey entity.
+// If the APIKey object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyMutation) OldDesktopAnalysisOrganizationID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDesktopAnalysisOrganizationID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDesktopAnalysisOrganizationID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDesktopAnalysisOrganizationID: %w", err)
+	}
+	return oldValue.DesktopAnalysisOrganizationID, nil
+}
+
+// AddDesktopAnalysisOrganizationID adds i to the "desktop_analysis_organization_id" field.
+func (m *APIKeyMutation) AddDesktopAnalysisOrganizationID(i int64) {
+	if m.adddesktop_analysis_organization_id != nil {
+		*m.adddesktop_analysis_organization_id += i
+	} else {
+		m.adddesktop_analysis_organization_id = &i
+	}
+}
+
+// AddedDesktopAnalysisOrganizationID returns the value that was added to the "desktop_analysis_organization_id" field in this mutation.
+func (m *APIKeyMutation) AddedDesktopAnalysisOrganizationID() (r int64, exists bool) {
+	v := m.adddesktop_analysis_organization_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearDesktopAnalysisOrganizationID clears the value of the "desktop_analysis_organization_id" field.
+func (m *APIKeyMutation) ClearDesktopAnalysisOrganizationID() {
+	m.desktop_analysis_organization_id = nil
+	m.adddesktop_analysis_organization_id = nil
+	m.clearedFields[apikey.FieldDesktopAnalysisOrganizationID] = struct{}{}
+}
+
+// DesktopAnalysisOrganizationIDCleared returns if the "desktop_analysis_organization_id" field was cleared in this mutation.
+func (m *APIKeyMutation) DesktopAnalysisOrganizationIDCleared() bool {
+	_, ok := m.clearedFields[apikey.FieldDesktopAnalysisOrganizationID]
+	return ok
+}
+
+// ResetDesktopAnalysisOrganizationID resets all changes to the "desktop_analysis_organization_id" field.
+func (m *APIKeyMutation) ResetDesktopAnalysisOrganizationID() {
+	m.desktop_analysis_organization_id = nil
+	m.adddesktop_analysis_organization_id = nil
+	delete(m.clearedFields, apikey.FieldDesktopAnalysisOrganizationID)
 }
 
 // SetKey sets the "key" field.
@@ -1584,7 +1656,7 @@ func (m *APIKeyMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *APIKeyMutation) Fields() []string {
-	fields := make([]string, 0, 23)
+	fields := make([]string, 0, 24)
 	if m.created_at != nil {
 		fields = append(fields, apikey.FieldCreatedAt)
 	}
@@ -1596,6 +1668,9 @@ func (m *APIKeyMutation) Fields() []string {
 	}
 	if m.user != nil {
 		fields = append(fields, apikey.FieldUserID)
+	}
+	if m.desktop_analysis_organization_id != nil {
+		fields = append(fields, apikey.FieldDesktopAnalysisOrganizationID)
 	}
 	if m.key != nil {
 		fields = append(fields, apikey.FieldKey)
@@ -1670,6 +1745,8 @@ func (m *APIKeyMutation) Field(name string) (ent.Value, bool) {
 		return m.DeletedAt()
 	case apikey.FieldUserID:
 		return m.UserID()
+	case apikey.FieldDesktopAnalysisOrganizationID:
+		return m.DesktopAnalysisOrganizationID()
 	case apikey.FieldKey:
 		return m.Key()
 	case apikey.FieldName:
@@ -1725,6 +1802,8 @@ func (m *APIKeyMutation) OldField(ctx context.Context, name string) (ent.Value, 
 		return m.OldDeletedAt(ctx)
 	case apikey.FieldUserID:
 		return m.OldUserID(ctx)
+	case apikey.FieldDesktopAnalysisOrganizationID:
+		return m.OldDesktopAnalysisOrganizationID(ctx)
 	case apikey.FieldKey:
 		return m.OldKey(ctx)
 	case apikey.FieldName:
@@ -1799,6 +1878,13 @@ func (m *APIKeyMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetUserID(v)
+		return nil
+	case apikey.FieldDesktopAnalysisOrganizationID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDesktopAnalysisOrganizationID(v)
 		return nil
 	case apikey.FieldKey:
 		v, ok := value.(string)
@@ -1941,6 +2027,9 @@ func (m *APIKeyMutation) SetField(name string, value ent.Value) error {
 // this mutation.
 func (m *APIKeyMutation) AddedFields() []string {
 	var fields []string
+	if m.adddesktop_analysis_organization_id != nil {
+		fields = append(fields, apikey.FieldDesktopAnalysisOrganizationID)
+	}
 	if m.addquota != nil {
 		fields = append(fields, apikey.FieldQuota)
 	}
@@ -1973,6 +2062,8 @@ func (m *APIKeyMutation) AddedFields() []string {
 // was not set, or was not defined in the schema.
 func (m *APIKeyMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
+	case apikey.FieldDesktopAnalysisOrganizationID:
+		return m.AddedDesktopAnalysisOrganizationID()
 	case apikey.FieldQuota:
 		return m.AddedQuota()
 	case apikey.FieldQuotaUsed:
@@ -1998,6 +2089,13 @@ func (m *APIKeyMutation) AddedField(name string) (ent.Value, bool) {
 // type.
 func (m *APIKeyMutation) AddField(name string, value ent.Value) error {
 	switch name {
+	case apikey.FieldDesktopAnalysisOrganizationID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddDesktopAnalysisOrganizationID(v)
+		return nil
 	case apikey.FieldQuota:
 		v, ok := value.(float64)
 		if !ok {
@@ -2065,6 +2163,9 @@ func (m *APIKeyMutation) ClearedFields() []string {
 	if m.FieldCleared(apikey.FieldDeletedAt) {
 		fields = append(fields, apikey.FieldDeletedAt)
 	}
+	if m.FieldCleared(apikey.FieldDesktopAnalysisOrganizationID) {
+		fields = append(fields, apikey.FieldDesktopAnalysisOrganizationID)
+	}
 	if m.FieldCleared(apikey.FieldGroupID) {
 		fields = append(fields, apikey.FieldGroupID)
 	}
@@ -2105,6 +2206,9 @@ func (m *APIKeyMutation) ClearField(name string) error {
 	switch name {
 	case apikey.FieldDeletedAt:
 		m.ClearDeletedAt()
+		return nil
+	case apikey.FieldDesktopAnalysisOrganizationID:
+		m.ClearDesktopAnalysisOrganizationID()
 		return nil
 	case apikey.FieldGroupID:
 		m.ClearGroupID()
@@ -2149,6 +2253,9 @@ func (m *APIKeyMutation) ResetField(name string) error {
 		return nil
 	case apikey.FieldUserID:
 		m.ResetUserID()
+		return nil
+	case apikey.FieldDesktopAnalysisOrganizationID:
+		m.ResetDesktopAnalysisOrganizationID()
 		return nil
 	case apikey.FieldKey:
 		m.ResetKey()
@@ -24108,6 +24215,9 @@ type DesktopOrganizationMutation struct {
 	member_limit                   *int
 	addmember_limit                *int
 	conversation_reporting_enabled *bool
+	conversation_summary_enabled   *bool
+	analysis_model                 *string
+	summary_enabled_at             *time.Time
 	auth_version                   *int64
 	addauth_version                *int64
 	target_config                  *jsontext.Value
@@ -24580,6 +24690,127 @@ func (m *DesktopOrganizationMutation) ResetConversationReportingEnabled() {
 	m.conversation_reporting_enabled = nil
 }
 
+// SetConversationSummaryEnabled sets the "conversation_summary_enabled" field.
+func (m *DesktopOrganizationMutation) SetConversationSummaryEnabled(b bool) {
+	m.conversation_summary_enabled = &b
+}
+
+// ConversationSummaryEnabled returns the value of the "conversation_summary_enabled" field in the mutation.
+func (m *DesktopOrganizationMutation) ConversationSummaryEnabled() (r bool, exists bool) {
+	v := m.conversation_summary_enabled
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldConversationSummaryEnabled returns the old "conversation_summary_enabled" field's value of the DesktopOrganization entity.
+// If the DesktopOrganization object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopOrganizationMutation) OldConversationSummaryEnabled(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldConversationSummaryEnabled is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldConversationSummaryEnabled requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldConversationSummaryEnabled: %w", err)
+	}
+	return oldValue.ConversationSummaryEnabled, nil
+}
+
+// ResetConversationSummaryEnabled resets all changes to the "conversation_summary_enabled" field.
+func (m *DesktopOrganizationMutation) ResetConversationSummaryEnabled() {
+	m.conversation_summary_enabled = nil
+}
+
+// SetAnalysisModel sets the "analysis_model" field.
+func (m *DesktopOrganizationMutation) SetAnalysisModel(s string) {
+	m.analysis_model = &s
+}
+
+// AnalysisModel returns the value of the "analysis_model" field in the mutation.
+func (m *DesktopOrganizationMutation) AnalysisModel() (r string, exists bool) {
+	v := m.analysis_model
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAnalysisModel returns the old "analysis_model" field's value of the DesktopOrganization entity.
+// If the DesktopOrganization object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopOrganizationMutation) OldAnalysisModel(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAnalysisModel is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAnalysisModel requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAnalysisModel: %w", err)
+	}
+	return oldValue.AnalysisModel, nil
+}
+
+// ResetAnalysisModel resets all changes to the "analysis_model" field.
+func (m *DesktopOrganizationMutation) ResetAnalysisModel() {
+	m.analysis_model = nil
+}
+
+// SetSummaryEnabledAt sets the "summary_enabled_at" field.
+func (m *DesktopOrganizationMutation) SetSummaryEnabledAt(t time.Time) {
+	m.summary_enabled_at = &t
+}
+
+// SummaryEnabledAt returns the value of the "summary_enabled_at" field in the mutation.
+func (m *DesktopOrganizationMutation) SummaryEnabledAt() (r time.Time, exists bool) {
+	v := m.summary_enabled_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSummaryEnabledAt returns the old "summary_enabled_at" field's value of the DesktopOrganization entity.
+// If the DesktopOrganization object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopOrganizationMutation) OldSummaryEnabledAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSummaryEnabledAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSummaryEnabledAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSummaryEnabledAt: %w", err)
+	}
+	return oldValue.SummaryEnabledAt, nil
+}
+
+// ClearSummaryEnabledAt clears the value of the "summary_enabled_at" field.
+func (m *DesktopOrganizationMutation) ClearSummaryEnabledAt() {
+	m.summary_enabled_at = nil
+	m.clearedFields[desktoporganization.FieldSummaryEnabledAt] = struct{}{}
+}
+
+// SummaryEnabledAtCleared returns if the "summary_enabled_at" field was cleared in this mutation.
+func (m *DesktopOrganizationMutation) SummaryEnabledAtCleared() bool {
+	_, ok := m.clearedFields[desktoporganization.FieldSummaryEnabledAt]
+	return ok
+}
+
+// ResetSummaryEnabledAt resets all changes to the "summary_enabled_at" field.
+func (m *DesktopOrganizationMutation) ResetSummaryEnabledAt() {
+	m.summary_enabled_at = nil
+	delete(m.clearedFields, desktoporganization.FieldSummaryEnabledAt)
+}
+
 // SetAuthVersion sets the "auth_version" field.
 func (m *DesktopOrganizationMutation) SetAuthVersion(i int64) {
 	m.auth_version = &i
@@ -24915,7 +25146,7 @@ func (m *DesktopOrganizationMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *DesktopOrganizationMutation) Fields() []string {
-	fields := make([]string, 0, 13)
+	fields := make([]string, 0, 16)
 	if m.created_at != nil {
 		fields = append(fields, desktoporganization.FieldCreatedAt)
 	}
@@ -24942,6 +25173,15 @@ func (m *DesktopOrganizationMutation) Fields() []string {
 	}
 	if m.conversation_reporting_enabled != nil {
 		fields = append(fields, desktoporganization.FieldConversationReportingEnabled)
+	}
+	if m.conversation_summary_enabled != nil {
+		fields = append(fields, desktoporganization.FieldConversationSummaryEnabled)
+	}
+	if m.analysis_model != nil {
+		fields = append(fields, desktoporganization.FieldAnalysisModel)
+	}
+	if m.summary_enabled_at != nil {
+		fields = append(fields, desktoporganization.FieldSummaryEnabledAt)
 	}
 	if m.auth_version != nil {
 		fields = append(fields, desktoporganization.FieldAuthVersion)
@@ -24981,6 +25221,12 @@ func (m *DesktopOrganizationMutation) Field(name string) (ent.Value, bool) {
 		return m.MemberLimit()
 	case desktoporganization.FieldConversationReportingEnabled:
 		return m.ConversationReportingEnabled()
+	case desktoporganization.FieldConversationSummaryEnabled:
+		return m.ConversationSummaryEnabled()
+	case desktoporganization.FieldAnalysisModel:
+		return m.AnalysisModel()
+	case desktoporganization.FieldSummaryEnabledAt:
+		return m.SummaryEnabledAt()
 	case desktoporganization.FieldAuthVersion:
 		return m.AuthVersion()
 	case desktoporganization.FieldGatewayUserID:
@@ -25016,6 +25262,12 @@ func (m *DesktopOrganizationMutation) OldField(ctx context.Context, name string)
 		return m.OldMemberLimit(ctx)
 	case desktoporganization.FieldConversationReportingEnabled:
 		return m.OldConversationReportingEnabled(ctx)
+	case desktoporganization.FieldConversationSummaryEnabled:
+		return m.OldConversationSummaryEnabled(ctx)
+	case desktoporganization.FieldAnalysisModel:
+		return m.OldAnalysisModel(ctx)
+	case desktoporganization.FieldSummaryEnabledAt:
+		return m.OldSummaryEnabledAt(ctx)
 	case desktoporganization.FieldAuthVersion:
 		return m.OldAuthVersion(ctx)
 	case desktoporganization.FieldGatewayUserID:
@@ -25095,6 +25347,27 @@ func (m *DesktopOrganizationMutation) SetField(name string, value ent.Value) err
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetConversationReportingEnabled(v)
+		return nil
+	case desktoporganization.FieldConversationSummaryEnabled:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetConversationSummaryEnabled(v)
+		return nil
+	case desktoporganization.FieldAnalysisModel:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAnalysisModel(v)
+		return nil
+	case desktoporganization.FieldSummaryEnabledAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSummaryEnabledAt(v)
 		return nil
 	case desktoporganization.FieldAuthVersion:
 		v, ok := value.(int64)
@@ -25184,6 +25457,9 @@ func (m *DesktopOrganizationMutation) ClearedFields() []string {
 	if m.FieldCleared(desktoporganization.FieldDeletedAt) {
 		fields = append(fields, desktoporganization.FieldDeletedAt)
 	}
+	if m.FieldCleared(desktoporganization.FieldSummaryEnabledAt) {
+		fields = append(fields, desktoporganization.FieldSummaryEnabledAt)
+	}
 	if m.FieldCleared(desktoporganization.FieldTargetConfig) {
 		fields = append(fields, desktoporganization.FieldTargetConfig)
 	}
@@ -25203,6 +25479,9 @@ func (m *DesktopOrganizationMutation) ClearField(name string) error {
 	switch name {
 	case desktoporganization.FieldDeletedAt:
 		m.ClearDeletedAt()
+		return nil
+	case desktoporganization.FieldSummaryEnabledAt:
+		m.ClearSummaryEnabledAt()
 		return nil
 	case desktoporganization.FieldTargetConfig:
 		m.ClearTargetConfig()
@@ -25241,6 +25520,15 @@ func (m *DesktopOrganizationMutation) ResetField(name string) error {
 		return nil
 	case desktoporganization.FieldConversationReportingEnabled:
 		m.ResetConversationReportingEnabled()
+		return nil
+	case desktoporganization.FieldConversationSummaryEnabled:
+		m.ResetConversationSummaryEnabled()
+		return nil
+	case desktoporganization.FieldAnalysisModel:
+		m.ResetAnalysisModel()
+		return nil
+	case desktoporganization.FieldSummaryEnabledAt:
+		m.ResetSummaryEnabledAt()
 		return nil
 	case desktoporganization.FieldAuthVersion:
 		m.ResetAuthVersion()

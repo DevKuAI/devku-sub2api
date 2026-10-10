@@ -83,6 +83,7 @@ func providePluginHostInfo(buildInfo handler.BuildInfo) service.PluginHostInfo {
 }
 
 func provideCleanup(
+	desktop *service.DesktopService,
 	biHandler *bi.Handler,
 	entClient *ent.Client,
 	rdb *redis.Client,
@@ -144,6 +145,12 @@ func provideCleanup(
 
 		// 应用层清理步骤可并行执行，基础设施资源（Redis/Ent）最后按顺序关闭。
 		parallelSteps := []cleanupStep{
+			{"DesktopReports", func() error {
+				if desktop != nil {
+					desktop.Reports().Stop()
+				}
+				return nil
+			}},
 			{"BIWorker", func() error {
 				if biHandler != nil {
 					biHandler.Stop()

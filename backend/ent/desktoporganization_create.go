@@ -128,6 +128,48 @@ func (_c *DesktopOrganizationCreate) SetNillableConversationReportingEnabled(v *
 	return _c
 }
 
+// SetConversationSummaryEnabled sets the "conversation_summary_enabled" field.
+func (_c *DesktopOrganizationCreate) SetConversationSummaryEnabled(v bool) *DesktopOrganizationCreate {
+	_c.mutation.SetConversationSummaryEnabled(v)
+	return _c
+}
+
+// SetNillableConversationSummaryEnabled sets the "conversation_summary_enabled" field if the given value is not nil.
+func (_c *DesktopOrganizationCreate) SetNillableConversationSummaryEnabled(v *bool) *DesktopOrganizationCreate {
+	if v != nil {
+		_c.SetConversationSummaryEnabled(*v)
+	}
+	return _c
+}
+
+// SetAnalysisModel sets the "analysis_model" field.
+func (_c *DesktopOrganizationCreate) SetAnalysisModel(v string) *DesktopOrganizationCreate {
+	_c.mutation.SetAnalysisModel(v)
+	return _c
+}
+
+// SetNillableAnalysisModel sets the "analysis_model" field if the given value is not nil.
+func (_c *DesktopOrganizationCreate) SetNillableAnalysisModel(v *string) *DesktopOrganizationCreate {
+	if v != nil {
+		_c.SetAnalysisModel(*v)
+	}
+	return _c
+}
+
+// SetSummaryEnabledAt sets the "summary_enabled_at" field.
+func (_c *DesktopOrganizationCreate) SetSummaryEnabledAt(v time.Time) *DesktopOrganizationCreate {
+	_c.mutation.SetSummaryEnabledAt(v)
+	return _c
+}
+
+// SetNillableSummaryEnabledAt sets the "summary_enabled_at" field if the given value is not nil.
+func (_c *DesktopOrganizationCreate) SetNillableSummaryEnabledAt(v *time.Time) *DesktopOrganizationCreate {
+	if v != nil {
+		_c.SetSummaryEnabledAt(*v)
+	}
+	return _c
+}
+
 // SetAuthVersion sets the "auth_version" field.
 func (_c *DesktopOrganizationCreate) SetAuthVersion(v int64) *DesktopOrganizationCreate {
 	_c.mutation.SetAuthVersion(v)
@@ -248,6 +290,14 @@ func (_c *DesktopOrganizationCreate) defaults() error {
 		v := desktoporganization.DefaultConversationReportingEnabled
 		_c.mutation.SetConversationReportingEnabled(v)
 	}
+	if _, ok := _c.mutation.ConversationSummaryEnabled(); !ok {
+		v := desktoporganization.DefaultConversationSummaryEnabled
+		_c.mutation.SetConversationSummaryEnabled(v)
+	}
+	if _, ok := _c.mutation.AnalysisModel(); !ok {
+		v := desktoporganization.DefaultAnalysisModel
+		_c.mutation.SetAnalysisModel(v)
+	}
 	if _, ok := _c.mutation.AuthVersion(); !ok {
 		v := desktoporganization.DefaultAuthVersion
 		_c.mutation.SetAuthVersion(v)
@@ -305,6 +355,17 @@ func (_c *DesktopOrganizationCreate) check() error {
 	}
 	if _, ok := _c.mutation.ConversationReportingEnabled(); !ok {
 		return &ValidationError{Name: "conversation_reporting_enabled", err: errors.New(`ent: missing required field "DesktopOrganization.conversation_reporting_enabled"`)}
+	}
+	if _, ok := _c.mutation.ConversationSummaryEnabled(); !ok {
+		return &ValidationError{Name: "conversation_summary_enabled", err: errors.New(`ent: missing required field "DesktopOrganization.conversation_summary_enabled"`)}
+	}
+	if _, ok := _c.mutation.AnalysisModel(); !ok {
+		return &ValidationError{Name: "analysis_model", err: errors.New(`ent: missing required field "DesktopOrganization.analysis_model"`)}
+	}
+	if v, ok := _c.mutation.AnalysisModel(); ok {
+		if err := desktoporganization.AnalysisModelValidator(v); err != nil {
+			return &ValidationError{Name: "analysis_model", err: fmt.Errorf(`ent: validator failed for field "DesktopOrganization.analysis_model": %w`, err)}
+		}
 	}
 	if _, ok := _c.mutation.AuthVersion(); !ok {
 		return &ValidationError{Name: "auth_version", err: errors.New(`ent: missing required field "DesktopOrganization.auth_version"`)}
@@ -388,6 +449,18 @@ func (_c *DesktopOrganizationCreate) createSpec() (*DesktopOrganization, *sqlgra
 	if value, ok := _c.mutation.ConversationReportingEnabled(); ok {
 		_spec.SetField(desktoporganization.FieldConversationReportingEnabled, field.TypeBool, value)
 		_node.ConversationReportingEnabled = value
+	}
+	if value, ok := _c.mutation.ConversationSummaryEnabled(); ok {
+		_spec.SetField(desktoporganization.FieldConversationSummaryEnabled, field.TypeBool, value)
+		_node.ConversationSummaryEnabled = value
+	}
+	if value, ok := _c.mutation.AnalysisModel(); ok {
+		_spec.SetField(desktoporganization.FieldAnalysisModel, field.TypeString, value)
+		_node.AnalysisModel = value
+	}
+	if value, ok := _c.mutation.SummaryEnabledAt(); ok {
+		_spec.SetField(desktoporganization.FieldSummaryEnabledAt, field.TypeTime, value)
+		_node.SummaryEnabledAt = &value
 	}
 	if value, ok := _c.mutation.AuthVersion(); ok {
 		_spec.SetField(desktoporganization.FieldAuthVersion, field.TypeInt64, value)
@@ -592,6 +665,48 @@ func (u *DesktopOrganizationUpsert) SetConversationReportingEnabled(v bool) *Des
 // UpdateConversationReportingEnabled sets the "conversation_reporting_enabled" field to the value that was provided on create.
 func (u *DesktopOrganizationUpsert) UpdateConversationReportingEnabled() *DesktopOrganizationUpsert {
 	u.SetExcluded(desktoporganization.FieldConversationReportingEnabled)
+	return u
+}
+
+// SetConversationSummaryEnabled sets the "conversation_summary_enabled" field.
+func (u *DesktopOrganizationUpsert) SetConversationSummaryEnabled(v bool) *DesktopOrganizationUpsert {
+	u.Set(desktoporganization.FieldConversationSummaryEnabled, v)
+	return u
+}
+
+// UpdateConversationSummaryEnabled sets the "conversation_summary_enabled" field to the value that was provided on create.
+func (u *DesktopOrganizationUpsert) UpdateConversationSummaryEnabled() *DesktopOrganizationUpsert {
+	u.SetExcluded(desktoporganization.FieldConversationSummaryEnabled)
+	return u
+}
+
+// SetAnalysisModel sets the "analysis_model" field.
+func (u *DesktopOrganizationUpsert) SetAnalysisModel(v string) *DesktopOrganizationUpsert {
+	u.Set(desktoporganization.FieldAnalysisModel, v)
+	return u
+}
+
+// UpdateAnalysisModel sets the "analysis_model" field to the value that was provided on create.
+func (u *DesktopOrganizationUpsert) UpdateAnalysisModel() *DesktopOrganizationUpsert {
+	u.SetExcluded(desktoporganization.FieldAnalysisModel)
+	return u
+}
+
+// SetSummaryEnabledAt sets the "summary_enabled_at" field.
+func (u *DesktopOrganizationUpsert) SetSummaryEnabledAt(v time.Time) *DesktopOrganizationUpsert {
+	u.Set(desktoporganization.FieldSummaryEnabledAt, v)
+	return u
+}
+
+// UpdateSummaryEnabledAt sets the "summary_enabled_at" field to the value that was provided on create.
+func (u *DesktopOrganizationUpsert) UpdateSummaryEnabledAt() *DesktopOrganizationUpsert {
+	u.SetExcluded(desktoporganization.FieldSummaryEnabledAt)
+	return u
+}
+
+// ClearSummaryEnabledAt clears the value of the "summary_enabled_at" field.
+func (u *DesktopOrganizationUpsert) ClearSummaryEnabledAt() *DesktopOrganizationUpsert {
+	u.SetNull(desktoporganization.FieldSummaryEnabledAt)
 	return u
 }
 
@@ -812,6 +927,55 @@ func (u *DesktopOrganizationUpsertOne) SetConversationReportingEnabled(v bool) *
 func (u *DesktopOrganizationUpsertOne) UpdateConversationReportingEnabled() *DesktopOrganizationUpsertOne {
 	return u.Update(func(s *DesktopOrganizationUpsert) {
 		s.UpdateConversationReportingEnabled()
+	})
+}
+
+// SetConversationSummaryEnabled sets the "conversation_summary_enabled" field.
+func (u *DesktopOrganizationUpsertOne) SetConversationSummaryEnabled(v bool) *DesktopOrganizationUpsertOne {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.SetConversationSummaryEnabled(v)
+	})
+}
+
+// UpdateConversationSummaryEnabled sets the "conversation_summary_enabled" field to the value that was provided on create.
+func (u *DesktopOrganizationUpsertOne) UpdateConversationSummaryEnabled() *DesktopOrganizationUpsertOne {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.UpdateConversationSummaryEnabled()
+	})
+}
+
+// SetAnalysisModel sets the "analysis_model" field.
+func (u *DesktopOrganizationUpsertOne) SetAnalysisModel(v string) *DesktopOrganizationUpsertOne {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.SetAnalysisModel(v)
+	})
+}
+
+// UpdateAnalysisModel sets the "analysis_model" field to the value that was provided on create.
+func (u *DesktopOrganizationUpsertOne) UpdateAnalysisModel() *DesktopOrganizationUpsertOne {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.UpdateAnalysisModel()
+	})
+}
+
+// SetSummaryEnabledAt sets the "summary_enabled_at" field.
+func (u *DesktopOrganizationUpsertOne) SetSummaryEnabledAt(v time.Time) *DesktopOrganizationUpsertOne {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.SetSummaryEnabledAt(v)
+	})
+}
+
+// UpdateSummaryEnabledAt sets the "summary_enabled_at" field to the value that was provided on create.
+func (u *DesktopOrganizationUpsertOne) UpdateSummaryEnabledAt() *DesktopOrganizationUpsertOne {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.UpdateSummaryEnabledAt()
+	})
+}
+
+// ClearSummaryEnabledAt clears the value of the "summary_enabled_at" field.
+func (u *DesktopOrganizationUpsertOne) ClearSummaryEnabledAt() *DesktopOrganizationUpsertOne {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.ClearSummaryEnabledAt()
 	})
 }
 
@@ -1208,6 +1372,55 @@ func (u *DesktopOrganizationUpsertBulk) SetConversationReportingEnabled(v bool) 
 func (u *DesktopOrganizationUpsertBulk) UpdateConversationReportingEnabled() *DesktopOrganizationUpsertBulk {
 	return u.Update(func(s *DesktopOrganizationUpsert) {
 		s.UpdateConversationReportingEnabled()
+	})
+}
+
+// SetConversationSummaryEnabled sets the "conversation_summary_enabled" field.
+func (u *DesktopOrganizationUpsertBulk) SetConversationSummaryEnabled(v bool) *DesktopOrganizationUpsertBulk {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.SetConversationSummaryEnabled(v)
+	})
+}
+
+// UpdateConversationSummaryEnabled sets the "conversation_summary_enabled" field to the value that was provided on create.
+func (u *DesktopOrganizationUpsertBulk) UpdateConversationSummaryEnabled() *DesktopOrganizationUpsertBulk {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.UpdateConversationSummaryEnabled()
+	})
+}
+
+// SetAnalysisModel sets the "analysis_model" field.
+func (u *DesktopOrganizationUpsertBulk) SetAnalysisModel(v string) *DesktopOrganizationUpsertBulk {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.SetAnalysisModel(v)
+	})
+}
+
+// UpdateAnalysisModel sets the "analysis_model" field to the value that was provided on create.
+func (u *DesktopOrganizationUpsertBulk) UpdateAnalysisModel() *DesktopOrganizationUpsertBulk {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.UpdateAnalysisModel()
+	})
+}
+
+// SetSummaryEnabledAt sets the "summary_enabled_at" field.
+func (u *DesktopOrganizationUpsertBulk) SetSummaryEnabledAt(v time.Time) *DesktopOrganizationUpsertBulk {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.SetSummaryEnabledAt(v)
+	})
+}
+
+// UpdateSummaryEnabledAt sets the "summary_enabled_at" field to the value that was provided on create.
+func (u *DesktopOrganizationUpsertBulk) UpdateSummaryEnabledAt() *DesktopOrganizationUpsertBulk {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.UpdateSummaryEnabledAt()
+	})
+}
+
+// ClearSummaryEnabledAt clears the value of the "summary_enabled_at" field.
+func (u *DesktopOrganizationUpsertBulk) ClearSummaryEnabledAt() *DesktopOrganizationUpsertBulk {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.ClearSummaryEnabledAt()
 	})
 }
 

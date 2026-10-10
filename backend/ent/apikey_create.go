@@ -74,6 +74,20 @@ func (_c *APIKeyCreate) SetUserID(v int64) *APIKeyCreate {
 	return _c
 }
 
+// SetDesktopAnalysisOrganizationID sets the "desktop_analysis_organization_id" field.
+func (_c *APIKeyCreate) SetDesktopAnalysisOrganizationID(v int64) *APIKeyCreate {
+	_c.mutation.SetDesktopAnalysisOrganizationID(v)
+	return _c
+}
+
+// SetNillableDesktopAnalysisOrganizationID sets the "desktop_analysis_organization_id" field if the given value is not nil.
+func (_c *APIKeyCreate) SetNillableDesktopAnalysisOrganizationID(v *int64) *APIKeyCreate {
+	if v != nil {
+		_c.SetDesktopAnalysisOrganizationID(*v)
+	}
+	return _c
+}
+
 // SetKey sets the "key" field.
 func (_c *APIKeyCreate) SetKey(v string) *APIKeyCreate {
 	_c.mutation.SetKey(v)
@@ -543,6 +557,10 @@ func (_c *APIKeyCreate) createSpec() (*APIKey, *sqlgraph.CreateSpec) {
 		_spec.SetField(apikey.FieldDeletedAt, field.TypeTime, value)
 		_node.DeletedAt = &value
 	}
+	if value, ok := _c.mutation.DesktopAnalysisOrganizationID(); ok {
+		_spec.SetField(apikey.FieldDesktopAnalysisOrganizationID, field.TypeInt64, value)
+		_node.DesktopAnalysisOrganizationID = &value
+	}
 	if value, ok := _c.mutation.Key(); ok {
 		_spec.SetField(apikey.FieldKey, field.TypeString, value)
 		_node.Key = value
@@ -772,6 +790,30 @@ func (u *APIKeyUpsert) SetUserID(v int64) *APIKeyUpsert {
 // UpdateUserID sets the "user_id" field to the value that was provided on create.
 func (u *APIKeyUpsert) UpdateUserID() *APIKeyUpsert {
 	u.SetExcluded(apikey.FieldUserID)
+	return u
+}
+
+// SetDesktopAnalysisOrganizationID sets the "desktop_analysis_organization_id" field.
+func (u *APIKeyUpsert) SetDesktopAnalysisOrganizationID(v int64) *APIKeyUpsert {
+	u.Set(apikey.FieldDesktopAnalysisOrganizationID, v)
+	return u
+}
+
+// UpdateDesktopAnalysisOrganizationID sets the "desktop_analysis_organization_id" field to the value that was provided on create.
+func (u *APIKeyUpsert) UpdateDesktopAnalysisOrganizationID() *APIKeyUpsert {
+	u.SetExcluded(apikey.FieldDesktopAnalysisOrganizationID)
+	return u
+}
+
+// AddDesktopAnalysisOrganizationID adds v to the "desktop_analysis_organization_id" field.
+func (u *APIKeyUpsert) AddDesktopAnalysisOrganizationID(v int64) *APIKeyUpsert {
+	u.Add(apikey.FieldDesktopAnalysisOrganizationID, v)
+	return u
+}
+
+// ClearDesktopAnalysisOrganizationID clears the value of the "desktop_analysis_organization_id" field.
+func (u *APIKeyUpsert) ClearDesktopAnalysisOrganizationID() *APIKeyUpsert {
+	u.SetNull(apikey.FieldDesktopAnalysisOrganizationID)
 	return u
 }
 
@@ -1190,6 +1232,34 @@ func (u *APIKeyUpsertOne) SetUserID(v int64) *APIKeyUpsertOne {
 func (u *APIKeyUpsertOne) UpdateUserID() *APIKeyUpsertOne {
 	return u.Update(func(s *APIKeyUpsert) {
 		s.UpdateUserID()
+	})
+}
+
+// SetDesktopAnalysisOrganizationID sets the "desktop_analysis_organization_id" field.
+func (u *APIKeyUpsertOne) SetDesktopAnalysisOrganizationID(v int64) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetDesktopAnalysisOrganizationID(v)
+	})
+}
+
+// AddDesktopAnalysisOrganizationID adds v to the "desktop_analysis_organization_id" field.
+func (u *APIKeyUpsertOne) AddDesktopAnalysisOrganizationID(v int64) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.AddDesktopAnalysisOrganizationID(v)
+	})
+}
+
+// UpdateDesktopAnalysisOrganizationID sets the "desktop_analysis_organization_id" field to the value that was provided on create.
+func (u *APIKeyUpsertOne) UpdateDesktopAnalysisOrganizationID() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateDesktopAnalysisOrganizationID()
+	})
+}
+
+// ClearDesktopAnalysisOrganizationID clears the value of the "desktop_analysis_organization_id" field.
+func (u *APIKeyUpsertOne) ClearDesktopAnalysisOrganizationID() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.ClearDesktopAnalysisOrganizationID()
 	})
 }
 
@@ -1828,6 +1898,34 @@ func (u *APIKeyUpsertBulk) SetUserID(v int64) *APIKeyUpsertBulk {
 func (u *APIKeyUpsertBulk) UpdateUserID() *APIKeyUpsertBulk {
 	return u.Update(func(s *APIKeyUpsert) {
 		s.UpdateUserID()
+	})
+}
+
+// SetDesktopAnalysisOrganizationID sets the "desktop_analysis_organization_id" field.
+func (u *APIKeyUpsertBulk) SetDesktopAnalysisOrganizationID(v int64) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetDesktopAnalysisOrganizationID(v)
+	})
+}
+
+// AddDesktopAnalysisOrganizationID adds v to the "desktop_analysis_organization_id" field.
+func (u *APIKeyUpsertBulk) AddDesktopAnalysisOrganizationID(v int64) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.AddDesktopAnalysisOrganizationID(v)
+	})
+}
+
+// UpdateDesktopAnalysisOrganizationID sets the "desktop_analysis_organization_id" field to the value that was provided on create.
+func (u *APIKeyUpsertBulk) UpdateDesktopAnalysisOrganizationID() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateDesktopAnalysisOrganizationID()
+	})
+}
+
+// ClearDesktopAnalysisOrganizationID clears the value of the "desktop_analysis_organization_id" field.
+func (u *APIKeyUpsertBulk) ClearDesktopAnalysisOrganizationID() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.ClearDesktopAnalysisOrganizationID()
 	})
 }
 

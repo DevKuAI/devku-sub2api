@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strconv"
+	"strings"
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
@@ -117,6 +118,9 @@ func (r *desktopRepository) CreateOrganization(ctx context.Context, input servic
 			SetGroupID(input.GroupID).
 			SetMemberLimit(memberLimit).
 			SetConversationReportingEnabled(input.ConversationReportingEnabled).
+			SetConversationSummaryEnabled(input.ConversationSummaryEnabled).
+			SetAnalysisModel(input.AnalysisModel).
+			SetNillableSummaryEnabledAt(input.SummaryEnabledAt).
 			Save(txCtx)
 		return translatePersistenceError(err, nil, service.ErrDesktopGatewayUserAssigned)
 	})
@@ -179,7 +183,7 @@ func (r *desktopRepository) GetOrganizationForGatewayUser(ctx context.Context, u
 }
 
 func (r *desktopRepository) UpdateOrganization(ctx context.Context, publicID string, input service.DesktopUpdateOrganizationInput) (*service.DesktopOrganization, []string, error) {
-	if r.gatewayUserID != nil && (input.GatewayUserID != nil || input.GroupID != nil || input.MemberLimit != nil || input.ConversationReportingEnabled != nil) {
+	if r.gatewayUserID != nil && (input.GatewayUserID != nil || input.GroupID != nil || input.MemberLimit != nil || input.ConversationReportingEnabled != nil || input.ConversationSummaryEnabled != nil || input.AnalysisModel != nil) {
 		return nil, nil, service.ErrDesktopValidation
 	}
 	if input.MemberLimit != nil && *input.MemberLimit < 1 {
@@ -248,7 +252,29 @@ func (r *desktopRepository) UpdateOrganization(ctx context.Context, publicID str
 				return err
 			}
 		}
+		summary, reporting, model := organization.ConversationSummaryEnabled, organization.ConversationReportingEnabled, organization.AnalysisModel
+		if input.ConversationSummaryEnabled != nil {
+			summary = *input.ConversationSummaryEnabled
+		}
+		if input.ConversationReportingEnabled != nil {
+			reporting = *input.ConversationReportingEnabled
+		}
+		if input.AnalysisModel != nil {
+			model = *input.AnalysisModel
+		}
+		if summary && (!reporting || strings.TrimSpace(model) == "") {
+			return service.ErrDesktopValidation
+		}
 		builder := client.DesktopOrganization.UpdateOne(organization)
+		if input.ConversationSummaryEnabled != nil {
+			builder.SetConversationSummaryEnabled(*input.ConversationSummaryEnabled)
+			if *input.ConversationSummaryEnabled && !organization.ConversationSummaryEnabled {
+				builder.SetSummaryEnabledAt(time.Now())
+			}
+		}
+		if input.AnalysisModel != nil {
+			builder.SetAnalysisModel(*input.AnalysisModel)
+		}
 		if input.ConversationReportingEnabled != nil {
 			builder.SetConversationReportingEnabled(*input.ConversationReportingEnabled)
 		}
@@ -931,6 +957,7 @@ func desktopOrganizationEntityToService(row *dbent.DesktopOrganization) (*servic
 		AuthVersion: row.AuthVersion, GatewayUserID: row.GatewayUserID, GroupID: row.GroupID,
 		TargetConfig: target, TargetConfigAssigned: target != nil, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 		MemberCount: len(row.Edges.Members), MemberLimit: row.MemberLimit,
+		ConversationSummaryEnabled: row.ConversationSummaryEnabled, AnalysisModel: row.AnalysisModel, SummaryEnabledAt: row.SummaryEnabledAt,
 		ConversationReportingEnabled: row.ConversationReportingEnabled,
 	}
 	if row.Edges.GatewayUser != nil {

@@ -47,6 +47,9 @@ var (
 )
 
 type DesktopOrganization struct {
+	ConversationSummaryEnabled   bool
+	AnalysisModel                string
+	SummaryEnabledAt             *time.Time
 	ConversationReportingEnabled bool
 	ID                           int64
 	PublicID                     string
@@ -191,6 +194,9 @@ type DesktopMemberListFilters struct {
 }
 
 type DesktopCreateOrganizationInput struct {
+	ConversationSummaryEnabled   bool
+	AnalysisModel                string
+	SummaryEnabledAt             *time.Time
 	ConversationReportingEnabled bool
 	PublicID                     string
 	Code                         string
@@ -201,6 +207,8 @@ type DesktopCreateOrganizationInput struct {
 }
 
 type DesktopUpdateOrganizationInput struct {
+	ConversationSummaryEnabled   *bool
+	AnalysisModel                *string
 	ConversationReportingEnabled *bool
 	Name                         *string
 	Status                       *string

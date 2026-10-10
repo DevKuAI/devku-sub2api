@@ -100,6 +100,21 @@ func ConversationReportingEnabled(v bool) predicate.DesktopOrganization {
 	return predicate.DesktopOrganization(sql.FieldEQ(FieldConversationReportingEnabled, v))
 }
 
+// ConversationSummaryEnabled applies equality check predicate on the "conversation_summary_enabled" field. It's identical to ConversationSummaryEnabledEQ.
+func ConversationSummaryEnabled(v bool) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldEQ(FieldConversationSummaryEnabled, v))
+}
+
+// AnalysisModel applies equality check predicate on the "analysis_model" field. It's identical to AnalysisModelEQ.
+func AnalysisModel(v string) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldEQ(FieldAnalysisModel, v))
+}
+
+// SummaryEnabledAt applies equality check predicate on the "summary_enabled_at" field. It's identical to SummaryEnabledAtEQ.
+func SummaryEnabledAt(v time.Time) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldEQ(FieldSummaryEnabledAt, v))
+}
+
 // AuthVersion applies equality check predicate on the "auth_version" field. It's identical to AuthVersionEQ.
 func AuthVersion(v int64) predicate.DesktopOrganization {
 	return predicate.DesktopOrganization(sql.FieldEQ(FieldAuthVersion, v))
@@ -553,6 +568,131 @@ func ConversationReportingEnabledEQ(v bool) predicate.DesktopOrganization {
 // ConversationReportingEnabledNEQ applies the NEQ predicate on the "conversation_reporting_enabled" field.
 func ConversationReportingEnabledNEQ(v bool) predicate.DesktopOrganization {
 	return predicate.DesktopOrganization(sql.FieldNEQ(FieldConversationReportingEnabled, v))
+}
+
+// ConversationSummaryEnabledEQ applies the EQ predicate on the "conversation_summary_enabled" field.
+func ConversationSummaryEnabledEQ(v bool) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldEQ(FieldConversationSummaryEnabled, v))
+}
+
+// ConversationSummaryEnabledNEQ applies the NEQ predicate on the "conversation_summary_enabled" field.
+func ConversationSummaryEnabledNEQ(v bool) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldNEQ(FieldConversationSummaryEnabled, v))
+}
+
+// AnalysisModelEQ applies the EQ predicate on the "analysis_model" field.
+func AnalysisModelEQ(v string) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldEQ(FieldAnalysisModel, v))
+}
+
+// AnalysisModelNEQ applies the NEQ predicate on the "analysis_model" field.
+func AnalysisModelNEQ(v string) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldNEQ(FieldAnalysisModel, v))
+}
+
+// AnalysisModelIn applies the In predicate on the "analysis_model" field.
+func AnalysisModelIn(vs ...string) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldIn(FieldAnalysisModel, vs...))
+}
+
+// AnalysisModelNotIn applies the NotIn predicate on the "analysis_model" field.
+func AnalysisModelNotIn(vs ...string) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldNotIn(FieldAnalysisModel, vs...))
+}
+
+// AnalysisModelGT applies the GT predicate on the "analysis_model" field.
+func AnalysisModelGT(v string) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldGT(FieldAnalysisModel, v))
+}
+
+// AnalysisModelGTE applies the GTE predicate on the "analysis_model" field.
+func AnalysisModelGTE(v string) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldGTE(FieldAnalysisModel, v))
+}
+
+// AnalysisModelLT applies the LT predicate on the "analysis_model" field.
+func AnalysisModelLT(v string) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldLT(FieldAnalysisModel, v))
+}
+
+// AnalysisModelLTE applies the LTE predicate on the "analysis_model" field.
+func AnalysisModelLTE(v string) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldLTE(FieldAnalysisModel, v))
+}
+
+// AnalysisModelContains applies the Contains predicate on the "analysis_model" field.
+func AnalysisModelContains(v string) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldContains(FieldAnalysisModel, v))
+}
+
+// AnalysisModelHasPrefix applies the HasPrefix predicate on the "analysis_model" field.
+func AnalysisModelHasPrefix(v string) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldHasPrefix(FieldAnalysisModel, v))
+}
+
+// AnalysisModelHasSuffix applies the HasSuffix predicate on the "analysis_model" field.
+func AnalysisModelHasSuffix(v string) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldHasSuffix(FieldAnalysisModel, v))
+}
+
+// AnalysisModelEqualFold applies the EqualFold predicate on the "analysis_model" field.
+func AnalysisModelEqualFold(v string) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldEqualFold(FieldAnalysisModel, v))
+}
+
+// AnalysisModelContainsFold applies the ContainsFold predicate on the "analysis_model" field.
+func AnalysisModelContainsFold(v string) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldContainsFold(FieldAnalysisModel, v))
+}
+
+// SummaryEnabledAtEQ applies the EQ predicate on the "summary_enabled_at" field.
+func SummaryEnabledAtEQ(v time.Time) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldEQ(FieldSummaryEnabledAt, v))
+}
+
+// SummaryEnabledAtNEQ applies the NEQ predicate on the "summary_enabled_at" field.
+func SummaryEnabledAtNEQ(v time.Time) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldNEQ(FieldSummaryEnabledAt, v))
+}
+
+// SummaryEnabledAtIn applies the In predicate on the "summary_enabled_at" field.
+func SummaryEnabledAtIn(vs ...time.Time) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldIn(FieldSummaryEnabledAt, vs...))
+}
+
+// SummaryEnabledAtNotIn applies the NotIn predicate on the "summary_enabled_at" field.
+func SummaryEnabledAtNotIn(vs ...time.Time) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldNotIn(FieldSummaryEnabledAt, vs...))
+}
+
+// SummaryEnabledAtGT applies the GT predicate on the "summary_enabled_at" field.
+func SummaryEnabledAtGT(v time.Time) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldGT(FieldSummaryEnabledAt, v))
+}
+
+// SummaryEnabledAtGTE applies the GTE predicate on the "summary_enabled_at" field.
+func SummaryEnabledAtGTE(v time.Time) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldGTE(FieldSummaryEnabledAt, v))
+}
+
+// SummaryEnabledAtLT applies the LT predicate on the "summary_enabled_at" field.
+func SummaryEnabledAtLT(v time.Time) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldLT(FieldSummaryEnabledAt, v))
+}
+
+// SummaryEnabledAtLTE applies the LTE predicate on the "summary_enabled_at" field.
+func SummaryEnabledAtLTE(v time.Time) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldLTE(FieldSummaryEnabledAt, v))
+}
+
+// SummaryEnabledAtIsNil applies the IsNil predicate on the "summary_enabled_at" field.
+func SummaryEnabledAtIsNil() predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldIsNull(FieldSummaryEnabledAt))
+}
+
+// SummaryEnabledAtNotNil applies the NotNil predicate on the "summary_enabled_at" field.
+func SummaryEnabledAtNotNil() predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldNotNull(FieldSummaryEnabledAt))
 }
 
 // AuthVersionEQ applies the EQ predicate on the "auth_version" field.

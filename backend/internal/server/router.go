@@ -92,6 +92,11 @@ func SetupRouter(
 	// 注册路由
 	registerRoutes(r, handlers, jwtAuth, optionalJWTAuth, adminAuth, apiKeyAuth, auditLog, stepUpAuth, apiKeyService, subscriptionService, opsService, settingService, compositeResolver, cfg, redisClient)
 
+	if cfg != nil && cfg.Desktop.Enabled && handlers.Desktop != nil {
+		if reports := handlers.Desktop.Service().Reports(); reports != nil {
+			reports.Start(handlers.Gateway.DesktopReportAI(r, compositeResolver, subscriptionService))
+		}
+	}
 	return r
 }
 

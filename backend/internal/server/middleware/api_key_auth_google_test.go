@@ -908,3 +908,30 @@ func TestApiKeyAuthWithSubscriptionGoogle_SubscriptionLimitExceededReturns429(t 
 	require.Equal(t, "RESOURCE_EXHAUSTED", resp.Error.Status)
 	require.Contains(t, resp.Error.Message, "daily usage limit exceeded")
 }
+
+func TestGoogleAPIKeyAuthRejectsExternalDesktopAnalysisKey(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	groupID := int64(7)
+	repo := fakeAPIKeyRepo{getByKey: func(context.Context, string) (*service.APIKey, error) {
+		return &service.APIKey{ID: 1, Key: "internal-key", UserID: 2, GroupID: &groupID, Status: service.StatusActive, ManagedBy: "desktop_analysis", User: &service.User{ID: 2, Status: service.StatusActive}, Group: &service.Group{ID: groupID, Status: service.StatusActive, Platform: service.PlatformGemini, Hydrated: true}}, nil
+	}}
+	cfg := &config.Config{RunMode: config.RunModeSimple}
+	svc := service.NewAPIKeyService(repo, nil, nil, nil, nil, nil, cfg)
+	router := gin.New()
+	router.Use(APIKeyAuthGoogle(svc, cfg))
+	router.POST("/v1beta/models/test:generateContent", func(c *gin.Context) { c.Status(http.StatusOK) })
+	for _, internal := range []bool{false, true} {
+		request := httptest.NewRequest(http.MethodPost, "/v1beta/models/test:generateContent", strings.NewReader(`{}`))
+		request.Header.Set("x-goog-api-key", "internal-key")
+		if internal {
+			request = request.WithContext(service.WithDesktopReportRequest(request.Context()))
+		}
+		result := httptest.NewRecorder()
+		router.ServeHTTP(result, request)
+		if internal {
+			require.Equal(t, http.StatusOK, result.Code, result.Body.String())
+		} else {
+			require.Equal(t, http.StatusForbidden, result.Code)
+		}
+	}
+}

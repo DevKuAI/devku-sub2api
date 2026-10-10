@@ -39,6 +39,12 @@ type DesktopOrganization struct {
 	MemberLimit int `json:"member_limit,omitempty"`
 	// ConversationReportingEnabled holds the value of the "conversation_reporting_enabled" field.
 	ConversationReportingEnabled bool `json:"conversation_reporting_enabled,omitempty"`
+	// ConversationSummaryEnabled holds the value of the "conversation_summary_enabled" field.
+	ConversationSummaryEnabled bool `json:"conversation_summary_enabled,omitempty"`
+	// AnalysisModel holds the value of the "analysis_model" field.
+	AnalysisModel string `json:"analysis_model,omitempty"`
+	// SummaryEnabledAt holds the value of the "summary_enabled_at" field.
+	SummaryEnabledAt *time.Time `json:"summary_enabled_at,omitempty"`
 	// AuthVersion holds the value of the "auth_version" field.
 	AuthVersion int64 `json:"auth_version,omitempty"`
 	// GatewayUserID holds the value of the "gateway_user_id" field.
@@ -104,13 +110,13 @@ func (*DesktopOrganization) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case desktoporganization.FieldTargetConfig:
 			values[i] = new([]byte)
-		case desktoporganization.FieldConversationReportingEnabled:
+		case desktoporganization.FieldConversationReportingEnabled, desktoporganization.FieldConversationSummaryEnabled:
 			values[i] = new(sql.NullBool)
 		case desktoporganization.FieldID, desktoporganization.FieldMemberLimit, desktoporganization.FieldAuthVersion, desktoporganization.FieldGatewayUserID, desktoporganization.FieldGroupID:
 			values[i] = new(sql.NullInt64)
-		case desktoporganization.FieldPublicID, desktoporganization.FieldCode, desktoporganization.FieldName, desktoporganization.FieldStatus:
+		case desktoporganization.FieldPublicID, desktoporganization.FieldCode, desktoporganization.FieldName, desktoporganization.FieldStatus, desktoporganization.FieldAnalysisModel:
 			values[i] = new(sql.NullString)
-		case desktoporganization.FieldCreatedAt, desktoporganization.FieldUpdatedAt, desktoporganization.FieldDeletedAt:
+		case desktoporganization.FieldCreatedAt, desktoporganization.FieldUpdatedAt, desktoporganization.FieldDeletedAt, desktoporganization.FieldSummaryEnabledAt:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -187,6 +193,25 @@ func (_m *DesktopOrganization) assignValues(columns []string, values []any) erro
 				return fmt.Errorf("unexpected type %T for field conversation_reporting_enabled", values[i])
 			} else if value.Valid {
 				_m.ConversationReportingEnabled = value.Bool
+			}
+		case desktoporganization.FieldConversationSummaryEnabled:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field conversation_summary_enabled", values[i])
+			} else if value.Valid {
+				_m.ConversationSummaryEnabled = value.Bool
+			}
+		case desktoporganization.FieldAnalysisModel:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field analysis_model", values[i])
+			} else if value.Valid {
+				_m.AnalysisModel = value.String
+			}
+		case desktoporganization.FieldSummaryEnabledAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field summary_enabled_at", values[i])
+			} else if value.Valid {
+				_m.SummaryEnabledAt = new(time.Time)
+				*_m.SummaryEnabledAt = value.Time
 			}
 		case desktoporganization.FieldAuthVersion:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -293,6 +318,17 @@ func (_m *DesktopOrganization) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("conversation_reporting_enabled=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ConversationReportingEnabled))
+	builder.WriteString(", ")
+	builder.WriteString("conversation_summary_enabled=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ConversationSummaryEnabled))
+	builder.WriteString(", ")
+	builder.WriteString("analysis_model=")
+	builder.WriteString(_m.AnalysisModel)
+	builder.WriteString(", ")
+	if v := _m.SummaryEnabledAt; v != nil {
+		builder.WriteString("summary_enabled_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
 	builder.WriteString(", ")
 	builder.WriteString("auth_version=")
 	builder.WriteString(fmt.Sprintf("%v", _m.AuthVersion))

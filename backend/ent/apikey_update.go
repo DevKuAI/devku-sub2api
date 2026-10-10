@@ -73,6 +73,33 @@ func (_u *APIKeyUpdate) SetNillableUserID(v *int64) *APIKeyUpdate {
 	return _u
 }
 
+// SetDesktopAnalysisOrganizationID sets the "desktop_analysis_organization_id" field.
+func (_u *APIKeyUpdate) SetDesktopAnalysisOrganizationID(v int64) *APIKeyUpdate {
+	_u.mutation.ResetDesktopAnalysisOrganizationID()
+	_u.mutation.SetDesktopAnalysisOrganizationID(v)
+	return _u
+}
+
+// SetNillableDesktopAnalysisOrganizationID sets the "desktop_analysis_organization_id" field if the given value is not nil.
+func (_u *APIKeyUpdate) SetNillableDesktopAnalysisOrganizationID(v *int64) *APIKeyUpdate {
+	if v != nil {
+		_u.SetDesktopAnalysisOrganizationID(*v)
+	}
+	return _u
+}
+
+// AddDesktopAnalysisOrganizationID adds value to the "desktop_analysis_organization_id" field.
+func (_u *APIKeyUpdate) AddDesktopAnalysisOrganizationID(v int64) *APIKeyUpdate {
+	_u.mutation.AddDesktopAnalysisOrganizationID(v)
+	return _u
+}
+
+// ClearDesktopAnalysisOrganizationID clears the value of the "desktop_analysis_organization_id" field.
+func (_u *APIKeyUpdate) ClearDesktopAnalysisOrganizationID() *APIKeyUpdate {
+	_u.mutation.ClearDesktopAnalysisOrganizationID()
+	return _u
+}
+
 // SetKey sets the "key" field.
 func (_u *APIKeyUpdate) SetKey(v string) *APIKeyUpdate {
 	_u.mutation.SetKey(v)
@@ -613,6 +640,15 @@ func (_u *APIKeyUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if _u.mutation.DeletedAtCleared() {
 		_spec.ClearField(apikey.FieldDeletedAt, field.TypeTime)
 	}
+	if value, ok := _u.mutation.DesktopAnalysisOrganizationID(); ok {
+		_spec.SetField(apikey.FieldDesktopAnalysisOrganizationID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedDesktopAnalysisOrganizationID(); ok {
+		_spec.AddField(apikey.FieldDesktopAnalysisOrganizationID, field.TypeInt64, value)
+	}
+	if _u.mutation.DesktopAnalysisOrganizationIDCleared() {
+		_spec.ClearField(apikey.FieldDesktopAnalysisOrganizationID, field.TypeInt64)
+	}
 	if value, ok := _u.mutation.Key(); ok {
 		_spec.SetField(apikey.FieldKey, field.TypeString, value)
 	}
@@ -911,6 +947,33 @@ func (_u *APIKeyUpdateOne) SetNillableUserID(v *int64) *APIKeyUpdateOne {
 	if v != nil {
 		_u.SetUserID(*v)
 	}
+	return _u
+}
+
+// SetDesktopAnalysisOrganizationID sets the "desktop_analysis_organization_id" field.
+func (_u *APIKeyUpdateOne) SetDesktopAnalysisOrganizationID(v int64) *APIKeyUpdateOne {
+	_u.mutation.ResetDesktopAnalysisOrganizationID()
+	_u.mutation.SetDesktopAnalysisOrganizationID(v)
+	return _u
+}
+
+// SetNillableDesktopAnalysisOrganizationID sets the "desktop_analysis_organization_id" field if the given value is not nil.
+func (_u *APIKeyUpdateOne) SetNillableDesktopAnalysisOrganizationID(v *int64) *APIKeyUpdateOne {
+	if v != nil {
+		_u.SetDesktopAnalysisOrganizationID(*v)
+	}
+	return _u
+}
+
+// AddDesktopAnalysisOrganizationID adds value to the "desktop_analysis_organization_id" field.
+func (_u *APIKeyUpdateOne) AddDesktopAnalysisOrganizationID(v int64) *APIKeyUpdateOne {
+	_u.mutation.AddDesktopAnalysisOrganizationID(v)
+	return _u
+}
+
+// ClearDesktopAnalysisOrganizationID clears the value of the "desktop_analysis_organization_id" field.
+func (_u *APIKeyUpdateOne) ClearDesktopAnalysisOrganizationID() *APIKeyUpdateOne {
+	_u.mutation.ClearDesktopAnalysisOrganizationID()
 	return _u
 }
 
@@ -1483,6 +1546,15 @@ func (_u *APIKeyUpdateOne) sqlSave(ctx context.Context) (_node *APIKey, err erro
 	}
 	if _u.mutation.DeletedAtCleared() {
 		_spec.ClearField(apikey.FieldDeletedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.DesktopAnalysisOrganizationID(); ok {
+		_spec.SetField(apikey.FieldDesktopAnalysisOrganizationID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedDesktopAnalysisOrganizationID(); ok {
+		_spec.AddField(apikey.FieldDesktopAnalysisOrganizationID, field.TypeInt64, value)
+	}
+	if _u.mutation.DesktopAnalysisOrganizationIDCleared() {
+		_spec.ClearField(apikey.FieldDesktopAnalysisOrganizationID, field.TypeInt64)
 	}
 	if value, ok := _u.mutation.Key(); ok {
 		_spec.SetField(apikey.FieldKey, field.TypeString, value)

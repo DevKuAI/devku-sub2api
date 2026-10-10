@@ -174,6 +174,10 @@ func registerDesktopUserRoutesIfEnabled(authenticated *gin.RouterGroup, h *handl
 	}
 	desktop := authenticated.Group("/desktop/organization")
 	desktop.Use(middleware.DesktopAdminBodyLimit())
+	desktop.GET("/daily-reports", h.Desktop.ManagedDailyReports)
+	desktop.GET("/daily-reports/:date/members", h.Desktop.ManagedDailyReports)
+	desktop.GET("/daily-reports/:date/members/:member_id", h.Desktop.ManagedDailyReports)
+	desktop.GET("/daily-reports/:date/summary", h.Desktop.ManagedDailyReports)
 	{
 		desktop.GET("/conversation-records", h.Desktop.ListManagedConversations)
 		desktop.GET("/conversation-records/statistics", h.Desktop.ManagedConversationStatistics)

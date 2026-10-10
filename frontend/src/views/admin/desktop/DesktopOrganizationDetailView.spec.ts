@@ -98,6 +98,7 @@ function mountView() {
         DesktopAnalyticsRangePicker: true,
         DesktopConversationStatistics: true,
         DesktopConversationRecords: true,
+        DesktopDailyReports: true,
         Pagination: true,
         BaseDialog: true,
         ConfirmDialog: true,
@@ -121,6 +122,7 @@ function mountManagedView() {
         DesktopAnalyticsRangePicker: true,
         DesktopConversationStatistics: true,
         DesktopConversationRecords: true,
+        DesktopDailyReports: true,
         Pagination: true,
         BaseDialog: true,
         ConfirmDialog: true,
@@ -695,7 +697,7 @@ describe('DesktopOrganizationDetailView', () => {
     await vm.saveOrganization()
 
     expect(desktopAPI.updateOrganization).toHaveBeenCalledWith('org_one', {
-      name: organization.name, status: 'active', member_limit: 25, conversation_reporting_enabled: false,
+      name: organization.name, status: 'active', member_limit: 25, conversation_reporting_enabled: false, conversation_summary_enabled: false, analysis_model: '',
     })
     expect(wrapper.text()).toContain('1 / 25')
     wrapper.unmount()
@@ -785,4 +787,23 @@ describe('DesktopOrganizationDetailView', () => {
 		})
 		wrapper.unmount()
 	})
+})
+
+
+describe('associated user report visibility', () => {
+  it('shows the report tab only when enabled and exits it when disabled', async () => {
+    managedDesktopAPI.getOrganization.mockResolvedValue({ ...organization, conversation_summary_enabled: true, analysis_model: 'analysis-model' })
+    route.query.tab = 'reports'
+    const wrapper = mountManagedView()
+    await flushPromises()
+    expect(wrapper.find('#desktop-organization-tab-reports').exists()).toBe(true)
+    expect(wrapper.find('desktop-daily-reports-stub').exists()).toBe(true)
+    managedDesktopAPI.getOrganization.mockResolvedValue({ ...organization, conversation_summary_enabled: false, analysis_model: 'analysis-model' })
+    await (wrapper.vm as any).loadOrganization()
+    await flushPromises()
+    expect(wrapper.find('#desktop-organization-tab-reports').exists()).toBe(false)
+    expect(wrapper.find('desktop-daily-reports-stub').exists()).toBe(false)
+    expect(router.replace).toHaveBeenCalledWith({ query: { tab: 'usage' } })
+    wrapper.unmount()
+  })
 })

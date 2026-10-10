@@ -58,6 +58,7 @@ type DesktopUsageMemberModel struct {
 }
 
 type DesktopOrganizationUsageStatistics struct {
+	Analysis        DesktopOrganizationUsagePeriod `json:"analysis"`
 	Timezone        string                         `json:"timezone"`
 	AsOf            time.Time                      `json:"as_of"`
 	Today           DesktopOrganizationUsagePeriod `json:"today"`

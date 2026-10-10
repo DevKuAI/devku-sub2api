@@ -136,6 +136,54 @@ func (_u *DesktopOrganizationUpdate) SetNillableConversationReportingEnabled(v *
 	return _u
 }
 
+// SetConversationSummaryEnabled sets the "conversation_summary_enabled" field.
+func (_u *DesktopOrganizationUpdate) SetConversationSummaryEnabled(v bool) *DesktopOrganizationUpdate {
+	_u.mutation.SetConversationSummaryEnabled(v)
+	return _u
+}
+
+// SetNillableConversationSummaryEnabled sets the "conversation_summary_enabled" field if the given value is not nil.
+func (_u *DesktopOrganizationUpdate) SetNillableConversationSummaryEnabled(v *bool) *DesktopOrganizationUpdate {
+	if v != nil {
+		_u.SetConversationSummaryEnabled(*v)
+	}
+	return _u
+}
+
+// SetAnalysisModel sets the "analysis_model" field.
+func (_u *DesktopOrganizationUpdate) SetAnalysisModel(v string) *DesktopOrganizationUpdate {
+	_u.mutation.SetAnalysisModel(v)
+	return _u
+}
+
+// SetNillableAnalysisModel sets the "analysis_model" field if the given value is not nil.
+func (_u *DesktopOrganizationUpdate) SetNillableAnalysisModel(v *string) *DesktopOrganizationUpdate {
+	if v != nil {
+		_u.SetAnalysisModel(*v)
+	}
+	return _u
+}
+
+// SetSummaryEnabledAt sets the "summary_enabled_at" field.
+func (_u *DesktopOrganizationUpdate) SetSummaryEnabledAt(v time.Time) *DesktopOrganizationUpdate {
+	_u.mutation.SetSummaryEnabledAt(v)
+	return _u
+}
+
+// SetNillableSummaryEnabledAt sets the "summary_enabled_at" field if the given value is not nil.
+func (_u *DesktopOrganizationUpdate) SetNillableSummaryEnabledAt(v *time.Time) *DesktopOrganizationUpdate {
+	if v != nil {
+		_u.SetSummaryEnabledAt(*v)
+	}
+	return _u
+}
+
+// ClearSummaryEnabledAt clears the value of the "summary_enabled_at" field.
+func (_u *DesktopOrganizationUpdate) ClearSummaryEnabledAt() *DesktopOrganizationUpdate {
+	_u.mutation.ClearSummaryEnabledAt()
+	return _u
+}
+
 // SetAuthVersion sets the "auth_version" field.
 func (_u *DesktopOrganizationUpdate) SetAuthVersion(v int64) *DesktopOrganizationUpdate {
 	_u.mutation.ResetAuthVersion()
@@ -330,6 +378,11 @@ func (_u *DesktopOrganizationUpdate) check() error {
 			return &ValidationError{Name: "member_limit", err: fmt.Errorf(`ent: validator failed for field "DesktopOrganization.member_limit": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.AnalysisModel(); ok {
+		if err := desktoporganization.AnalysisModelValidator(v); err != nil {
+			return &ValidationError{Name: "analysis_model", err: fmt.Errorf(`ent: validator failed for field "DesktopOrganization.analysis_model": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.AuthVersion(); ok {
 		if err := desktoporganization.AuthVersionValidator(v); err != nil {
 			return &ValidationError{Name: "auth_version", err: fmt.Errorf(`ent: validator failed for field "DesktopOrganization.auth_version": %w`, err)}
@@ -382,6 +435,18 @@ func (_u *DesktopOrganizationUpdate) sqlSave(ctx context.Context) (_node int, er
 	}
 	if value, ok := _u.mutation.ConversationReportingEnabled(); ok {
 		_spec.SetField(desktoporganization.FieldConversationReportingEnabled, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.ConversationSummaryEnabled(); ok {
+		_spec.SetField(desktoporganization.FieldConversationSummaryEnabled, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.AnalysisModel(); ok {
+		_spec.SetField(desktoporganization.FieldAnalysisModel, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.SummaryEnabledAt(); ok {
+		_spec.SetField(desktoporganization.FieldSummaryEnabledAt, field.TypeTime, value)
+	}
+	if _u.mutation.SummaryEnabledAtCleared() {
+		_spec.ClearField(desktoporganization.FieldSummaryEnabledAt, field.TypeTime)
 	}
 	if value, ok := _u.mutation.AuthVersion(); ok {
 		_spec.SetField(desktoporganization.FieldAuthVersion, field.TypeInt64, value)
@@ -626,6 +691,54 @@ func (_u *DesktopOrganizationUpdateOne) SetNillableConversationReportingEnabled(
 	return _u
 }
 
+// SetConversationSummaryEnabled sets the "conversation_summary_enabled" field.
+func (_u *DesktopOrganizationUpdateOne) SetConversationSummaryEnabled(v bool) *DesktopOrganizationUpdateOne {
+	_u.mutation.SetConversationSummaryEnabled(v)
+	return _u
+}
+
+// SetNillableConversationSummaryEnabled sets the "conversation_summary_enabled" field if the given value is not nil.
+func (_u *DesktopOrganizationUpdateOne) SetNillableConversationSummaryEnabled(v *bool) *DesktopOrganizationUpdateOne {
+	if v != nil {
+		_u.SetConversationSummaryEnabled(*v)
+	}
+	return _u
+}
+
+// SetAnalysisModel sets the "analysis_model" field.
+func (_u *DesktopOrganizationUpdateOne) SetAnalysisModel(v string) *DesktopOrganizationUpdateOne {
+	_u.mutation.SetAnalysisModel(v)
+	return _u
+}
+
+// SetNillableAnalysisModel sets the "analysis_model" field if the given value is not nil.
+func (_u *DesktopOrganizationUpdateOne) SetNillableAnalysisModel(v *string) *DesktopOrganizationUpdateOne {
+	if v != nil {
+		_u.SetAnalysisModel(*v)
+	}
+	return _u
+}
+
+// SetSummaryEnabledAt sets the "summary_enabled_at" field.
+func (_u *DesktopOrganizationUpdateOne) SetSummaryEnabledAt(v time.Time) *DesktopOrganizationUpdateOne {
+	_u.mutation.SetSummaryEnabledAt(v)
+	return _u
+}
+
+// SetNillableSummaryEnabledAt sets the "summary_enabled_at" field if the given value is not nil.
+func (_u *DesktopOrganizationUpdateOne) SetNillableSummaryEnabledAt(v *time.Time) *DesktopOrganizationUpdateOne {
+	if v != nil {
+		_u.SetSummaryEnabledAt(*v)
+	}
+	return _u
+}
+
+// ClearSummaryEnabledAt clears the value of the "summary_enabled_at" field.
+func (_u *DesktopOrganizationUpdateOne) ClearSummaryEnabledAt() *DesktopOrganizationUpdateOne {
+	_u.mutation.ClearSummaryEnabledAt()
+	return _u
+}
+
 // SetAuthVersion sets the "auth_version" field.
 func (_u *DesktopOrganizationUpdateOne) SetAuthVersion(v int64) *DesktopOrganizationUpdateOne {
 	_u.mutation.ResetAuthVersion()
@@ -833,6 +946,11 @@ func (_u *DesktopOrganizationUpdateOne) check() error {
 			return &ValidationError{Name: "member_limit", err: fmt.Errorf(`ent: validator failed for field "DesktopOrganization.member_limit": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.AnalysisModel(); ok {
+		if err := desktoporganization.AnalysisModelValidator(v); err != nil {
+			return &ValidationError{Name: "analysis_model", err: fmt.Errorf(`ent: validator failed for field "DesktopOrganization.analysis_model": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.AuthVersion(); ok {
 		if err := desktoporganization.AuthVersionValidator(v); err != nil {
 			return &ValidationError{Name: "auth_version", err: fmt.Errorf(`ent: validator failed for field "DesktopOrganization.auth_version": %w`, err)}
@@ -902,6 +1020,18 @@ func (_u *DesktopOrganizationUpdateOne) sqlSave(ctx context.Context) (_node *Des
 	}
 	if value, ok := _u.mutation.ConversationReportingEnabled(); ok {
 		_spec.SetField(desktoporganization.FieldConversationReportingEnabled, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.ConversationSummaryEnabled(); ok {
+		_spec.SetField(desktoporganization.FieldConversationSummaryEnabled, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.AnalysisModel(); ok {
+		_spec.SetField(desktoporganization.FieldAnalysisModel, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.SummaryEnabledAt(); ok {
+		_spec.SetField(desktoporganization.FieldSummaryEnabledAt, field.TypeTime, value)
+	}
+	if _u.mutation.SummaryEnabledAtCleared() {
+		_spec.ClearField(desktoporganization.FieldSummaryEnabledAt, field.TypeTime)
 	}
 	if value, ok := _u.mutation.AuthVersion(); ok {
 		_spec.SetField(desktoporganization.FieldAuthVersion, field.TypeInt64, value)
