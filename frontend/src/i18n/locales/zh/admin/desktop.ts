@@ -1,5 +1,21 @@
 export default {
   desktop: {
+    detail: {
+      loadingOrganization: '正在加载企业信息…',
+      membersHint: '管理成员资料、访问状态与用量；费用和令牌用量分别显示。',
+      configurationHint: '配置客户端的提供方、请求模型和版本要求。归集总结的分析模型在企业设置中维护。',
+      saveRetryHint: '检查并修正输入后，再次保存。',
+      membersLoadFailed: '成员列表加载失败，请重试加载。',
+      tableScrollHint: '表格可横向滚动，查看完整信息和操作。',
+      memberAction: '{action}：{name}',
+      targetNotConfigured: '尚未配置该客户端，请联系平台管理员。',
+      conversationsHint: '按成员、客户端、采集状态或接收时间查找对话，再查看问答与完整会话。',
+      filteredConversationsHint: '调整筛选条件，或重置筛选以查看全部对话。',
+      emptyConversationsHint: '尚未采集到对话。确认企业已启用对话上报，并在客户端产生记录后刷新。',
+      invalidDateRange: '接收起始时间不能晚于结束时间。调整时间后重新查询。',
+      confirmRetryHint: '可再次尝试操作，或关闭此窗口并刷新企业信息。',
+      refreshOrganization: '关闭并刷新企业信息',
+    },
     reports: {
       configuredModel: '当前配置模型',
       usedModel: '生成时使用的模型',

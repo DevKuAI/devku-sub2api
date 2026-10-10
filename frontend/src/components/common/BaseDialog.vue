@@ -11,7 +11,7 @@
         @click.self="handleClose"
       >
         <!-- Modal panel -->
-        <div ref="dialogRef" :class="['modal-content', widthClasses]" @click.stop>
+        <div ref="dialogRef" :class="['modal-content', widthClasses, contentClass]" @click.stop>
           <!-- Header -->
           <div class="modal-header">
             <h3 :id="dialogId" class="modal-title">
@@ -21,7 +21,7 @@
               v-if="showCloseButton"
               @click="emit('close')"
               class="-mr-2 rounded-xl p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 focus-visible:ring-offset-2 dark:text-dark-500 dark:hover:bg-dark-700 dark:hover:text-dark-300 dark:focus-visible:ring-offset-dark-900"
-              aria-label="Close modal"
+              :aria-label="closeLabel || 'Close modal'"
             >
               <Icon name="x" size="md" />
             </button>
@@ -45,6 +45,22 @@
 <script lang="ts">
 let dialogIdCounter = 0
 const openDialogs = new Set<string>()
+const inertDialogs = new Map<HTMLElement, boolean>()
+let appRoot: HTMLElement | null = null
+let appWasInert = false
+
+function syncInertDialogs() {
+  for (const [element, wasInert] of inertDialogs) element.toggleAttribute('inert', wasInert)
+  inertDialogs.clear()
+  const active = [...openDialogs].pop()
+  for (const element of document.querySelectorAll<HTMLElement>('.modal-overlay[role="dialog"]')) {
+    const id = element.getAttribute('aria-labelledby') || ''
+    if (id !== active && openDialogs.has(id)) {
+      inertDialogs.set(element, element.hasAttribute('inert'))
+      element.setAttribute('inert', '')
+    }
+  }
+}
 </script>
 
 <script setup lang="ts">
@@ -69,6 +85,8 @@ interface Props {
   closeOnClickOutside?: boolean
   showCloseButton?: boolean
   zIndex?: number
+  contentClass?: string
+  closeLabel?: string
 }
 
 interface Emits {
@@ -148,6 +166,7 @@ const handleTab = (event: KeyboardEvent) => {
 }
 
 const handleKeydown = (event: KeyboardEvent) => {
+  if (event.defaultPrevented || [...openDialogs].pop() !== dialogId) return
   handleEscape(event)
   handleTab(event)
 }
@@ -156,6 +175,14 @@ const updateScrollLock = (isOpen: boolean) => {
   if (isOpen) openDialogs.add(dialogId)
   else openDialogs.delete(dialogId)
   document.body.classList.toggle('modal-open', openDialogs.size > 0)
+  if (openDialogs.size && !appRoot) {
+    appRoot = document.getElementById('app')
+    if (appRoot) { appWasInert = appRoot.hasAttribute('inert'); appRoot.setAttribute('inert', '') }
+  } else if (!openDialogs.size && appRoot) {
+    appRoot.toggleAttribute('inert', appWasInert)
+    appRoot = null
+  }
+  syncInertDialogs()
 }
 
 // Prevent body scroll when modal is open and manage focus
@@ -170,6 +197,7 @@ watch(
 
       // 等待DOM更新后设置焦点到对话框
       await nextTick()
+      syncInertDialogs()
       if (modalBodyRef.value) {
         modalBodyRef.value.scrollTop = 0
       }

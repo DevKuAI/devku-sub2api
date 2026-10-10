@@ -1,6 +1,6 @@
 <template>
   <div class="w-full">
-    <label v-if="label" :for="id" class="input-label mb-1.5 block">
+    <label v-if="label" :for="inputId" class="input-label mb-1.5 block">
       {{ label }}
       <span v-if="required" class="text-red-500">*</span>
     </label>
@@ -14,7 +14,7 @@
       </div>
 
       <input
-        :id="id"
+        :id="inputId"
         ref="inputRef"
         :type="type"
         :value="modelValue"
@@ -23,6 +23,9 @@
         :placeholder="placeholderText"
         :autocomplete="autocomplete"
         :readonly="readonly"
+        :maxlength="maxlength"
+        :aria-invalid="error ? true : undefined"
+        :aria-describedby="error ? `${inputId}-error` : hint ? `${inputId}-hint` : undefined"
         :class="[
           'input w-full transition-all duration-200',
           $slots.prefix ? 'pl-11' : '',
@@ -46,17 +49,17 @@
       </div>
     </div>
     <!-- Hint / Error Text -->
-    <p v-if="error" class="input-error-text mt-1.5">
+    <p v-if="error" :id="`${inputId}-error`" class="input-error-text mt-1.5" role="alert">
       {{ error }}
     </p>
-    <p v-else-if="hint" class="input-hint mt-1.5">
+    <p v-else-if="hint" :id="`${inputId}-hint`" class="input-hint mt-1.5">
       {{ hint }}
     </p>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, useId } from 'vue'
 
 interface Props {
   modelValue: string | number | null | undefined
@@ -70,6 +73,7 @@ interface Props {
   hint?: string
   id?: string
   autocomplete?: string
+  maxlength?: string | number
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -88,6 +92,8 @@ const emit = defineEmits<{
 }>()
 
 const inputRef = ref<HTMLInputElement | null>(null)
+const generatedId = useId()
+const inputId = computed(() => props.id || generatedId)
 const placeholderText = computed(() => props.placeholder || '')
 
 const onInput = (event: Event) => {

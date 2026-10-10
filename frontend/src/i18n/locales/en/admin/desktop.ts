@@ -1,5 +1,21 @@
 export default {
   desktop: {
+    detail: {
+      loadingOrganization: 'Loading organization…',
+      membersHint: 'Manage member details, access and usage. Costs and tokens are shown separately.',
+      configurationHint: 'Configure client providers, requested models and version requirements. Maintain the analysis model in organization settings.',
+      saveRetryHint: 'Check and correct the input, then save again.',
+      membersLoadFailed: 'Unable to load members. Retry loading the list.',
+      tableScrollHint: 'Scroll the table horizontally to view all information and actions.',
+      memberAction: '{action}: {name}',
+      targetNotConfigured: 'This client is not configured. Contact a platform administrator.',
+      conversationsHint: 'Find conversations by member, client, capture status or received time, then inspect each exchange and the full session.',
+      filteredConversationsHint: 'Adjust the filters or reset them to view all conversations.',
+      emptyConversationsHint: 'No conversations have been captured. Enable conversation reporting, collect client records, then refresh.',
+      invalidDateRange: 'The received start time must not be later than the end time. Adjust the times and search again.',
+      confirmRetryHint: 'Try the action again, or close this dialog and refresh organization details.',
+      refreshOrganization: 'Close and refresh organization',
+    },
     reports: {
       configuredModel: 'Configured model',
       usedModel: 'Model used for generation',

@@ -44,7 +44,7 @@ describe('Desktop organization usage statistics', () => {
     await flushPromises()
     expect(api.getDesktopOrganizationUsageStatistics).toHaveBeenCalledWith('org_one', selfManaged, expect.any(AbortSignal))
     expect(wrapper.find('[data-testid="organization-usage-today"]').text()).toContain('$0.1250')
-    expect(wrapper.find('[data-testid="organization-usage-week"]').text()).toContain('2.5M')
+    expect(wrapper.find('[data-testid="organization-usage-week"]').text()).toContain('2,500,000')
     expect(wrapper.find('[data-testid="organization-usage-month"]').text()).toContain('$12.7500')
     expect(wrapper.find('[data-testid="organization-usage-total"]').text()).toContain('$150.1235')
     expect(wrapper.find('[data-testid="organization-usage-total"] [title]').attributes('title')).toBe((4_000_000_000).toLocaleString())

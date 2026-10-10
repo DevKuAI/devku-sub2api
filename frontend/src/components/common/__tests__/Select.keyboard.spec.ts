@@ -52,4 +52,17 @@ describe('Select keyboard focus', () => {
     await press('Enter')
     expect(wrapper.emitted('update:modelValue')).toEqual([['beta']])
   })
+  it.each([false, true])('announces the active option while retaining the appropriate keyboard focus (%s)', async (searchable) => {
+    await open(searchable)
+    const active = document.activeElement!
+    await press('ArrowDown')
+    const optionID = active.getAttribute('aria-activedescendant')
+    expect(optionID).toBeTruthy()
+    expect(document.getElementById(optionID!)?.textContent?.trim()).toBe('Beta')
+    expect(document.activeElement).toBe(active)
+    const listboxID = wrapper.get('button').attributes('aria-controls')
+    expect(document.getElementById(listboxID)?.getAttribute('role')).toBe('listbox')
+    expect(wrapper.get('button').attributes('aria-haspopup')).toBe('listbox')
+  })
+
 })

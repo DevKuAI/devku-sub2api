@@ -1,29 +1,32 @@
 <template>
   <div class="min-w-0 space-y-5">
+    <header><h2 class="detail-section-title">{{ t('admin.desktop.conversations.title') }}</h2><p class="detail-caption mt-1">{{ t('admin.desktop.detail.conversationsHint') }}</p></header>
     <DesktopConversationStatistics :organization-id="organizationId" :self-managed="selfManaged" :filters="appliedFilters" />
-    <form class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4" @submit.prevent="applyFilters">
+    <form class="detail-panel grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4" @submit.prevent="applyFilters">
       <label class="space-y-1 text-sm"><span>{{ t('admin.desktop.conversations.memberSearch') }}</span><input v-model="filters.member_search" class="input" type="search" maxlength="100" /></label>
       <label class="space-y-1 text-sm"><span>{{ t('admin.desktop.conversations.client') }}</span><select v-model="filters.client" class="input"><option value="">{{ t('common.all') }}</option><option value="workbuddy">Workbuddy</option><option value="chatgpt_codex">ChatGPT Codex</option></select></label>
       <label class="space-y-1 text-sm"><span>{{ t('admin.desktop.conversations.status') }}</span><select v-model="filters.capture_status" class="input"><option value="">{{ t('common.all') }}</option><option value="captured">{{ t('admin.desktop.conversations.captured') }}</option><option value="response_missing">{{ t('admin.desktop.conversations.responseMissing') }}</option></select></label>
       <label class="space-y-1 text-sm"><span>{{ t('admin.desktop.conversations.recordID') }}</span><input v-model="filters.record_id" class="input font-mono" maxlength="36" /></label>
-      <label class="space-y-1 text-sm"><span>{{ t('admin.desktop.conversations.receivedFrom') }}</span><input v-model="filters.received_from" class="input" type="datetime-local" /></label>
-      <label class="space-y-1 text-sm"><span>{{ t('admin.desktop.conversations.receivedTo') }}</span><input v-model="filters.received_to" class="input" type="datetime-local" /></label>
+      <label class="space-y-1 text-sm"><span>{{ t('admin.desktop.conversations.receivedFrom') }}</span><input id="conversation-received-from" v-model="filters.received_from" :aria-invalid="filterError ? true : undefined" :aria-describedby="filterError ? 'conversation-filter-error' : undefined" class="input" type="datetime-local" /></label>
+      <label class="space-y-1 text-sm"><span>{{ t('admin.desktop.conversations.receivedTo') }}</span><input v-model="filters.received_to" :aria-invalid="filterError ? true : undefined" :aria-describedby="filterError ? 'conversation-filter-error' : undefined" class="input" type="datetime-local" /></label>
       <label class="space-y-1 text-sm"><span>{{ t('admin.desktop.conversations.sessionID') }}</span><input v-model="filters.source_session_id" class="input font-mono" maxlength="512" /></label>
       <label class="space-y-1 text-sm"><span>{{ t('admin.desktop.conversations.installationID') }}</span><input v-model="filters.installation_id" class="input font-mono" maxlength="36" /></label>
-      <div class="flex flex-wrap gap-2 sm:col-span-2 lg:col-span-4"><button class="btn btn-primary" type="submit" :disabled="loading">{{ t('common.search') }}</button><button class="btn btn-secondary" type="button" @click="resetFilters">{{ t('common.reset') }}</button></div>
+      <p v-if="filterError" id="conversation-filter-error" class="detail-error sm:col-span-2 lg:col-span-4" role="alert">{{ filterError }}</p>
+      <div class="flex flex-wrap gap-3 sm:col-span-2 lg:col-span-4"><button class="btn btn-primary" type="submit" :disabled="loading">{{ t('common.search') }}</button><button class="btn btn-secondary" type="button" @click="resetFilters">{{ t('common.reset') }}</button></div>
     </form>
 
     <div v-if="error" class="rounded-lg bg-red-50 p-4 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300" role="alert">
       {{ error }} <button class="ml-3 underline" type="button" @click="loadRecords">{{ t('admin.desktop.conversations.retry') }}</button>
     </div>
     <div v-else :aria-busy="loading">
-      <DataTable :columns="columns" :data="records" :loading="loading" row-key="record_id">
+      <p class="detail-table-hint mb-3">{{ t('admin.desktop.detail.tableScrollHint') }}</p>
+      <DataTable tabindex="0" :aria-label="t('admin.desktop.conversations.title')" :columns="columns" :data="records" :loading="loading" row-key="record_id">
         <template #cell-member_name="{ row }"><div class="max-w-48 break-words">{{ row.member_name }}<span v-if="row.member_deleted" class="ml-2 text-xs text-gray-500">{{ t('admin.desktop.conversations.deletedMember') }}</span></div></template>
         <template #cell-client="{ value }">{{ clientLabel(value) }}</template>
         <template #cell-capture_status="{ value }"><span :class="value === 'response_missing' ? 'text-amber-700 dark:text-amber-400' : ''">{{ statusLabel(value) }}</span></template>
         <template #cell-duration_ms="{ value }"><span class="whitespace-nowrap tabular-nums" data-testid="conversation-duration">{{ formatDesktopConversationDuration(value) }}</span></template>
         <template #cell-received_at="{ value }"><span class="whitespace-nowrap">{{ formatDateTime(value) }}</span></template>
-        <template #cell-source_session_id="{ value }"><span class="block max-w-48 truncate font-mono text-xs" :title="value">{{ value }}</span></template>
+        <template #cell-source_session_id="{ value }"><bdi class="block max-w-48 whitespace-normal break-all font-mono text-sm">{{ value }}</bdi></template>
         <template #cell-actions="{ row }">
           <div class="flex items-center gap-1 whitespace-nowrap">
             <button class="btn btn-ghost btn-sm gap-1.5 text-primary-600 dark:text-primary-400" type="button" aria-haspopup="dialog" @click="openViewer(row, 'record')">
@@ -34,9 +37,9 @@
             </button>
           </div>
         </template>
-        <template #empty><p class="py-4 text-center text-sm text-gray-500" role="status">{{ t(hasFilters ? 'admin.desktop.conversations.noMatches' : 'admin.desktop.conversations.empty') }}</p></template>
+        <template #empty><div class="space-y-3 py-4 text-center"><p class="font-medium" role="status">{{ t(hasFilters ? 'admin.desktop.conversations.noMatches' : 'admin.desktop.conversations.empty') }}</p><p class="detail-caption">{{ t(hasFilters ? 'admin.desktop.detail.filteredConversationsHint' : 'admin.desktop.detail.emptyConversationsHint') }}</p><button class="btn btn-secondary" type="button" @click="hasFilters ? resetFilters() : loadRecords()">{{ t(hasFilters ? 'common.reset' : 'common.refresh') }}</button></div></template>
       </DataTable>
-      <Pagination v-if="total > 0" :page="page" :page-size="pageSize" :total="total" :page-size-options="[20, 50, 100]" @update:page="changePage" @update:page-size="changePageSize" />
+      <Pagination dropdown-class="desktop-detail-select" v-if="total > 0" :page="page" :page-size="pageSize" :total="total" :page-size-options="[20, 50, 100]" @update:page="changePage" @update:page-size="changePageSize" />
     </div>
 
     <DesktopConversationViewer
@@ -75,6 +78,7 @@ const page = ref(1)
 const pageSize = ref(20)
 const loading = ref(false)
 const error = ref('')
+const filterError = ref('')
 const selected = ref<DesktopConversation | null>(null)
 const viewerMode = ref<'record' | 'thread'>('record')
 let listController: AbortController | undefined
@@ -92,7 +96,8 @@ const columns = computed<Column[]>(() => [
 function clientLabel(client: string) { return client === 'workbuddy' ? 'Workbuddy' : 'ChatGPT Codex' }
 function statusLabel(status: string) { return t(status === 'captured' ? 'admin.desktop.conversations.captured' : 'admin.desktop.conversations.responseMissing') }
 function requestError(cause: unknown) {
-  const status = (cause as { response?: { status?: number } })?.response?.status
+  const error = cause as { status?: number; response?: { status?: number } }
+  const status = error.status ?? error.response?.status
   if (status === 404) return t('admin.desktop.conversations.notFound')
   if (status === 422) return t('admin.desktop.conversations.invalidFilters')
   return t('admin.desktop.conversations.loadFailed')
@@ -122,6 +127,14 @@ async function loadRecords() {
   } finally { if (!controller.signal.aborted) loading.value = false }
 }
 function applyFilters() {
+  filterError.value = ''
+  const from = filters.received_from ? Date.parse(filters.received_from) : null
+  const to = filters.received_to ? Date.parse(filters.received_to) : null
+  if ((from !== null && !Number.isFinite(from)) || (to !== null && !Number.isFinite(to)) || (from !== null && to !== null && from > to)) {
+    filterError.value = t('admin.desktop.detail.invalidDateRange')
+    document.getElementById('conversation-received-from')?.focus()
+    return
+  }
   const next: DesktopConversationFilters = {}
   for (const [key, value] of Object.entries(filters)) {
     if (value.trim()) Object.assign(next, { [key]: key.startsWith('received_') ? new Date(value).toISOString() : value.trim() })

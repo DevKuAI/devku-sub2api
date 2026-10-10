@@ -1,5 +1,9 @@
 export default {
   bi: {
+    disabledHint: 'Refresh after the service is enabled to manage grants for this organization.',
+    capabilitiesHint: 'Select at least one capability. Access is limited to the selected content and actions.',
+    capabilitiesRequired: 'Select at least one capability before saving.',
+    revokeRetryHint: 'Try revoking again or refresh the list to check the latest grant state.',
     privacy: {
       siteURLInvalid: "Enter a valid HTTPS origin without a path, query, fragment, or credentials.",
       siteURLHint: "Enter the HTTPS origin hosting this privacy page (domain and optional port only). The application appends /legal/bi-privacy; the address must serve this application. Changing only the address does not require a new document version.",

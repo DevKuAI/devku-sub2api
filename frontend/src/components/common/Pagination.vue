@@ -43,6 +43,7 @@
           >
           <div class="page-size-select w-20">
             <Select
+              :dropdown-class="dropdownClass"
               :model-value="pageSize"
               :options="pageSizeSelectOptions"
               :aria-label="t('pagination.perPage')"
@@ -135,6 +136,7 @@ interface Props {
   pageSizeOptions?: number[]
   showPageSizeSelector?: boolean
   showJump?: boolean
+  dropdownClass?: string
 }
 
 interface Emits {

@@ -113,7 +113,7 @@
       </section>
     </section>
     <DesktopConversationViewer :record="source" :records="source ? [source] : []" mode="record" :organization-id="organizationId" :self-managed="selfManaged" @close="source = null" />
-    <BaseDialog :show="confirmRegenerate" :title="t(`${key}.regenerate`)" :show-close-button="false" @close="confirmRegenerate = false">
+    <BaseDialog content-class="desktop-detail" :close-label="t('common.close')" :show="confirmRegenerate" :title="t(`${key}.regenerate`)" :show-close-button="false" @close="confirmRegenerate = false">
       <p class="text-sm leading-relaxed">{{ t(`${key}.regenerateHint`) }}</p>
       <template #footer><div class="desktop-analytics flex flex-wrap justify-end gap-3"><button class="analytics-button" type="button" @click="confirmRegenerate = false">{{ t('common.cancel') }}</button><button class="analytics-button" type="button" :disabled="running" @click="execute('regenerate')">{{ t(`${key}.regenerate`) }}</button></div></template>
     </BaseDialog>

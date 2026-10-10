@@ -1,6 +1,6 @@
 <template>
-  <BaseDialog :show="Boolean(record)" :title="t(isThread ? 'admin.desktop.conversations.threadTitle' : 'admin.desktop.conversations.detail')" width="extra-wide" @close="close">
-    <div v-if="record" class="flex h-[min(68dvh,52rem)] min-h-0 flex-col gap-4" data-testid="conversation-viewer">
+  <BaseDialog content-class="desktop-detail" :close-label="t('common.close')" :show="Boolean(record)" :title="t(isThread ? 'admin.desktop.conversations.threadTitle' : 'admin.desktop.conversations.detail')" width="extra-wide" @close="close">
+    <div v-if="record" class="flex h-[min(68dvh,52rem)] min-w-0 min-h-0 flex-col gap-4" data-testid="conversation-viewer">
       <div class="flex shrink-0 flex-wrap items-center justify-between gap-3">
         <div class="min-w-0 text-sm">
           <p class="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -87,7 +87,7 @@
     </div>
     <template #footer>
       <div class="flex w-full flex-wrap items-center justify-between gap-3">
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-3">
           <button class="btn btn-secondary btn-sm gap-1" type="button" :disabled="!canPrevious" @click="navigate(-1)"><Icon name="chevronLeft" size="sm" aria-hidden="true" />{{ t('admin.desktop.conversations.previousRecord') }}</button>
           <span class="text-xs tabular-nums text-gray-500" aria-live="polite">{{ position }} / {{ isThread ? threadTotal : records.length }}</span>
           <button class="btn btn-secondary btn-sm gap-1" type="button" :disabled="!canNext" @click="navigate(1)">{{ t('admin.desktop.conversations.nextRecord') }}<Icon name="chevronRight" size="sm" aria-hidden="true" /></button>
@@ -99,7 +99,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getDesktopConversation, listDesktopConversations } from '@/api/desktopConversations'
 import type { DesktopConversation, DesktopConversationDetail } from '@/api/desktopConversations'
@@ -158,7 +158,8 @@ const detailMetadata = computed(() => {
 function clientLabel(client: string) { return client === 'workbuddy' ? 'Workbuddy' : 'ChatGPT Codex' }
 function recordNumber(index: number) { return (isThread.value ? (threadPage.value - 1) * threadPageSize : 0) + index + 1 }
 function requestError(cause: unknown) {
-  return t((cause as { response?: { status?: number } })?.response?.status === 404 ? 'admin.desktop.conversations.notFound' : 'admin.desktop.conversations.loadFailed')
+  const error = cause as { status?: number; response?: { status?: number } }
+  return t((error.status ?? error.response?.status) === 404 ? 'admin.desktop.conversations.notFound' : 'admin.desktop.conversations.loadFailed')
 }
 function clearDetail() {
   detailController?.abort()
@@ -221,6 +222,7 @@ function browseThread(record: DesktopConversation) {
   isThread.value = true
   threadAnchor.value = record
   void loadThread(1)
+  void nextTick(() => readingPane.value?.focus())
 }
 function selectThreadRecord(event: Event) {
   const item = threadRecords.value.find(item => item.record_id === (event.target as HTMLSelectElement).value)

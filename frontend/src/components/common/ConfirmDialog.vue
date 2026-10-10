@@ -5,6 +5,8 @@
     width="narrow"
     :close-on-escape="!loading"
     :show-close-button="!loading"
+    :content-class="contentClass"
+    :close-label="contentClass ? t('common.close') : undefined"
     @close="handleCancel"
   >
     <div class="space-y-4">
@@ -56,6 +58,7 @@ interface Props {
   cancelText?: string
   danger?: boolean
   loading?: boolean
+  contentClass?: string
 }
 
 interface Emits {

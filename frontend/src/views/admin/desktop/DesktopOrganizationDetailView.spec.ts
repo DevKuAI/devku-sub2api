@@ -507,9 +507,9 @@ describe('DesktopOrganizationDetailView', () => {
 		expect(vm.memberColumns.map((column: { key: string }) => column.key)).toContain('usage_cost')
 		expect(vm.memberColumns.map((column: { key: string }) => column.key)).toContain('usage_tokens')
 		expect(vm.formatUsageCost(member.usage.today_actual_cost)).toBe('$0.1250')
-		expect(vm.formatUsageTokens(member.usage.today_tokens)).toBe('1.3K')
-		expect(vm.formatUsageTokens(member.usage.last_30_days_tokens)).toBe('2.5M')
-		expect(vm.formatUsageTokens(member.usage.total_tokens)).toBe('4.0B')
+		expect(vm.formatUsageTokensFull(member.usage.today_tokens)).toBe('1,250')
+		expect(vm.formatUsageTokensFull(member.usage.last_30_days_tokens)).toBe('2,500,000')
+		expect(vm.formatUsageTokensFull(member.usage.total_tokens)).toBe('4,000,000,000')
 		expect(vm.formatUsageTokensFull(member.usage.today_tokens)).toContain('1,250')
 		wrapper.unmount()
 	})
@@ -787,6 +787,70 @@ describe('DesktopOrganizationDetailView', () => {
 		})
 		wrapper.unmount()
 	})
+  it('keeps unavailable organization configuration out of the interactive flow', async () => {
+    route.query.tab = 'configuration'
+    desktopAPI.getOrganization.mockRejectedValueOnce(new Error('Unavailable'))
+    const wrapper = mountView(); await flushPromises()
+    expect(wrapper.find('[role="alert"]').text()).toContain('admin.desktop.organizationLoadFailed')
+    expect(wrapper.find('#desktop-organization-panel-configuration').exists()).toBe(false)
+    expect(wrapper.find('[role="tablist"]').exists()).toBe(false)
+    expect(desktopAPI.updateModelConfiguration).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+  it('shows a member load error with retry instead of an empty member list', async () => {
+    desktopAPI.listMembers.mockRejectedValueOnce(new Error('Unavailable'))
+    const wrapper = mountView(); await flushPromises()
+    expect(wrapper.find('#desktop-organization-panel-members [role="alert"]').text()).toContain('admin.desktop.detail.membersLoadFailed')
+    expect(wrapper.find('data-table-stub').exists()).toBe(false)
+    await wrapper.get('#desktop-organization-panel-members [role="alert"] button').trigger('click'); await flushPromises()
+    expect(wrapper.find('#desktop-organization-panel-members [role="alert"]').exists()).toBe(false)
+    expect(wrapper.find('data-table-stub').exists()).toBe(true)
+    wrapper.unmount()
+  })
+  it('retains the newest organization response when a prior refresh finishes late', async () => {
+    const wrapper = mountView(); await flushPromises()
+    const vm = wrapper.vm as any
+    let resolveOld!: (value: typeof organization) => void
+    desktopAPI.getOrganization.mockReturnValueOnce(new Promise(resolve => { resolveOld = resolve }))
+    const oldRequest = vm.loadOrganization()
+    desktopAPI.getOrganization.mockResolvedValueOnce({ ...organization, name: 'Current organization' })
+    await vm.loadOrganization()
+    resolveOld({ ...organization, name: 'Obsolete organization' }); await oldRequest; await flushPromises()
+    expect(wrapper.find('h1').text()).toBe('Current organization')
+    expect(vm.organizationLoading).toBe(false)
+    wrapper.unmount()
+  })
+  it('does not let an aborted member request replace data or finish the active loading state', async () => {
+    const wrapper = mountView(); await flushPromises()
+    const vm = wrapper.vm as any
+    type Result = { items: typeof member[]; total: number }
+    let resolveOld!: (value: Result) => void
+    let resolveCurrent!: (value: Result) => void
+    desktopAPI.listMembers.mockReturnValueOnce(new Promise(resolve => { resolveOld = resolve }))
+    const oldRequest = vm.loadMembers()
+    const oldSignal = desktopAPI.listMembers.mock.lastCall![4] as AbortSignal
+    desktopAPI.listMembers.mockReturnValueOnce(new Promise(resolve => { resolveCurrent = resolve }))
+    const currentRequest = vm.loadMembers()
+    resolveOld({ items: [{ ...member, name: 'Obsolete member' }], total: 1 }); await oldRequest
+    expect(oldSignal.aborted).toBe(true)
+    expect(vm.membersLoading).toBe(true)
+    expect(vm.members[0].name).not.toBe('Obsolete member')
+    resolveCurrent({ items: [{ ...member, name: 'Current member' }], total: 1 }); await currentRequest
+    expect(vm.members[0].name).toBe('Current member')
+    expect(vm.membersLoading).toBe(false)
+    wrapper.unmount()
+  })
+  it('keeps failed destructive actions open with an inline recovery reason', async () => {
+    desktopAPI.deleteMember.mockRejectedValueOnce(new Error('Delete rejected'))
+    const wrapper = mountView(); await flushPromises()
+    const vm = wrapper.vm as any
+    vm.confirmDeleteMember(member); await vm.runConfirmedAction()
+    expect(vm.confirmState.show).toBe(true)
+    expect(vm.confirmError).toBe('Delete rejected')
+    expect(vm.confirmPending).toBe(false)
+    wrapper.unmount()
+  })
+
 })
 
 

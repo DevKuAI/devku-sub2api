@@ -27,4 +27,28 @@ describe('stacked dialog Escape handling', () => {
     pressEscape()
     expect(parent.emitted('close')).toHaveLength(1)
   })
+  it('keeps the dialog open when a nested control has consumed Escape', () => {
+    const wrapper = mount(BaseDialog, { props: { show: true, title: 'Editor' } })
+    const event = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
+    event.preventDefault()
+    document.dispatchEvent(event)
+    expect(wrapper.emitted('close')).toBeUndefined()
+  })
+  it('makes the page and underlying dialog inert and restores them as dialogs close', async () => {
+    const app = document.createElement('main'); app.id = 'app'; document.body.append(app)
+    const parent = mount(BaseDialog, { props: { show: true, title: 'Parent' } })
+    await parent.vm.$nextTick()
+    const parentOverlay = [...document.querySelectorAll<HTMLElement>('[role="dialog"]')].find(el => el.textContent?.includes('Parent'))!
+    const child = mount(BaseDialog, { props: { show: true, title: 'Child' } })
+    await child.vm.$nextTick()
+    expect(app.hasAttribute('inert')).toBe(true)
+    expect(parentOverlay.hasAttribute('inert')).toBe(true)
+    await child.setProps({ show: false })
+    expect(app.hasAttribute('inert')).toBe(true)
+    expect(parentOverlay.hasAttribute('inert')).toBe(false)
+    await parent.setProps({ show: false })
+    expect(app.hasAttribute('inert')).toBe(false)
+    app.remove()
+  })
+
 })

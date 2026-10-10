@@ -1,5 +1,9 @@
 export default {
   bi: {
+    disabledHint: '服务启用后，刷新以管理本企业的授权。',
+    capabilitiesHint: '至少选择一项权限；仅开放所选权限对应的内容和操作。',
+    capabilitiesRequired: '选择至少一项权限后再保存。',
+    revokeRetryHint: '可重新尝试撤销，或刷新列表以确认最新授权状态。',
     privacy: {
       siteURLInvalid: "请输入有效的 HTTPS 站点地址，不含路径、查询参数、fragment 或用户凭证。",
       siteURLHint: "填写承载隐私说明页面的 HTTPS 站点地址，仅域名和可选端口。程序自动追加 /legal/bi-privacy；该地址需能访问本站页面。仅修改地址时无需更换版本号。",

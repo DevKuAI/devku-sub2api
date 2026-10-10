@@ -1,5 +1,5 @@
 <template>
-  <BaseDialog :show="show" :title="t('admin.desktop.memberImport.button')" width="wide" :show-close-button="!importing" :close-on-escape="!importing" @close="close">
+  <BaseDialog content-class="desktop-detail" :close-label="t('common.close')" :show="show" :title="t('admin.desktop.memberImport.button')" width="wide" :show-close-button="!importing" :close-on-escape="!importing" @close="close">
     <div class="space-y-4" :aria-busy="loading || importing">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <p class="min-w-0 flex-1 text-sm leading-relaxed text-gray-600 dark:text-dark-300">{{ t('admin.desktop.memberImport.hint') }}</p>
@@ -15,13 +15,14 @@
       <template v-if="rows.length">
         <p class="text-sm text-gray-600 dark:text-dark-300" role="status" aria-live="polite" data-testid="member-import-summary">{{ t('admin.desktop.memberImport.summary', { total: rows.length, ready: pendingRows.length, invalid: invalidCount, success: successCount, failed: failedCount }) }}</p>
         <p v-if="capacityExceeded" class="text-sm text-amber-700 dark:text-amber-300" role="alert">{{ t('admin.desktop.memberImport.capacityExceeded', { available: availableSlots, required: pendingRows.length }) }}</p>
-        <DataTable :columns="columns" :data="pageRows" row-key="rowNumber">
+        <p class="detail-table-hint">{{ t('admin.desktop.detail.tableScrollHint') }}</p>
+        <DataTable tabindex="0" :aria-label="t('admin.desktop.memberImport.button')" :columns="columns" :data="pageRows" row-key="rowNumber">
           <template #cell-name="{ row }"><span class="block max-w-40 whitespace-normal break-words">{{ row.input.name }}</span></template>
           <template #cell-phone="{ row }">{{ row.input.phone }}</template>
           <template #cell-remark="{ row }"><span class="block max-w-56 whitespace-pre-wrap break-words">{{ row.input.remark || '—' }}</span></template>
           <template #cell-status="{ row }"><span class="block max-w-64 whitespace-normal break-words" :class="row.errors.length || row.status === 'failed' ? 'text-red-600 dark:text-red-400' : row.status === 'success' ? 'text-emerald-700 dark:text-emerald-300' : 'text-gray-500 dark:text-dark-400'">{{ row.errors.length ? row.errors.map((key: string) => t(`admin.desktop.memberImport.${key}`)).join('；') : row.error || t(`admin.desktop.memberImport.${row.status}`) }}</span></template>
         </DataTable>
-        <Pagination v-if="rows.length > pageSize" v-model:page="page" :page-size="pageSize" :total="rows.length" :show-page-size-selector="false" />
+        <Pagination dropdown-class="desktop-detail-select" v-if="rows.length > pageSize" v-model:page="page" :page-size="pageSize" :total="rows.length" :show-page-size-selector="false" />
       </template>
     </div>
     <template #footer>

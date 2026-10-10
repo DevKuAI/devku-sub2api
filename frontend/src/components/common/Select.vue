@@ -6,7 +6,8 @@
       @click="toggle"
       :disabled="disabled"
       :aria-expanded="isOpen"
-      :aria-haspopup="true"
+      aria-haspopup="listbox"
+      :aria-controls="isOpen ? listboxId : undefined"
       :id="id"
       :aria-label="ariaLabel ?? placeholderText"
       :aria-describedby="ariaDescribedby"
@@ -52,9 +53,12 @@
           v-if="isOpen"
           ref="dropdownRef"
           class="select-dropdown-portal"
-          :class="[instanceId]"
+          :class="[instanceId, dropdownClass]"
           :style="dropdownStyle"
-          role="listbox"
+          :role="isSearchable ? 'presentation' : 'listbox'"
+          :id="!isSearchable ? listboxId : undefined"
+          :aria-label="!isSearchable ? ariaLabel ?? placeholderText : undefined"
+          :aria-activedescendant="!isSearchable ? activeOptionId : undefined"
           tabindex="-1"
           @click.stop
           @mousedown.stop
@@ -69,17 +73,23 @@
               type="text"
               :placeholder="searchPlaceholderText"
               :aria-label="searchPlaceholderText"
+              role="combobox"
+              aria-autocomplete="list"
+              :aria-expanded="isOpen"
+              :aria-controls="listboxId"
+              :aria-activedescendant="activeOptionId"
               class="select-search-input"
               @click.stop
             />
           </div>
 
           <!-- Options list -->
-          <div class="select-options" ref="optionsListRef">
+          <div class="select-options" ref="optionsListRef" :role="isSearchable ? 'listbox' : undefined" :id="isSearchable ? listboxId : undefined" :aria-label="isSearchable ? ariaLabel ?? placeholderText : undefined">
             <div
               v-for="(option, index) in filteredOptions"
               :key="`${typeof getOptionValue(option)}:${String(getOptionValue(option) ?? '')}`"
               role="option"
+              :id="`${instanceId}-option-${index}`"
               :aria-selected="isSelected(option)"
               :aria-disabled="isOptionDisabled(option)"
               @click.stop="!isOptionDisabled(option) && selectOption(option)"
@@ -155,6 +165,7 @@ interface Props {
   id?: string
   ariaLabel?: string
   ariaDescribedby?: string
+  dropdownClass?: string
   /** 远程搜索模式：输入不在本地过滤 options，而是防抖后 emit('search', query)，由父组件请求数据更新 options */
   remote?: boolean
   /** 远程搜索模式下的加载态：options 为空时下拉显示 loading 文案 */
@@ -185,6 +196,8 @@ const emit = defineEmits<Emits>()
 const isOpen = ref(false)
 const searchQuery = ref('')
 const focusedIndex = ref(-1)
+const listboxId = `${instanceId}-listbox`
+const activeOptionId = computed(() => focusedIndex.value >= 0 ? `${instanceId}-option-${focusedIndex.value}` : undefined)
 const containerRef = ref<HTMLElement | null>(null)
 const triggerRef = ref<HTMLButtonElement | null>(null)
 const searchInputRef = ref<HTMLInputElement | null>(null)
@@ -471,6 +484,7 @@ const onDropdownKeyDown = (e: KeyboardEvent) => {
       break
     case 'Tab':
       isOpen.value = false
+      triggerRef.value?.focus()
       break
   }
 }
@@ -634,5 +648,9 @@ onUnmounted(() => {
 .select-dropdown-leave-to {
   opacity: 0;
   transform: translateY(-8px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .select-dropdown-enter-active, .select-dropdown-leave-active { transition: none; }
+  .select-dropdown-enter-from, .select-dropdown-leave-to { transform: none; }
 }
 </style>
