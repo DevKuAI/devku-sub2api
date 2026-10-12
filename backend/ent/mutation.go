@@ -24220,6 +24220,8 @@ type DesktopOrganizationMutation struct {
 	summary_enabled_at             *time.Time
 	auth_version                   *int64
 	addauth_version                *int64
+	management_policy              *jsontext.Value
+	appendmanagement_policy        jsontext.Value
 	target_config                  *jsontext.Value
 	appendtarget_config            jsontext.Value
 	clearedFields                  map[string]struct{}
@@ -24939,6 +24941,71 @@ func (m *DesktopOrganizationMutation) ResetGroupID() {
 	m.group = nil
 }
 
+// SetManagementPolicy sets the "management_policy" field.
+func (m *DesktopOrganizationMutation) SetManagementPolicy(j jsontext.Value) {
+	m.management_policy = &j
+	m.appendmanagement_policy = nil
+}
+
+// ManagementPolicy returns the value of the "management_policy" field in the mutation.
+func (m *DesktopOrganizationMutation) ManagementPolicy() (r jsontext.Value, exists bool) {
+	v := m.management_policy
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldManagementPolicy returns the old "management_policy" field's value of the DesktopOrganization entity.
+// If the DesktopOrganization object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopOrganizationMutation) OldManagementPolicy(ctx context.Context) (v jsontext.Value, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldManagementPolicy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldManagementPolicy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldManagementPolicy: %w", err)
+	}
+	return oldValue.ManagementPolicy, nil
+}
+
+// AppendManagementPolicy adds j to the "management_policy" field.
+func (m *DesktopOrganizationMutation) AppendManagementPolicy(j jsontext.Value) {
+	m.appendmanagement_policy = append(m.appendmanagement_policy, j...)
+}
+
+// AppendedManagementPolicy returns the list of values that were appended to the "management_policy" field in this mutation.
+func (m *DesktopOrganizationMutation) AppendedManagementPolicy() (jsontext.Value, bool) {
+	if len(m.appendmanagement_policy) == 0 {
+		return nil, false
+	}
+	return m.appendmanagement_policy, true
+}
+
+// ClearManagementPolicy clears the value of the "management_policy" field.
+func (m *DesktopOrganizationMutation) ClearManagementPolicy() {
+	m.management_policy = nil
+	m.appendmanagement_policy = nil
+	m.clearedFields[desktoporganization.FieldManagementPolicy] = struct{}{}
+}
+
+// ManagementPolicyCleared returns if the "management_policy" field was cleared in this mutation.
+func (m *DesktopOrganizationMutation) ManagementPolicyCleared() bool {
+	_, ok := m.clearedFields[desktoporganization.FieldManagementPolicy]
+	return ok
+}
+
+// ResetManagementPolicy resets all changes to the "management_policy" field.
+func (m *DesktopOrganizationMutation) ResetManagementPolicy() {
+	m.management_policy = nil
+	m.appendmanagement_policy = nil
+	delete(m.clearedFields, desktoporganization.FieldManagementPolicy)
+}
+
 // SetTargetConfig sets the "target_config" field.
 func (m *DesktopOrganizationMutation) SetTargetConfig(j jsontext.Value) {
 	m.target_config = &j
@@ -25146,7 +25213,7 @@ func (m *DesktopOrganizationMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *DesktopOrganizationMutation) Fields() []string {
-	fields := make([]string, 0, 16)
+	fields := make([]string, 0, 17)
 	if m.created_at != nil {
 		fields = append(fields, desktoporganization.FieldCreatedAt)
 	}
@@ -25192,6 +25259,9 @@ func (m *DesktopOrganizationMutation) Fields() []string {
 	if m.group != nil {
 		fields = append(fields, desktoporganization.FieldGroupID)
 	}
+	if m.management_policy != nil {
+		fields = append(fields, desktoporganization.FieldManagementPolicy)
+	}
 	if m.target_config != nil {
 		fields = append(fields, desktoporganization.FieldTargetConfig)
 	}
@@ -25233,6 +25303,8 @@ func (m *DesktopOrganizationMutation) Field(name string) (ent.Value, bool) {
 		return m.GatewayUserID()
 	case desktoporganization.FieldGroupID:
 		return m.GroupID()
+	case desktoporganization.FieldManagementPolicy:
+		return m.ManagementPolicy()
 	case desktoporganization.FieldTargetConfig:
 		return m.TargetConfig()
 	}
@@ -25274,6 +25346,8 @@ func (m *DesktopOrganizationMutation) OldField(ctx context.Context, name string)
 		return m.OldGatewayUserID(ctx)
 	case desktoporganization.FieldGroupID:
 		return m.OldGroupID(ctx)
+	case desktoporganization.FieldManagementPolicy:
+		return m.OldManagementPolicy(ctx)
 	case desktoporganization.FieldTargetConfig:
 		return m.OldTargetConfig(ctx)
 	}
@@ -25390,6 +25464,13 @@ func (m *DesktopOrganizationMutation) SetField(name string, value ent.Value) err
 		}
 		m.SetGroupID(v)
 		return nil
+	case desktoporganization.FieldManagementPolicy:
+		v, ok := value.(jsontext.Value)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetManagementPolicy(v)
+		return nil
 	case desktoporganization.FieldTargetConfig:
 		v, ok := value.(jsontext.Value)
 		if !ok {
@@ -25460,6 +25541,9 @@ func (m *DesktopOrganizationMutation) ClearedFields() []string {
 	if m.FieldCleared(desktoporganization.FieldSummaryEnabledAt) {
 		fields = append(fields, desktoporganization.FieldSummaryEnabledAt)
 	}
+	if m.FieldCleared(desktoporganization.FieldManagementPolicy) {
+		fields = append(fields, desktoporganization.FieldManagementPolicy)
+	}
 	if m.FieldCleared(desktoporganization.FieldTargetConfig) {
 		fields = append(fields, desktoporganization.FieldTargetConfig)
 	}
@@ -25482,6 +25566,9 @@ func (m *DesktopOrganizationMutation) ClearField(name string) error {
 		return nil
 	case desktoporganization.FieldSummaryEnabledAt:
 		m.ClearSummaryEnabledAt()
+		return nil
+	case desktoporganization.FieldManagementPolicy:
+		m.ClearManagementPolicy()
 		return nil
 	case desktoporganization.FieldTargetConfig:
 		m.ClearTargetConfig()
@@ -25538,6 +25625,9 @@ func (m *DesktopOrganizationMutation) ResetField(name string) error {
 		return nil
 	case desktoporganization.FieldGroupID:
 		m.ResetGroupID()
+		return nil
+	case desktoporganization.FieldManagementPolicy:
+		m.ResetManagementPolicy()
 		return nil
 	case desktoporganization.FieldTargetConfig:
 		m.ResetTargetConfig()

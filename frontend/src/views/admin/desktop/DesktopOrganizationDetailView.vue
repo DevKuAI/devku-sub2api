@@ -61,11 +61,12 @@
         <p class="detail-caption" role="status">{{ membersLoading ? t('common.loading') : '' }}</p>
         <div v-if="organization && !membersError" class="min-w-0 space-y-3">
           <p class="detail-table-hint">{{ t('admin.desktop.detail.tableScrollHint') }}</p>
+          <div v-if="members.some(member => !member.usage) && !membersLoading" class="detail-error flex flex-wrap items-center justify-between gap-3" role="status"><span>{{ t('admin.desktop.usageUnavailableHint') }}</span><button class="btn btn-secondary" type="button" @click="loadMembers">{{ t('common.refresh') }}</button></div>
           <DataTable tabindex="0" :aria-label="t('admin.desktop.members')" :columns="memberColumns" :data="members" :loading="membersLoading" row-key="public_id">
             <template #cell-name="{ row }"><div class="min-w-0 max-w-64"><div class="break-words font-medium text-gray-900 dark:text-white">{{ row.name }}</div><div class="mt-1 break-all font-mono text-xs text-gray-500 dark:text-dark-400">{{ row.public_id }}</div></div></template>
             <template #cell-remark="{ row }"><span class="block max-w-64 whitespace-pre-wrap break-words">{{ row.remark || '—' }}</span></template>
             <template #cell-status="{ row }"><StatusBadge :status="row.status" :label="statusLabel(row.status)" /></template>
-            <template #cell-model_token_status="{ row }"><span :class="['badge', tokenBadge(row.model_token_status)]">{{ tokenStatusLabel(row.model_token_status) }}</span></template>
+            <template #cell-model_token_status="{ row }"><span :class="['badge', tokenBadge(row.model_token_status)]">{{ tokenStatusLabel(row.model_token_status) }}</span><span v-if="budgetWarning(row)" class="mt-1 block text-xs text-amber-700 dark:text-amber-300">{{ t(budgetWarning(row)) }}</span></template>
             <template #cell-usage_cost="{ row }">
               <div class="min-w-36 space-y-1 text-sm tabular-nums">
                 <div class="grid grid-cols-[max-content_minmax(0,1fr)] items-baseline gap-x-2">
@@ -131,6 +132,7 @@
         <div v-if="selfManaged" class="space-y-6">
           <p class="text-sm text-gray-500 dark:text-dark-400">{{ t('admin.desktop.configurationReadOnly') }}</p>
           <section class="detail-panel"><h2 class="detail-section-title mb-4">{{ t('admin.desktop.reports.title') }}</h2><dl class="detail-config-metadata"><div><dt class="detail-caption">{{ t('admin.desktop.reports.enabled') }}</dt><dd>{{ t(organization?.conversation_summary_enabled ? 'common.enabled' : 'common.disabled') }}</dd></div><div><dt class="detail-caption">{{ t('admin.desktop.reports.model') }}</dt><dd><bdi>{{ organization?.analysis_model || t('admin.desktop.notConfigured') }}</bdi></dd></div></dl></section>
+          <section class="detail-panel space-y-3"><h2 class="detail-section-title">{{ t('admin.desktop.managementPolicy.title') }}</h2><dl class="detail-config-metadata"><div><dt class="detail-caption">{{ t('admin.desktop.managementPolicy.analysisLimit') }}</dt><dd>{{ organization.management_policy?.analysis_limit_1d || 0 }}</dd></div><div v-for="field in retentionFields" :key="field"><dt class="detail-caption">{{ t(`admin.desktop.managementPolicy.${field}`) }}</dt><dd>{{ organization.management_policy?.[field] || 0 }}</dd></div></dl><p class="detail-caption">{{ t('admin.desktop.managementPolicy.hint') }}</p></section>
           <div v-for="target in configurationTargets" :key="target.name" class="detail-panel">
             <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
               <h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ target.name }}</h2>
@@ -192,6 +194,11 @@
           </label>
           <label class="flex items-start gap-3"><input v-model="organizationForm.conversation_summary_enabled" data-testid="desktop-edit-summary" type="checkbox" class="mt-0.5 h-4 w-4 rounded" :disabled="!organizationForm.conversation_reporting_enabled" /><span><span class="text-sm font-medium">{{ t('admin.desktop.reports.enabled') }}</span><span class="mt-1 block text-xs text-gray-500">{{ t('admin.desktop.reports.schedule') }}</span></span></label>
           <Input v-model="organizationForm.analysis_model" :label="t('admin.desktop.reports.model')" :required="organizationForm.conversation_summary_enabled" :hint="t('admin.desktop.reports.modelHint')" maxlength="200" />
+          <fieldset class="space-y-3"><legend class="input-label">{{ t('admin.desktop.managementPolicy.title') }}</legend>
+            <p class="detail-caption">{{ t('admin.desktop.managementPolicy.hint') }}</p>
+            <Input v-model.number="organizationForm.management_policy.analysis_limit_1d" type="number" min="0" step="0.01" :label="t('admin.desktop.managementPolicy.analysisLimit')" />
+            <Input v-for="field in retentionFields" :key="field" v-model.number="organizationForm.management_policy[field]" type="number" min="0" max="3650" step="1" :label="t(`admin.desktop.managementPolicy.${field}`)" />
+          </fieldset>
           <div><label for="desktop-edit-gateway_user_id" class="input-label mb-1.5 block">{{ t('admin.desktop.gatewayUser') }}</label><Select id="desktop-edit-gateway_user_id" dropdown-class="desktop-detail-select" :aria-label="t('admin.desktop.gatewayUser')" v-model="organizationForm.gateway_user_id" :options="gatewayUserOptions" searchable remote :loading="gatewayUsersLoading" :disabled="gatewayUserLocked" @search="loadGatewayUsers" /></div>
           <div><label for="desktop-edit-group_id" class="input-label mb-1.5 block">{{ t('admin.desktop.group') }}</label><Select id="desktop-edit-group_id" dropdown-class="desktop-detail-select" :aria-label="t('admin.desktop.group')" v-model="organizationForm.group_id" :options="groupOptions" searchable :loading="groupsLoading" /></div>
           <p v-if="gatewayUserLocked" class="text-sm text-gray-500 dark:text-dark-400">{{ t('admin.desktop.provisioningLockedHint') }}</p>
@@ -205,6 +212,9 @@
         <p v-if="memberEditError" class="detail-error" role="alert">{{ memberEditError }} {{ t('admin.desktop.detail.saveRetryHint') }}</p>
         <Input v-model="memberForm.name" :label="t('admin.desktop.memberName')" required />
 		<Input v-model="memberForm.phone" type="tel" :label="t('admin.desktop.phone')" required placeholder="13800138000" :hint="t('admin.desktop.phoneHint')" />
+        <fieldset class="space-y-3"><legend class="input-label">{{ t('admin.desktop.budget.title') }}</legend><p class="detail-caption">{{ t('admin.desktop.budget.hint') }}</p>
+          <Input v-for="field in budgetFields" :key="field" v-model.number="memberForm.budget[field]" type="number" min="0" step="0.01" :label="t(`admin.desktop.budget.${field}`)" />
+        </fieldset>
         <label class="block space-y-1.5"><span class="input-label block">{{ t('admin.desktop.memberRemark') }}</span><textarea v-model="memberForm.remark" class="input w-full" rows="3" maxlength="500" :placeholder="t('admin.desktop.memberRemarkHint')" data-testid="member-remark" /></label>
       </form>
       <template #footer><div class="flex justify-end gap-3"><button class="btn btn-secondary" type="button" @click="closeMemberDialog">{{ t('common.cancel') }}</button><button class="btn btn-primary" type="submit" form="desktop-member-form" :disabled="memberSaving">{{ memberSaving ? t('common.saving') : t('common.save') }}</button></div></template>
@@ -224,7 +234,7 @@ import { useI18n } from 'vue-i18n'
 import { saveAs } from 'file-saver'
 import { adminAPI } from '@/api/admin'
 import desktopOrganizationAPI from '@/api/desktopOrganization'
-import type { DesktopMember, DesktopModelTokenStatus, DesktopOrganization, DesktopStatus, DesktopTarget, DesktopTargetConfig, DesktopWireAPI } from '@/api/admin/desktop'
+import type { DesktopMember, DesktopModelTokenStatus, DesktopOrganization, DesktopStatus, DesktopTarget, DesktopTargetConfig, DesktopWireAPI, UpdateDesktopOrganizationRequest } from '@/api/admin/desktop'
 import type { AdminGroup, AdminUser } from '@/types'
 import type { Column } from '@/components/common/types'
 import { useAppStore } from '@/stores/app'
@@ -298,12 +308,16 @@ const gatewayUsers = ref<AdminUser[]>([])
 const gatewayUsersLoading = ref(false)
 const groups = ref<AdminGroup[]>([])
 const groupsLoading = ref(false)
-const organizationForm = reactive({ name: '', status: 'active' as DesktopStatus, gateway_user_id: null as number | null, group_id: null as number | null, member_limit: 10, conversation_reporting_enabled: false, conversation_summary_enabled: false, analysis_model: '' })
+const blankPolicy = () => ({ analysis_limit_1d: 0, conversation_retention_days: 0, report_retention_days: 0, execution_retention_days: 0 })
+const organizationForm = reactive({ management_policy: blankPolicy(), name: '', status: 'active' as DesktopStatus, gateway_user_id: null as number | null, group_id: null as number | null, member_limit: 10, conversation_reporting_enabled: false, conversation_summary_enabled: false, analysis_model: '' })
 const showMemberDialog = ref(false)
 const showMemberImport = ref(false)
 const editingMember = ref<DesktopMember | null>(null)
 const memberSaving = ref(false)
-const memberForm = reactive({ name: '', phone: '', remark: '' })
+const retentionFields = ['conversation_retention_days', 'report_retention_days', 'execution_retention_days'] as const
+const budgetFields = ['quota', 'limit_1d', 'limit_7d'] as const
+const blankBudget = () => ({ quota: 0, limit_1d: 0, limit_7d: 0 })
+const memberForm = reactive({ name: '', phone: '', remark: '', budget: blankBudget() })
 const configSaving = ref(false)
 const blankTarget = () => ({ enabled: false, provider_id: '', display_name: '', requested_model: '', minimum_app_version: '', restart_required: false })
 const configForm = reactive({ chat: { ...blankTarget(), enabled: true }, work: blankTarget(), includeWorkbuddy: false })
@@ -349,11 +363,17 @@ function errorMessage(error: unknown): string {
   return (error as { message?: string })?.message || t('admin.desktop.errors.UNKNOWN')
 }
 function statusLabel(value: DesktopStatus): string { return value === 'active' ? t('common.active') : t('common.disabled') }
+function budgetWarning(member: DesktopMember): string {
+ const b = member.budget
+ if (!b) return ''
+ const ratios = [[b.quota_used || 0, b.quota], [b.usage_1d || 0, b.limit_1d], [b.usage_7d || 0, b.limit_7d]].filter(([, limit]) => limit > 0).map(([used, limit]) => used / limit)
+ return ratios.some(ratio => ratio >= 1) ? 'admin.desktop.budget.exhausted' : ratios.some(ratio => ratio >= 0.8) ? 'admin.desktop.budget.warning' : ''
+}
 function tokenStatusLabel(value: DesktopModelTokenStatus): string { return t(`admin.desktop.tokenStatus.${value}`) }
 function tokenBadge(value: DesktopModelTokenStatus): string { return value === 'active' ? 'badge-success' : value === 'disabled' ? 'badge-warning' : 'badge-gray' }
 function normalizeUsageNumber(value: number | undefined): number { return Number.isFinite(value) ? Number(value) : 0 }
-function formatUsageCost(value: number | undefined): string { return `$${normalizeUsageNumber(value).toFixed(4)}` }
-function formatUsageTokensFull(value: number | undefined): string { return normalizeUsageNumber(value).toLocaleString() }
+function formatUsageCost(value: number | undefined): string { return value === undefined ? t('admin.desktop.usageUnavailable') : `$${normalizeUsageNumber(value).toFixed(4)}` }
+function formatUsageTokensFull(value: number | undefined): string { return value === undefined ? t('admin.desktop.usageUnavailable') : normalizeUsageNumber(value).toLocaleString() }
 function setTab(tab: DetailTab) { void router.replace({ query: { ...route.query, tab } }) }
 function tabId(tab: DetailTab) { return `desktop-organization-tab-${tab}` }
 function panelId(tab: DetailTab) { return `desktop-organization-panel-${tab}` }
@@ -433,21 +453,21 @@ async function exportMemberUsage() {
   membersExporting.value = true
   const selectedOrganization = organization.value
   const api = organizationAPI.value
-  const filters = { search: memberSearch.value.trim(), status: memberStatus.value }
+  const filters: { search: string; status: DesktopStatus | ''; as_of?: string } = { search: memberSearch.value.trim(), status: memberStatus.value }
   try {
     const allMembers: DesktopMember[] = []
     let pages = 1
     for (let page = 1; page <= pages; page++) {
       const result = await api.listMembers(selectedOrganization.public_id, page, 100, filters, request.signal)
       if (request.signal.aborted) return
-      if (page === 1) pages = result.pages
+      if (page === 1) { pages = result.pages; if (result.items[0]?.usage_as_of) filters.as_of = result.items[0].usage_as_of }
       allMembers.push(...result.items)
     }
     if (allMembers.length === 0) {
       appStore.showWarning(t('admin.desktop.memberUsageExport.empty'))
       return
     }
-    const csv = createDesktopMemberUsageCsv(selectedOrganization, allMembers, t)
+    const csv = createDesktopMemberUsageCsv(selectedOrganization, allMembers, t, { asOf: filters.as_of || '', timezone: allMembers[0]?.usage_timezone || '' })
     const file = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const code = selectedOrganization.code.replace(/[^a-zA-Z0-9_-]/g, '_')
     saveAs(file, `desktop_member_usage_${code}_${new Date().toISOString().slice(0, 10)}.csv`)
@@ -472,7 +492,7 @@ async function loadGatewayUsers(query = '') {
 }
 async function openEditOrganization() {
   if (selfManaged || !organization.value) return
-  Object.assign(organizationForm, { name: organization.value.name, status: organization.value.status, gateway_user_id: organization.value.gateway_user.id, group_id: organization.value.group.id, member_limit: organization.value.member_limit, conversation_reporting_enabled: organization.value.conversation_reporting_enabled === true, conversation_summary_enabled: organization.value.conversation_summary_enabled === true, analysis_model: organization.value.analysis_model || '' })
+  Object.assign(organizationForm, { name: organization.value.name, status: organization.value.status, gateway_user_id: organization.value.gateway_user.id, group_id: organization.value.group.id, member_limit: organization.value.member_limit, conversation_reporting_enabled: organization.value.conversation_reporting_enabled === true, conversation_summary_enabled: organization.value.conversation_summary_enabled === true, analysis_model: organization.value.analysis_model || '', management_policy: { ...blankPolicy(), ...organization.value.management_policy } })
   organizationEditError.value = ''
   showOrganizationEdit.value = true
   groupsLoading.value = true
@@ -501,7 +521,8 @@ async function saveOrganization() {
   organizationEditError.value = ''
   organizationSaving.value = true
   try {
-    const input = { name: organizationForm.name.trim(), status: organizationForm.status } as { name: string; status: DesktopStatus; gateway_user_id?: number; group_id?: number; member_limit?: number; conversation_reporting_enabled?: boolean; conversation_summary_enabled?: boolean; analysis_model?: string }
+    const input = { name: organizationForm.name.trim(), status: organizationForm.status } as UpdateDesktopOrganizationRequest
+    if (JSON.stringify(organizationForm.management_policy) !== JSON.stringify({ ...blankPolicy(), ...organization.value.management_policy })) input.management_policy = { ...organizationForm.management_policy }
     input.member_limit = organizationForm.member_limit
     input.conversation_reporting_enabled = organizationForm.conversation_reporting_enabled
     input.conversation_summary_enabled = organizationForm.conversation_summary_enabled
@@ -516,8 +537,8 @@ async function saveOrganization() {
 }
 
 async function reloadAfterMemberImport() { await Promise.all([loadMembers(), loadOrganization()]) }
-function openCreateMember() { memberEditError.value = ''; editingMember.value = null; Object.assign(memberForm, { name: '', phone: '', remark: '' }); showMemberDialog.value = true }
-function openEditMember(member: DesktopMember) { memberEditError.value = ''; editingMember.value = member; Object.assign(memberForm, { name: member.name, phone: member.phone, remark: member.remark || '' }); showMemberDialog.value = true }
+function openCreateMember() { memberEditError.value = ''; editingMember.value = null; Object.assign(memberForm, { name: '', phone: '', remark: '', budget: blankBudget() }); showMemberDialog.value = true }
+function openEditMember(member: DesktopMember) { memberEditError.value = ''; editingMember.value = member; Object.assign(memberForm, { name: member.name, phone: member.phone, remark: member.remark || '', budget: { quota: member.budget?.quota || 0, limit_1d: member.budget?.limit_1d || 0, limit_7d: member.budget?.limit_7d || 0 } }); showMemberDialog.value = true }
 function closeMemberDialog() { if (!memberSaving.value) showMemberDialog.value = false }
 async function saveMember() {
 	if (!editingMember.value && memberLimitReached.value) { memberEditError.value = t('admin.desktop.errors.MEMBER_LIMIT_REACHED'); appStore.showError(memberEditError.value); return }
@@ -527,13 +548,14 @@ async function saveMember() {
 	try {
     if (editingMember.value) {
       const input = {
+        ...(JSON.stringify(memberForm.budget) !== JSON.stringify({ quota: editingMember.value.budget?.quota || 0, limit_1d: editingMember.value.budget?.limit_1d || 0, limit_7d: editingMember.value.budget?.limit_7d || 0 }) ? { budget: { ...memberForm.budget } } : {}),
         ...(memberForm.name.trim() !== editingMember.value.name ? { name: memberForm.name.trim() } : {}),
         ...(memberForm.remark.trim() !== (editingMember.value.remark || '') ? { remark: memberForm.remark.trim() } : {}),
         ...(memberForm.phone.trim() !== editingMember.value.phone ? { phone: memberForm.phone.trim() } : {}),
       }
       if (Object.keys(input).length) await organizationAPI.value.updateMember(organizationID.value, editingMember.value.public_id, input)
     }
-    else await organizationAPI.value.createMember(organizationID.value, { name: memberForm.name.trim(), phone: memberForm.phone.trim(), remark: memberForm.remark.trim() })
+    else await organizationAPI.value.createMember(organizationID.value, { name: memberForm.name.trim(), phone: memberForm.phone.trim(), remark: memberForm.remark.trim(), ...(Object.values(memberForm.budget).some(value => value > 0) ? { budget: { ...memberForm.budget } } : {}) })
     appStore.showSuccess(t(editingMember.value ? 'admin.desktop.memberUpdated' : 'admin.desktop.memberCreated')); showMemberDialog.value = false; await Promise.all([loadMembers(), loadOrganization()])
   } catch (error) { memberEditError.value = errorMessage(error); appStore.showError(memberEditError.value) } finally { memberSaving.value = false }
 }

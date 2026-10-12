@@ -27,6 +27,8 @@
       <p v-if="state.reason === 'no_records'" class="mt-1 text-sm leading-relaxed">{{ t(`${key}.noRecordsHint`) }}</p>
       <p v-else-if="!['model_unavailable', 'configuration_changed', 'retries_exhausted'].includes(state.reason)" class="mt-1 text-sm leading-relaxed">{{ t(selfManaged ? `${key}.contactAdmin` : `${key}.checkConfiguration`) }}</p>
     </div>
+    <div v-if="summary?.queue && !selfManaged" class="report-notice report-neutral"><p>{{ t(`${key}.queue`, { pending: summary.queue.pending, running: summary.queue.running }) }}</p><p v-if="summary.queue.oldest_pending_at">{{ t(`${key}.oldestPending`) }}: {{ formatDateTime(summary.queue.oldest_pending_at) }}</p></div>
+    <div v-if="summary?.missing_dates?.length && !selfManaged" class="report-notice report-warning"><p>{{ t(`${key}.missingDates`) }}</p><div class="mt-2 flex flex-wrap gap-2"><button v-for="missing in summary.missing_dates" :key="missing" class="analytics-button" type="button" @click="date = missing">{{ missing }}</button></div></div>
     <p class="sr-only" role="status">{{ loading ? t(`${key}.loading`) : state ? statusLabel(state.status) : '' }}</p>
     <nav class="report-tabs" role="tablist" :aria-label="t(`${key}.title`)">
       <button v-for="(tab, index) in reportTabs" :id="`daily-report-tab-${tab}`" :key="tab" class="analytics-button report-tab" type="button" role="tab" :aria-selected="activeTab === tab" :aria-controls="`daily-report-panel-${tab}`" :tabindex="activeTab === tab ? 0 : -1" @click="activeTab = tab" @keydown="tabKeydown($event, index)">{{ t(`${key}.${tab}`) }}</button>
@@ -35,7 +37,7 @@
       <dl v-if="summary" class="report-metrics">
         <div class="report-metric"><dt class="analytics-caption">{{ t(`${key}.taskStatus`) }}</dt><dd class="mt-3"><span class="report-badge" :data-tone="statusTone(summary.task?.status || summary.status)">{{ statusLabel(summary.task?.status || summary.status) }}</span></dd></div>
         <div class="report-metric"><dt class="analytics-caption">{{ t(`${key}.coverageTitle`) }}</dt><dd class="analytics-value">{{ summary.expected_members ? `${summary.completed_members} / ${summary.expected_members}` : '—' }}</dd><dd class="analytics-caption mt-2">{{ t(`${key}.coverageHint`) }}</dd></div>
-        <div class="report-metric"><dt class="analytics-caption">{{ t(`${key}.noConversationMembers`) }}</dt><dd class="analytics-value">{{ members ? noRecordMembers.length : '—' }}</dd><dd class="analytics-caption mt-2">{{ t(`${key}.noRecordsCountHint`) }}</dd></div>
+        <div class="report-metric"><dt class="analytics-caption">{{ t(`${key}.noConversationMembers`) }}</dt><dd class="analytics-value">{{ summary.no_record_members ?? (members ? noRecordMembers.length : '—') }}</dd><dd class="analytics-caption mt-2">{{ t(`${key}.noRecordsCountHint`) }}</dd></div>
       </dl>
       <div v-if="summary?.missing_members.length" class="report-notice report-warning space-y-3">
         <h3 class="text-sm font-semibold">{{ t(`${key}.missing`) }}</h3>
@@ -48,7 +50,7 @@
           <p v-if="taskActive" class="analytics-caption">{{ t(`${key}.previousResultHint`) }}</p>
         </header>
         <article class="report-content" v-html="markdown(summary.summary.content)" />
-        <DesktopReportExecutionHistory :executions="summary.summary.executions || []" />
+        <DesktopReportExecutionHistory :executions="summary.summary.executions || []" /><div class="flex gap-3"><button v-if="executionPage > 1" class="analytics-button" @click="changeExecutionPage(executionPage - 1)">{{ t(`${key}.previousPage`) }}</button><button v-if="(summary.summary.executions?.length || 0) === 50" class="analytics-button" @click="changeExecutionPage(executionPage + 1)">{{ t(`${key}.nextPage`) }}</button></div>
       </div>
       <div v-else class="report-empty">
         <h3 class="analytics-heading">{{ emptyTitle('summary') }}</h3>
@@ -63,9 +65,11 @@
     <section v-else id="daily-report-panel-members" role="tabpanel" aria-labelledby="daily-report-tab-members" class="min-w-0 space-y-5" :aria-busy="loading" tabindex="0">
       <div class="flex flex-wrap items-end justify-between gap-4">
         <label class="block w-full max-w-sm space-y-2 text-sm font-medium"><span>{{ t(`${key}.memberFilter`) }}</span><input ref="memberSearch" v-model="search" class="analytics-input" name="report-member" type="search" :placeholder="t(`${key}.memberSearch`)" /></label>
-        <p v-if="members" class="analytics-caption tabular-nums" role="status">{{ t(`${key}.memberCount`, { shown: filteredMembers.length, total: members.members.length }) }}</p>
+        <p v-if="members" class="analytics-caption tabular-nums" role="status">{{ t(`${key}.memberCount`, { shown: filteredMembers.length, total: members.total_members ?? members.members.length }) }}</p>
       </div>
       <p class="analytics-caption">{{ t(`${key}.noRecordsHint`) }}</p>
+      <Pagination v-if="(members?.total_members || 0) > 20" v-model:page="memberPage" :page-size="20" :total="members?.total_members || 0" :show-page-size-selector="false" />
+      <p v-if="memberDetailLoading" class="analytics-caption" role="status">{{ t(`${key}.loading`) }}</p>
       <template v-if="filteredMembers.length">
         <p class="analytics-caption report-table-hint">{{ t(`${key}.tableScrollHint`) }}</p>
         <div class="report-member-table analytics-data" tabindex="0" :aria-label="t(`${key}.members`)">
@@ -104,7 +108,7 @@
         <div v-if="selected.error" class="report-notice report-error"><p>{{ reasonLabel(selected.error) }}</p><p class="mt-1">{{ t(selfManaged ? `${key}.contactAdmin` : `${key}.retryHint`) }}</p></div>
         <article v-if="selected.content" class="report-content" v-html="markdown(selected.content)" />
         <p v-else class="analytics-caption">{{ statusLabel(selected.status) }}</p>
-        <DesktopReportExecutionHistory :executions="selected.executions || []" />
+        <DesktopReportExecutionHistory :executions="selected.executions || []" /><div class="flex gap-3"><button v-if="executionPage > 1" class="analytics-button" @click="changeExecutionPage(executionPage - 1)">{{ t(`${key}.previousPage`) }}</button><button v-if="(selected.executions?.length || 0) === 50" class="analytics-button" @click="changeExecutionPage(executionPage + 1)">{{ t(`${key}.nextPage`) }}</button></div>
         <div v-if="selected.source_ids.length" class="space-y-3">
           <h4 class="text-sm font-semibold">{{ t(`${key}.sourcesTitle`) }}</h4>
           <div class="flex flex-wrap gap-2"><button v-for="(id, index) in selected.source_ids" :key="id" class="analytics-button" type="button" :disabled="sourceLoading" @click="openSource(id)">{{ t(`${key}.source`, { index: index + 1 }) }}</button></div>
@@ -124,7 +128,8 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
-import { getDesktopMemberReports, getDesktopSummaryReport, runDesktopReports } from '@/api/desktopReports'
+import { getDesktopMemberReports, getDesktopMemberReport, getDesktopSummaryReport, runDesktopReports } from '@/api/desktopReports'
+import Pagination from '@/components/common/Pagination.vue'
 import type { DesktopMemberReports, DesktopSummaryReport, DesktopReportMode } from '@/api/desktopReports'
 import { getDesktopConversation } from '@/api/desktopConversations'
 import type { DesktopConversation } from '@/api/desktopConversations'
@@ -147,11 +152,17 @@ const members = ref<DesktopMemberReports>()
 const summary = ref<DesktopSummaryReport>()
 const state = computed(() => summary.value || members.value)
 const taskActive = computed(() => ['pending', 'waiting', 'running'].includes(state.value?.task?.status || state.value?.status || ''))
+const memberPage = ref(1)
+const executionPage = ref(1)
+const memberDetail = ref<import('@/api/desktopReports').DesktopMemberReport>()
+const memberDetailLoading = ref(false)
+let memberDetailController: AbortController | undefined
+let executionController: AbortController | undefined
 const selectedMember = ref('')
 const search = ref('')
 const filteredMembers = computed(() => (members.value?.members || []).filter(member => member.name.toLowerCase().includes(search.value.trim().toLowerCase())))
 const noRecordMembers = computed(() => members.value?.members.filter(member => member.record_count === 0) || [])
-const selected = computed(() => members.value?.members.find(member => member.member_id === selectedMember.value))
+const selected = computed(() => memberDetail.value?.member_id === selectedMember.value ? memberDetail.value : members.value?.members.find(member => member.member_id === selectedMember.value))
 const memberHeading = ref<HTMLElement>()
 const memberSearch = ref<HTMLInputElement>()
 const loading = ref(false)
@@ -201,21 +212,44 @@ function emptyHint(panel: string) {
   return t(props.selfManaged ? `${key}.contactAdmin` : `${key}.generateHint`)
 }
 async function viewMember(id: string) {
-  search.value = ''; activeTab.value = 'members'; selectedMember.value = id
+  activeTab.value = 'members'; selectedMember.value = id
+  executionPage.value = 1
+  if (!selected.value?.content) await loadMemberDetail()
   await nextTick()
   memberHeading.value?.focus()
+}
+async function loadMemberDetail() {
+ memberDetailController?.abort()
+ const current = new AbortController(); memberDetailController = current
+ const id = selectedMember.value
+ memberDetailLoading.value = true
+ try {
+  const detail = await getDesktopMemberReport(props.organizationId, props.selfManaged, date.value, id, current.signal, executionPage.value)
+  if (!current.signal.aborted && !disposed && selectedMember.value === id) memberDetail.value = detail
+ } catch { if (!current.signal.aborted && !disposed) error.value = t(`${key}.loadFailed`) }
+ finally { if (!current.signal.aborted) memberDetailLoading.value = false }
+}
+async function changeExecutionPage(next: number) {
+ executionPage.value = next
+ if (activeTab.value === 'members') await loadMemberDetail()
+ else {
+  executionController?.abort()
+  const current = new AbortController(); executionController = current
+  try { const result = await getDesktopSummaryReport(props.organizationId, props.selfManaged, date.value, current.signal, next); if (!current.signal.aborted && !disposed) summary.value = result }
+  catch { if (!current.signal.aborted && !disposed) error.value = t(`${key}.loadFailed`) }
+ }
 }
 async function viewMembers() { activeTab.value = 'members'; await nextTick(); memberSearch.value?.focus() }
 function clearSearch() { search.value = ''; memberSearch.value?.focus() }
 function toggleRefresh() { autoRefresh.value = !autoRefresh.value; clearTimeout(timer); if (autoRefresh.value) void load() }
-function cancel() { controller?.abort(); sourceController?.abort(); sourceLoading.value = false; clearTimeout(timer) }
+function cancel() { controller?.abort(); sourceController?.abort(); memberDetailController?.abort(); executionController?.abort(); memberDetailLoading.value = false; sourceLoading.value = false; clearTimeout(timer) }
 async function load() {
   cancel()
   if (disposed || (props.selfManaged && !props.enabled) || !validDate.value) { loading.value = false; return }
   const current = new AbortController(); controller = current
   loading.value = true; error.value = ''; failedPanels.value = []
   const results = await Promise.allSettled([
-    getDesktopMemberReports(props.organizationId, props.selfManaged, date.value, current.signal),
+    getDesktopMemberReports(props.organizationId, props.selfManaged, date.value, current.signal, { page: memberPage.value, page_size: 20, search: search.value.trim() }),
     getDesktopSummaryReport(props.organizationId, props.selfManaged, date.value, current.signal),
   ])
   if (current.signal.aborted || disposed) return
@@ -225,6 +259,7 @@ async function load() {
   else failedPanels.value.push('summary')
   if (failedPanels.value.length) error.value = t(`${key}.loadFailed`)
   loading.value = false
+  if (selectedMember.value && activeTab.value === 'members') void loadMemberDetail()
   if (autoRefresh.value && state.value?.task && taskActive.value) timer = setTimeout(load, 15000)
 }
 function requestRun(mode: DesktopReportMode) { if (runDisabled(mode)) return; if (mode === 'regenerate') confirmRegenerate.value = true; else void execute(mode) }
@@ -246,7 +281,10 @@ function tabKeydown(event: KeyboardEvent, index: number) {
   event.preventDefault(); activeTab.value = reportTabs[event.key === 'Home' ? 0 : event.key === 'End' ? 1 : 1 - index]
   void nextTick(() => document.getElementById(`daily-report-tab-${activeTab.value}`)?.focus())
 }
-watch([date, () => props.organizationId], () => { members.value = undefined; summary.value = undefined; selectedMember.value = ''; source.value = null; confirmRegenerate.value = false; void load() }, { immediate: true })
+watch([date, () => props.organizationId], () => { members.value = undefined; summary.value = undefined; memberPage.value = 1; executionPage.value = 1; memberDetail.value = undefined; selectedMember.value = ''; source.value = null; confirmRegenerate.value = false; void load() }, { immediate: true })
+watch(search, () => { if (memberPage.value !== 1) memberPage.value = 1; else void load() })
+watch(memberPage, () => { void load() })
+watch(activeTab, () => { executionPage.value = 1; executionController?.abort() })
 watch(() => props.enabled, () => { if (props.selfManaged && !props.enabled) { cancel(); loading.value = false; confirmRegenerate.value = false; source.value = null } else void load() })
 onBeforeUnmount(() => { disposed = true; cancel() })
 </script>

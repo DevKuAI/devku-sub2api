@@ -276,6 +276,12 @@ paths:
       security:
         - AdminBearer: []
       parameters:
+        - name: as_of
+          in: query
+          description: 首批返回的 usage_as_of；后续分页可复用同一截止时刻，最多回溯 24 小时。
+          schema:
+            type: string
+            format: date-time
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/PageSize'
         - name: search
@@ -463,6 +469,12 @@ paths:
       security:
         - UserBearer: []
       parameters:
+        - name: as_of
+          in: query
+          description: 首批返回的 usage_as_of；后续分页可复用同一截止时刻，最多回溯 24 小时。
+          schema:
+            type: string
+            format: date-time
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/PageSize'
         - name: search
@@ -1381,9 +1393,29 @@ paths:
       - Desktop Admin - Organizations
       operationId: getAdminDesktopReportMembers
       summary: 查询个人日报或企业总结
-      description: 两类内容独立查询；关联用户仅可在开关开启时读取本企业。无记录成员显示状态，不创建空日报。
+      description: 分页返回成员状态与摘要元信息，不读取正文或执行历史。两类内容独立查询；关联用户仅可在开关开启时读取本企业。无记录成员显示状态，不创建空日报。
       security:
       - AdminBearer: []
+      parameters:
+      - name: page
+        in: query
+        schema:
+          type: integer
+          default: 1
+          minimum: 1
+          maximum: 100000
+      - name: page_size
+        in: query
+        schema:
+          type: integer
+          default: 20
+          minimum: 1
+          maximum: 100
+      - name: search
+        in: query
+        schema:
+          type: string
+          maxLength: 100
       responses:
         '200':
           description: 成功
@@ -1410,9 +1442,29 @@ paths:
       - Desktop Admin - Organizations
       operationId: getAdminDesktopReportMembersForDate
       summary: 查询个人日报或企业总结
-      description: 两类内容独立查询；关联用户仅可在开关开启时读取本企业。无记录成员显示状态，不创建空日报。
+      description: 分页返回成员状态与摘要元信息，不读取正文或执行历史。两类内容独立查询；关联用户仅可在开关开启时读取本企业。无记录成员显示状态，不创建空日报。
       security:
       - AdminBearer: []
+      parameters:
+      - name: page
+        in: query
+        schema:
+          type: integer
+          default: 1
+          minimum: 1
+          maximum: 100000
+      - name: page_size
+        in: query
+        schema:
+          type: integer
+          default: 20
+          minimum: 1
+          maximum: 100
+      - name: search
+        in: query
+        schema:
+          type: string
+          maxLength: 100
       responses:
         '200':
           description: 成功
@@ -1447,6 +1499,14 @@ paths:
       description: 两类内容独立查询；关联用户仅可在开关开启时读取本企业。无记录成员显示状态，不创建空日报。
       security:
       - AdminBearer: []
+      parameters:
+      - name: execution_page
+        in: query
+        schema:
+          type: integer
+          default: 1
+          minimum: 1
+          maximum: 100000
       responses:
         '200':
           description: 成功
@@ -1476,6 +1536,14 @@ paths:
       description: 两类内容独立查询；关联用户仅可在开关开启时读取本企业。无记录成员显示状态，不创建空日报。
       security:
       - AdminBearer: []
+      parameters:
+      - name: execution_page
+        in: query
+        schema:
+          type: integer
+          default: 1
+          minimum: 1
+          maximum: 100000
       responses:
         '200':
           description: 成功
@@ -1547,9 +1615,29 @@ paths:
       - Desktop User - Organization
       operationId: getManagedDesktopReportMembers
       summary: 查询个人日报或企业总结
-      description: 两类内容独立查询；关联用户仅可在开关开启时读取本企业。无记录成员显示状态，不创建空日报。
+      description: 分页返回成员状态与摘要元信息，不读取正文或执行历史。两类内容独立查询；关联用户仅可在开关开启时读取本企业。无记录成员显示状态，不创建空日报。
       security:
       - UserBearer: []
+      parameters:
+      - name: page
+        in: query
+        schema:
+          type: integer
+          default: 1
+          minimum: 1
+          maximum: 100000
+      - name: page_size
+        in: query
+        schema:
+          type: integer
+          default: 20
+          minimum: 1
+          maximum: 100
+      - name: search
+        in: query
+        schema:
+          type: string
+          maxLength: 100
       responses:
         '200':
           description: 成功
@@ -1575,9 +1663,29 @@ paths:
       - Desktop User - Organization
       operationId: getManagedDesktopReportMembersForDate
       summary: 查询个人日报或企业总结
-      description: 两类内容独立查询；关联用户仅可在开关开启时读取本企业。无记录成员显示状态，不创建空日报。
+      description: 分页返回成员状态与摘要元信息，不读取正文或执行历史。两类内容独立查询；关联用户仅可在开关开启时读取本企业。无记录成员显示状态，不创建空日报。
       security:
       - UserBearer: []
+      parameters:
+      - name: page
+        in: query
+        schema:
+          type: integer
+          default: 1
+          minimum: 1
+          maximum: 100000
+      - name: page_size
+        in: query
+        schema:
+          type: integer
+          default: 20
+          minimum: 1
+          maximum: 100
+      - name: search
+        in: query
+        schema:
+          type: string
+          maxLength: 100
       responses:
         '200':
           description: 成功
@@ -1611,6 +1719,14 @@ paths:
       description: 两类内容独立查询；关联用户仅可在开关开启时读取本企业。无记录成员显示状态，不创建空日报。
       security:
       - UserBearer: []
+      parameters:
+      - name: execution_page
+        in: query
+        schema:
+          type: integer
+          default: 1
+          minimum: 1
+          maximum: 100000
       responses:
         '200':
           description: 成功
@@ -1639,6 +1755,14 @@ paths:
       description: 两类内容独立查询；关联用户仅可在开关开启时读取本企业。无记录成员显示状态，不创建空日报。
       security:
       - UserBearer: []
+      parameters:
+      - name: execution_page
+        in: query
+        schema:
+          type: integer
+          default: 1
+          minimum: 1
+          maximum: 100000
       responses:
         '200':
           description: 成功
@@ -1938,6 +2062,14 @@ components:
       - status
       - started_at
       properties:
+        total_tokens:
+          type: integer
+          format: int64
+          nullable: true
+        actual_cost:
+          type: number
+          nullable: true
+          description: Gateway 计费结果；尚未确认或历史记录为 null。
         id:
           type: integer
           format: int64
@@ -2044,6 +2176,31 @@ components:
     DesktopReportMembers:
       type: object
       properties:
+        total_members:
+          type: integer
+        no_record_members:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        missing_dates:
+          type: array
+          items:
+            type: string
+            format: date
+        queue:
+          type: object
+          nullable: true
+          properties:
+            pending:
+              type: integer
+            running:
+              type: integer
+            oldest_pending_at:
+              type: string
+              format: date-time
+              nullable: true
         date:
           type: string
           format: date
@@ -2075,6 +2232,31 @@ components:
     DesktopReportSummary:
       type: object
       properties:
+        total_members:
+          type: integer
+        no_record_members:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        missing_dates:
+          type: array
+          items:
+            type: string
+            format: date
+        queue:
+          type: object
+          nullable: true
+          properties:
+            pending:
+              type: integer
+            running:
+              type: integer
+            oldest_pending_at:
+              type: string
+              format: date-time
+              nullable: true
         date:
           type: string
           format: date
@@ -2138,6 +2320,49 @@ components:
         data:
           $ref: '#/components/schemas/DesktopReportTask'
 
+    DesktopManagementPolicy:
+      type: object
+      description: 管理员维护分析预算及保留周期；0 表示不限额或永久保留。金额沿用 Gateway 消费窗口，单位为 USD。
+      properties:
+        analysis_limit_1d:
+          type: number
+          minimum: 0
+        conversation_retention_days:
+          type: integer
+          minimum: 0
+          maximum: 3650
+        report_retention_days:
+          type: integer
+          minimum: 0
+          maximum: 3650
+        execution_retention_days:
+          type: integer
+          minimum: 0
+          maximum: 3650
+    DesktopMemberBudget:
+      type: object
+      properties:
+        quota:
+          type: number
+          minimum: 0
+          description: 累计额度，USD；0 不限制。
+        limit_1d:
+          type: number
+          minimum: 0
+          description: 24 小时消费窗口额度，USD；0 不限制。
+        limit_7d:
+          type: number
+          minimum: 0
+          description: 7 天消费窗口额度，USD；0 不限制。
+        quota_used:
+          type: number
+          readOnly: true
+        usage_1d:
+          type: number
+          readOnly: true
+        usage_7d:
+          type: number
+          readOnly: true
     DesktopOrganization:
       type: object
       required:
@@ -2156,6 +2381,8 @@ components:
         - created_at
         - updated_at
       properties:
+        management_policy:
+          $ref: '#/components/schemas/DesktopManagementPolicy'
         conversation_summary_enabled:
           type: boolean
           default: false
@@ -2211,6 +2438,13 @@ components:
       type: object
       required: [public_id, name, remark, phone, status, model_token_status, created_at, updated_at]
       properties:
+        usage_as_of:
+          type: string
+          format: date-time
+        usage_timezone:
+          type: string
+        budget:
+          $ref: '#/components/schemas/DesktopMemberBudget'
         public_id:
           type: string
           example: mem_cH5ro6X8y9xPkQpNZmPrBw
@@ -2316,6 +2550,8 @@ components:
       additionalProperties: false
       minProperties: 1
       properties:
+        management_policy:
+          $ref: '#/components/schemas/DesktopManagementPolicy'
         conversation_summary_enabled:
           type: boolean
           default: false
@@ -2359,6 +2595,8 @@ components:
       additionalProperties: false
       required: [name, phone]
       properties:
+        budget:
+          $ref: '#/components/schemas/DesktopMemberBudget'
         name:
           type: string
           minLength: 1
@@ -2376,6 +2614,8 @@ components:
       additionalProperties: false
       minProperties: 1
       properties:
+        budget:
+          $ref: '#/components/schemas/DesktopMemberBudget'
         name:
           type: string
           minLength: 1

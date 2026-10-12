@@ -9,6 +9,8 @@
           <span class="execution-status" :data-status="execution.status">{{ t(`${key}.statuses.${execution.status}`) }}</span>
         </div>
         <dl class="execution-metadata mt-4">
+          <div><dt class="analytics-caption">{{ t(`${key}.tokens`) }}</dt><dd>{{ execution.total_tokens == null ? '—' : execution.total_tokens.toLocaleString() }}</dd></div>
+          <div><dt class="analytics-caption">{{ t(`${key}.cost`) }}</dt><dd>{{ execution.actual_cost == null ? '—' : `$${execution.actual_cost.toFixed(6)}` }}</dd></div>
           <div><dt class="analytics-caption">{{ t(`${key}.revision`) }}</dt><dd>{{ execution.revision }}</dd></div>
           <div><dt class="analytics-caption">{{ t(`${key}.chunk`) }}</dt><dd>{{ execution.round + 1 }} / {{ execution.chunk }}</dd></div>
           <div><dt class="analytics-caption">{{ t(`${key}.attempt`) }}</dt><dd>{{ execution.attempt }}</dd></div>

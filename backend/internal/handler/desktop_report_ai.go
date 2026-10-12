@@ -30,6 +30,9 @@ func (h *GatewayHandler) DesktopReportAI(router *gin.Engine, resolver *service.C
 }
 
 func (a *desktopReportAI) Check(ctx context.Context, o *service.DesktopOrganization, key *service.APIKey, model string) error {
+	if key != nil && key.RateLimit1d > 0 && key.EffectiveUsage1d() >= key.RateLimit1d {
+		return service.NewDesktopReportUnavailable("analysis_budget_exhausted")
+	}
 	user, err := a.gateway.userService.GetByID(ctx, o.GatewayUserID)
 	if err != nil || user.Status != service.StatusActive {
 		return service.NewDesktopReportUnavailable("user_unavailable")

@@ -5,7 +5,7 @@ export const DESKTOP_MEMBER_IMPORT_MAX_BYTES = 5 * 1024 * 1024
 
 export interface DesktopMemberImportRow {
   rowNumber: number
-  input: Required<CreateDesktopMemberRequest>
+  input: Required<Pick<CreateDesktopMemberRequest, 'name' | 'phone' | 'remark'>>
   errors: string[]
 }
 

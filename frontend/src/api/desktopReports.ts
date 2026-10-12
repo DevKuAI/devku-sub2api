@@ -1,6 +1,8 @@
 import { apiClient } from './client'
 
 export interface DesktopReportExecution {
+ total_tokens?: number | null
+ actual_cost?: number | null
   id: number
   revision: number
   kind: 'member' | 'summary'
@@ -31,6 +33,12 @@ export interface DesktopMemberReport extends DesktopGeneratedReport {
   source_ids: string[]
 }
 export interface DesktopReportState {
+ total_members?: number
+ no_record_members?: number
+ page?: number
+ page_size?: number
+ queue?: { pending: number; running: number; oldest_pending_at: string | null }
+ missing_dates?: string[]
   date: string
   timezone: string
   analysis_model: string
@@ -47,12 +55,16 @@ export type DesktopReportMode = 'generate' | 'retry' | 'regenerate'
 function basePath(organizationID: string, selfManaged: boolean) {
   return selfManaged ? '/desktop/organization/daily-reports' : `/admin/desktop/organizations/${encodeURIComponent(organizationID)}/daily-reports`
 }
-export async function getDesktopMemberReports(organizationID: string, selfManaged: boolean, date: string, signal?: AbortSignal) {
-  const { data } = await apiClient.get<DesktopMemberReports>(`${basePath(organizationID, selfManaged)}/${encodeURIComponent(date)}/members`, { signal })
+export async function getDesktopMemberReports(organizationID: string, selfManaged: boolean, date: string, signal?: AbortSignal, params?: { page?: number; page_size?: number; search?: string }) {
+  const { data } = await apiClient.get<DesktopMemberReports>(`${basePath(organizationID, selfManaged)}/${encodeURIComponent(date)}/members`, { signal, params })
   return data
 }
-export async function getDesktopSummaryReport(organizationID: string, selfManaged: boolean, date: string, signal?: AbortSignal) {
-  const { data } = await apiClient.get<DesktopSummaryReport>(`${basePath(organizationID, selfManaged)}/${encodeURIComponent(date)}/summary`, { signal })
+export async function getDesktopMemberReport(organizationID: string, selfManaged: boolean, date: string, memberID: string, signal?: AbortSignal, executionPage = 1) {
+ const { data } = await apiClient.get<DesktopMemberReport>(`${basePath(organizationID, selfManaged)}/${encodeURIComponent(date)}/members/${encodeURIComponent(memberID)}`, { signal, params: { execution_page: executionPage } })
+ return data
+}
+export async function getDesktopSummaryReport(organizationID: string, selfManaged: boolean, date: string, signal?: AbortSignal, executionPage = 1) {
+  const { data } = await apiClient.get<DesktopSummaryReport>(`${basePath(organizationID, selfManaged)}/${encodeURIComponent(date)}/summary`, { signal, ...(executionPage > 1 ? { params: { execution_page: executionPage } } : {}) })
   return data
 }
 export async function runDesktopReports(organizationID: string, date: string, mode: DesktopReportMode) {

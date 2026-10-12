@@ -775,6 +775,16 @@ func GroupIDNotIn(vs ...int64) predicate.DesktopOrganization {
 	return predicate.DesktopOrganization(sql.FieldNotIn(FieldGroupID, vs...))
 }
 
+// ManagementPolicyIsNil applies the IsNil predicate on the "management_policy" field.
+func ManagementPolicyIsNil() predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldIsNull(FieldManagementPolicy))
+}
+
+// ManagementPolicyNotNil applies the NotNil predicate on the "management_policy" field.
+func ManagementPolicyNotNil() predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldNotNull(FieldManagementPolicy))
+}
+
 // TargetConfigIsNil applies the IsNil predicate on the "target_config" field.
 func TargetConfigIsNil() predicate.DesktopOrganization {
 	return predicate.DesktopOrganization(sql.FieldIsNull(FieldTargetConfig))

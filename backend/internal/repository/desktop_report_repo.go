@@ -130,7 +130,11 @@ func scanReportTask(row reportScanner) (*service.DesktopReportTask, error) {
 const reportTaskColumns = `id,organization_id,report_date::text,status,reason,revision,COALESCE(lease_token,''),payload`
 
 func (r *desktopReportRepository) Task(ctx context.Context, org int64, date string) (*service.DesktopReportTask, error) {
-	return scanReportTask(r.db.QueryRowContext(ctx, `SELECT `+reportTaskColumns+` FROM desktop_daily_report_tasks WHERE organization_id=$1 AND report_date=$2::date`, org, date))
+	task, err := scanReportTask(r.db.QueryRowContext(ctx, `SELECT `+reportTaskColumns+` FROM desktop_daily_report_tasks WHERE organization_id=$1 AND report_date=$2::date`, org, date))
+	if err != nil || task == nil {
+		return task, err
+	}
+	return task, loadDesktopReportMembers(ctx, r.db, task)
 }
 
 func (r *desktopReportRepository) Enqueue(ctx context.Context, org int64, date, mode string) (*service.DesktopReportTask, error) {
@@ -139,6 +143,10 @@ func (r *desktopReportRepository) Enqueue(ctx context.Context, org int64, date, 
 		return nil, err
 	}
 	defer func() { _ = tx.Rollback() }()
+	var lockedOrg int64
+	if err = tx.QueryRowContext(ctx, `SELECT id FROM desktop_organizations WHERE id=$1 AND deleted_at IS NULL FOR SHARE`, org).Scan(&lockedOrg); err != nil {
+		return nil, err
+	}
 	_, err = tx.ExecContext(ctx, `INSERT INTO desktop_daily_report_tasks(organization_id,report_date) VALUES($1,$2::date) ON CONFLICT DO NOTHING`, org, date)
 	if err != nil {
 		return nil, err
@@ -152,6 +160,9 @@ func (r *desktopReportRepository) Enqueue(ctx context.Context, org int64, date, 
 	}
 	t, err := scanReportTask(tx.QueryRowContext(ctx, `SELECT `+reportTaskColumns+` FROM desktop_daily_report_tasks WHERE organization_id=$1 AND report_date=$2::date`, org, date))
 	if err != nil {
+		return nil, err
+	}
+	if err := loadDesktopReportMembers(ctx, tx, t); err != nil {
 		return nil, err
 	}
 	if mode == "automatic" && t.Status != "pending" {
@@ -188,12 +199,15 @@ func (r *desktopReportRepository) Enqueue(ctx context.Context, org int64, date, 
 			t.Payload.Summary.Status = "pending"
 		}
 	}
-	data, err := json.Marshal(t.Payload)
+	data, err := desktopReportTaskPayload(t)
 	if err != nil {
 		return nil, err
 	}
-	_, err = tx.ExecContext(ctx, `UPDATE desktop_daily_report_tasks SET status='pending',reason='',payload=$3::jsonb,revision=$4,next_run_at=NOW(),lease_token=NULL,lease_until=NULL,updated_at=NOW() WHERE organization_id=$1 AND report_date=$2::date`, org, date, string(data), t.Revision)
+	_, err = tx.ExecContext(ctx, `UPDATE desktop_daily_report_tasks SET status='pending',reason='',payload=$3::jsonb,metadata=$3::jsonb-ARRAY['summary','summary_work']::text[],summary=COALESCE($3::jsonb->'summary','{}'),revision=$4,next_run_at=NOW(),lease_token=NULL,lease_until=NULL,updated_at=NOW() WHERE organization_id=$1 AND report_date=$2::date`, org, date, string(data), t.Revision)
 	if err != nil {
+		return nil, err
+	}
+	if err = saveDesktopReportMembers(ctx, tx, t); err != nil {
 		return nil, err
 	}
 	if err = tx.Commit(); err != nil {
@@ -220,17 +234,33 @@ func (r *desktopReportRepository) DueOrganizations(ctx context.Context, date str
 }
 func (r *desktopReportRepository) Claim(ctx context.Context) (*service.DesktopReportTask, error) {
 	token := uuid.NewString()
-	return scanReportTask(r.db.QueryRowContext(ctx, `UPDATE desktop_daily_report_tasks SET lease_token=$1,lease_until=NOW()+INTERVAL '3 minutes',status='running',updated_at=NOW()
+	task, err := scanReportTask(r.db.QueryRowContext(ctx, `UPDATE desktop_daily_report_tasks SET lease_token=$1,lease_until=NOW()+INTERVAL '3 minutes',status='running',updated_at=NOW()
  WHERE id=(SELECT id FROM desktop_daily_report_tasks WHERE status IN ('pending','waiting','running') AND next_run_at<=NOW() AND (lease_until IS NULL OR lease_until<=NOW()) ORDER BY next_run_at,id FOR UPDATE SKIP LOCKED LIMIT 1) RETURNING `+reportTaskColumns, token))
+	if err != nil || task == nil {
+		return task, err
+	}
+	return task, loadDesktopReportMembers(ctx, r.db, task)
 }
 func (r *desktopReportRepository) Save(ctx context.Context, t *service.DesktopReportTask, next time.Time, release bool) error {
-	data, err := json.Marshal(t.Payload)
+	data, err := desktopReportTaskPayload(t)
 	if err != nil {
 		return err
 	}
-	result, err := r.db.ExecContext(ctx, `UPDATE desktop_daily_report_tasks SET status=$3,reason=$4,payload=$5::jsonb,next_run_at=$6,updated_at=NOW(),lease_token=CASE WHEN $7 THEN NULL ELSE lease_token END,lease_until=CASE WHEN $7 THEN NULL ELSE lease_until END WHERE id=$1 AND lease_token=$2 AND lease_until>NOW()`, t.ID, t.LeaseToken, t.Status, t.Reason, string(data), next, release)
-	return checkReportLease(result, err)
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	result, err := tx.ExecContext(ctx, `UPDATE desktop_daily_report_tasks SET status=$3,reason=$4,payload=$5::jsonb,metadata=$5::jsonb-ARRAY['summary','summary_work']::text[],summary=COALESCE($5::jsonb->'summary','{}'),next_run_at=$6,updated_at=NOW(),lease_token=CASE WHEN $7 THEN NULL ELSE lease_token END,lease_until=CASE WHEN $7 THEN NULL ELSE lease_until END WHERE id=$1 AND lease_token=$2 AND lease_until>NOW()`, t.ID, t.LeaseToken, t.Status, t.Reason, string(data), next, release)
+	if err = checkReportLease(result, err); err != nil {
+		return err
+	}
+	if err = saveDesktopReportMembers(ctx, tx, t); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
+
 func (r *desktopReportRepository) Renew(ctx context.Context, t *service.DesktopReportTask) error {
 	result, err := r.db.ExecContext(ctx, `UPDATE desktop_daily_report_tasks SET lease_until=NOW()+INTERVAL '3 minutes' WHERE id=$1 AND lease_token=$2 AND lease_until>NOW()`, t.ID, t.LeaseToken)
 	return checkReportLease(result, err)
@@ -273,9 +303,9 @@ func (r *desktopReportRepository) AnalysisKey(ctx context.Context, o *service.De
 		if genErr != nil {
 			return nil, genErr
 		}
-		key, err = tx.APIKey.Create().SetUserID(o.GatewayUserID).SetGroupID(o.GroupID).SetKey("sk-da-" + secret).SetName(fmt.Sprintf("desktop-analysis-%d", o.ID)).SetDesktopAnalysisOrganizationID(o.ID).Save(ctx)
+		key, err = tx.APIKey.Create().SetUserID(o.GatewayUserID).SetGroupID(o.GroupID).SetKey("sk-da-" + secret).SetName(fmt.Sprintf("desktop-analysis-%d", o.ID)).SetDesktopAnalysisOrganizationID(o.ID).SetRateLimit1d(o.ManagementPolicy.AnalysisLimit1d).Save(ctx)
 	} else if err == nil {
-		key, err = tx.APIKey.UpdateOne(key).SetUserID(o.GatewayUserID).SetGroupID(o.GroupID).SetStatus(service.StatusActive).Save(ctx)
+		key, err = tx.APIKey.UpdateOne(key).SetUserID(o.GatewayUserID).SetGroupID(o.GroupID).SetStatus(service.StatusActive).SetRateLimit1d(o.ManagementPolicy.AnalysisLimit1d).Save(ctx)
 	}
 	if err != nil {
 		return nil, err
@@ -312,7 +342,7 @@ func (r *desktopReportRepository) FinishExecution(ctx context.Context, execution
 	return nil
 }
 func (r *desktopReportRepository) Executions(ctx context.Context, org int64, date string) ([]service.DesktopReportExecution, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT id,revision,kind,member_id,model,round,chunk,attempt,request_id,status,error,started_at,finished_at
+	rows, err := r.db.QueryContext(ctx, `SELECT id,revision,kind,member_id,model,round,chunk,attempt,request_id,status,error,started_at,finished_at,total_tokens,actual_cost
  FROM desktop_daily_report_executions WHERE organization_id=$1 AND report_date=$2::date ORDER BY id DESC`, org, date)
 	if err != nil {
 		return nil, err
@@ -321,10 +351,24 @@ func (r *desktopReportRepository) Executions(ctx context.Context, org int64, dat
 	executions := []service.DesktopReportExecution{}
 	for rows.Next() {
 		var execution service.DesktopReportExecution
-		if err = rows.Scan(&execution.ID, &execution.Revision, &execution.Kind, &execution.MemberID, &execution.Model, &execution.Round, &execution.Chunk, &execution.Attempt, &execution.RequestID, &execution.Status, &execution.Error, &execution.StartedAt, &execution.FinishedAt); err != nil {
+		if err = rows.Scan(&execution.ID, &execution.Revision, &execution.Kind, &execution.MemberID, &execution.Model, &execution.Round, &execution.Chunk, &execution.Attempt, &execution.RequestID, &execution.Status, &execution.Error, &execution.StartedAt, &execution.FinishedAt, &execution.TotalTokens, &execution.ActualCost); err != nil {
 			return nil, err
 		}
 		executions = append(executions, execution)
 	}
 	return executions, rows.Err()
+}
+
+func (r *desktopReportRepository) RecordExecutionUsage(ctx context.Context, id int64, usage *service.UsageLog) error {
+	_, err := r.db.ExecContext(ctx, `UPDATE desktop_daily_report_executions SET total_tokens=$2,actual_cost=$3 WHERE id=$1 AND total_tokens IS NULL`, id, usage.TotalTokens(), usage.ActualCost)
+	return err
+}
+
+func (r *desktopReportRepository) AnalysisUsage(ctx context.Context, org int64) (float64, error) {
+	var usage float64
+	err := r.db.QueryRowContext(ctx, `SELECT CASE WHEN window_1d_start>NOW()-INTERVAL '24 hours' THEN usage_1d ELSE 0 END FROM api_keys WHERE desktop_analysis_organization_id=$1 AND deleted_at IS NULL`, org).Scan(&usage)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
+	}
+	return usage, err
 }

@@ -233,6 +233,24 @@ func (_u *DesktopOrganizationUpdate) SetNillableGroupID(v *int64) *DesktopOrgani
 	return _u
 }
 
+// SetManagementPolicy sets the "management_policy" field.
+func (_u *DesktopOrganizationUpdate) SetManagementPolicy(v jsontext.Value) *DesktopOrganizationUpdate {
+	_u.mutation.SetManagementPolicy(v)
+	return _u
+}
+
+// AppendManagementPolicy appends value to the "management_policy" field.
+func (_u *DesktopOrganizationUpdate) AppendManagementPolicy(v jsontext.Value) *DesktopOrganizationUpdate {
+	_u.mutation.AppendManagementPolicy(v)
+	return _u
+}
+
+// ClearManagementPolicy clears the value of the "management_policy" field.
+func (_u *DesktopOrganizationUpdate) ClearManagementPolicy() *DesktopOrganizationUpdate {
+	_u.mutation.ClearManagementPolicy()
+	return _u
+}
+
 // SetTargetConfig sets the "target_config" field.
 func (_u *DesktopOrganizationUpdate) SetTargetConfig(v jsontext.Value) *DesktopOrganizationUpdate {
 	_u.mutation.SetTargetConfig(v)
@@ -453,6 +471,17 @@ func (_u *DesktopOrganizationUpdate) sqlSave(ctx context.Context) (_node int, er
 	}
 	if value, ok := _u.mutation.AddedAuthVersion(); ok {
 		_spec.AddField(desktoporganization.FieldAuthVersion, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.ManagementPolicy(); ok {
+		_spec.SetField(desktoporganization.FieldManagementPolicy, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedManagementPolicy(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, desktoporganization.FieldManagementPolicy, value)
+		})
+	}
+	if _u.mutation.ManagementPolicyCleared() {
+		_spec.ClearField(desktoporganization.FieldManagementPolicy, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.TargetConfig(); ok {
 		_spec.SetField(desktoporganization.FieldTargetConfig, field.TypeJSON, value)
@@ -788,6 +817,24 @@ func (_u *DesktopOrganizationUpdateOne) SetNillableGroupID(v *int64) *DesktopOrg
 	return _u
 }
 
+// SetManagementPolicy sets the "management_policy" field.
+func (_u *DesktopOrganizationUpdateOne) SetManagementPolicy(v jsontext.Value) *DesktopOrganizationUpdateOne {
+	_u.mutation.SetManagementPolicy(v)
+	return _u
+}
+
+// AppendManagementPolicy appends value to the "management_policy" field.
+func (_u *DesktopOrganizationUpdateOne) AppendManagementPolicy(v jsontext.Value) *DesktopOrganizationUpdateOne {
+	_u.mutation.AppendManagementPolicy(v)
+	return _u
+}
+
+// ClearManagementPolicy clears the value of the "management_policy" field.
+func (_u *DesktopOrganizationUpdateOne) ClearManagementPolicy() *DesktopOrganizationUpdateOne {
+	_u.mutation.ClearManagementPolicy()
+	return _u
+}
+
 // SetTargetConfig sets the "target_config" field.
 func (_u *DesktopOrganizationUpdateOne) SetTargetConfig(v jsontext.Value) *DesktopOrganizationUpdateOne {
 	_u.mutation.SetTargetConfig(v)
@@ -1038,6 +1085,17 @@ func (_u *DesktopOrganizationUpdateOne) sqlSave(ctx context.Context) (_node *Des
 	}
 	if value, ok := _u.mutation.AddedAuthVersion(); ok {
 		_spec.AddField(desktoporganization.FieldAuthVersion, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.ManagementPolicy(); ok {
+		_spec.SetField(desktoporganization.FieldManagementPolicy, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedManagementPolicy(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, desktoporganization.FieldManagementPolicy, value)
+		})
+	}
+	if _u.mutation.ManagementPolicyCleared() {
+		_spec.ClearField(desktoporganization.FieldManagementPolicy, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.TargetConfig(); ok {
 		_spec.SetField(desktoporganization.FieldTargetConfig, field.TypeJSON, value)

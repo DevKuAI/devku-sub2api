@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
@@ -14,7 +15,11 @@ func (h *DesktopHandler) DailyReports(c *gin.Context) {
 	if date == "" {
 		date = c.Query("date")
 	}
-	day, err := h.desktop.ReportDay(c.Request.Context(), c.Param("organization_id"), 0, date)
+	query, err := dto.ParseDesktopReportQuery(c)
+	if response.ErrorFrom(c, err) {
+		return
+	}
+	day, err := h.desktop.ReadReportDay(c.Request.Context(), c.Param("organization_id"), 0, date, query)
 	if response.ErrorFrom(c, err) {
 		return
 	}
@@ -30,10 +35,10 @@ func (h *DesktopHandler) DailyReports(c *gin.Context) {
 		return
 	}
 	if strings.HasSuffix(c.Request.URL.Path, "/summary") {
-		response.Success(c, gin.H{"date": day.Date, "timezone": day.Timezone, "analysis_model": day.AnalysisModel, "status": day.Status, "reason": day.Reason, "task": day.Task, "summary": day.Summary, "expected_members": day.ExpectedMembers, "completed_members": day.CompletedMembers, "missing_members": day.MissingMembers})
+		response.Success(c, gin.H{"date": day.Date, "timezone": day.Timezone, "analysis_model": day.AnalysisModel, "status": day.Status, "reason": day.Reason, "task": day.Task, "total_members": day.TotalMembers, "no_record_members": day.NoRecordMembers, "page": day.Page, "page_size": day.PageSize, "queue": day.Queue, "missing_dates": day.MissingDates, "summary": day.Summary, "expected_members": day.ExpectedMembers, "completed_members": day.CompletedMembers, "missing_members": day.MissingMembers})
 		return
 	}
-	response.Success(c, gin.H{"date": day.Date, "timezone": day.Timezone, "analysis_model": day.AnalysisModel, "status": day.Status, "reason": day.Reason, "task": day.Task, "members": day.Members, "expected_members": day.ExpectedMembers, "completed_members": day.CompletedMembers, "missing_members": day.MissingMembers})
+	response.Success(c, gin.H{"date": day.Date, "timezone": day.Timezone, "analysis_model": day.AnalysisModel, "status": day.Status, "reason": day.Reason, "task": day.Task, "total_members": day.TotalMembers, "no_record_members": day.NoRecordMembers, "page": day.Page, "page_size": day.PageSize, "queue": day.Queue, "missing_dates": day.MissingDates, "members": day.Members, "expected_members": day.ExpectedMembers, "completed_members": day.CompletedMembers, "missing_members": day.MissingMembers})
 }
 func (h *DesktopHandler) RunDailyReports(c *gin.Context) {
 	var input struct {

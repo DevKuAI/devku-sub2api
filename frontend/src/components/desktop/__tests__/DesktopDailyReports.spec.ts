@@ -3,7 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import zh from '@/i18n/locales/zh'
 import DesktopDailyReports from '../DesktopDailyReports.vue'
 
-const api = vi.hoisted(() => ({ getDesktopMemberReports: vi.fn(), getDesktopSummaryReport: vi.fn(), runDesktopReports: vi.fn() }))
+const api = vi.hoisted(() => ({ getDesktopMemberReports: vi.fn(), getDesktopMemberReport: vi.fn(), getDesktopSummaryReport: vi.fn(), runDesktopReports: vi.fn() }))
 vi.mock('@/api/desktopReports', () => api)
 vi.mock('@/api/desktopConversations', () => ({ getDesktopConversation: vi.fn() }))
 vi.mock('vue-i18n', async (importOriginal) => ({ ...(await importOriginal<typeof import('vue-i18n')>()), useI18n: () => ({
@@ -25,12 +25,24 @@ function render(overrides = {}) {
 beforeEach(() => {
   vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-10T04:00:00Z')); vi.clearAllMocks()
   api.getDesktopMemberReports.mockResolvedValue({ ...base, members: [member, empty] })
+  api.getDesktopMemberReport.mockResolvedValue(member)
   api.getDesktopSummaryReport.mockResolvedValue({ ...base, summary: { ...report, content: '企业整体进展' } })
   api.runDesktopReports.mockResolvedValue({ status: 'pending' })
 })
 afterEach(() => { vi.useRealTimers() })
 
 describe('DesktopDailyReports', () => {
+  it('loads member text only after selecting a report', async () => {
+    api.getDesktopMemberReports.mockResolvedValue({ ...base, total_members: 21, members: [{ ...member, content: '', source_ids: [], executions: [] }, empty] })
+    const wrapper = render(); await flushPromises()
+    expect(api.getDesktopMemberReport).not.toHaveBeenCalled()
+    await wrapper.get('#daily-report-tab-members').trigger('click')
+    expect(wrapper.text()).not.toContain('个人工作产出')
+    await wrapper.find('tbody button').trigger('click'); await flushPromises()
+    expect(api.getDesktopMemberReport).toHaveBeenCalledWith('org_one', true, '2026-10-09', 'mem_one', expect.any(AbortSignal), 1)
+    expect(wrapper.text()).toContain('个人工作产出')
+    wrapper.unmount()
+  })
   it('separates summary and member reports, retains empty members and the selected date', async () => {
     const wrapper = render(); await flushPromises()
     expect(wrapper.text()).toContain('企业整体进展')
@@ -156,6 +168,7 @@ describe('DesktopDailyReports', () => {
     wrapper.unmount()
   })
   it('jumps from a missing member to report details with a recovery instruction', async () => {
+    api.getDesktopMemberReport.mockResolvedValue({ ...member, status: 'failed', content: '', error: 'upstream_failed' })
     api.getDesktopSummaryReport.mockResolvedValue({ ...base, status: 'partial', missing_members: ['mem_one'], summary: report })
     api.getDesktopMemberReports.mockResolvedValue({ ...base, members: [{ ...member, status: 'failed', content: '', error: 'upstream_failed' }, empty] })
     const wrapper = render(); await flushPromises()

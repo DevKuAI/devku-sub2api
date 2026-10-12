@@ -17,6 +17,8 @@ export default {
       refreshOrganization: 'Close and refresh organization',
     },
     reports: {
+      previousPage: 'Previous page', nextPage: 'Next page',
+      queue: '{pending} queued, {running} running', oldestPending: 'Oldest pending task', missingDates: 'These dates have conversations but no report tasks. Select a date to generate reports.',
       configuredModel: 'Configured model',
       usedModel: 'Model used for generation',
       taskStatus: 'Task status',
@@ -51,6 +53,7 @@ export default {
       resumeRefresh: 'Resume automatic refresh',
       noMembers: 'No members yet',
       executions: {
+        tokens: 'Billed tokens', cost: 'Actual cost (USD)',
         "title": "Execution history ({count})",
         "label": "Model execution history",
         "hint": "Preserves the requested model for every chunk, retry and regeneration.",
@@ -378,12 +381,23 @@ export default {
       hint: "Calculated in {timezone}; weeks start on Monday. Includes all organization members and retained usage from historical model tokens, regardless of member filters or pagination. Costs reflect actual charges.",
       loadFailed: "Unable to load organization usage. Please retry.",
     },
+    budget: {
+      title: 'Member budget', hint: 'Amounts are in USD; 0 means unlimited. New model requests stop at the limit. Credential rotation preserves usage.',
+      quota: 'Lifetime limit', limit_1d: '24-hour limit', limit_7d: '7-day limit', warning: 'At least 80% of the limit used', exhausted: 'Budget exhausted',
+    },
+    managementPolicy: {
+      title: 'Analysis budget and retention', hint: '0 means unlimited analysis or indefinite retention. Expired data and text copies are removed periodically and cannot be recovered. Active tasks are preserved until they finish.',
+      analysisLimit: 'Analysis 24-hour limit (USD)', conversation_retention_days: 'Conversation retention days', report_retention_days: 'Report retention days', execution_retention_days: 'Execution history retention days',
+    },
+    usageUnavailableHint: 'Usage is unavailable. Member management remains available; retry to reload usage.',
+    usageUnavailable: 'Unavailable',
     usageCost: 'Cost',
     usageTokens: 'Tokens',
     usageToday: 'Today',
     usageLast30Days: 'Last 30 days',
     usageTotal: 'Cumulative',
     memberUsageExport: {
+      asOf: 'Statistics as of', timezone: 'Statistics timezone',
       button: 'Export CSV',
       hint: 'Export usage for all members matching the current filters, across all pages',
       exporting: 'Exporting…',

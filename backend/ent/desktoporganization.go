@@ -51,6 +51,8 @@ type DesktopOrganization struct {
 	GatewayUserID int64 `json:"gateway_user_id,omitempty"`
 	// GroupID holds the value of the "group_id" field.
 	GroupID int64 `json:"group_id,omitempty"`
+	// ManagementPolicy holds the value of the "management_policy" field.
+	ManagementPolicy jsontext.Value `json:"management_policy,omitempty"`
 	// TargetConfig holds the value of the "target_config" field.
 	TargetConfig jsontext.Value `json:"target_config,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -108,7 +110,7 @@ func (*DesktopOrganization) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case desktoporganization.FieldTargetConfig:
+		case desktoporganization.FieldManagementPolicy, desktoporganization.FieldTargetConfig:
 			values[i] = new([]byte)
 		case desktoporganization.FieldConversationReportingEnabled, desktoporganization.FieldConversationSummaryEnabled:
 			values[i] = new(sql.NullBool)
@@ -231,6 +233,14 @@ func (_m *DesktopOrganization) assignValues(columns []string, values []any) erro
 			} else if value.Valid {
 				_m.GroupID = value.Int64
 			}
+		case desktoporganization.FieldManagementPolicy:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field management_policy", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.ManagementPolicy); err != nil {
+					return fmt.Errorf("unmarshal field management_policy: %w", err)
+				}
+			}
 		case desktoporganization.FieldTargetConfig:
 			if value, ok := values[i].(*[]byte); !ok {
 				return fmt.Errorf("unexpected type %T for field target_config", values[i])
@@ -338,6 +348,9 @@ func (_m *DesktopOrganization) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("group_id=")
 	builder.WriteString(fmt.Sprintf("%v", _m.GroupID))
+	builder.WriteString(", ")
+	builder.WriteString("management_policy=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ManagementPolicy))
 	builder.WriteString(", ")
 	builder.WriteString("target_config=")
 	builder.WriteString(fmt.Sprintf("%v", _m.TargetConfig))

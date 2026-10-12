@@ -37,6 +37,7 @@ type reportTestRepo struct {
 	saved       int
 	scannedDate string
 	ids         []string
+	claims      int
 }
 
 func (r *reportTestRepo) Day(_ context.Context, _ int64, date string) ([]DesktopReportMember, error) {
@@ -55,7 +56,18 @@ func (r *reportTestRepo) DueOrganizations(_ context.Context, date string) ([]str
 	r.scannedDate = date
 	return r.ids, nil
 }
-func (r *reportTestRepo) Claim(context.Context) (*DesktopReportTask, error) { return nil, nil }
+func (r *reportTestRepo) Claim(context.Context) (*DesktopReportTask, error) {
+	r.claims++
+	return nil, nil
+}
+
+func TestDesktopReportsClaimQueuedWorkBeforeTwoAM(t *testing.T) {
+	s, r, _, _ := reportFixture()
+	s.now = func() time.Time { return time.Date(2026, 10, 10, 1, 0, 0, 0, s.loc) }
+	s.tick(context.Background())
+	require.Empty(t, r.scannedDate, "automatic enqueue remains scheduled after 02:00")
+	require.Equal(t, 1, r.claims, "manual and retry tasks must run all day")
+}
 func (r *reportTestRepo) Snapshot(context.Context, int64, string) ([]DesktopReportSnapshot, error) {
 	return r.snapshots, nil
 }
@@ -246,14 +258,15 @@ func TestDesktopReportsStageRechecksAndChunkResume(t *testing.T) {
 	require.Error(t, err)
 	require.Len(t, a.calls, 1)
 	require.Len(t, task.Payload.Snapshots[0].Work.Outputs, 1)
+	chunks := len(task.Payload.Snapshots[0].Work.Inputs)
 	o.ConversationSummaryEnabled = true
 	a.beforeCall = nil
 	_, err = s.process(context.Background(), task)
 	require.NoError(t, err)
 	require.Equal(t, "completed", task.Status)
-	require.Len(t, a.calls, 4, "resume remaining chunk, merge, then summarize")
-	require.Len(t, r.executions, 4)
-	require.Equal(t, 1, r.executions[2].Round)
+	require.Len(t, a.calls, chunks+2, "resume remaining chunks, merge, then summarize")
+	require.Len(t, r.executions, chunks+2)
+	require.Equal(t, 1, r.executions[chunks].Round)
 	for _, execution := range r.executions {
 		require.Equal(t, "test-model", execution.Model)
 	}

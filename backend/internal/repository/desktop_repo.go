@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strconv"
 	"strings"
@@ -183,7 +184,7 @@ func (r *desktopRepository) GetOrganizationForGatewayUser(ctx context.Context, u
 }
 
 func (r *desktopRepository) UpdateOrganization(ctx context.Context, publicID string, input service.DesktopUpdateOrganizationInput) (*service.DesktopOrganization, []string, error) {
-	if r.gatewayUserID != nil && (input.GatewayUserID != nil || input.GroupID != nil || input.MemberLimit != nil || input.ConversationReportingEnabled != nil || input.ConversationSummaryEnabled != nil || input.AnalysisModel != nil) {
+	if r.gatewayUserID != nil && (input.GatewayUserID != nil || input.GroupID != nil || input.MemberLimit != nil || input.ConversationReportingEnabled != nil || input.ConversationSummaryEnabled != nil || input.AnalysisModel != nil || input.ManagementPolicy != nil) {
 		return nil, nil, service.ErrDesktopValidation
 	}
 	if input.MemberLimit != nil && *input.MemberLimit < 1 {
@@ -274,6 +275,13 @@ func (r *desktopRepository) UpdateOrganization(ctx context.Context, publicID str
 		}
 		if input.AnalysisModel != nil {
 			builder.SetAnalysisModel(*input.AnalysisModel)
+		}
+		if input.ManagementPolicy != nil {
+			policy, err := json.Marshal(input.ManagementPolicy)
+			if err != nil {
+				return err
+			}
+			builder.SetManagementPolicy(policy)
 		}
 		if input.ConversationReportingEnabled != nil {
 			builder.SetConversationReportingEnabled(*input.ConversationReportingEnabled)
@@ -595,6 +603,15 @@ func (r *desktopRepository) UpdateMember(ctx context.Context, organizationPublic
 			return err
 		}
 		_ = assignment
+		if input.Budget != nil {
+			if key == nil {
+				return service.ErrDesktopConfigurationMissing
+			}
+			if _, err := client.APIKey.UpdateOne(key).SetQuota(input.Budget.Quota).SetRateLimit1d(input.Budget.Limit1d).SetRateLimit7d(input.Budget.Limit7d).Save(txCtx); err != nil {
+				return err
+			}
+			invalidated = append(invalidated, key.Key)
+		}
 		builder := client.DesktopMember.UpdateOne(lockedMember)
 		changed := false
 		if input.Remark != nil {
@@ -731,10 +748,19 @@ func (r *desktopRepository) RotateMemberAPIKey(ctx context.Context, organization
 				return err
 			}
 		}
+		if oldKey != nil {
+			newKey.Quota, newKey.QuotaUsed = oldKey.Quota, oldKey.QuotaUsed
+			newKey.RateLimit5h, newKey.RateLimit1d, newKey.RateLimit7d = oldKey.RateLimit5h, oldKey.RateLimit1d, oldKey.RateLimit7d
+		}
 		newKey.UserID = lockedOrganization.GatewayUserID
 		newKey.GroupID = &lockedOrganization.GroupID
 		if err := r.createAPIKeyWithinLimit(txCtx, newKey); err != nil {
 			return err
+		}
+		if oldKey != nil {
+			if _, err := client.APIKey.UpdateOneID(newKey.ID).SetUsage5h(oldKey.Usage5h).SetUsage1d(oldKey.Usage1d).SetUsage7d(oldKey.Usage7d).SetNillableWindow5hStart(oldKey.Window5hStart).SetNillableWindow1dStart(oldKey.Window1dStart).SetNillableWindow7dStart(oldKey.Window7dStart).Save(txCtx); err != nil {
+				return err
+			}
 		}
 		if _, err := client.DesktopMemberAPIKey.Create().SetMemberID(lockedMember.ID).SetAPIKeyID(newKey.ID).Save(txCtx); err != nil {
 			return translatePersistenceError(err, nil, service.ErrDesktopRotationConflict)
@@ -960,6 +986,11 @@ func desktopOrganizationEntityToService(row *dbent.DesktopOrganization) (*servic
 		ConversationSummaryEnabled: row.ConversationSummaryEnabled, AnalysisModel: row.AnalysisModel, SummaryEnabledAt: row.SummaryEnabledAt,
 		ConversationReportingEnabled: row.ConversationReportingEnabled,
 	}
+	if len(row.ManagementPolicy) > 0 {
+		if err := json.Unmarshal(row.ManagementPolicy, &result.ManagementPolicy); err != nil {
+			return nil, err
+		}
+	}
 	if row.Edges.GatewayUser != nil {
 		result.GatewayUserEmail = row.Edges.GatewayUser.Email
 		result.GatewayUserName = row.Edges.GatewayUser.Username
@@ -982,6 +1013,8 @@ func desktopMemberEntityToService(row *dbent.DesktopMember) *service.DesktopMemb
 		}
 		result.CurrentAPIKeyID = &assignment.APIKeyID
 		if assignment.Edges.APIKey != nil {
+			key := apiKeyEntityToService(assignment.Edges.APIKey)
+			result.Budget = service.DesktopMemberBudgetFromKey(key)
 			result.CurrentAPIKey = assignment.Edges.APIKey.Key
 			result.CurrentAPIKeyStatus = assignment.Edges.APIKey.Status
 		} else {

@@ -45,6 +45,8 @@ const (
 	FieldGatewayUserID = "gateway_user_id"
 	// FieldGroupID holds the string denoting the group_id field in the database.
 	FieldGroupID = "group_id"
+	// FieldManagementPolicy holds the string denoting the management_policy field in the database.
+	FieldManagementPolicy = "management_policy"
 	// FieldTargetConfig holds the string denoting the target_config field in the database.
 	FieldTargetConfig = "target_config"
 	// EdgeGatewayUser holds the string denoting the gateway_user edge name in mutations.
@@ -96,6 +98,7 @@ var Columns = []string{
 	FieldAuthVersion,
 	FieldGatewayUserID,
 	FieldGroupID,
+	FieldManagementPolicy,
 	FieldTargetConfig,
 }
 

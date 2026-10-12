@@ -41,6 +41,7 @@ func (DesktopOrganization) Fields() []ent.Field {
 		field.Int64("auth_version").Positive().Default(1),
 		field.Int64("gateway_user_id"),
 		field.Int64("group_id"),
+		field.JSON("management_policy", json.RawMessage{}).Optional().SchemaType(map[string]string{dialect.Postgres: "jsonb"}),
 		field.JSON("target_config", json.RawMessage{}).
 			Optional().
 			SchemaType(map[string]string{dialect.Postgres: "jsonb"}),

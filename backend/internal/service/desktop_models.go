@@ -47,6 +47,7 @@ var (
 )
 
 type DesktopOrganization struct {
+	ManagementPolicy             DesktopManagementPolicy
 	ConversationSummaryEnabled   bool
 	AnalysisModel                string
 	SummaryEnabledAt             *time.Time
@@ -71,6 +72,9 @@ type DesktopOrganization struct {
 }
 
 type DesktopMember struct {
+	UsageTimezone                 string
+	UsageAsOf                     *time.Time
+	Budget                        *DesktopMemberBudget
 	ID                            int64
 	PublicID                      string
 	OrganizationID                int64
@@ -207,6 +211,7 @@ type DesktopCreateOrganizationInput struct {
 }
 
 type DesktopUpdateOrganizationInput struct {
+	ManagementPolicy             *DesktopManagementPolicy
 	ConversationSummaryEnabled   *bool
 	AnalysisModel                *string
 	ConversationReportingEnabled *bool
@@ -223,6 +228,7 @@ type DesktopCreateMemberInput struct {
 }
 
 type DesktopUpdateMemberInput struct {
+	Budget           *DesktopMemberBudget
 	Name             *string
 	Remark           *string
 	NameNormalized   *string

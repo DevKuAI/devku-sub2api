@@ -196,6 +196,12 @@ func (_c *DesktopOrganizationCreate) SetGroupID(v int64) *DesktopOrganizationCre
 	return _c
 }
 
+// SetManagementPolicy sets the "management_policy" field.
+func (_c *DesktopOrganizationCreate) SetManagementPolicy(v jsontext.Value) *DesktopOrganizationCreate {
+	_c.mutation.SetManagementPolicy(v)
+	return _c
+}
+
 // SetTargetConfig sets the "target_config" field.
 func (_c *DesktopOrganizationCreate) SetTargetConfig(v jsontext.Value) *DesktopOrganizationCreate {
 	_c.mutation.SetTargetConfig(v)
@@ -465,6 +471,10 @@ func (_c *DesktopOrganizationCreate) createSpec() (*DesktopOrganization, *sqlgra
 	if value, ok := _c.mutation.AuthVersion(); ok {
 		_spec.SetField(desktoporganization.FieldAuthVersion, field.TypeInt64, value)
 		_node.AuthVersion = value
+	}
+	if value, ok := _c.mutation.ManagementPolicy(); ok {
+		_spec.SetField(desktoporganization.FieldManagementPolicy, field.TypeJSON, value)
+		_node.ManagementPolicy = value
 	}
 	if value, ok := _c.mutation.TargetConfig(); ok {
 		_spec.SetField(desktoporganization.FieldTargetConfig, field.TypeJSON, value)
@@ -752,6 +762,24 @@ func (u *DesktopOrganizationUpsert) UpdateGroupID() *DesktopOrganizationUpsert {
 	return u
 }
 
+// SetManagementPolicy sets the "management_policy" field.
+func (u *DesktopOrganizationUpsert) SetManagementPolicy(v jsontext.Value) *DesktopOrganizationUpsert {
+	u.Set(desktoporganization.FieldManagementPolicy, v)
+	return u
+}
+
+// UpdateManagementPolicy sets the "management_policy" field to the value that was provided on create.
+func (u *DesktopOrganizationUpsert) UpdateManagementPolicy() *DesktopOrganizationUpsert {
+	u.SetExcluded(desktoporganization.FieldManagementPolicy)
+	return u
+}
+
+// ClearManagementPolicy clears the value of the "management_policy" field.
+func (u *DesktopOrganizationUpsert) ClearManagementPolicy() *DesktopOrganizationUpsert {
+	u.SetNull(desktoporganization.FieldManagementPolicy)
+	return u
+}
+
 // SetTargetConfig sets the "target_config" field.
 func (u *DesktopOrganizationUpsert) SetTargetConfig(v jsontext.Value) *DesktopOrganizationUpsert {
 	u.Set(desktoporganization.FieldTargetConfig, v)
@@ -1025,6 +1053,27 @@ func (u *DesktopOrganizationUpsertOne) SetGroupID(v int64) *DesktopOrganizationU
 func (u *DesktopOrganizationUpsertOne) UpdateGroupID() *DesktopOrganizationUpsertOne {
 	return u.Update(func(s *DesktopOrganizationUpsert) {
 		s.UpdateGroupID()
+	})
+}
+
+// SetManagementPolicy sets the "management_policy" field.
+func (u *DesktopOrganizationUpsertOne) SetManagementPolicy(v jsontext.Value) *DesktopOrganizationUpsertOne {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.SetManagementPolicy(v)
+	})
+}
+
+// UpdateManagementPolicy sets the "management_policy" field to the value that was provided on create.
+func (u *DesktopOrganizationUpsertOne) UpdateManagementPolicy() *DesktopOrganizationUpsertOne {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.UpdateManagementPolicy()
+	})
+}
+
+// ClearManagementPolicy clears the value of the "management_policy" field.
+func (u *DesktopOrganizationUpsertOne) ClearManagementPolicy() *DesktopOrganizationUpsertOne {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.ClearManagementPolicy()
 	})
 }
 
@@ -1470,6 +1519,27 @@ func (u *DesktopOrganizationUpsertBulk) SetGroupID(v int64) *DesktopOrganization
 func (u *DesktopOrganizationUpsertBulk) UpdateGroupID() *DesktopOrganizationUpsertBulk {
 	return u.Update(func(s *DesktopOrganizationUpsert) {
 		s.UpdateGroupID()
+	})
+}
+
+// SetManagementPolicy sets the "management_policy" field.
+func (u *DesktopOrganizationUpsertBulk) SetManagementPolicy(v jsontext.Value) *DesktopOrganizationUpsertBulk {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.SetManagementPolicy(v)
+	})
+}
+
+// UpdateManagementPolicy sets the "management_policy" field to the value that was provided on create.
+func (u *DesktopOrganizationUpsertBulk) UpdateManagementPolicy() *DesktopOrganizationUpsertBulk {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.UpdateManagementPolicy()
+	})
+}
+
+// ClearManagementPolicy clears the value of the "management_policy" field.
+func (u *DesktopOrganizationUpsertBulk) ClearManagementPolicy() *DesktopOrganizationUpsertBulk {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.ClearManagementPolicy()
 	})
 }
 

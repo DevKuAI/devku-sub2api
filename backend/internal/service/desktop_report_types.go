@@ -39,19 +39,21 @@ type DesktopReportSource struct {
 
 // Model is the immutable Model ID supplied to this invocation, not current configuration.
 type DesktopReportExecution struct {
-	ID         int64      `json:"id"`
-	Revision   int        `json:"revision"`
-	Kind       string     `json:"kind"`
-	MemberID   string     `json:"member_id,omitempty"`
-	Model      string     `json:"model"`
-	Round      int        `json:"round"`
-	Chunk      int        `json:"chunk"`
-	Attempt    int        `json:"attempt"`
-	RequestID  string     `json:"request_id"`
-	Status     string     `json:"status"`
-	Error      string     `json:"error"`
-	StartedAt  time.Time  `json:"started_at"`
-	FinishedAt *time.Time `json:"finished_at"`
+	TotalTokens *int64     `json:"total_tokens"`
+	ActualCost  *float64   `json:"actual_cost"`
+	ID          int64      `json:"id"`
+	Revision    int        `json:"revision"`
+	Kind        string     `json:"kind"`
+	MemberID    string     `json:"member_id,omitempty"`
+	Model       string     `json:"model"`
+	Round       int        `json:"round"`
+	Chunk       int        `json:"chunk"`
+	Attempt     int        `json:"attempt"`
+	RequestID   string     `json:"request_id"`
+	Status      string     `json:"status"`
+	Error       string     `json:"error"`
+	StartedAt   time.Time  `json:"started_at"`
+	FinishedAt  *time.Time `json:"finished_at"`
 }
 
 type DesktopReportMember struct {
@@ -97,13 +99,14 @@ type DesktopReportPayload struct {
 	Model              string                  `json:"model"`
 	GroupID            int64                   `json:"group_id"`
 	UserID             int64                   `json:"user_id"`
-	Snapshots          []DesktopReportSnapshot `json:"snapshots"`
+	Snapshots          []DesktopReportSnapshot `json:"snapshots,omitempty"`
 	Summary            DesktopGeneratedReport  `json:"summary"`
 	SummaryWork        DesktopReportWork       `json:"summary_work"`
 	SummaryFingerprint string                  `json:"summary_fingerprint"`
 }
 
 type DesktopReportTask struct {
+	Checkpoint     string               `json:"-"`
 	ID             int64                `json:"id"`
 	OrganizationID int64                `json:"-"`
 	Date           string               `json:"date"`
@@ -115,6 +118,12 @@ type DesktopReportTask struct {
 }
 
 type DesktopReportDay struct {
+	TotalMembers     int                    `json:"total_members"`
+	NoRecordMembers  int                    `json:"no_record_members"`
+	Page             int                    `json:"page"`
+	PageSize         int                    `json:"page_size"`
+	Queue            *DesktopReportQueue    `json:"queue,omitempty"`
+	MissingDates     []string               `json:"missing_dates,omitempty"`
 	Date             string                 `json:"date"`
 	Timezone         string                 `json:"timezone"`
 	AnalysisModel    string                 `json:"analysis_model"`
@@ -126,6 +135,31 @@ type DesktopReportDay struct {
 	ExpectedMembers  int                    `json:"expected_members"`
 	CompletedMembers int                    `json:"completed_members"`
 	MissingMembers   []string               `json:"missing_members"`
+}
+
+type DesktopReportQuery struct {
+	Section       string
+	MemberID      string
+	Search        string
+	Page          int
+	PageSize      int
+	ExecutionPage int
+}
+
+type DesktopReportQueue struct {
+	Pending         int        `json:"pending"`
+	Running         int        `json:"running"`
+	OldestPendingAt *time.Time `json:"oldest_pending_at"`
+}
+
+// Read requests never load source text or checkpoint inputs.
+type DesktopReportReader interface {
+	ReadDay(context.Context, int64, string, DesktopReportQuery) (*DesktopReportDay, error)
+}
+
+type DesktopReportSnapshotReader interface {
+	SnapshotMetadata(context.Context, int64, string) ([]DesktopReportSnapshot, error)
+	SnapshotSources(context.Context, int64, []string) ([]DesktopReportSource, error)
 }
 
 type DesktopReportRepository interface {

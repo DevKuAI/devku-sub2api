@@ -103,6 +103,7 @@ func (s *desktopRepositoryStub) DesktopOrganizationGroupForUser(context.Context,
 
 type desktopUsageRepositoryStub struct {
 	DesktopUsageRepository
+	memberError error
 	calls       [][]int64
 	next        []*usagestats.UsageStats
 	memberCalls []desktopMemberUsageCall
@@ -128,7 +129,30 @@ func (s *desktopUsageRepositoryStub) GetDesktopMembersUsage(_ context.Context, i
 		memberIDs: append([]int64(nil), ids...), todayStart: todayStart,
 		last30DaysStart: last30DaysStart, endTime: endTime,
 	})
-	return s.memberUsage, nil
+	return s.memberUsage, s.memberError
+}
+
+func TestDesktopMembersRemainAvailableWithoutUsage(t *testing.T) {
+	repo := &desktopRepositoryStub{members: []DesktopMember{{ID: 7, PublicID: "mem_one"}}}
+	usage := &desktopUsageRepositoryStub{memberError: ErrDesktopUsageUnavailable}
+	svc := &DesktopService{repo: repo, usage: usage, now: time.Now}
+	members, page, err := svc.ListMembersWithUsage(context.Background(), "org_one", pagination.PaginationParams{Page: 1, PageSize: 20}, DesktopMemberListFilters{})
+	require.NoError(t, err)
+	require.EqualValues(t, 1, page.Total)
+	require.Len(t, members, 1)
+	require.Nil(t, members[0].Usage, "unavailable usage must not be reported as zero")
+}
+
+func TestDesktopMemberUsageUsesThirtyCalendarDays(t *testing.T) {
+	repo := &desktopRepositoryStub{members: []DesktopMember{{ID: 7}}}
+	usage := &desktopUsageRepositoryStub{}
+	now := time.Date(2026, 10, 12, 14, 30, 0, 0, time.FixedZone("Asia/Shanghai", 8*3600))
+	svc := &DesktopService{repo: repo, usage: usage, now: func() time.Time { return now }}
+	_, _, err := svc.ListMembersWithUsage(context.Background(), "org_one", pagination.PaginationParams{Page: 1, PageSize: 20}, DesktopMemberListFilters{})
+	require.NoError(t, err)
+	range30, err := (DesktopAnalyticsRangeInput{Days: 30}).Resolve(now)
+	require.NoError(t, err)
+	require.True(t, range30.Start.Equal(usage.memberCalls[0].last30DaysStart))
 }
 
 func activeDesktopAuthorization() *DesktopAuthorizedMember {
@@ -231,7 +255,9 @@ func TestDesktopListMembersWithUsageAggregatesCurrentPage(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, usage.memberCalls, 1)
 	require.Equal(t, []int64{7, 8}, usage.memberCalls[0].memberIDs)
-	require.Equal(t, now.AddDate(0, 0, -30), usage.memberCalls[0].last30DaysStart)
+	selection, rangeErr := (DesktopAnalyticsRangeInput{Days: 30}).Resolve(now)
+	require.NoError(t, rangeErr)
+	require.True(t, selection.Start.Equal(usage.memberCalls[0].last30DaysStart))
 	require.Equal(t, now, usage.memberCalls[0].endTime)
 	require.Equal(t, memberUsage, members[0].Usage)
 	require.NotNil(t, members[1].Usage)

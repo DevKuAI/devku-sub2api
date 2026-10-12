@@ -95,20 +95,20 @@ func (s *DesktopService) GetManagedOrganization(ctx context.Context, userID int6
 	return organization, nil
 }
 
-func (s *DesktopService) CreateManagedMember(ctx context.Context, userID int64, name, phone, remark string) (*DesktopMember, error) {
+func (s *DesktopService) CreateManagedMember(ctx context.Context, userID int64, name, phone, remark string, budgets ...*DesktopMemberBudget) (*DesktopMember, error) {
 	managed, organization, err := s.managedService(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-	return managed.CreateMember(ctx, organization.PublicID, name, phone, remark)
+	return managed.CreateMember(ctx, organization.PublicID, name, phone, remark, budgets...)
 }
 
-func (s *DesktopService) ListManagedMembersWithUsage(ctx context.Context, userID int64, params pagination.PaginationParams, filters DesktopMemberListFilters) ([]DesktopMember, *pagination.PaginationResult, error) {
+func (s *DesktopService) ListManagedMembersWithUsage(ctx context.Context, userID int64, params pagination.PaginationParams, filters DesktopMemberListFilters, asOf ...time.Time) ([]DesktopMember, *pagination.PaginationResult, error) {
 	managed, organization, err := s.managedService(ctx, userID)
 	if err != nil {
 		return nil, nil, err
 	}
-	return managed.ListMembersWithUsage(ctx, organization.PublicID, params, filters)
+	return managed.ListMembersWithUsage(ctx, organization.PublicID, params, filters, asOf...)
 }
 
 func (s *DesktopService) UpdateManagedMember(ctx context.Context, userID int64, memberPublicID string, input DesktopUpdateMemberInput, phone *string) (*DesktopMember, error) {
@@ -149,6 +149,11 @@ func (s *DesktopService) managedService(ctx context.Context, userID int64) (*Des
 }
 
 func (s *DesktopService) UpdateOrganization(ctx context.Context, publicID string, input DesktopUpdateOrganizationInput) (*DesktopOrganization, error) {
+	if input.ManagementPolicy != nil {
+		if err := input.ManagementPolicy.Validate(); err != nil {
+			return nil, err
+		}
+	}
 	if input.MemberLimit != nil && *input.MemberLimit < 1 {
 		return nil, ErrDesktopValidation.WithMetadata(map[string]string{"field": "member_limit"})
 	}
@@ -199,7 +204,7 @@ func (s *DesktopService) UpdateTargetConfig(ctx context.Context, publicID string
 	return s.repo.UpdateTargetConfig(ctx, publicID, target)
 }
 
-func (s *DesktopService) CreateMember(ctx context.Context, organizationPublicID, name, phone, remark string) (*DesktopMember, error) {
+func (s *DesktopService) CreateMember(ctx context.Context, organizationPublicID, name, phone, remark string, budgets ...*DesktopMemberBudget) (*DesktopMember, error) {
 	organization, err := s.repo.GetOrganization(ctx, organizationPublicID)
 	if err != nil {
 		return nil, err
@@ -219,6 +224,12 @@ func (s *DesktopService) CreateMember(ctx context.Context, organizationPublicID,
 	if err != nil {
 		return nil, err
 	}
+	if len(budgets) > 0 && budgets[0] != nil {
+		if err := budgets[0].Validate(); err != nil {
+			return nil, err
+		}
+		budgets[0].Apply(key)
+	}
 	return s.repo.CreateMember(ctx, organizationPublicID, DesktopCreateMemberInput{Member: member, APIKey: key})
 }
 
@@ -236,13 +247,27 @@ func (s *DesktopService) ListMembers(ctx context.Context, organizationPublicID s
 	return s.repo.ListMembers(ctx, organizationPublicID, params, filters)
 }
 
-func (s *DesktopService) ListMembersWithUsage(ctx context.Context, organizationPublicID string, params pagination.PaginationParams, filters DesktopMemberListFilters) ([]DesktopMember, *pagination.PaginationResult, error) {
+func (s *DesktopService) ListMembersWithUsage(ctx context.Context, organizationPublicID string, params pagination.PaginationParams, filters DesktopMemberListFilters, asOf ...time.Time) ([]DesktopMember, *pagination.PaginationResult, error) {
 	members, result, err := s.ListMembers(ctx, organizationPublicID, params, filters)
 	if err != nil || len(members) == 0 {
 		return members, result, err
 	}
 
 	now := s.now()
+	if len(asOf) > 0 && !asOf[0].IsZero() {
+		if asOf[0].After(now) || asOf[0].Before(now.Add(-24*time.Hour)) {
+			return nil, nil, ErrDesktopValidation
+		}
+		now = asOf[0]
+	}
+	for i := range members {
+		members[i].UsageAsOf = &now
+		members[i].UsageTimezone = timezone.Location().String()
+	}
+	selection, err := (DesktopAnalyticsRangeInput{Days: 30}).Resolve(now)
+	if err != nil {
+		return nil, nil, err
+	}
 	memberIDs := make([]int64, len(members))
 	for i := range members {
 		memberIDs[i] = members[i].ID
@@ -251,11 +276,11 @@ func (s *DesktopService) ListMembersWithUsage(ctx context.Context, organizationP
 		ctx,
 		memberIDs,
 		timezone.StartOfDay(now).UTC(),
-		now.AddDate(0, 0, -30).UTC(),
+		selection.Start.UTC(),
 		now.UTC(),
 	)
 	if err != nil {
-		return nil, nil, ErrDesktopUsageUnavailable.WithCause(err)
+		return members, result, nil
 	}
 	for i := range members {
 		members[i].Usage = usage[members[i].ID]
@@ -267,6 +292,11 @@ func (s *DesktopService) ListMembersWithUsage(ctx context.Context, organizationP
 }
 
 func (s *DesktopService) UpdateMember(ctx context.Context, organizationPublicID, memberPublicID string, input DesktopUpdateMemberInput, phone *string) (*DesktopMember, error) {
+	if input.Budget != nil {
+		if err := input.Budget.Validate(); err != nil {
+			return nil, err
+		}
+	}
 	if input.Remark != nil {
 		remark, err := NormalizeDesktopRemark(*input.Remark)
 		if err != nil {

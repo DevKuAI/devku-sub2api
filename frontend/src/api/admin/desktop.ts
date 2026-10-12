@@ -70,7 +70,22 @@ export interface DesktopTargetConfig {
   }
 }
 
+export interface DesktopManagementPolicy {
+ analysis_limit_1d: number
+ conversation_retention_days: number
+ report_retention_days: number
+ execution_retention_days: number
+}
+export interface DesktopMemberBudget {
+ quota: number
+ limit_1d: number
+ limit_7d: number
+ quota_used?: number
+ usage_1d?: number
+ usage_7d?: number
+}
 export interface DesktopOrganization {
+ management_policy?: DesktopManagementPolicy
   public_id: string
   code: string
   name: string
@@ -89,6 +104,9 @@ export interface DesktopOrganization {
 }
 
 export interface DesktopMember {
+ usage_as_of?: string
+ usage_timezone?: string
+ budget?: DesktopMemberBudget
 	public_id: string
 	name: string
 	remark?: string
@@ -121,6 +139,7 @@ export interface CreateDesktopOrganizationRequest {
 }
 
 export interface UpdateDesktopOrganizationRequest {
+ management_policy?: DesktopManagementPolicy
   name?: string
   status?: DesktopStatus
   gateway_user_id?: number
@@ -132,12 +151,14 @@ export interface UpdateDesktopOrganizationRequest {
 }
 
 export interface CreateDesktopMemberRequest {
+ budget?: DesktopMemberBudget
   name: string
   phone: string
   remark?: string
 }
 
 export interface UpdateDesktopMemberRequest {
+ budget?: DesktopMemberBudget
   name?: string
   phone?: string
   remark?: string
@@ -152,7 +173,7 @@ function idempotencyHeaders(prefix: string): Record<string, string> {
 export async function listOrganizations(
   page: number,
   pageSize: number,
-  filters: { search?: string; status?: DesktopStatus | '' },
+  filters: { search?: string; status?: DesktopStatus | ''; as_of?: string },
   signal?: AbortSignal,
 ): Promise<PaginatedResponse<DesktopOrganization>> {
   const { data } = await apiClient.get<PaginatedResponse<DesktopOrganization>>('/admin/desktop/organizations', {
@@ -190,7 +211,7 @@ export async function listMembers(
   organizationID: string,
   page: number,
   pageSize: number,
-  filters: { search?: string; status?: DesktopStatus | '' },
+  filters: { search?: string; status?: DesktopStatus | ''; as_of?: string },
   signal?: AbortSignal,
 ): Promise<PaginatedResponse<DesktopMember>> {
   const { data } = await apiClient.get<PaginatedResponse<DesktopMember>>(

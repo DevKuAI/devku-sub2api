@@ -614,6 +614,9 @@ func (s *GatewayService) billingDeps() *billingDeps {
 }
 
 func writeUsageLogBestEffort(ctx context.Context, repo UsageLogRepository, usageLog *UsageLog, logKey string) {
+	if capture := DesktopReportUsageCaptureFromContext(ctx); capture != nil && usageLog != nil {
+		capture(usageLog)
+	}
 	if repo == nil || usageLog == nil {
 		return
 	}

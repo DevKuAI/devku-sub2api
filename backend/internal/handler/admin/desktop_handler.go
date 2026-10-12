@@ -42,14 +42,15 @@ type desktopCreateOrganizationRequest struct {
 }
 
 type desktopUpdateOrganizationRequest struct {
-	ConversationSummaryEnabled   *bool   `json:"conversation_summary_enabled"`
-	AnalysisModel                *string `json:"analysis_model"`
-	ConversationReportingEnabled *bool   `json:"conversation_reporting_enabled"`
-	Name                         *string `json:"name"`
-	Status                       *string `json:"status"`
-	GatewayUserID                *int64  `json:"gateway_user_id"`
-	GroupID                      *int64  `json:"group_id"`
-	MemberLimit                  *int    `json:"member_limit" binding:"omitempty,gte=1"`
+	ManagementPolicy             *service.DesktopManagementPolicy `json:"management_policy"`
+	ConversationSummaryEnabled   *bool                            `json:"conversation_summary_enabled"`
+	AnalysisModel                *string                          `json:"analysis_model"`
+	ConversationReportingEnabled *bool                            `json:"conversation_reporting_enabled"`
+	Name                         *string                          `json:"name"`
+	Status                       *string                          `json:"status"`
+	GatewayUserID                *int64                           `json:"gateway_user_id"`
+	GroupID                      *int64                           `json:"group_id"`
+	MemberLimit                  *int                             `json:"member_limit" binding:"omitempty,gte=1"`
 }
 
 type desktopTargetConfigRequest struct {
@@ -57,34 +58,37 @@ type desktopTargetConfigRequest struct {
 }
 
 type desktopCreateMemberRequest struct {
-	Name   string `json:"name" binding:"required"`
-	Phone  string `json:"phone" binding:"required"`
-	Remark string `json:"remark"`
+	Budget *service.DesktopMemberBudget `json:"budget"`
+	Name   string                       `json:"name" binding:"required"`
+	Phone  string                       `json:"phone" binding:"required"`
+	Remark string                       `json:"remark"`
 }
 
 type desktopUpdateMemberRequest struct {
-	Name   *string `json:"name"`
-	Remark *string `json:"remark"`
-	Phone  *string `json:"phone"`
-	Status *string `json:"status"`
+	Budget *service.DesktopMemberBudget `json:"budget"`
+	Name   *string                      `json:"name"`
+	Remark *string                      `json:"remark"`
+	Phone  *string                      `json:"phone"`
+	Status *string                      `json:"status"`
 }
 
 type desktopOrganizationDTO struct {
-	ConversationSummaryEnabled   bool                         `json:"conversation_summary_enabled"`
-	AnalysisModel                string                       `json:"analysis_model"`
-	ConversationReportingEnabled bool                         `json:"conversation_reporting_enabled"`
-	PublicID                     string                       `json:"public_id"`
-	Code                         string                       `json:"code"`
-	Name                         string                       `json:"name"`
-	Status                       string                       `json:"status"`
-	GatewayUser                  desktopGatewayUserDTO        `json:"gateway_user"`
-	Group                        desktopGroupDTO              `json:"group"`
-	MemberCount                  int                          `json:"member_count"`
-	MemberLimit                  int                          `json:"member_limit"`
-	TargetConfigAssigned         bool                         `json:"target_config_assigned"`
-	TargetConfig                 *service.DesktopTargetConfig `json:"target_config,omitempty"`
-	CreatedAt                    time.Time                    `json:"created_at"`
-	UpdatedAt                    time.Time                    `json:"updated_at"`
+	ManagementPolicy             service.DesktopManagementPolicy `json:"management_policy"`
+	ConversationSummaryEnabled   bool                            `json:"conversation_summary_enabled"`
+	AnalysisModel                string                          `json:"analysis_model"`
+	ConversationReportingEnabled bool                            `json:"conversation_reporting_enabled"`
+	PublicID                     string                          `json:"public_id"`
+	Code                         string                          `json:"code"`
+	Name                         string                          `json:"name"`
+	Status                       string                          `json:"status"`
+	GatewayUser                  desktopGatewayUserDTO           `json:"gateway_user"`
+	Group                        desktopGroupDTO                 `json:"group"`
+	MemberCount                  int                             `json:"member_count"`
+	MemberLimit                  int                             `json:"member_limit"`
+	TargetConfigAssigned         bool                            `json:"target_config_assigned"`
+	TargetConfig                 *service.DesktopTargetConfig    `json:"target_config,omitempty"`
+	CreatedAt                    time.Time                       `json:"created_at"`
+	UpdatedAt                    time.Time                       `json:"updated_at"`
 }
 
 type desktopGatewayUserDTO struct {
@@ -99,15 +103,18 @@ type desktopGroupDTO struct {
 }
 
 type desktopMemberDTO struct {
-	PublicID         string                      `json:"public_id"`
-	Name             string                      `json:"name"`
-	Remark           string                      `json:"remark"`
-	Phone            string                      `json:"phone"`
-	Status           string                      `json:"status"`
-	ModelTokenStatus string                      `json:"model_token_status"`
-	Usage            *service.DesktopMemberUsage `json:"usage,omitempty"`
-	CreatedAt        time.Time                   `json:"created_at"`
-	UpdatedAt        time.Time                   `json:"updated_at"`
+	UsageAsOf        *time.Time                   `json:"usage_as_of,omitempty"`
+	UsageTimezone    string                       `json:"usage_timezone,omitempty"`
+	Budget           *service.DesktopMemberBudget `json:"budget,omitempty"`
+	PublicID         string                       `json:"public_id"`
+	Name             string                       `json:"name"`
+	Remark           string                       `json:"remark"`
+	Phone            string                       `json:"phone"`
+	Status           string                       `json:"status"`
+	ModelTokenStatus string                       `json:"model_token_status"`
+	Usage            *service.DesktopMemberUsage  `json:"usage,omitempty"`
+	CreatedAt        time.Time                    `json:"created_at"`
+	UpdatedAt        time.Time                    `json:"updated_at"`
 }
 
 func (h *DesktopHandler) CreateOrganization(c *gin.Context) {
@@ -167,7 +174,7 @@ func (h *DesktopHandler) UpdateOrganization(c *gin.Context) {
 		ConversationSummaryEnabled: req.ConversationSummaryEnabled, AnalysisModel: req.AnalysisModel,
 		ConversationReportingEnabled: req.ConversationReportingEnabled,
 		Name:                         req.Name, Status: req.Status, GatewayUserID: req.GatewayUserID, GroupID: req.GroupID,
-		MemberLimit: req.MemberLimit,
+		MemberLimit: req.MemberLimit, ManagementPolicy: req.ManagementPolicy,
 	})
 	if response.ErrorFrom(c, err) {
 		return
@@ -200,7 +207,7 @@ func (h *DesktopHandler) CreateMember(c *gin.Context) {
 		Member         desktopCreateMemberRequest `json:"member"`
 	}{OrganizationID: organizationID, Member: req}
 	result, err := executeAdminIdempotent(c, desktopMemberCreateIdempotencyScope, payload, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
-		member, execErr := h.desktop.CreateMember(ctx, organizationID, req.Name, req.Phone, req.Remark)
+		member, execErr := h.desktop.CreateMember(ctx, organizationID, req.Name, req.Phone, req.Remark, req.Budget)
 		if execErr != nil {
 			return nil, execErr
 		}
@@ -213,10 +220,14 @@ func (h *DesktopHandler) CreateMember(c *gin.Context) {
 }
 
 func (h *DesktopHandler) ListMembers(c *gin.Context) {
+	asOf, err := handlerdto.ParseDesktopUsageAsOf(c.Query("as_of"))
+	if response.ErrorFrom(c, err) {
+		return
+	}
 	page, pageSize := response.ParsePagination(c)
 	items, result, err := h.desktop.ListMembersWithUsage(c.Request.Context(), c.Param("organization_id"), pagination.PaginationParams{Page: page, PageSize: pageSize}, service.DesktopMemberListFilters{
 		Search: c.Query("search"), Status: c.Query("status"),
-	})
+	}, asOf)
 	if response.ErrorFrom(c, err) {
 		return
 	}
@@ -234,7 +245,7 @@ func (h *DesktopHandler) UpdateMember(c *gin.Context) {
 		return
 	}
 	member, err := h.desktop.UpdateMember(c.Request.Context(), c.Param("organization_id"), c.Param("member_id"), service.DesktopUpdateMemberInput{
-		Name: req.Name, Remark: req.Remark, Status: req.Status,
+		Name: req.Name, Remark: req.Remark, Status: req.Status, Budget: req.Budget,
 	}, req.Phone)
 	if response.ErrorFrom(c, err) {
 		return
@@ -291,7 +302,7 @@ func adminDesktopIdempotencyResponse(c *gin.Context, result *service.Idempotency
 
 func desktopOrganizationFromService(value *service.DesktopOrganization, includeConfig bool) desktopOrganizationDTO {
 	dto := desktopOrganizationDTO{
-		ConversationSummaryEnabled: value.ConversationSummaryEnabled, AnalysisModel: value.AnalysisModel,
+		ConversationSummaryEnabled: value.ConversationSummaryEnabled, AnalysisModel: value.AnalysisModel, ManagementPolicy: value.ManagementPolicy,
 		ConversationReportingEnabled: value.ConversationReportingEnabled,
 		PublicID:                     value.PublicID, Code: value.Code, Name: value.Name, Status: value.Status,
 		GatewayUser: desktopGatewayUserDTO{ID: value.GatewayUserID, Email: value.GatewayUserEmail, Username: value.GatewayUserName},
@@ -308,7 +319,7 @@ func desktopOrganizationFromService(value *service.DesktopOrganization, includeC
 func desktopMemberFromService(value *service.DesktopMember) desktopMemberDTO {
 	return desktopMemberDTO{
 		PublicID: value.PublicID, Name: value.Name, Remark: value.Remark, Phone: value.Phone, Status: value.Status,
-		ModelTokenStatus: value.ModelTokenStatus(), Usage: value.Usage, CreatedAt: value.CreatedAt, UpdatedAt: value.UpdatedAt,
+		ModelTokenStatus: value.ModelTokenStatus(), Usage: value.Usage, UsageAsOf: value.UsageAsOf, UsageTimezone: value.UsageTimezone, Budget: value.Budget, CreatedAt: value.CreatedAt, UpdatedAt: value.UpdatedAt,
 	}
 }
 

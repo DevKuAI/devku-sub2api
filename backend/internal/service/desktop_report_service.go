@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -33,15 +32,16 @@ func reportUnavailableReason(err error) string {
 }
 
 type DesktopReportService struct {
-	desktop *DesktopService
-	repo    DesktopReportRepository
-	ai      DesktopReportAI
-	now     func() time.Time
-	loc     *time.Location
-	cancel  context.CancelFunc
-	wg      sync.WaitGroup
-	start   sync.Once
-	stop    sync.Once
+	desktop     *DesktopService
+	repo        DesktopReportRepository
+	ai          DesktopReportAI
+	now         func() time.Time
+	loc         *time.Location
+	cancel      context.CancelFunc
+	wg          sync.WaitGroup
+	start       sync.Once
+	stop        sync.Once
+	lastCleanup time.Time
 }
 
 func NewDesktopReportService(desktop *DesktopService, repo DesktopReportRepository) *DesktopReportService {
@@ -118,6 +118,19 @@ func reportConfigReason(o *DesktopOrganization) string {
 func (s *DesktopReportService) check(ctx context.Context, o *DesktopOrganization, key *APIKey, model string) error {
 	if reason := reportConfigReason(o); reason != "" {
 		return NewDesktopReportUnavailable(reason)
+	}
+	if o.ManagementPolicy.AnalysisLimit1d > 0 {
+		if reader, ok := s.repo.(interface {
+			AnalysisUsage(context.Context, int64) (float64, error)
+		}); ok {
+			usage, err := reader.AnalysisUsage(ctx, o.ID)
+			if err != nil {
+				return NewDesktopReportUnavailable("billing_unavailable")
+			}
+			if usage >= o.ManagementPolicy.AnalysisLimit1d {
+				return NewDesktopReportUnavailable("analysis_budget_exhausted")
+			}
+		}
 	}
 	if s.ai == nil {
 		return NewDesktopReportUnavailable("model_unavailable")
@@ -250,6 +263,9 @@ func (s *DesktopReportService) Enqueue(ctx context.Context, o *DesktopOrganizati
 	if err != nil {
 		return nil, err
 	}
+	if o.ManagementPolicy.ReportRetentionDays > 0 && date < s.now().In(s.loc).AddDate(0, 0, -o.ManagementPolicy.ReportRetentionDays).Format("2006-01-02") {
+		return nil, ErrDesktopValidation.WithMetadata(map[string]string{"reason": "report_retention_expired"})
+	}
 	if mode != "generate" && mode != "retry" && mode != "regenerate" {
 		return nil, ErrDesktopValidation
 	}
@@ -281,47 +297,69 @@ func reportHasRecords(members []DesktopReportMember) bool {
 	return false
 }
 func (s *DesktopReportService) tick(ctx context.Context) {
-	now := s.now().In(s.loc)
-	if now.Hour() < 2 {
-		return
+	if cleaner, ok := s.repo.(interface {
+		Cleanup(context.Context, time.Time) error
+	}); ok && (s.lastCleanup.IsZero() || s.now().Sub(s.lastCleanup) >= time.Hour) {
+		cleanupCtx, cancel := context.WithTimeout(ctx, time.Minute)
+		err := cleaner.Cleanup(cleanupCtx, s.now())
+		cancel()
+		if err != nil {
+			slog.Error("desktop retention cleanup failed", "error", err)
+		} else {
+			s.lastCleanup = s.now()
+		}
 	}
-	// Enqueue without model readiness: a temporarily unavailable model must not lose its date.
-	date := now.AddDate(0, 0, -1).Format("2006-01-02")
+	if s.now().In(s.loc).Hour() >= 2 {
+		s.enqueueAutomatic(ctx)
+	}
+	workers := s.desktop.config.ReportWorkers
+	if workers <= 0 {
+		workers = 2
+	}
+	slots := make(chan struct{}, workers)
+	var running sync.WaitGroup
+	defer running.Wait()
+	for range max(workers, 4) {
+		select {
+		case slots <- struct{}{}:
+		case <-ctx.Done():
+			return
+		}
+		task, err := s.repo.Claim(ctx)
+		if err != nil || task == nil {
+			<-slots
+			if err != nil {
+				slog.Error("desktop report claim failed", "error", err)
+			}
+			return
+		}
+		running.Add(1)
+		go func() { defer running.Done(); defer func() { <-slots }(); s.run(ctx, task) }()
+	}
+}
+
+func (s *DesktopReportService) enqueueAutomatic(ctx context.Context) {
+	date := s.now().In(s.loc).AddDate(0, 0, -1).Format("2006-01-02")
 	ids, err := s.repo.DueOrganizations(ctx, date)
 	if err != nil {
 		slog.Error("desktop report enqueue scan failed", "error", err)
 		return
 	}
 	for _, id := range ids {
-		o, e := s.desktop.GetOrganization(ctx, id)
-		if e != nil {
+		o, err := s.desktop.GetOrganization(ctx, id)
+		if err != nil {
 			continue
 		}
-		members, e := s.repo.Day(ctx, o.ID, date)
-		if e != nil {
-			slog.Error("desktop report source scan failed", "error", e)
+		members, err := s.repo.Day(ctx, o.ID, date)
+		if err != nil {
+			slog.Error("desktop report source scan failed", "error", err)
 			continue
 		}
 		if reportHasRecords(members) {
-			if _, e = s.repo.Enqueue(ctx, o.ID, date, "automatic"); e != nil {
-				slog.Error("desktop report enqueue failed", "error", e)
+			if _, err = s.repo.Enqueue(ctx, o.ID, date, "automatic"); err != nil {
+				slog.Error("desktop report enqueue failed", "error", err)
 			}
 		}
-	}
-	// Bound each tick; unfinished dates remain durable and are processed on later ticks.
-	for range 4 {
-		if ctx.Err() != nil {
-			return
-		}
-		task, e := s.repo.Claim(ctx)
-		if e != nil {
-			slog.Error("desktop report claim failed", "error", e)
-			return
-		}
-		if task == nil {
-			return
-		}
-		s.run(ctx, task)
 	}
 }
 func (s *DesktopReportService) run(parent context.Context, t *DesktopReportTask) {
@@ -379,7 +417,14 @@ func (s *DesktopReportService) process(ctx context.Context, t *DesktopReportTask
 	}
 	t.Reason = ""
 	if t.Payload.Model == "" {
-		snapshots, e := s.repo.Snapshot(ctx, o.ID, t.Date)
+		t.Checkpoint = ""
+		var snapshots []DesktopReportSnapshot
+		var e error
+		if reader, ok := s.repo.(DesktopReportSnapshotReader); ok {
+			snapshots, e = reader.SnapshotMetadata(ctx, o.ID, t.Date)
+		} else {
+			snapshots, e = s.repo.Snapshot(ctx, o.ID, t.Date)
+		}
 		if e != nil {
 			return time.Time{}, e
 		}
@@ -418,6 +463,7 @@ func (s *DesktopReportService) process(ctx context.Context, t *DesktopReportTask
 	pending := false
 	for i := range t.Payload.Snapshots {
 		snapshot := &t.Payload.Snapshots[i]
+		t.Checkpoint = "member:" + snapshot.Member.MemberID
 		if snapshot.Member.Status == "completed" {
 			success++
 			continue
@@ -431,11 +477,20 @@ func (s *DesktopReportService) process(ctx context.Context, t *DesktopReportTask
 			next = earlierReportTime(next, snapshot.Work.RetryAt)
 			continue
 		}
-		input, marshalErr := json.Marshal(snapshot.Sources)
-		if marshalErr != nil {
-			return time.Time{}, marshalErr
+		if len(snapshot.Work.Inputs) == 0 {
+			if reader, ok := s.repo.(DesktopReportSnapshotReader); ok && len(snapshot.Sources) == 0 {
+				snapshot.Sources, err = reader.SnapshotSources(ctx, o.ID, snapshot.Member.SourceIDs)
+				if err != nil {
+					return time.Time{}, err
+				}
+				if len(snapshot.Sources) != snapshot.Member.RecordCount {
+					return time.Time{}, NewDesktopReportUnavailable("sources_unavailable")
+				}
+			}
+			snapshot.Work.Inputs = reportSourceInputs(snapshot.Sources, t.Payload.Model)
+			snapshot.Sources = nil
 		}
-		content, e := s.analyze(ctx, t, key, &snapshot.Work, desktopReportMemberPrompt, string(input), "member:"+snapshot.Member.MemberID)
+		content, e := s.analyze(ctx, t, key, &snapshot.Work, desktopReportMemberPrompt, "", "member:"+snapshot.Member.MemberID)
 		if e != nil {
 			var blocked *DesktopReportUnavailable
 			if errors.As(e, &blocked) || errors.Is(e, ErrDesktopReportLeaseLost) || ctx.Err() != nil {
@@ -456,6 +511,8 @@ func (s *DesktopReportService) process(ctx context.Context, t *DesktopReportTask
 			snapshot.Member.GeneratedAt = &now
 			snapshot.Member.Status = "completed"
 			snapshot.Member.Error = ""
+			snapshot.Work = DesktopReportWork{}
+			snapshot.Sources = nil
 			success++
 		}
 		if err = s.repo.Save(ctx, t, s.now(), false); err != nil {
@@ -469,6 +526,7 @@ func (s *DesktopReportService) process(ctx context.Context, t *DesktopReportTask
 		}
 		return next, nil
 	}
+	t.Checkpoint = "summary"
 	texts := make([]string, 0, success)
 	for _, snapshot := range t.Payload.Snapshots {
 		if snapshot.Member.Status == "completed" {
@@ -498,6 +556,7 @@ func (s *DesktopReportService) process(ctx context.Context, t *DesktopReportTask
 		if e == nil {
 			now := s.now().UTC()
 			t.Payload.Summary = DesktopGeneratedReport{Status: "completed", Content: content, Model: t.Payload.Model, GeneratedAt: &now}
+			t.Payload.SummaryWork = DesktopReportWork{}
 		}
 	}
 	if t.Payload.Summary.Status != "completed" && t.Payload.SummaryWork.Attempts < 3 {
@@ -527,19 +586,10 @@ func earlierReportTime(a, b time.Time) time.Time {
 	return a
 }
 
-func reportChunks(input string) []string {
-	runes := []rune(input)
-	result := []string{}
-	for len(runes) > 0 {
-		n := min(len(runes), desktopReportChunkRunes)
-		result = append(result, string(runes[:n]))
-		runes = runes[n:]
-	}
-	return result
-}
 func (s *DesktopReportService) analyze(ctx context.Context, t *DesktopReportTask, key *APIKey, work *DesktopReportWork, prompt, input, stage string) (string, error) {
+	t.Checkpoint = stage
 	if len(work.Inputs) == 0 {
-		work.Inputs = reportChunks(input)
+		work.Inputs = reportTextInputs(input, t.Payload.Model)
 	}
 	for {
 		for len(work.Outputs) < len(work.Inputs) {
@@ -549,6 +599,15 @@ func (s *DesktopReportService) analyze(ctx context.Context, t *DesktopReportTask
 			}
 			if reportConfigurationChanged(o, t) {
 				return "", NewDesktopReportUnavailable("configuration_changed")
+			}
+			if key.RateLimit1d != o.ManagementPolicy.AnalysisLimit1d {
+				key, err = s.repo.AnalysisKey(ctx, o)
+				if err != nil {
+					return "", err
+				}
+				if s.desktop.apiKeys != nil {
+					s.desktop.apiKeys.InvalidateAuthCacheByKey(ctx, key.Key)
+				}
 			}
 			if err = s.check(ctx, o, key, t.Payload.Model); err != nil {
 				return "", err
@@ -573,7 +632,18 @@ func (s *DesktopReportService) analyze(ctx context.Context, t *DesktopReportTask
 				}
 				return "", NewDesktopReportUnavailable("execution_storage_unavailable")
 			}
-			text, callErr := s.ai.Generate(ctx, o, key, t.Payload.Model, prompt, "报表日期："+t.Date+"\n"+work.Inputs[len(work.Outputs)], requestID)
+			callCtx := ctx
+			if recorder, ok := s.repo.(DesktopReportUsageRecorder); ok {
+				executionID := execution.ID
+				callCtx = WithDesktopReportUsageCapture(ctx, func(usage *UsageLog) {
+					usageCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+					defer cancel()
+					if err := recorder.RecordExecutionUsage(usageCtx, executionID, usage); err != nil {
+						slog.Error("desktop report usage checkpoint failed", "execution_id", executionID, "error", err)
+					}
+				})
+			}
+			text, callErr := s.ai.Generate(callCtx, o, key, t.Payload.Model, prompt, "报表日期："+t.Date+"\n"+work.Inputs[len(work.Outputs)], requestID)
 			if callErr == nil && strings.TrimSpace(text) == "" {
 				callErr = errors.New("empty report output")
 			}
@@ -614,7 +684,7 @@ func (s *DesktopReportService) analyze(ctx context.Context, t *DesktopReportTask
 			work.Attempts = 3
 			return "", errors.New("report reduction did not converge")
 		}
-		work.Inputs = reportChunks(merged)
+		work.Inputs = reportTextInputs(merged, t.Payload.Model)
 		work.Outputs = nil
 		work.Round++
 		if err := s.repo.Save(ctx, t, s.now(), false); err != nil {

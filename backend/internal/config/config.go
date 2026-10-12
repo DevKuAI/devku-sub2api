@@ -117,6 +117,7 @@ type Config struct {
 
 // DesktopConfig controls the isolated Desktop authentication domain.
 type DesktopConfig struct {
+	ReportWorkers               int    `mapstructure:"report_workers"`
 	ConversationMemberPerMinute int    `mapstructure:"conversation_member_per_minute"`
 	Enabled                     bool   `mapstructure:"enabled"`
 	JWTSecret                   string `mapstructure:"jwt_secret"`
@@ -2078,6 +2079,7 @@ func setDefaults() {
 	// Desktop authentication domain
 	viper.SetDefault("desktop.conversation_member_per_minute", 60)
 	viper.SetDefault("desktop.enabled", false)
+	viper.SetDefault("desktop.report_workers", 2)
 	viper.SetDefault("desktop.jwt_secret", "")
 	viper.SetDefault("desktop.public_gateway_base_url", "")
 	viper.SetDefault("desktop.access_token_ttl_minutes", 15)
@@ -3853,6 +3855,9 @@ func (c *Config) Validate() error {
 func (c *Config) validateDesktop() error {
 	if !c.Desktop.Enabled {
 		return nil
+	}
+	if c.Desktop.ReportWorkers < 0 || c.Desktop.ReportWorkers > 16 {
+		return fmt.Errorf("desktop.report_workers must be between 1 and 16")
 	}
 	decodedJWTSecret, err := base64.StdEncoding.Strict().DecodeString(c.Desktop.JWTSecret)
 	if err != nil {

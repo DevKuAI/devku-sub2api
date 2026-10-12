@@ -17,6 +17,8 @@ export default {
       refreshOrganization: '关闭并刷新企业信息',
     },
     reports: {
+      previousPage: '上一页', nextPage: '下一页',
+      queue: '待执行 {pending} 项，执行中 {running} 项', oldestPending: '最早等待时间', missingDates: '以下日期有对话但尚无日报任务，可选择日期后补跑。',
       configuredModel: '当前配置模型',
       usedModel: '生成时使用的模型',
       taskStatus: '任务状态',
@@ -51,6 +53,7 @@ export default {
       resumeRefresh: '恢复自动刷新',
       noMembers: '暂无成员',
       executions: {
+        tokens: '计费用量', cost: '实际费用（USD）',
         "title": "执行记录（{count}）",
         "label": "模型执行记录",
         "hint": "保留每次分批分析、重试和重新生成时传入的模型快照。",
@@ -378,12 +381,23 @@ export default {
       hint: "按 {timezone} 时区统计，周一为每周起点。汇总当前企业全部成员，不受筛选或分页影响；包含历史模型令牌的留存用量，费用为实际费用。",
       loadFailed: "企业用量统计加载失败，请重试。",
     },
+    budget: {
+      title: '成员预算', hint: '金额单位为 USD；0 表示不限额。达到额度后停止新的模型请求；轮换凭据保留已用额度。',
+      quota: '累计额度', limit_1d: '24 小时额度', limit_7d: '7 天额度', warning: '已使用至少 80% 的额度', exhausted: '额度已用尽',
+    },
+    managementPolicy: {
+      title: '分析预算与数据保留', hint: '0 表示分析不限额或数据永久保留。配置保留天数后，系统会定期清理过期数据及正文副本；已清理内容无法恢复。正在处理的任务暂缓清理。',
+      analysisLimit: '分析 24 小时额度（USD）', conversation_retention_days: '原始对话保留天数', report_retention_days: '日报保留天数', execution_retention_days: '执行历史保留天数',
+    },
+    usageUnavailableHint: '用量暂不可用，成员管理仍可继续。可单独重试加载用量。',
+    usageUnavailable: '暂不可用',
     usageCost: '费用',
     usageTokens: '令牌用量',
     usageToday: '今日',
     usageLast30Days: '近 30 天',
     usageTotal: '累计',
     memberUsageExport: {
+      asOf: '统计截止时间', timezone: '统计时区',
       button: '导出 CSV',
       hint: '导出当前筛选条件下的全部成员用量，不受分页限制',
       exporting: '正在导出…',

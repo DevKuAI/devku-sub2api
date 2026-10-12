@@ -22,6 +22,10 @@ type usageRequestBodyHolder struct {
 // while risk control is enabled. The gateway already bounds the incoming request size;
 // management audit-body limits must not discard or truncate user messages.
 func (s *ContentModerationService) CaptureUsageRequestBody(ctx context.Context, protocol string, body []byte, _ string) *string {
+	// Enterprise analysis source text is governed by its own retention policy.
+	if ctx != nil && IsDesktopReportRequest(ctx) {
+		return nil
+	}
 	if s == nil || s.settingRepo == nil || len(body) == 0 {
 		return nil
 	}

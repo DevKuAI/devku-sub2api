@@ -13,6 +13,7 @@ export function createDesktopMemberUsageCsv(
   organization: Pick<DesktopOrganization, 'name' | 'code'>,
   members: DesktopMember[],
   t: (key: string) => string,
+ context?: { asOf: string; timezone: string },
 ): string {
   const headers = [
     'admin.desktop.organizationName',
@@ -48,5 +49,6 @@ export function createDesktopMemberUsageCsv(
     member.usage?.total_tokens,
     member.updated_at,
   ])
+  if (context) { headers.push(t('admin.desktop.memberUsageExport.asOf'), t('admin.desktop.memberUsageExport.timezone')); rows.forEach(row => row.push(context.asOf, context.timezone)) }
   return '\uFEFF' + [headers, ...rows].map(row => row.map(csvValue).join(',')).join('\r\n')
 }
