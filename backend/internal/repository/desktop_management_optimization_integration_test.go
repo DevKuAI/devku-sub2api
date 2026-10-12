@@ -4,13 +4,39 @@ package repository
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/Wei-Shaw/sub2api/migrations"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
+
+func TestDesktopReportMigrationAcceptsLegacyPendingPayloads(t *testing.T) {
+	ctx := context.Background()
+	tx, err := integrationDB.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	defer func() { _ = tx.Rollback() }()
+	_, err = tx.ExecContext(ctx, `CREATE TEMP TABLE desktop_daily_report_tasks (LIKE public.desktop_daily_report_tasks INCLUDING DEFAULTS); CREATE TEMP TABLE desktop_daily_report_members (LIKE public.desktop_daily_report_members INCLUDING DEFAULTS); INSERT INTO desktop_daily_report_tasks(id,organization_id,report_date,payload) VALUES (1,1,'2026-10-01','{"snapshots":null}'),(2,1,'2026-10-02','{}'),(3,1,'2026-10-03','{"snapshots":[{"member":{"member_id":"legacy-member","content":"preserved report"},"sources":[],"work":{}}]}')`)
+	require.NoError(t, err)
+	content, err := migrations.FS.ReadFile("255_desktop_management_optimization.sql")
+	require.NoError(t, err)
+	sql := string(content)
+	start := strings.Index(sql, "INSERT INTO desktop_daily_report_members")
+	end := strings.Index(sql, "CREATE INDEX idx_desktop_report_execution_member")
+	require.Greater(t, start, 0)
+	require.Greater(t, end, start)
+	_, err = tx.ExecContext(ctx, sql[start:end])
+	require.NoError(t, err)
+	var text string
+	require.NoError(t, tx.QueryRowContext(ctx, `SELECT member->>'content' FROM desktop_daily_report_members WHERE task_id=3`).Scan(&text))
+	require.Equal(t, "preserved report", text)
+	var remaining int
+	require.NoError(t, tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM desktop_daily_report_tasks WHERE payload ? 'snapshots'`).Scan(&remaining))
+	require.Zero(t, remaining)
+}
 
 func TestDesktopBudgetRotationPreservesLimitsAndWindows(t *testing.T) {
 	ctx := context.Background()

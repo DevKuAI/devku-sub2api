@@ -15,7 +15,7 @@ CREATE TABLE desktop_daily_report_members (
 );
 INSERT INTO desktop_daily_report_members(task_id, member_id, member, metadata, sources, work)
 SELECT t.id, s->'member'->>'member_id', s->'member', (s->'member') - ARRAY['content','source_ids','executions']::text[], COALESCE(s->'sources','[]'), COALESCE(s->'work','{}')
-FROM desktop_daily_report_tasks t, jsonb_array_elements(COALESCE(t.payload->'snapshots','[]')) s;
+FROM desktop_daily_report_tasks t, jsonb_array_elements(COALESCE(NULLIF(t.payload->'snapshots','null'::jsonb),'[]')) s;
 UPDATE desktop_daily_report_tasks SET payload = payload - 'snapshots';
 
 CREATE INDEX idx_desktop_report_execution_member ON desktop_daily_report_executions(organization_id, report_date, member_id, id DESC);
