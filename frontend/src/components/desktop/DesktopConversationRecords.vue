@@ -2,7 +2,7 @@
   <div class="min-w-0 space-y-5">
     <header><h2 class="detail-section-title">{{ t('admin.desktop.conversations.title') }}</h2><p class="detail-caption mt-1">{{ t('admin.desktop.detail.conversationsHint') }}</p></header>
     <DesktopConversationStatistics :organization-id="organizationId" :self-managed="selfManaged" :filters="appliedFilters" />
-    <form class="detail-panel grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4" @submit.prevent="applyFilters">
+    <form class="card detail-panel grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4" @submit.prevent="applyFilters">
       <label class="space-y-1 text-sm"><span>{{ t('admin.desktop.conversations.memberSearch') }}</span><input v-model="filters.member_search" class="input" type="search" maxlength="100" /></label>
       <label class="space-y-1 text-sm"><span>{{ t('admin.desktop.conversations.client') }}</span><select v-model="filters.client" class="input"><option value="">{{ t('common.all') }}</option><option value="workbuddy">Workbuddy</option><option value="chatgpt_codex">ChatGPT Codex</option></select></label>
       <label class="space-y-1 text-sm"><span>{{ t('admin.desktop.conversations.status') }}</span><select v-model="filters.capture_status" class="input"><option value="">{{ t('common.all') }}</option><option value="captured">{{ t('admin.desktop.conversations.captured') }}</option><option value="response_missing">{{ t('admin.desktop.conversations.responseMissing') }}</option></select></label>

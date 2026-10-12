@@ -1,70 +1,39 @@
+/* Desktop layout uses the shared controls and surface tokens. */
 .desktop-detail { container: enterprise-detail / inline-size; width: 100%; min-width: 0; }
-.desktop-detail .detail-panel { @apply min-w-0 rounded-xl border border-gray-200 bg-white p-4 dark:border-dark-700 dark:bg-dark-900; }
-.desktop-detail .detail-overview { @apply grid gap-5 rounded-xl bg-white p-4 dark:bg-dark-900; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.desktop-detail .detail-caption { @apply text-sm leading-relaxed text-gray-600 dark:text-dark-300; overflow-wrap: anywhere; }
-.desktop-detail .detail-section-title { @apply text-lg font-semibold leading-normal text-gray-900 dark:text-gray-100; }
-.desktop-detail .detail-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.desktop-detail .detail-tab { @apply min-h-11 min-w-0 rounded-lg border border-gray-500 bg-white px-3 py-2 text-sm font-medium leading-normal text-gray-700 dark:border-dark-400 dark:bg-dark-900 dark:text-dark-200; }
-.desktop-detail .detail-tab[aria-selected='true'] { @apply border-primary-600 bg-primary-50 font-semibold text-primary-700 dark:border-primary-300 dark:bg-dark-800 dark:text-primary-300; }
-.desktop-detail .detail-tab[aria-selected='true']::after { content: ''; display: block; width: 24px; height: 2px; margin: 6px auto 0; background: currentColor; }
-.desktop-detail .detail-tab-heading { @apply mb-4 flex flex-wrap items-end justify-between gap-4; }
-.desktop-detail .detail-toolbar { @apply flex flex-wrap items-end gap-4 rounded-xl bg-gray-50 p-4 dark:bg-dark-800; }
-.desktop-detail .detail-status { @apply rounded-md bg-gray-100 px-2.5 py-1 text-sm font-medium leading-normal text-gray-700 dark:bg-dark-700 dark:text-dark-200; }
-.desktop-detail .detail-config-metadata { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
+.desktop-detail .detail-panel { @apply min-w-0 p-4 sm:p-6; }
+.desktop-detail .detail-overview { @apply grid grid-cols-2 gap-4 p-4 sm:gap-6 sm:p-6 lg:grid-cols-4; }
+.desktop-detail .detail-caption { @apply text-sm leading-relaxed text-gray-500 dark:text-dark-400; overflow-wrap: anywhere; }
+.desktop-detail .detail-section-title { @apply text-base font-semibold text-gray-900 dark:text-white; }
+.desktop-detail .detail-tabs { @apply flex flex-wrap gap-1; }
+.desktop-detail .detail-tab { @apply min-w-0; transition: none; }
+.desktop-detail .detail-tab-heading { @apply mb-4 flex flex-wrap items-end justify-between gap-3; }
+.desktop-detail .detail-toolbar { @apply flex flex-wrap items-end gap-3; }
+.desktop-detail .detail-status { @apply rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700 dark:bg-dark-700 dark:text-dark-200; }
+.desktop-detail .detail-config-metadata { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
 .desktop-detail .detail-config-metadata dd { @apply mt-1 text-sm font-medium leading-relaxed text-gray-900 dark:text-gray-100; overflow-wrap: anywhere; }
-.desktop-detail .detail-error { @apply rounded-xl bg-red-50 p-4 text-sm leading-relaxed text-red-700 dark:bg-dark-900 dark:text-red-300; overflow-wrap: anywhere; }
-.desktop-detail .detail-table-hint { @apply hidden text-sm leading-relaxed text-gray-600 dark:text-dark-300 md:block; }
+.desktop-detail .detail-error { @apply rounded-xl bg-red-50 p-4 text-sm leading-relaxed text-red-700 dark:bg-red-900/20 dark:text-red-300; overflow-wrap: anywhere; }
+.desktop-detail .detail-warning { @apply rounded-xl bg-amber-50 p-4 text-sm leading-relaxed text-amber-800 dark:bg-amber-900/20 dark:text-amber-300; overflow-wrap: anywhere; }
+.desktop-detail .detail-table-hint { @apply hidden text-xs leading-relaxed text-gray-500 dark:text-dark-400 md:block; }
 .desktop-detail :where(dd, bdi, td, [data-field] > div) { overflow-wrap: anywhere; }
-.desktop-detail .text-gray-500, .desktop-detail .text-gray-400, .desktop-detail .input-hint { @apply text-gray-600 dark:text-dark-300; }
-.desktop-detail .text-red-500, .desktop-detail .text-red-600, .desktop-detail .input-error-text { @apply text-red-700 dark:text-red-300; }
-.desktop-detail .text-primary-600 { @apply text-primary-700 dark:text-primary-300; }
-.desktop-detail .btn, .desktop-detail .action-button { @apply min-h-11 max-w-full rounded-lg text-sm leading-normal; transition: none; transform: none; box-shadow: none; }
-.desktop-detail .btn { white-space: normal; }
-.desktop-detail .btn-primary { @apply border border-primary-700 bg-primary-700 text-white dark:border-primary-700; background-image: none; }
-.desktop-detail .btn-secondary { @apply border-gray-500 text-gray-700 dark:border-dark-400 dark:text-dark-200; }
-.desktop-detail .btn-secondary.text-red-600 { @apply border-red-300 text-red-700 dark:border-red-400 dark:text-red-300; }
-.desktop-detail .btn-danger { @apply border border-red-700 bg-red-700 text-white; background-image: none; }
-.desktop-detail .action-button { @apply inline-flex min-w-11 items-center justify-center border border-gray-300 bg-white p-2 text-gray-700 dark:border-dark-600 dark:bg-dark-900 dark:text-dark-200; }
-.desktop-detail .action-button-danger { @apply border-red-300 text-red-700 dark:border-red-400 dark:text-red-300; }
-.desktop-detail .input, .desktop-detail .select-trigger { @apply min-h-11 min-w-0 border-gray-500 text-base leading-normal dark:border-dark-400; transition: none; box-shadow: none; }
-.desktop-detail .input::placeholder, .desktop-detail input::placeholder { @apply text-gray-600 dark:text-dark-400; }
-.desktop-detail .select-value { white-space: normal; text-overflow: clip; overflow-wrap: anywhere; }
-.desktop-detail .select-icon svg { transition: none; }
-.desktop-detail .badge-success { @apply bg-emerald-50 text-emerald-800 dark:bg-dark-800 dark:text-emerald-200; }
-.desktop-detail .badge-warning { @apply bg-amber-50 text-amber-900 dark:bg-dark-800 dark:text-amber-200; }
-.desktop-detail .badge-gray { @apply bg-gray-100 text-gray-700 dark:bg-dark-700 dark:text-dark-200; }
-.desktop-detail .animate-pulse, .desktop-detail .animate-spin { animation: none; }
+.desktop-detail .detail-row-action { @apply inline-flex min-h-8 min-w-8 items-center justify-center rounded-lg p-2 text-gray-500 dark:text-dark-400; }
+.desktop-detail .detail-row-action-danger { @apply text-red-600 dark:text-red-400; }
 .desktop-detail .table-wrapper { max-width: 100%; overscroll-behavior-inline: contain; }
 .desktop-detail .modal-body { min-width: 0; overscroll-behavior: contain; }
-.desktop-detail .modal-header { gap: 16px; }
-.desktop-detail .modal-header button { @apply flex min-h-11 min-w-11 shrink-0 items-center justify-center text-gray-600 dark:text-dark-300; margin: 0; transition: none; }
 .desktop-detail .modal-title { overflow-wrap: anywhere; min-width: 0; }
 .desktop-detail .modal-footer > div { flex-wrap: wrap; }
-.desktop-detail .modal-footer button { min-height: 44px; }
-.desktop-detail .select-trigger:focus { box-shadow: none; }
-.desktop-detail :where(button, input, select, textarea, summary, a, [tabindex]):focus-visible { outline: 2px solid theme('colors.primary.600'); outline-offset: 3px; box-shadow: none; }
+/* Keep the shared gradient while using existing accent steps with AA text contrast. */
+.desktop-detail .btn-primary { @apply from-primary-600 to-primary-700; }
+.desktop-detail input::placeholder, .desktop-detail textarea::placeholder, .desktop-detail-select input::placeholder { @apply text-gray-500 dark:text-dark-400; }
+/* Preserve visible keyboard focus without replacing shared control surfaces. */
+.desktop-detail :where(button, input, select, textarea, summary, a, [tabindex]):focus-visible { outline: 2px solid theme('colors.primary.600'); outline-offset: 3px; }
 html.dark .desktop-detail :where(button, input, select, textarea, summary, a, [tabindex]):focus-visible { outline-color: theme('colors.primary.400'); }
 .desktop-detail .detail-tab, .desktop-detail .detail-panel { scroll-margin-block-start: 5rem; }
-.desktop-detail-select { @apply border-gray-500 dark:border-dark-400; }
-.desktop-detail-select input::placeholder { @apply text-gray-600 dark:text-dark-400; }
-.desktop-detail-select .select-search-input { min-width: 0; font-size: 1rem; }
-.desktop-detail-select .select-search-input:focus-visible { outline: 2px solid theme('colors.primary.600'); outline-offset: 2px; }
 .desktop-detail-select .select-options { overscroll-behavior: contain; }
-.desktop-detail-select .select-option { min-height: 44px; transition: none; }
 .desktop-detail-select .select-option-label { white-space: normal; overflow-wrap: anywhere; text-overflow: clip; }
-.desktop-detail-select .select-option-focused { outline: 2px solid theme('colors.primary.600'); outline-offset: -2px; }
+.desktop-detail-select .select-option-focused, .desktop-detail-select .select-search-input:focus-visible { outline: 2px solid theme('colors.primary.600'); outline-offset: -2px; }
 html.dark .desktop-detail-select .select-option-focused, html.dark .desktop-detail-select .select-search-input:focus-visible { outline-color: theme('colors.primary.400'); }
-.desktop-detail-select .select-empty { @apply text-gray-600 dark:text-dark-300; }
-.desktop-detail-select.select-dropdown-enter-active, .desktop-detail-select.select-dropdown-leave-active { transition: none; }
-.desktop-detail-select.select-dropdown-enter-from, .desktop-detail-select.select-dropdown-leave-to { transform: none; }
 @container enterprise-detail (min-width: 36rem) {
-  .desktop-detail .detail-panel, .desktop-detail .detail-overview { padding: 24px; }
-  .desktop-detail .detail-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .desktop-detail .detail-config-metadata { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@container enterprise-detail (min-width: 60rem) {
-  .desktop-detail .detail-tabs { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-  .desktop-detail .detail-overview { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 @container enterprise-detail (max-width: 35.999rem) {
   .desktop-detail [data-field] { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
@@ -73,17 +42,12 @@ html.dark .desktop-detail-select .select-option-focused, html.dark .desktop-deta
   .desktop-detail .detail-toolbar > div { width: 100%; }
   .desktop-detail .detail-toolbar .btn { flex: 1 1 auto; }
 }
-@media (hover: hover) {
-  .desktop-detail .btn-secondary:hover, .desktop-detail .btn-ghost:hover, .desktop-detail .action-button:hover { @apply bg-gray-100 dark:bg-dark-700; }
-  .desktop-detail .btn-primary:hover { @apply bg-primary-800; }
-  .desktop-detail .action-button-danger:hover { @apply bg-red-50 dark:bg-dark-800; }
+@media (max-width: 639px) {
+  .desktop-detail .input, .desktop-detail .select-trigger, .desktop-detail-select .select-search-input { font-size: 1rem; }
 }
-@media (hover: none) {
-  .desktop-detail .btn-primary:hover { @apply bg-primary-700; }
-  .desktop-detail .btn-secondary:hover { @apply bg-white dark:bg-dark-800; }
-  .desktop-detail .btn-ghost:hover { background: transparent; }
-  .desktop-detail .action-button:hover { @apply bg-white dark:bg-dark-900; }
-  .desktop-detail .select-trigger:hover { @apply border-gray-500 dark:border-dark-400; }
+@media (hover: hover) {
+  .desktop-detail .detail-row-action:hover { @apply bg-gray-100 text-primary-600 dark:bg-dark-700 dark:text-primary-400; }
+  .desktop-detail .detail-row-action-danger:hover { @apply bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300; }
 }
 @media (prefers-reduced-motion: reduce) {
   html:has(.desktop-detail) { scroll-behavior: auto; }
@@ -91,5 +55,5 @@ html.dark .desktop-detail-select .select-option-focused, html.dark .desktop-deta
 }
 @media (forced-colors: active) {
   .desktop-detail :where(button, input, select, textarea, summary, a, [tabindex]):focus-visible, .desktop-detail-select .select-option-focused, .desktop-detail-select .select-search-input:focus-visible { outline-color: Highlight; }
-  .desktop-detail .detail-tab[aria-selected='true'] { border-width: 2px; }
+  .desktop-detail .detail-tab[aria-selected='true'] { outline: 2px solid Highlight; outline-offset: -2px; }
 }

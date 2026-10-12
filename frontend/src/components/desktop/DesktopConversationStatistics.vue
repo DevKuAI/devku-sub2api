@@ -28,31 +28,31 @@
     <div v-if="view === 'usage' && statistics && !error" class="space-y-6" data-testid="conversation-usage-analysis">
       <p class="analytics-caption">{{ t('admin.desktop.usageStatistics.periodDetails', { from: statistics.range_start, to: statistics.range_end, timezone: statistics.timezone }) }}</p>
       <dl class="analytics-tiles">
-        <div v-for="item in usageMetrics" :key="item.key" class="analytics-panel"><dt class="analytics-caption">{{ t(`admin.desktop.conversations.statistics.${item.key}`) }}</dt><dd class="analytics-value"><bdi>{{ item.display }}</bdi></dd></div>
+        <div v-for="item in usageMetrics" :key="item.key" class="card analytics-panel"><dt class="analytics-caption">{{ t(`admin.desktop.conversations.statistics.${item.key}`) }}</dt><dd class="analytics-value"><bdi>{{ item.display }}</bdi></dd></div>
       </dl>
-      <div class="analytics-panel space-y-2">
+      <div class="card analytics-panel space-y-2">
         <p class="analytics-caption font-medium">{{ t('admin.desktop.conversations.statistics.durationCoverage', { measured: statistics.total.duration_record_count.toLocaleString(), total: statistics.total.record_count.toLocaleString() }) }}</p>
         <p class="analytics-caption">{{ t('admin.desktop.conversations.statistics.durationHint') }}</p>
       </div>
-      <section class="analytics-panel space-y-4" :aria-label="t('admin.desktop.conversations.statistics.trend')">
+      <section class="card analytics-panel space-y-4" :aria-label="t('admin.desktop.conversations.statistics.trend')">
         <h4 class="analytics-heading">{{ t('admin.desktop.conversations.statistics.trend') }}</h4>
         <div v-if="statistics.daily.some(day => day.record_count > 0)" class="h-56 min-w-0" role="img" :aria-label="t('admin.desktop.conversations.statistics.trend')"><Line :data="trendData" :options="trendOptions" /></div>
         <div v-else class="space-y-2 py-8 text-center"><p class="analytics-heading">{{ t('admin.desktop.conversations.statistics.noRecords') }}</p><p class="analytics-caption">{{ t('admin.desktop.conversations.statistics.noRecordsHint') }}</p></div>
         <DesktopAnalyticsDailyData :caption="t('admin.desktop.conversations.statistics.trend')" :rows="statistics.daily" :columns="dailyColumns" />
       </section>
       <div class="analytics-grid">
-        <section class="analytics-panel space-y-4" :aria-label="t('admin.desktop.conversations.statistics.captureStatus')">
+        <section class="card analytics-panel space-y-4" :aria-label="t('admin.desktop.conversations.statistics.captureStatus')">
           <h4 class="analytics-heading">{{ t('admin.desktop.conversations.statistics.captureStatus') }}</h4>
           <dl class="grid grid-cols-2 gap-4"><div><dt class="analytics-caption">{{ t('admin.desktop.conversations.captured') }}</dt><dd class="analytics-value">{{ statistics.captured.toLocaleString() }}</dd></div><div><dt class="analytics-caption">{{ t('admin.desktop.conversations.responseMissing') }}</dt><dd class="analytics-value">{{ statistics.response_missing.toLocaleString() }}</dd></div></dl>
           <p class="analytics-caption">{{ t('admin.desktop.conversations.statistics.reportingHint') }}</p>
         </section>
-        <section class="analytics-panel space-y-4" :aria-label="t('admin.desktop.conversations.statistics.clients')">
+        <section class="card analytics-panel space-y-4" :aria-label="t('admin.desktop.conversations.statistics.clients')">
           <h4 class="analytics-heading">{{ t('admin.desktop.conversations.statistics.clients') }}</h4>
           <dl class="grid grid-cols-2 gap-4"><div><dt class="analytics-caption">ChatGPT Codex</dt><dd class="analytics-value">{{ statistics.chatgpt_codex.toLocaleString() }}</dd></div><div><dt class="analytics-caption">Workbuddy</dt><dd class="analytics-value">{{ statistics.workbuddy.toLocaleString() }}</dd></div></dl>
         </section>
       </div>
     </div>
-    <div v-if="view === 'usage' && loading" class="analytics-tiles" aria-hidden="true"><div v-for="tile in 6" :key="tile" class="analytics-panel"><p class="analytics-caption">{{ t(`admin.desktop.conversations.statistics.${metricKeys[tile - 1]}`) }}</p><p class="analytics-value">—</p></div></div>
+    <div v-if="view === 'usage' && loading" class="analytics-tiles" aria-hidden="true"><div v-for="tile in 6" :key="tile" class="card analytics-panel"><p class="analytics-caption">{{ t(`admin.desktop.conversations.statistics.${metricKeys[tile - 1]}`) }}</p><p class="analytics-value">—</p></div></div>
     <div v-if="view === 'records' && statistics && !error" class="grid gap-4 border-t border-gray-200 pt-4 text-sm dark:border-dark-700 sm:grid-cols-3" data-testid="conversation-reporting-breakdown">
       <div><p class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.conversations.statistics.last30Days') }}</p><p class="mt-1 font-semibold tabular-nums">{{ statistics.last_30_days.record_count.toLocaleString() }} {{ t('admin.desktop.conversations.statistics.records') }}</p></div>
       <div><p class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.conversations.statistics.captureStatus') }}</p><p class="mt-1 tabular-nums">{{ t('admin.desktop.conversations.captured') }} {{ statistics.captured_last_30_days.toLocaleString() }} · {{ t('admin.desktop.conversations.responseMissing') }} {{ statistics.response_missing_last_30_days.toLocaleString() }}</p></div>

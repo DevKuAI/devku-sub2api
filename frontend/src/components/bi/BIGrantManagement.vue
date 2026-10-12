@@ -1,12 +1,12 @@
 <template>
-  <section class="detail-panel space-y-5" :aria-busy="loading">
+  <section class="card detail-panel space-y-5" :aria-busy="loading">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <h2 class="detail-section-title">{{ t('bi.grants') }}</h2>
       <button v-if="enabled" type="button" class="btn btn-secondary" :disabled="busy || loading" @click="openEditor()">{{ t('bi.addGrant') }}</button>
     </div>
     <p class="text-sm text-gray-500 dark:text-dark-400">{{ t('bi.grantsDescription') }}</p>
     <p v-if="loading && !enabled" class="text-sm text-gray-500" role="status">{{ t('common.loading') }}</p>
-    <div v-else-if="!enabled && !error" class="detail-panel space-y-3"><p class="detail-caption">{{ t('bi.disabled') }} {{ t('bi.disabledHint') }}</p><button class="btn btn-secondary" type="button" :disabled="busy" @click="initialize">{{ t('common.refresh') }}</button></div>
+    <div v-else-if="!enabled && !error" class="card detail-panel space-y-3"><p class="detail-caption">{{ t('bi.disabled') }} {{ t('bi.disabledHint') }}</p><button class="btn btn-secondary" type="button" :disabled="busy" @click="initialize">{{ t('common.refresh') }}</button></div>
     <div v-if="error" class="detail-error" role="alert"><p>{{ error }}</p><button class="btn btn-secondary mt-3" type="button" :disabled="loading || busy" @click="initialize">{{ t('common.refresh') }}</button></div>
     <p v-if="enabled && !loading && !error && grants.length === 0" class="text-sm text-gray-500">{{ t('bi.noGrants') }}</p>
     <ul class="divide-y divide-gray-200 dark:divide-dark-700">

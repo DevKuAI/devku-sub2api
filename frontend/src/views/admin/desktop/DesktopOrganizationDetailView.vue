@@ -1,8 +1,8 @@
 <template>
-  <AppLayout plain-background>
-    <div class="desktop-detail mx-auto min-w-0 max-w-7xl space-y-6">
+  <AppLayout>
+    <div class="desktop-detail min-w-0 space-y-6">
       <div class="flex flex-wrap items-start gap-3">
-        <button v-if="!selfManaged" class="btn btn-secondary min-h-11 px-3" type="button" :title="t('common.back')" :aria-label="t('common.back')" @click="router.push('/admin/desktop/organizations')">
+        <button v-if="!selfManaged" class="btn btn-secondary btn-icon" type="button" :title="t('common.back')" :aria-label="t('common.back')" @click="router.push('/admin/desktop/organizations')">
           <Icon name="arrowLeft" size="md" />
         </button>
         <div class="min-w-0 flex-1">
@@ -12,8 +12,8 @@
           </div>
           <p v-if="organization" class="mt-1 break-all font-mono text-sm text-gray-500 dark:text-dark-400">{{ organization.code }}</p>
         </div>
-        <button v-if="organization && !selfManaged" class="btn btn-secondary min-h-11 min-w-11 shrink-0 px-3 sm:min-w-0 sm:px-4" type="button" :title="t('common.edit')" :aria-label="t('common.edit')" @click="openEditOrganization">
-          <Icon name="edit" size="sm" /><span class="hidden sm:inline">{{ t('common.edit') }}</span>
+        <button v-if="organization && !selfManaged" class="btn btn-secondary shrink-0" type="button" :title="t('common.edit')" :aria-label="t('common.edit')" @click="openEditOrganization">
+          <Icon name="edit" size="sm" /><span>{{ t('common.edit') }}</span>
         </button>
       </div>
       <div v-if="organizationError" class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300" role="alert">
@@ -21,16 +21,16 @@
         <button class="ml-2 font-medium underline" type="button" @click="retryOrganization">{{ t('admin.desktop.retryOrganization') }}</button>
       </div>
 
-      <p v-if="organizationLoading && !organization" class="detail-panel detail-caption" role="status">{{ t('admin.desktop.detail.loadingOrganization') }}</p>
-      <dl v-if="organization" class="detail-overview">
+      <p v-if="organizationLoading && !organization" class="card detail-panel detail-caption" role="status">{{ t('admin.desktop.detail.loadingOrganization') }}</p>
+      <dl v-if="organization" class="card detail-overview">
         <div class="min-w-0"><dt class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.gatewayUser') }}</dt><dd class="mt-1 break-words text-sm font-medium">{{ organization.gateway_user.username || organization.gateway_user.email }}</dd><dd class="break-all text-xs text-gray-500 dark:text-dark-400">{{ organization.gateway_user.email }}</dd></div>
         <div class="min-w-0"><dt class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.group') }}</dt><dd class="mt-1 break-words text-sm font-medium">{{ organization.group.name }}</dd></div>
         <div class="min-w-0"><dt class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.memberCapacity') }}</dt><dd class="mt-1 text-sm font-medium tabular-nums">{{ organization.member_count }} / {{ organization.member_limit }}</dd></div>
         <div class="min-w-0"><dt class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.configuration') }}</dt><dd class="mt-1 text-sm font-medium">{{ organization.target_config_assigned ? t('admin.desktop.configured') : t('admin.desktop.notConfigured') }}</dd></div>
       </dl>
 
-      <div v-if="organization" class="detail-tabs" role="tablist" :aria-label="t('admin.desktop.detailTabs')">
-        <button v-for="(tab, index) in tabs" :id="tabId(tab.value)" :key="tab.value" class="detail-tab" type="button" role="tab" :aria-controls="panelId(tab.value)" :aria-selected="activeTab === tab.value" :tabindex="activeTab === tab.value ? 0 : -1" @click="setTab(tab.value)" @keydown="handleTabKeydown($event, index)">{{ tab.label }}</button>
+      <div v-if="organization" class="tabs detail-tabs" role="tablist" :aria-label="t('admin.desktop.detailTabs')">
+        <button v-for="(tab, index) in tabs" :id="tabId(tab.value)" :key="tab.value" class="tab detail-tab" :class="{ 'tab-active': activeTab === tab.value }" type="button" role="tab" :aria-controls="panelId(tab.value)" :aria-selected="activeTab === tab.value" :tabindex="activeTab === tab.value ? 0 : -1" @click="setTab(tab.value)" @keydown="handleTabKeydown($event, index)">{{ tab.label }}</button>
       </div>
 
       <section v-if="organization && activeTab === 'usage'" :id="panelId('usage')" class="min-w-0 space-y-6" tabindex="0" role="tabpanel" :aria-labelledby="tabId('usage')">
@@ -61,8 +61,8 @@
         <p class="detail-caption" role="status">{{ membersLoading ? t('common.loading') : '' }}</p>
         <div v-if="organization && !membersError" class="min-w-0 space-y-3">
           <p class="detail-table-hint">{{ t('admin.desktop.detail.tableScrollHint') }}</p>
-          <div v-if="members.some(member => !member.usage) && !membersLoading" class="detail-error flex flex-wrap items-center justify-between gap-3" role="status"><span>{{ t('admin.desktop.usageUnavailableHint') }}</span><button class="btn btn-secondary" type="button" @click="loadMembers">{{ t('common.refresh') }}</button></div>
-          <DataTable tabindex="0" :aria-label="t('admin.desktop.members')" :columns="memberColumns" :data="members" :loading="membersLoading" row-key="public_id">
+          <div v-if="members.some(member => !member.usage) && !membersLoading" class="detail-warning flex flex-wrap items-center justify-between gap-3" role="status"><span>{{ t('admin.desktop.usageUnavailableHint') }}</span><button class="btn btn-secondary" type="button" @click="loadMembers">{{ t('common.refresh') }}</button></div>
+          <DataTable class="card overflow-hidden" tabindex="0" :aria-label="t('admin.desktop.members')" :columns="memberColumns" :data="members" :loading="membersLoading" row-key="public_id">
             <template #cell-name="{ row }"><div class="min-w-0 max-w-64"><div class="break-words font-medium text-gray-900 dark:text-white">{{ row.name }}</div><div class="mt-1 break-all font-mono text-xs text-gray-500 dark:text-dark-400">{{ row.public_id }}</div></div></template>
             <template #cell-remark="{ row }"><span class="block max-w-64 whitespace-pre-wrap break-words">{{ row.remark || '—' }}</span></template>
             <template #cell-status="{ row }"><StatusBadge :status="row.status" :label="statusLabel(row.status)" /></template>
@@ -101,11 +101,11 @@
             </template>
             <template #cell-updated_at="{ value }"><span class="whitespace-nowrap text-sm text-gray-500">{{ formatDateTime(value) }}</span></template>
             <template #cell-actions="{ row }">
-              <div class="flex flex-wrap items-center gap-3">
-                <button class="action-button" type="button" :title="t('common.edit')" :aria-label="t('admin.desktop.detail.memberAction', { action: t('common.edit'), name: row.name })" @click="openEditMember(row)"><Icon name="edit" size="sm" /></button>
-                <button class="action-button" type="button" :title="row.status === 'active' ? t('common.disable') : t('common.enable')" :aria-label="t('admin.desktop.detail.memberAction', { action: t(row.status === 'active' ? 'common.disable' : 'common.enable'), name: row.name })" @click="toggleMember(row)"><Icon :name="row.status === 'active' ? 'ban' : 'checkCircle'" size="sm" /></button>
-                <button class="action-button" type="button" :title="t('admin.desktop.rotateModelToken')" :aria-label="t('admin.desktop.detail.memberAction', { action: t('admin.desktop.rotateModelToken'), name: row.name })" @click="confirmRotate(row)"><Icon name="refresh" size="sm" /></button>
-                <button class="action-button action-button-danger" type="button" :title="t('common.delete')" :aria-label="t('admin.desktop.detail.memberAction', { action: t('common.delete'), name: row.name })" @click="confirmDeleteMember(row)"><Icon name="trash" size="sm" /></button>
+              <div class="flex items-center gap-1">
+                <button class="detail-row-action" type="button" :title="t('common.edit')" :aria-label="t('admin.desktop.detail.memberAction', { action: t('common.edit'), name: row.name })" @click="openEditMember(row)"><Icon name="edit" size="sm" /></button>
+                <button class="detail-row-action" type="button" :title="row.status === 'active' ? t('common.disable') : t('common.enable')" :aria-label="t('admin.desktop.detail.memberAction', { action: t(row.status === 'active' ? 'common.disable' : 'common.enable'), name: row.name })" @click="toggleMember(row)"><Icon :name="row.status === 'active' ? 'ban' : 'checkCircle'" size="sm" /></button>
+                <button class="detail-row-action" type="button" :title="t('admin.desktop.rotateModelToken')" :aria-label="t('admin.desktop.detail.memberAction', { action: t('admin.desktop.rotateModelToken'), name: row.name })" @click="confirmRotate(row)"><Icon name="refresh" size="sm" /></button>
+                <button class="detail-row-action detail-row-action-danger" type="button" :title="t('common.delete')" :aria-label="t('admin.desktop.detail.memberAction', { action: t('common.delete'), name: row.name })" @click="confirmDeleteMember(row)"><Icon name="trash" size="sm" /></button>
               </div>
             </template>
             <template #empty>
@@ -131,9 +131,9 @@
       <section v-else-if="organization" :id="panelId('configuration')" class="min-w-0" tabindex="0" role="tabpanel" :aria-labelledby="tabId('configuration')">
         <div v-if="selfManaged" class="space-y-6">
           <p class="text-sm text-gray-500 dark:text-dark-400">{{ t('admin.desktop.configurationReadOnly') }}</p>
-          <section class="detail-panel"><h2 class="detail-section-title mb-4">{{ t('admin.desktop.reports.title') }}</h2><dl class="detail-config-metadata"><div><dt class="detail-caption">{{ t('admin.desktop.reports.enabled') }}</dt><dd>{{ t(organization?.conversation_summary_enabled ? 'common.enabled' : 'common.disabled') }}</dd></div><div><dt class="detail-caption">{{ t('admin.desktop.reports.model') }}</dt><dd><bdi>{{ organization?.analysis_model || t('admin.desktop.notConfigured') }}</bdi></dd></div></dl></section>
-          <section class="detail-panel space-y-3"><h2 class="detail-section-title">{{ t('admin.desktop.managementPolicy.title') }}</h2><dl class="detail-config-metadata"><div><dt class="detail-caption">{{ t('admin.desktop.managementPolicy.analysisLimit') }}</dt><dd>{{ organization.management_policy?.analysis_limit_1d || 0 }}</dd></div><div v-for="field in retentionFields" :key="field"><dt class="detail-caption">{{ t(`admin.desktop.managementPolicy.${field}`) }}</dt><dd>{{ organization.management_policy?.[field] || 0 }}</dd></div></dl><p class="detail-caption">{{ t('admin.desktop.managementPolicy.hint') }}</p></section>
-          <div v-for="target in configurationTargets" :key="target.name" class="detail-panel">
+          <section class="card detail-panel"><h2 class="detail-section-title mb-4">{{ t('admin.desktop.reports.title') }}</h2><dl class="detail-config-metadata"><div><dt class="detail-caption">{{ t('admin.desktop.reports.enabled') }}</dt><dd>{{ t(organization?.conversation_summary_enabled ? 'common.enabled' : 'common.disabled') }}</dd></div><div><dt class="detail-caption">{{ t('admin.desktop.reports.model') }}</dt><dd><bdi>{{ organization?.analysis_model || t('admin.desktop.notConfigured') }}</bdi></dd></div></dl></section>
+          <section class="card detail-panel space-y-3"><h2 class="detail-section-title">{{ t('admin.desktop.managementPolicy.title') }}</h2><dl class="detail-config-metadata"><div><dt class="detail-caption">{{ t('admin.desktop.managementPolicy.analysisLimit') }}</dt><dd>{{ organization.management_policy?.analysis_limit_1d || 0 }}</dd></div><div v-for="field in retentionFields" :key="field"><dt class="detail-caption">{{ t(`admin.desktop.managementPolicy.${field}`) }}</dt><dd>{{ organization.management_policy?.[field] || 0 }}</dd></div></dl><p class="detail-caption">{{ t('admin.desktop.managementPolicy.hint') }}</p></section>
+          <div v-for="target in configurationTargets" :key="target.name" class="card detail-panel">
             <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
               <h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ target.name }}</h2>
               <span class="text-sm text-gray-500 dark:text-dark-400">{{ target.config ? t(target.config.enabled ? 'common.enabled' : 'common.disabled') : t('admin.desktop.notConfigured') }}</span>
@@ -150,7 +150,7 @@
         <form v-else class="space-y-6" @submit.prevent="saveConfiguration">
           <header><h2 class="detail-section-title">{{ t('admin.desktop.configuration') }}</h2><p class="detail-caption mt-1">{{ t('admin.desktop.detail.configurationHint') }}</p></header>
           <div v-if="configurationError" class="detail-error" role="alert">{{ configurationError }} {{ t('admin.desktop.detail.saveRetryHint') }}</div>
-          <div class="detail-panel">
+          <div class="card detail-panel">
             <div class="mb-4 flex flex-wrap items-center justify-between gap-3"><h2 class="text-base font-semibold text-gray-900 dark:text-white">ChatGPT Codex</h2><label class="flex items-center gap-2 text-sm"><input v-model="configForm.chat.enabled" class="h-4 w-4 rounded" type="checkbox" />{{ t('common.enabled') }}</label></div>
             <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
               <Input v-model="configForm.chat.provider_id" :label="t('admin.desktop.providerId')" required />
@@ -161,7 +161,7 @@
               <label class="flex items-center gap-2 self-end pb-3 text-sm"><input v-model="configForm.chat.restart_required" class="h-4 w-4 rounded" type="checkbox" />{{ t('admin.desktop.restartRequired') }}</label>
             </div>
           </div>
-          <div class="detail-panel">
+          <div class="card detail-panel">
             <div class="mb-4 flex flex-wrap items-center justify-between gap-3"><h2 class="text-base font-semibold text-gray-900 dark:text-white">Workbuddy</h2><label class="flex items-center gap-2 text-sm"><input v-model="configForm.work.enabled" class="h-4 w-4 rounded" type="checkbox" @change="onWorkbuddyEnabledChange" />{{ configForm.work.enabled ? t('common.enabled') : t('common.disabled') }}</label></div>
             <label class="mb-4 flex items-center gap-2 text-sm"><input v-model="configForm.includeWorkbuddy" class="h-4 w-4 rounded" type="checkbox" @change="onWorkbuddyIncludedChange" />{{ t('admin.desktop.configureWorkbuddy') }}</label>
             <div v-if="configForm.includeWorkbuddy" class="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -347,7 +347,7 @@ const memberColumns = computed<Column[]>(() => [
   { key: 'usage_cost', label: t('admin.desktop.usageCost') },
   { key: 'usage_tokens', label: t('admin.desktop.usageTokens') },
   { key: 'updated_at', label: t('admin.desktop.updatedAt') },
-  { key: 'actions', label: t('common.actions'), class: 'w-56 min-w-56' },
+  { key: 'actions', label: t('common.actions'), class: 'w-40 min-w-40' },
 ])
 const gatewayUserOptions = computed(() => {
   const all = [...gatewayUsers.value]

@@ -3,9 +3,9 @@ import { flushPromises, mount } from '@vue/test-utils'
 import zh from '@/i18n/locales/zh'
 import DesktopDailyReports from '../DesktopDailyReports.vue'
 
-const api = vi.hoisted(() => ({ getDesktopMemberReports: vi.fn(), getDesktopMemberReport: vi.fn(), getDesktopSummaryReport: vi.fn(), runDesktopReports: vi.fn() }))
+const api = vi.hoisted(() => ({ getDesktopMemberReports: vi.fn(), getDesktopMemberReport: vi.fn(), getDesktopSummaryReport: vi.fn(), runDesktopReports: vi.fn(), getDesktopConversation: vi.fn() }))
 vi.mock('@/api/desktopReports', () => api)
-vi.mock('@/api/desktopConversations', () => ({ getDesktopConversation: vi.fn() }))
+vi.mock('@/api/desktopConversations', () => ({ getDesktopConversation: api.getDesktopConversation }))
 vi.mock('vue-i18n', async (importOriginal) => ({ ...(await importOriginal<typeof import('vue-i18n')>()), useI18n: () => ({
   t: (key: string) => {
     let value: unknown = zh
@@ -19,8 +19,8 @@ const base = { date: '2026-10-09', timezone: 'Asia/Shanghai', analysis_model: 't
 const report = { status: 'completed', content: '个人工作产出', model: 'test-model', generated_at: '2026-10-10T02:00:00Z', error: '' }
 const member = { ...report, member_id: 'mem_one', name: '成员一', deleted: false, record_count: 1, source_ids: ['record-one'] }
 const empty = { ...report, status: 'no_records', content: '', model: '', generated_at: null, member_id: 'mem_empty', name: '成员二', deleted: false, record_count: 0, source_ids: [] }
-function render(overrides = {}) {
-  return mount(DesktopDailyReports, { props: { ...props, ...overrides }, global: { stubs: { DesktopConversationViewer: true, BaseDialog: true } } })
+function render(overrides = {}, viewerStub = true) {
+  return mount(DesktopDailyReports, { attachTo: document.body, props: { ...props, ...overrides }, global: { stubs: { DesktopConversationViewer: viewerStub, teleport: true } } })
 }
 beforeEach(() => {
   vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-10T04:00:00Z')); vi.clearAllMocks()
@@ -40,7 +40,8 @@ describe('DesktopDailyReports', () => {
     expect(wrapper.text()).not.toContain('个人工作产出')
     await wrapper.find('tbody button').trigger('click'); await flushPromises()
     expect(api.getDesktopMemberReport).toHaveBeenCalledWith('org_one', true, '2026-10-09', 'mem_one', expect.any(AbortSignal), 1)
-    expect(wrapper.text()).toContain('个人工作产出')
+    expect(wrapper.get('[role="dialog"]').text()).toContain('个人工作产出')
+    expect(wrapper.get('#daily-report-panel-members').text()).not.toContain('个人工作产出')
     wrapper.unmount()
   })
   it('separates summary and member reports, retains empty members and the selected date', async () => {
@@ -61,12 +62,14 @@ describe('DesktopDailyReports', () => {
   it('shows each stage model history independently from current configuration', async () => {
     const execution = { id: 1, revision: 1, kind: 'summary', model: 'summary-old-model', round: 0, chunk: 1, attempt: 1, request_id: 'request-one', status: 'completed', error: '', started_at: '2026-10-10T02:00:00Z', finished_at: '2026-10-10T02:00:10Z' }
     api.getDesktopSummaryReport.mockResolvedValue({ ...base, summary: { ...report, executions: [execution] } })
-    api.getDesktopMemberReports.mockResolvedValue({ ...base, members: [{ ...member, executions: [{ ...execution, id: 2, kind: 'member', member_id: 'mem_one', model: 'member-old-model' }] }, empty] })
+    const historicalMember = { ...member, executions: [{ ...execution, id: 2, kind: 'member', member_id: 'mem_one', model: 'member-old-model' }] }
+    api.getDesktopMemberReports.mockResolvedValue({ ...base, members: [historicalMember, empty] })
+    api.getDesktopMemberReport.mockResolvedValue(historicalMember)
     const wrapper = render({ analysisModel: 'new-configuration-model' }); await flushPromises()
     expect(wrapper.get('[data-testid="report-execution-history"]').text()).toContain('summary-old-model')
     expect(wrapper.text()).not.toContain('member-old-model')
     await wrapper.get('#daily-report-tab-members').trigger('click')
-    await wrapper.find('tbody button').trigger('click')
+    await wrapper.find('tbody button').trigger('click'); await flushPromises()
     expect(wrapper.get('[data-testid="report-execution-history"]').text()).toContain('member-old-model')
     expect(wrapper.text()).not.toContain('summary-old-model')
     wrapper.unmount()
@@ -167,14 +170,15 @@ describe('DesktopDailyReports', () => {
     expect(wrapper.findAll('tbody tr')).toHaveLength(2)
     wrapper.unmount()
   })
-  it('jumps from a missing member to report details with a recovery instruction', async () => {
+  it('opens a missing member report in a dialog while retaining the summary tab', async () => {
     api.getDesktopMemberReport.mockResolvedValue({ ...member, status: 'failed', content: '', error: 'upstream_failed' })
     api.getDesktopSummaryReport.mockResolvedValue({ ...base, status: 'partial', missing_members: ['mem_one'], summary: report })
     api.getDesktopMemberReports.mockResolvedValue({ ...base, members: [{ ...member, status: 'failed', content: '', error: 'upstream_failed' }, empty] })
     const wrapper = render(); await flushPromises()
     await wrapper.findAll('button').find(button => button.text() === '成员一')!.trigger('click')
-    expect(wrapper.get('#daily-report-tab-members').attributes('aria-selected')).toBe('true')
-    expect(wrapper.get('#daily-report-member-heading').text()).toContain('成员一')
+    await flushPromises()
+    expect(wrapper.get('#daily-report-tab-summary').attributes('aria-selected')).toBe('true')
+    expect(wrapper.get('[role="dialog"] .modal-title').text()).toContain('成员一')
     expect(wrapper.text()).toContain('AI 调用失败')
     expect(wrapper.text()).toContain('联系平台管理员')
     wrapper.unmount()
@@ -187,6 +191,121 @@ describe('DesktopDailyReports', () => {
     expect(wrapper.get('[role="tabpanel"]').attributes('aria-busy')).toBe('false')
     expect(api.getDesktopSummaryReport).toHaveBeenCalledTimes(1)
     expect(wrapper.findAll('button').find(button => button.text() === '按日期补跑')!.attributes('disabled')).toBeDefined()
+    wrapper.unmount()
+  })
+
+  it('closes with Escape, restores focus and retains the member filter', async () => {
+    const wrapper = render(); await flushPromises()
+    await wrapper.get('#daily-report-tab-members').trigger('click')
+    await wrapper.get('input[type="search"]').setValue('成员一'); await flushPromises()
+    const trigger = wrapper.get('tbody button')
+    ;(trigger.element as HTMLButtonElement).focus()
+    await trigger.trigger('click'); await flushPromises()
+    expect(wrapper.get('[role="dialog"]').element.contains(document.activeElement)).toBe(true)
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await flushPromises()
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+    expect(document.activeElement).toBe(trigger.element)
+    expect((wrapper.get('input[type="search"]').element as HTMLInputElement).value).toBe('成员一')
+    expect(wrapper.get('#daily-report-tab-members').attributes('aria-selected')).toBe('true')
+    wrapper.unmount()
+  })
+
+  it('immediately opens a loading dialog for a member outside the current list and ignores a late response after closing', async () => {
+    api.getDesktopSummaryReport.mockResolvedValue({ ...base, missing_members: ['mem_other'], summary: report })
+    let resolveDetail!: (value: typeof member) => void
+    api.getDesktopMemberReport.mockReturnValue(new Promise(resolve => { resolveDetail = resolve }))
+    const wrapper = render(); await flushPromises()
+    await wrapper.findAll('button').find(button => button.text() === 'mem_other')!.trigger('click')
+    expect(wrapper.get('[role="dialog"]').text()).toContain('正在加载报表')
+    expect(wrapper.get('[role="dialog"] [aria-busy]').attributes('aria-busy')).toBe('true')
+    const signal = api.getDesktopMemberReport.mock.calls[0][4] as AbortSignal
+    await wrapper.get('[role="dialog"] button[aria-label="关闭"]').trigger('click')
+    expect(signal.aborted).toBe(true)
+    resolveDetail({ ...member, member_id: 'mem_other' }); await flushPromises()
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+    expect(wrapper.get('#daily-report-tab-summary').attributes('aria-selected')).toBe('true')
+    wrapper.unmount()
+  })
+
+  it('shows a detail request failure and retry inside the dialog', async () => {
+    api.getDesktopMemberReports.mockResolvedValue({ ...base, members: [{ ...member, content: '' }] })
+    api.getDesktopMemberReport.mockRejectedValueOnce(new Error('Network error'))
+    const wrapper = render(); await flushPromises()
+    await wrapper.get('#daily-report-tab-members').trigger('click')
+    await wrapper.get('tbody button').trigger('click'); await flushPromises()
+    expect(wrapper.get('[role="dialog"] [role="alert"]').text()).toContain('刷新重试')
+    expect(wrapper.get('#daily-report-panel-members').find('[role="alert"]').exists()).toBe(false)
+    await wrapper.get('[role="dialog"] [role="alert"] button').trigger('click'); await flushPromises()
+    expect(wrapper.get('[role="dialog"]').text()).toContain('个人工作产出')
+    expect(wrapper.find('[role="dialog"] [role="alert"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it.each(['date', 'organization', 'access'])('closes the member dialog and aborts its request when %s changes', async (change) => {
+    api.getDesktopMemberReport.mockReturnValue(new Promise(() => {}))
+    const wrapper = render(); await flushPromises()
+    await wrapper.get('#daily-report-tab-members').trigger('click')
+    await wrapper.get('tbody button').trigger('click')
+    const signal = api.getDesktopMemberReport.mock.calls[0][4] as AbortSignal
+    if (change === 'date') await wrapper.get('input[type="date"]').setValue('2026-10-08')
+    else await wrapper.setProps(change === 'organization' ? { organizationId: 'org_two' } : { enabled: false })
+    await flushPromises()
+    expect(signal.aborted).toBe(true)
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('keeps member execution pagination independent of the summary beneath the dialog', async () => {
+    const executions = Array.from({ length: 50 }, (_, id) => ({ id, revision: 1, kind: 'summary', model: 'test-model', round: 0, chunk: 1, attempt: 1, request_id: `request-${id}`, status: 'completed', error: '', started_at: null, finished_at: null }))
+    api.getDesktopSummaryReport.mockResolvedValue({ ...base, missing_members: ['mem_one'], summary: { ...report, executions } })
+    api.getDesktopMemberReport.mockResolvedValue({ ...member, executions })
+    const wrapper = render(); await flushPromises()
+    await wrapper.findAll('#daily-report-panel-summary button').find(button => button.text() === '下一页')!.trigger('click'); await flushPromises()
+    await wrapper.findAll('button').find(button => button.text() === '成员一')!.trigger('click'); await flushPromises()
+    expect(api.getDesktopMemberReport.mock.calls[0][5]).toBe(1)
+    await wrapper.findAll('[role="dialog"] button').find(button => button.text() === '下一页')!.trigger('click'); await flushPromises()
+    expect(api.getDesktopMemberReport.mock.lastCall?.[5]).toBe(2)
+    expect(api.getDesktopSummaryReport).toHaveBeenCalledTimes(2)
+    await wrapper.get('[role="dialog"] button[aria-label="关闭"]').trigger('click')
+    expect(wrapper.findAll('#daily-report-panel-summary button').some(button => button.text() === '上一页')).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('keeps source failures in the dialog and cancels a pending source request on close', async () => {
+    api.getDesktopConversation.mockRejectedValueOnce(new Error('Network error'))
+    const wrapper = render(); await flushPromises()
+    await wrapper.get('#daily-report-tab-members').trigger('click')
+    await wrapper.get('tbody button').trigger('click'); await flushPromises()
+    const sourceButton = wrapper.get('[role="dialog"] section button')
+    await sourceButton.trigger('click'); await flushPromises()
+    expect(wrapper.get('[role="dialog"] [role="alert"]').text()).toContain(zh.admin.desktop.reports.sourceFailed)
+    let resolveSource!: (value: object) => void
+    api.getDesktopConversation.mockReturnValueOnce(new Promise(resolve => { resolveSource = resolve }))
+    await sourceButton.trigger('click')
+    const signal = api.getDesktopConversation.mock.lastCall?.[3] as AbortSignal
+    await wrapper.get('[role="dialog"] button[aria-label="关闭"]').trigger('click')
+    expect(signal.aborted).toBe(true)
+    resolveSource({ public_id: 'record-one' }); await flushPromises()
+    expect(wrapper.getComponent({ name: 'DesktopConversationViewer' }).props('record')).toBe(null)
+    wrapper.unmount()
+  })
+
+  it('returns focus to the source button after closing the nested conversation dialog', async () => {
+    const record = { record_id: 'record-one', organization_id: 'org_one', member_id: 'mem_one', member_name: '成员一', member_deleted: false, client: 'chatgpt_codex', installation_id: 'fixture', source_session_id: 'session-one', source_turn_id: null, started_at: '2026-10-09T02:00:00Z', stopped_at: '2026-10-09T02:00:01Z', duration_ms: 1000, received_at: '2026-10-09T02:00:01Z', cwd: null, capture_status: 'captured', prompt_count: 1, schema_version: 2, prompts: [{ text: '工作内容', truncated: false }], response: { text: '完成结果', truncated: false } }
+    let resolveSource!: (value: typeof record) => void
+    api.getDesktopConversation.mockReturnValueOnce(new Promise(resolve => { resolveSource = resolve })).mockResolvedValue(record)
+    const wrapper = render({}, false); await flushPromises()
+    await wrapper.get('#daily-report-tab-members').trigger('click')
+    await wrapper.get('tbody button').trigger('click'); await flushPromises()
+    const sourceButton = wrapper.get('[role="dialog"] section button')
+    await sourceButton.trigger('click')
+    ;(sourceButton.element as HTMLButtonElement).blur()
+    resolveSource(record); await flushPromises()
+    expect(wrapper.findAll('[role="dialog"]')).toHaveLength(2)
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); await flushPromises()
+    expect(wrapper.findAll('[role="dialog"]')).toHaveLength(1)
+    expect(document.activeElement).toBe(sourceButton.element)
     wrapper.unmount()
   })
 

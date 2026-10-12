@@ -25,7 +25,7 @@
       </article>
     </div>
     <div v-if="view === 'insights' && loading" class="space-y-6">
-      <div class="analytics-grid" aria-hidden="true"><div v-for="tile in 2" :key="tile" class="analytics-panel"><p class="analytics-caption">{{ t(tile === 1 ? 'admin.desktop.usageStatistics.selectedCost' : 'admin.desktop.usageStatistics.selectedTokens') }}</p><p class="analytics-value">—</p></div></div>
+      <div class="analytics-grid" aria-hidden="true"><div v-for="tile in 2" :key="tile" class="card analytics-panel"><p class="analytics-caption">{{ t(tile === 1 ? 'admin.desktop.usageStatistics.selectedCost' : 'admin.desktop.usageStatistics.selectedTokens') }}</p><p class="analytics-value">—</p></div></div>
       <DesktopMemberModelUsage :rows="[]" loading />
     </div>
     <DesktopOrganizationUsageInsights v-if="view === 'insights' && statistics && !error" :statistics="statistics" @refresh="load" />

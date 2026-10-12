@@ -3,15 +3,15 @@
     <div class="flex flex-wrap items-center gap-3">
       <span class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('admin.desktop.usageStatistics.range') }}</span>
       <div class="range-options" role="group" :aria-label="t('admin.desktop.usageStatistics.range')">
-        <button v-for="option in options" :key="option.value" type="button" class="analytics-button" :aria-pressed="mode === option.value" @click="select(option.value)">
+        <button v-for="option in options" :key="option.value" type="button" class="btn btn-secondary analytics-button" :aria-pressed="mode === option.value" @click="select(option.value)">
           <Icon v-if="mode === option.value" name="check" size="xs" aria-hidden="true" />{{ t(`admin.desktop.usageStatistics.${option.value}`) }}
         </button>
       </div>
     </div>
     <form v-if="mode === 'custom'" class="range-form" novalidate @submit.prevent="applyCustom">
-      <label class="min-w-0 space-y-2 text-sm text-gray-700 dark:text-dark-200"><span>{{ t('admin.desktop.usageStatistics.fromDate') }}</span><input ref="fromInput" v-model="from" class="analytics-input" name="usage-from" type="date" required :max="to || today()" :aria-invalid="error ? true : undefined" :aria-describedby="error ? errorID : undefined" /></label>
-      <label class="min-w-0 space-y-2 text-sm text-gray-700 dark:text-dark-200"><span>{{ t('admin.desktop.usageStatistics.toDate') }}</span><input ref="toInput" v-model="to" class="analytics-input" name="usage-to" type="date" required :min="from || undefined" :max="today()" :aria-invalid="error ? true : undefined" :aria-describedby="error ? errorID : undefined" /></label>
-      <button class="analytics-button" type="submit">{{ t('admin.desktop.usageStatistics.applyRange') }}</button>
+      <label class="min-w-0 space-y-2 text-sm text-gray-700 dark:text-dark-200"><span>{{ t('admin.desktop.usageStatistics.fromDate') }}</span><input ref="fromInput" v-model="from" class="input analytics-input" name="usage-from" type="date" required :max="to || today()" :aria-invalid="error ? true : undefined" :aria-describedby="error ? errorID : undefined" /></label>
+      <label class="min-w-0 space-y-2 text-sm text-gray-700 dark:text-dark-200"><span>{{ t('admin.desktop.usageStatistics.toDate') }}</span><input ref="toInput" v-model="to" class="input analytics-input" name="usage-to" type="date" required :min="from || undefined" :max="today()" :aria-invalid="error ? true : undefined" :aria-describedby="error ? errorID : undefined" /></label>
+      <button class="btn btn-secondary analytics-button" type="submit">{{ t('admin.desktop.usageStatistics.applyRange') }}</button>
     </form>
     <p v-if="error" :id="errorID" class="text-sm text-red-700 dark:text-red-300" role="alert">{{ error }}</p>
   </div>

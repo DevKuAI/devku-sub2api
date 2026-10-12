@@ -4,25 +4,25 @@
       <p class="analytics-caption">{{ t('admin.desktop.usageStatistics.periodDetails', { from: statistics.range_start, to: statistics.range_end, timezone: statistics.timezone }) }}</p>
     </header>
     <dl class="analytics-grid" data-testid="organization-last-30-days">
-      <div class="analytics-panel">
+      <div class="card analytics-panel">
         <dt class="analytics-caption">{{ t('admin.desktop.usageStatistics.selectedCost') }} · USD</dt>
         <dd class="analytics-value"><bdi>{{ formatter.cost(statistics.selected.actual_cost) }}</bdi></dd>
         <dd class="analytics-caption mt-3">{{ t('admin.desktop.usageStatistics.previousComparison', { amount: formatter.cost(statistics.previous.actual_cost), change: percentageChange(statistics.selected.actual_cost, statistics.previous.actual_cost) }) }}</dd>
       </div>
-      <div class="analytics-panel">
+      <div class="card analytics-panel">
         <dt class="analytics-caption">{{ t('admin.desktop.usageStatistics.selectedTokens') }}</dt>
         <dd class="analytics-value"><bdi>{{ formatTokens(statistics.selected.total_tokens) }}</bdi></dd>
         <dd class="analytics-caption mt-3">{{ t('admin.desktop.usageStatistics.previousComparison', { amount: formatTokens(statistics.previous.total_tokens), change: percentageChange(statistics.selected.total_tokens, statistics.previous.total_tokens) }) }}</dd>
       </div>
     </dl>
-    <section class="analytics-panel space-y-4" :aria-label="t('admin.desktop.usageStatistics.trend')">
+    <section class="card analytics-panel space-y-4" :aria-label="t('admin.desktop.usageStatistics.trend')">
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div class="min-w-0">
           <h4 class="analytics-heading">{{ t('admin.desktop.usageStatistics.trend') }}</h4>
           <p class="analytics-caption mt-1">{{ t('admin.desktop.usageStatistics.metricScope') }}</p>
         </div>
         <div class="flex flex-wrap gap-2" role="group" :aria-label="t('admin.desktop.usageStatistics.trendMetric')">
-          <button v-for="metric in metrics" :key="metric" type="button" class="analytics-button" :aria-pressed="selectedMetric === metric" :data-testid="`usage-metric-${metric}`" @click="selectedMetric = metric">
+          <button v-for="metric in metrics" :key="metric" type="button" class="btn btn-secondary analytics-button" :aria-pressed="selectedMetric === metric" :data-testid="`usage-metric-${metric}`" @click="selectedMetric = metric">
             <Icon v-if="selectedMetric === metric" name="check" size="xs" aria-hidden="true" />{{ t(`admin.desktop.usageStatistics.${metric}`) }}
           </button>
         </div>
@@ -38,11 +38,11 @@
       <DesktopAnalyticsDailyData :caption="t('admin.desktop.usageStatistics.trend')" :rows="statistics.daily" :columns="dailyColumns" />
     </section>
 
-    <section class="analytics-panel space-y-4" :aria-label="t('admin.desktop.usageStatistics.tokenBreakdown')">
+    <section class="card analytics-panel space-y-4" :aria-label="t('admin.desktop.usageStatistics.tokenBreakdown')">
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div class="min-w-0"><h4 class="analytics-heading">{{ t('admin.desktop.usageStatistics.tokenBreakdown') }}</h4><p class="analytics-caption mt-1">{{ t('admin.desktop.usageStatistics.tokenUnitHint') }}</p></div>
         <div class="flex flex-wrap gap-2" role="group" :aria-label="t('admin.desktop.usageStatistics.numberDisplay')">
-          <button v-for="mode in numberModes" :key="mode" type="button" class="analytics-button" :aria-pressed="numberMode === mode" :data-testid="`usage-token-${mode}`" @click="numberMode = mode"><Icon v-if="numberMode === mode" name="check" size="xs" aria-hidden="true" />{{ t(`admin.desktop.usageStatistics.${mode === 'compact' ? 'compactTokens' : 'exactTokens'}`) }}</button>
+          <button v-for="mode in numberModes" :key="mode" type="button" class="btn btn-secondary analytics-button" :aria-pressed="numberMode === mode" :data-testid="`usage-token-${mode}`" @click="numberMode = mode"><Icon v-if="numberMode === mode" name="check" size="xs" aria-hidden="true" />{{ t(`admin.desktop.usageStatistics.${mode === 'compact' ? 'compactTokens' : 'exactTokens'}`) }}</button>
         </div>
       </div>
       <dl class="grid grid-cols-2 gap-5">
@@ -51,7 +51,7 @@
     </section>
 
     <div class="analytics-grid">
-      <section class="analytics-panel" :aria-label="t('admin.desktop.usageStatistics.models')">
+      <section class="card analytics-panel" :aria-label="t('admin.desktop.usageStatistics.models')">
         <h4 class="analytics-heading">{{ t('admin.desktop.usageStatistics.models') }}</h4>
         <p class="analytics-caption mt-1">{{ t('admin.desktop.usageStatistics.rankingHint') }} {{ t(`admin.desktop.usageStatistics.${selectedMetric}`) }}</p>
         <ol v-if="rankedModels.length" class="mt-5 space-y-5" data-testid="organization-model-ranking">
@@ -63,7 +63,7 @@
         </ol>
         <p v-else class="analytics-caption mt-4">{{ t('admin.desktop.usageStatistics.noUsage') }}</p>
       </section>
-      <section class="analytics-panel" :aria-label="t('admin.desktop.usageStatistics.members')">
+      <section class="card analytics-panel" :aria-label="t('admin.desktop.usageStatistics.members')">
         <h4 class="analytics-heading">{{ t('admin.desktop.usageStatistics.members') }}</h4>
         <p class="analytics-caption mt-1">{{ t('admin.desktop.usageStatistics.observedMembers', { count: formatter.number(statistics.observed_members) }) }} · {{ t(`admin.desktop.usageStatistics.${selectedMetric}`) }}</p>
         <p class="analytics-caption mt-1">{{ t('admin.desktop.usageStatistics.memberHint') }} {{ t('admin.desktop.usageStatistics.rankingHint') }}</p>
