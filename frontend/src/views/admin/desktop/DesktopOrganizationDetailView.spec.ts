@@ -242,6 +242,43 @@ describe('DesktopOrganizationDetailView', () => {
     wrapper.unmount()
   })
 
+  it.each([false, true])('shows reporting, analysis and capacity in the overview with selfManaged=%s', async selfManaged => {
+    const api = selfManaged ? managedDesktopAPI : desktopAPI
+    api.getOrganization.mockResolvedValue({ ...organization, member_count: 12, member_limit: 13, conversation_reporting_enabled: true, conversation_summary_enabled: false, analysis_model: 'analysis-model', management_policy: { analysis_limit_1d: 0, conversation_retention_days: 30, report_retention_days: 0, execution_retention_days: 365 } })
+    const wrapper = selfManaged ? mountManagedView() : mountView(); await flushPromises()
+    const overview = wrapper.get('[data-testid="organization-overview"]')
+    expect(overview.get('[data-testid="organization-member-capacity"]').text()).toBe('12 / 13')
+    expect(overview.get('[data-testid="organization-analysis-model"]').text()).toBe('analysis-model')
+    expect(overview.get('[data-testid="organization-analysis-limit"]').text()).toBe('admin.desktop.organizationForm.unlimited')
+    expect(overview.text()).toContain('admin.desktop.organizationForm.forever')
+    const statuses = overview.findAll('status-badge-stub')
+    expect(statuses.map(item => item.attributes('status'))).toEqual(['active', 'disabled'])
+    wrapper.unmount()
+  })
+
+  it('does not treat a missing analysis budget as an unlimited budget', async () => {
+    const wrapper = mountView(); await flushPromises()
+    expect(wrapper.get('[data-testid="organization-analysis-limit"]').text()).toBe('—')
+    wrapper.unmount()
+  })
+
+  it('keeps billing decimals valid and enforces whole-day retention periods in the edit form', async () => {
+    const wrapper = mount(DesktopOrganizationDetailView, { global: { stubs: { AppLayout: { template: '<main><slot /></main>' }, DataTable: true, DesktopOrganizationUsageStatistics: true, DesktopAnalyticsRangePicker: true, DesktopConversationStatistics: true, DesktopConversationRecords: true, DesktopDailyReports: true, BaseDialog: { props: ['show'], template: '<section v-if="show"><slot /></section>' }, ConfirmDialog: true, Select: true, Input: true } } })
+    await flushPromises()
+    await (wrapper.vm as any).openEditOrganization(); await flushPromises()
+    const budget = wrapper.get('#desktop-edit-analysis-limit')
+    await budget.setValue('0.005')
+    expect((budget.element as HTMLInputElement).checkValidity()).toBe(true)
+    const retention = wrapper.get('#desktop-edit-conversation_retention_days')
+    await retention.setValue('30.5')
+    expect((retention.element as HTMLInputElement).checkValidity()).toBe(false)
+    await retention.setValue('3651')
+    expect((retention.element as HTMLInputElement).checkValidity()).toBe(false)
+    await retention.setValue('0')
+    expect((retention.element as HTMLInputElement).checkValidity()).toBe(true)
+    wrapper.unmount()
+  })
+
   it('shows organization-wide usage in the members tab for both entry points', async () => {
     for (const mountPage of [mountView, mountManagedView]) {
       const wrapper = mountPage()
@@ -332,6 +369,38 @@ describe('DesktopOrganizationDetailView', () => {
     await memberTab.trigger('keydown', { key: 'Home' })
     expect(router.replace).toHaveBeenLastCalledWith({ query: { tab: 'usage' } })
     wrapper.unmount()
+  })
+
+  it('keeps the selected tab visible when asynchronous content changes the navigation width', async () => {
+    let notifyResize: (() => void) | undefined
+    const disconnect = vi.fn()
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(private callback: ResizeObserverCallback) {}
+      observe(target: Element) {
+        if (target.classList.contains('detail-tabs-scroll')) notifyResize = () => this.callback([], this as unknown as ResizeObserver)
+      }
+      unobserve() {}
+      disconnect = disconnect
+    })
+    const wrapper = mountView()
+    try {
+      await flushPromises()
+      const navigation = wrapper.get('[role="tablist"]').element as HTMLElement
+      const selected = wrapper.get('#desktop-organization-tab-members').element
+      const viewport = vi.spyOn(navigation, 'getBoundingClientRect').mockReturnValue({ left: 0, right: 280 } as DOMRect)
+      const tab = vi.spyOn(selected, 'getBoundingClientRect').mockReturnValue({ left: 260, right: 390 } as DOMRect)
+      expect(notifyResize).toBeDefined()
+      notifyResize!()
+      expect(navigation.scrollLeft).toBe(110)
+      viewport.mockReturnValue({ left: 0, right: 240 } as DOMRect)
+      tab.mockReturnValue({ left: 150, right: 280 } as DOMRect)
+      notifyResize!()
+      expect(navigation.scrollLeft).toBe(150)
+    } finally {
+      wrapper.unmount()
+      vi.unstubAllGlobals()
+    }
+    expect(disconnect).toHaveBeenCalled()
   })
 
   it.each([false, true])('exports all filtered member pages with selfManaged=%s', async selfManaged => {

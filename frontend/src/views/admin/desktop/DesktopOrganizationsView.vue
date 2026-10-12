@@ -58,30 +58,51 @@
       </template>
     </TablePageLayout>
 
-    <BaseDialog :show="showCreate" :title="t('admin.desktop.createOrganization')" width="wide" @close="closeCreate">
-      <form id="desktop-organization-create" class="space-y-4" @submit.prevent="createOrganization">
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Input v-model="form.name" :label="t('admin.desktop.organizationName')" required />
-          <Input v-model="form.code" :label="t('admin.desktop.organizationCode')" required :hint="t('admin.desktop.organizationCodeHint')" />
-        </div>
-        <div>
-          <label class="input-label mb-1.5 block">{{ t('admin.desktop.gatewayUser') }} <span class="text-red-500">*</span></label>
-          <Select v-model="form.gateway_user_id" :options="userOptions" searchable remote :loading="usersLoading" :placeholder="t('admin.desktop.selectGatewayUser')" :search-placeholder="t('admin.desktop.searchGatewayUsers')" @search="loadUsers" />
-        </div>
-        <div>
-          <label class="input-label mb-1.5 block">{{ t('admin.desktop.group') }} <span class="text-red-500">*</span></label>
-          <Select v-model="form.group_id" :options="groupOptions" searchable :loading="groupsLoading" :placeholder="t('admin.desktop.selectGroup')" />
-        </div>
-        <div>
-          <label for="desktop-create-member-limit" class="input-label mb-1.5 block">{{ t('admin.desktop.memberLimit') }} <span class="text-red-500">*</span></label>
-          <input id="desktop-create-member-limit" v-model.number="form.member_limit" class="input" type="number" min="1" step="1" required />
-        </div>
-        <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 p-3 dark:border-dark-700">
-          <input v-model="form.conversation_reporting_enabled" @change="!form.conversation_reporting_enabled && (form.conversation_summary_enabled = false)" data-testid="desktop-create-conversation-reporting" type="checkbox" class="mt-0.5 h-4 w-4 rounded" aria-describedby="desktop-create-reporting-hint" />
-          <span class="min-w-0"><span class="text-sm font-medium">{{ t('admin.desktop.conversationReporting') }}</span><span id="desktop-create-reporting-hint" class="mt-1 block text-xs leading-5 text-gray-500 dark:text-dark-400">{{ t('admin.desktop.conversationReportingHint') }}</span></span>
-        </label>
-        <label class="flex items-start gap-3"><input v-model="form.conversation_summary_enabled" data-testid="desktop-create-summary" type="checkbox" class="mt-0.5 h-4 w-4 rounded" :disabled="!form.conversation_reporting_enabled" /><span><span class="text-sm font-medium">{{ t('admin.desktop.reports.enabled') }}</span><span class="mt-1 block text-xs text-gray-500">{{ t('admin.desktop.reports.schedule') }}</span></span></label>
-        <Input v-model="form.analysis_model" :label="t('admin.desktop.reports.model')" :required="form.conversation_summary_enabled" :hint="t('admin.desktop.reports.modelHint')" maxlength="200" />
+    <BaseDialog content-class="desktop-detail" :close-label="t('common.close')" :show="showCreate" :title="t('admin.desktop.createOrganization')" width="wide" @close="closeCreate">
+      <form id="desktop-organization-create" class="space-y-6" @submit.prevent="createOrganization">
+        <fieldset class="detail-form-section">
+          <legend class="detail-section-title">{{ t('admin.desktop.organizationForm.basic') }}</legend>
+          <div class="mt-4 space-y-4">
+            <Input v-model="form.name" :label="t('admin.desktop.organizationName')" required />
+            <Input v-model="form.code" class="sm:max-w-sm" :label="t('admin.desktop.organizationCode')" required :hint="t('admin.desktop.organizationCodeHint')" maxlength="16" />
+          </div>
+        </fieldset>
+        <fieldset class="detail-form-section">
+          <legend class="detail-section-title">{{ t('admin.desktop.organizationForm.resources') }}</legend>
+          <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div class="sm:col-span-2">
+              <label for="desktop-create-gateway-user" class="input-label mb-1.5 block">{{ t('admin.desktop.gatewayUser') }} <span class="text-red-500">*</span></label>
+              <Select id="desktop-create-gateway-user" dropdown-class="desktop-detail-select" v-model="form.gateway_user_id" :aria-label="t('admin.desktop.gatewayUser')" :options="userOptions" searchable remote :loading="usersLoading" :placeholder="t('admin.desktop.selectGatewayUser')" :search-placeholder="t('admin.desktop.searchGatewayUsers')" aria-describedby="desktop-create-gateway-hint" @search="loadUsers" />
+              <p id="desktop-create-gateway-hint" class="detail-caption mt-1.5">{{ t('admin.desktop.organizationForm.gatewayHint') }}</p>
+            </div>
+            <div>
+              <label for="desktop-create-group" class="input-label mb-1.5 block">{{ t('admin.desktop.group') }} <span class="text-red-500">*</span></label>
+              <Select id="desktop-create-group" dropdown-class="desktop-detail-select" v-model="form.group_id" :aria-label="t('admin.desktop.group')" :options="groupOptions" searchable :loading="groupsLoading" :placeholder="t('admin.desktop.selectGroup')" />
+            </div>
+            <div>
+              <label for="desktop-create-member-limit" class="input-label mb-1.5 block">{{ t('admin.desktop.memberLimit') }} <span class="text-red-500">*</span></label>
+              <input id="desktop-create-member-limit" v-model.number="form.member_limit" class="input" type="number" min="1" step="1" required aria-describedby="desktop-create-capacity-hint" />
+              <p id="desktop-create-capacity-hint" class="detail-caption mt-1.5">{{ t('admin.desktop.organizationForm.capacityHint') }}</p>
+            </div>
+          </div>
+        </fieldset>
+        <fieldset class="detail-form-section">
+          <legend class="detail-section-title">{{ t('admin.desktop.organizationForm.reporting') }}</legend>
+          <div class="mt-4 space-y-4">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <label class="detail-form-toggle">
+                <input v-model="form.conversation_reporting_enabled" @change="!form.conversation_reporting_enabled && (form.conversation_summary_enabled = false)" data-testid="desktop-create-conversation-reporting" type="checkbox" class="mt-0.5 h-4 w-4 shrink-0 rounded" aria-describedby="desktop-create-reporting-hint" />
+                <span class="min-w-0"><span class="text-sm font-medium">{{ t('admin.desktop.conversationReporting') }}</span><span id="desktop-create-reporting-hint" class="detail-caption mt-1 block">{{ t('admin.desktop.conversationReportingHint') }}</span></span>
+              </label>
+              <label class="detail-form-toggle" :class="{ 'cursor-not-allowed opacity-60': !form.conversation_reporting_enabled }">
+                <input v-model="form.conversation_summary_enabled" data-testid="desktop-create-summary" type="checkbox" class="mt-0.5 h-4 w-4 shrink-0 rounded" :disabled="!form.conversation_reporting_enabled" aria-describedby="desktop-create-summary-hint" />
+                <span class="min-w-0"><span class="text-sm font-medium">{{ t('admin.desktop.reports.enabled') }}</span><span id="desktop-create-summary-hint" class="detail-caption mt-1 block">{{ t('admin.desktop.organizationForm.summaryHint') }}</span><span class="detail-caption mt-1 block">{{ t('admin.desktop.reports.schedule') }}</span></span>
+              </label>
+            </div>
+            <Input v-if="form.conversation_summary_enabled" v-model="form.analysis_model" :label="t('admin.desktop.reports.model')" required :hint="t('admin.desktop.reports.modelHint')" maxlength="200" />
+            <p class="detail-caption">{{ t('admin.desktop.organizationForm.policyAfterCreate') }}</p>
+          </div>
+        </fieldset>
       </form>
       <template #footer>
         <div class="flex justify-end gap-3">
@@ -114,6 +135,7 @@ import StatusBadge from '@/components/common/StatusBadge.vue'
 import Select from '@/components/common/Select.vue'
 import Input from '@/components/common/Input.vue'
 import Icon from '@/components/icons/Icon.vue'
+import '@/styles/desktopDetail.css'
 
 const { t, te } = useI18n()
 const router = useRouter()

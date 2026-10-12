@@ -44,6 +44,35 @@ describe('Desktop member import dialog', () => {
     wrapper.unmount()
   })
 
+  it('opens the file picker from the upload button and announces the selected filename', async () => {
+    const wrapper = view()
+    const click = vi.spyOn(wrapper.get('input[type="file"]').element as HTMLInputElement, 'click')
+    expect(wrapper.get('#member-import-file-name').text()).toContain('common.noFileSelected')
+    await wrapper.get('[data-testid="choose-member-import-file"]').trigger('click')
+    expect(click).toHaveBeenCalledOnce()
+    await upload(wrapper)
+    expect(wrapper.get('#member-import-file-name').text()).toBe('members.xlsx')
+    expect(wrapper.get('input[type="file"]').element).toHaveProperty('value', '')
+    wrapper.unmount()
+  })
+
+  it('disables the picker button while parsing or importing the selected file', async () => {
+    let finishParsing!: (rows: DesktopMemberImportRow[]) => void
+    files.parseDesktopMemberImportFile.mockReturnValueOnce(new Promise(resolve => { finishParsing = resolve }))
+    const wrapper = view()
+    await upload(wrapper)
+    expect(wrapper.get('[data-testid="choose-member-import-file"]').attributes('disabled')).toBeDefined()
+    finishParsing([record(0)]); await flushPromises()
+    expect(wrapper.get('[data-testid="choose-member-import-file"]').attributes('disabled')).toBeUndefined()
+    let finishImport!: (value: object) => void
+    admin.createMember.mockReturnValueOnce(new Promise(resolve => { finishImport = resolve }))
+    await wrapper.get('[data-testid="confirm-member-import"]').trigger('click')
+    expect(wrapper.get('[data-testid="choose-member-import-file"]').attributes('disabled')).toBeDefined()
+    finishImport({}); await flushPromises()
+    expect(wrapper.get('[data-testid="choose-member-import-file"]').attributes('disabled')).toBeUndefined()
+    wrapper.unmount()
+  })
+
   it.each([false, true])('previews rows and creates valid members through the correct API for selfManaged=%s', async selfManaged => {
     files.parseDesktopMemberImportFile.mockResolvedValue([record(0), { ...record(1), errors: ['duplicatePhone'] }])
     const wrapper = view(selfManaged)

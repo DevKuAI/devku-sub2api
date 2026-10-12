@@ -2,14 +2,17 @@
   <BaseDialog content-class="desktop-detail" :close-label="t('common.close')" :show="show" :title="t('admin.desktop.memberImport.button')" width="wide" :show-close-button="!importing" :close-on-escape="!importing" @close="close">
     <div class="space-y-4" :aria-busy="loading || importing">
       <div class="flex flex-wrap items-start justify-between gap-3">
-        <p class="min-w-0 flex-1 text-sm leading-relaxed text-gray-600 dark:text-dark-300">{{ t('admin.desktop.memberImport.hint') }}</p>
+        <p class="min-w-0 flex-1 basis-full text-sm leading-relaxed text-gray-600 dark:text-dark-300 sm:basis-0">{{ t('admin.desktop.memberImport.hint') }}</p>
         <button class="btn btn-secondary shrink-0 gap-1.5" type="button" :disabled="templateLoading" data-testid="download-member-template" @click="downloadTemplate"><Icon name="download" size="md" />{{ t('admin.desktop.memberImport.downloadTemplate') }}</button>
       </div>
-      <label class="block space-y-1.5">
-        <span class="input-label block">{{ t('admin.desktop.memberImport.file') }}</span>
-        <input type="file" accept=".xlsx,.csv" class="input block w-full" :disabled="loading || importing" data-testid="member-import-file" @change="selectFile" />
-      </label>
-      <p v-if="fileName" class="break-all text-xs text-gray-500 dark:text-dark-400">{{ fileName }}</p>
+      <div class="space-y-1.5">
+        <span id="member-import-file-label" class="input-label block">{{ t('admin.desktop.memberImport.file') }}</span>
+        <div class="flex flex-wrap items-center gap-3">
+          <button class="btn btn-secondary btn-sm shrink-0 gap-1.5" type="button" :disabled="loading || importing" aria-describedby="member-import-file-label member-import-file-name" data-testid="choose-member-import-file" @click="fileInput?.click()"><Icon name="upload" size="sm" :stroke-width="2" aria-hidden="true" />{{ t('common.chooseFile') }}</button>
+          <span id="member-import-file-name" class="min-w-0 flex-1 break-all text-sm text-gray-500 dark:text-dark-400" role="status" aria-live="polite">{{ fileName || t('common.noFileSelected') }}</span>
+        </div>
+        <input ref="fileInput" type="file" accept=".xlsx,.csv" class="hidden" :disabled="loading || importing" aria-labelledby="member-import-file-label" data-testid="member-import-file" @change="selectFile" />
+      </div>
       <p v-if="loading" class="text-sm text-gray-500 dark:text-dark-400" role="status">{{ t('common.loading') }}</p>
       <p v-if="fileError" class="text-sm text-red-600 dark:text-red-400" role="alert">{{ fileError }}</p>
       <template v-if="rows.length">
@@ -63,6 +66,7 @@ const templateLoading = ref(false)
 const attempted = ref(false)
 const fileError = ref('')
 const fileName = ref('')
+const fileInput = ref<HTMLInputElement>()
 const page = ref(1)
 const pageSize = 20
 let generation = 0

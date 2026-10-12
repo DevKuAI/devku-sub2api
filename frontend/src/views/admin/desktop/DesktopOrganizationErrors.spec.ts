@@ -141,6 +141,30 @@ describe('Desktop organization member limit on creation', () => {
 })
 
 describe('Desktop conversation reporting on creation', () => {
+  it('shows the required analysis model only when report generation is enabled', async () => {
+    const wrapper = mount(DesktopOrganizationsView, {
+      global: {
+        plugins: [createI18n({ legacy: false, locale: 'en', messages: { en }, messageCompiler: message => () => String(message) })],
+        stubs: { AppLayout: { template: '<main><slot /></main>' }, TablePageLayout: true, BaseDialog: { props: ['show'], template: '<section v-if="show"><slot /></section>' } },
+      },
+    })
+    await flushPromises()
+    await (wrapper.vm as any).openCreate(); await flushPromises()
+    const analysisModel = () => wrapper.findAllComponents({ name: 'Input' }).find(input => input.props('label') === en.admin.desktop.reports.model)
+    expect(analysisModel()).toBeUndefined()
+    const reporting = wrapper.get('[data-testid="desktop-create-conversation-reporting"]')
+    const summary = wrapper.get('[data-testid="desktop-create-summary"]')
+    expect(summary.attributes('disabled')).toBeDefined()
+    await reporting.setValue(true)
+    await summary.setValue(true)
+    expect(analysisModel()!.get('input').attributes('required')).toBeDefined()
+    await analysisModel()!.get('input').setValue('stored-analysis-model')
+    await reporting.setValue(false)
+    expect((summary.element as HTMLInputElement).checked).toBe(false)
+    expect(analysisModel()).toBeUndefined()
+    expect((wrapper.vm as any).form.analysis_model).toBe('stored-analysis-model')
+  })
+
   it.each([false, true])('creates an organization with reporting=%s and resets the next form', async (enabled) => {
     desktopAPI.createOrganization.mockResolvedValue({ ...organization, conversation_reporting_enabled: enabled })
     const wrapper = mount(DesktopOrganizationsView, {

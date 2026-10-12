@@ -22,15 +22,35 @@
       </div>
 
       <p v-if="organizationLoading && !organization" class="card detail-panel detail-caption" role="status">{{ t('admin.desktop.detail.loadingOrganization') }}</p>
-      <dl v-if="organization" class="card detail-overview">
-        <div class="min-w-0"><dt class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.gatewayUser') }}</dt><dd class="mt-1 break-words text-sm font-medium">{{ organization.gateway_user.username || organization.gateway_user.email }}</dd><dd class="break-all text-xs text-gray-500 dark:text-dark-400">{{ organization.gateway_user.email }}</dd></div>
-        <div class="min-w-0"><dt class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.group') }}</dt><dd class="mt-1 break-words text-sm font-medium">{{ organization.group.name }}</dd></div>
-        <div class="min-w-0"><dt class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.memberCapacity') }}</dt><dd class="mt-1 text-sm font-medium tabular-nums">{{ organization.member_count }} / {{ organization.member_limit }}</dd></div>
-        <div class="min-w-0"><dt class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.desktop.configuration') }}</dt><dd class="mt-1 text-sm font-medium">{{ organization.target_config_assigned ? t('admin.desktop.configured') : t('admin.desktop.notConfigured') }}</dd></div>
-      </dl>
+      <section v-if="organization" class="card detail-overview space-y-4" data-testid="organization-overview" :aria-label="t('admin.desktop.organizationForm.overview')">
+        <dl class="detail-overview-grid">
+          <div class="min-w-0"><dt class="detail-caption">{{ t('admin.desktop.gatewayUser') }}</dt><dd class="mt-1 break-words text-sm font-medium">{{ organization.gateway_user.username || organization.gateway_user.email }}</dd><dd class="break-all text-xs text-gray-500 dark:text-dark-400">{{ organization.gateway_user.email }}</dd></div>
+          <div class="min-w-0"><dt class="detail-caption">{{ t('admin.desktop.group') }}</dt><dd class="mt-1 break-words text-sm font-medium">{{ organization.group.name }}</dd></div>
+          <div class="min-w-0"><dt class="detail-caption">{{ t('admin.desktop.memberCapacity') }}</dt><dd class="mt-1 text-lg font-semibold tabular-nums" data-testid="organization-member-capacity">{{ organization.member_count }} / {{ organization.member_limit }}</dd><dd class="detail-caption mt-1" :class="{ 'text-amber-700 dark:text-amber-300': memberLimitReached }">{{ t('admin.desktop.organizationForm.remainingSlots', { count: Math.max(0, organization.member_limit - organization.member_count) }) }}</dd></div>
+          <div class="min-w-0"><dt class="detail-caption">{{ t('admin.desktop.organizationForm.clientConfiguration') }}</dt><dd class="mt-1"><span class="badge" :class="organization.target_config_assigned ? 'badge-success' : 'badge-warning'">{{ organization.target_config_assigned ? t('admin.desktop.configured') : t('admin.desktop.notConfigured') }}</span></dd></div>
+        </dl>
+        <div class="space-y-4 border-t border-gray-100 pt-4 dark:border-dark-700">
+          <dl class="detail-overview-grid">
+            <div class="min-w-0"><dt class="detail-caption">{{ t('admin.desktop.conversationReporting') }}</dt><dd class="mt-1"><StatusBadge :status="organization.conversation_reporting_enabled ? 'active' : 'disabled'" :label="t(organization.conversation_reporting_enabled ? 'common.enabled' : 'common.disabled')" /></dd></div>
+            <div class="min-w-0"><dt class="detail-caption">{{ t('admin.desktop.reports.title') }}</dt><dd class="mt-1"><StatusBadge :status="organization.conversation_summary_enabled ? 'active' : 'disabled'" :label="t(organization.conversation_summary_enabled ? 'common.enabled' : 'common.disabled')" /></dd></div>
+            <div class="min-w-0"><dt class="detail-caption">{{ t('admin.desktop.reports.model') }}</dt><dd class="mt-1 break-all text-sm font-medium" data-testid="organization-analysis-model"><bdi>{{ organization.analysis_model || t('admin.desktop.notConfigured') }}</bdi></dd></div>
+            <div class="min-w-0"><dt class="detail-caption">{{ t('admin.desktop.managementPolicy.analysisLimit') }}</dt><dd class="mt-1 text-sm font-medium" data-testid="organization-analysis-limit">{{ analysisLimitLabel }}</dd></div>
+          </dl>
+          <dl v-if="organization.management_policy" class="flex flex-wrap gap-x-6 gap-y-2 text-xs text-gray-500 dark:text-dark-400">
+            <div v-for="field in retentionFields" :key="field" class="flex min-w-0 flex-wrap gap-x-1"><dt>{{ t(`admin.desktop.managementPolicy.${field}`) }}:</dt><dd>{{ retentionLabel(organization.management_policy[field]) }}</dd></div>
+          </dl>
+        </div>
+      </section>
 
-      <div v-if="organization" class="tabs detail-tabs" role="tablist" :aria-label="t('admin.desktop.detailTabs')">
-        <button v-for="(tab, index) in tabs" :id="tabId(tab.value)" :key="tab.value" class="tab detail-tab" :class="{ 'tab-active': activeTab === tab.value }" type="button" role="tab" :aria-controls="panelId(tab.value)" :aria-selected="activeTab === tab.value" :tabindex="activeTab === tab.value ? 0 : -1" @click="setTab(tab.value)" @keydown="handleTabKeydown($event, index)">{{ tab.label }}</button>
+      <div v-if="organization" class="detail-tabs-shell">
+        <nav ref="tabScroll" class="detail-tabs-scroll" role="tablist" :aria-label="t('admin.desktop.detailTabs')">
+          <div class="detail-tabs">
+            <button v-for="(tab, index) in tabs" :id="tabId(tab.value)" :key="tab.value" class="detail-tab" :class="{ 'detail-tab-active': activeTab === tab.value }" type="button" role="tab" :aria-controls="panelId(tab.value)" :aria-selected="activeTab === tab.value" :tabindex="activeTab === tab.value ? 0 : -1" @click="setTab(tab.value)" @keydown="handleTabKeydown($event, index)">
+              <span class="detail-tab-icon" aria-hidden="true"><Icon :name="tabIcons[tab.value]" size="sm" /></span>
+              <span class="detail-tab-label">{{ tab.label }}</span>
+            </button>
+          </div>
+        </nav>
       </div>
 
       <section v-if="organization && activeTab === 'usage'" :id="panelId('usage')" class="min-w-0 space-y-6" tabindex="0" role="tabpanel" :aria-labelledby="tabId('usage')">
@@ -132,7 +152,7 @@
         <div v-if="selfManaged" class="space-y-6">
           <p class="text-sm text-gray-500 dark:text-dark-400">{{ t('admin.desktop.configurationReadOnly') }}</p>
           <section class="card detail-panel"><h2 class="detail-section-title mb-4">{{ t('admin.desktop.reports.title') }}</h2><dl class="detail-config-metadata"><div><dt class="detail-caption">{{ t('admin.desktop.reports.enabled') }}</dt><dd>{{ t(organization?.conversation_summary_enabled ? 'common.enabled' : 'common.disabled') }}</dd></div><div><dt class="detail-caption">{{ t('admin.desktop.reports.model') }}</dt><dd><bdi>{{ organization?.analysis_model || t('admin.desktop.notConfigured') }}</bdi></dd></div></dl></section>
-          <section class="card detail-panel space-y-3"><h2 class="detail-section-title">{{ t('admin.desktop.managementPolicy.title') }}</h2><dl class="detail-config-metadata"><div><dt class="detail-caption">{{ t('admin.desktop.managementPolicy.analysisLimit') }}</dt><dd>{{ organization.management_policy?.analysis_limit_1d || 0 }}</dd></div><div v-for="field in retentionFields" :key="field"><dt class="detail-caption">{{ t(`admin.desktop.managementPolicy.${field}`) }}</dt><dd>{{ organization.management_policy?.[field] || 0 }}</dd></div></dl><p class="detail-caption">{{ t('admin.desktop.managementPolicy.hint') }}</p></section>
+          <section class="card detail-panel space-y-3"><h2 class="detail-section-title">{{ t('admin.desktop.managementPolicy.title') }}</h2><dl class="detail-config-metadata"><div><dt class="detail-caption">{{ t('admin.desktop.managementPolicy.analysisLimit') }}</dt><dd>{{ analysisLimitLabel }}</dd></div><div v-for="field in retentionFields" :key="field"><dt class="detail-caption">{{ t(`admin.desktop.managementPolicy.${field}`) }}</dt><dd>{{ organization.management_policy ? retentionLabel(organization.management_policy[field]) : '—' }}</dd></div></dl><p class="detail-caption">{{ t('admin.desktop.managementPolicy.hint') }}</p></section>
           <div v-for="target in configurationTargets" :key="target.name" class="card detail-panel">
             <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
               <h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ target.name }}</h2>
@@ -179,30 +199,69 @@
     </div>
 
     <BaseDialog content-class="desktop-detail" :close-label="t('common.close')" v-if="!selfManaged" :show="showOrganizationEdit" :title="t('admin.desktop.editOrganization')" width="wide" @close="closeOrganizationEdit">
-      <form id="desktop-organization-edit" class="space-y-4" @submit.prevent="submitOrganizationEdit">
+      <form id="desktop-organization-edit" class="space-y-6" @submit.prevent="submitOrganizationEdit">
         <p v-if="organizationEditError" class="detail-error" role="alert">{{ organizationEditError }} {{ t('admin.desktop.detail.saveRetryHint') }}</p>
-        <Input v-model="organizationForm.name" :label="t('admin.desktop.organizationName')" required />
-        <div><label for="desktop-edit-status" class="input-label mb-1.5 block">{{ t('common.status') }}</label><Select id="desktop-edit-status" dropdown-class="desktop-detail-select" :aria-label="t('common.status')" v-model="organizationForm.status" :options="editableStatusOptions" /></div>
-        <template v-if="!selfManaged">
-          <div>
-            <label for="desktop-edit-member-limit" class="input-label mb-1.5 block">{{ t('admin.desktop.memberLimit') }} <span class="text-red-500">*</span></label>
-            <input id="desktop-edit-member-limit" v-model.number="organizationForm.member_limit" class="input" type="number" :min="Math.max(1, organization?.member_count || 0)" step="1" required />
+        <fieldset class="detail-form-section">
+          <legend class="detail-section-title">{{ t('admin.desktop.organizationForm.basic') }}</legend>
+          <div class="mt-4 space-y-4">
+            <Input v-model="organizationForm.name" :label="t('admin.desktop.organizationName')" required />
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Input :model-value="organization?.code" :label="t('admin.desktop.organizationCode')" readonly :hint="t('admin.desktop.organizationForm.codeReadOnly')" />
+              <div><label for="desktop-edit-status" class="input-label mb-1.5 block">{{ t('common.status') }}</label><Select id="desktop-edit-status" dropdown-class="desktop-detail-select" :aria-label="t('common.status')" v-model="organizationForm.status" :options="editableStatusOptions" /></div>
+            </div>
           </div>
-          <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 p-3 dark:border-dark-700">
-            <input v-model="organizationForm.conversation_reporting_enabled" @change="!organizationForm.conversation_reporting_enabled && (organizationForm.conversation_summary_enabled = false)" data-testid="desktop-edit-conversation-reporting" type="checkbox" class="mt-0.5 h-4 w-4 rounded" aria-describedby="desktop-edit-reporting-hint" />
-            <span class="min-w-0"><span class="text-sm font-medium">{{ t('admin.desktop.conversationReporting') }}</span><span id="desktop-edit-reporting-hint" class="mt-1 block text-xs leading-5 text-gray-500 dark:text-dark-400">{{ t('admin.desktop.conversationReportingHint') }}</span></span>
-          </label>
-          <label class="flex items-start gap-3"><input v-model="organizationForm.conversation_summary_enabled" data-testid="desktop-edit-summary" type="checkbox" class="mt-0.5 h-4 w-4 rounded" :disabled="!organizationForm.conversation_reporting_enabled" /><span><span class="text-sm font-medium">{{ t('admin.desktop.reports.enabled') }}</span><span class="mt-1 block text-xs text-gray-500">{{ t('admin.desktop.reports.schedule') }}</span></span></label>
-          <Input v-model="organizationForm.analysis_model" :label="t('admin.desktop.reports.model')" :required="organizationForm.conversation_summary_enabled" :hint="t('admin.desktop.reports.modelHint')" maxlength="200" />
-          <fieldset class="space-y-3"><legend class="input-label">{{ t('admin.desktop.managementPolicy.title') }}</legend>
-            <p class="detail-caption">{{ t('admin.desktop.managementPolicy.hint') }}</p>
-            <Input v-model.number="organizationForm.management_policy.analysis_limit_1d" type="number" min="0" step="0.01" :label="t('admin.desktop.managementPolicy.analysisLimit')" />
-            <Input v-for="field in retentionFields" :key="field" v-model.number="organizationForm.management_policy[field]" type="number" min="0" max="3650" step="1" :label="t(`admin.desktop.managementPolicy.${field}`)" />
-          </fieldset>
-          <div><label for="desktop-edit-gateway_user_id" class="input-label mb-1.5 block">{{ t('admin.desktop.gatewayUser') }}</label><Select id="desktop-edit-gateway_user_id" dropdown-class="desktop-detail-select" :aria-label="t('admin.desktop.gatewayUser')" v-model="organizationForm.gateway_user_id" :options="gatewayUserOptions" searchable remote :loading="gatewayUsersLoading" :disabled="gatewayUserLocked" @search="loadGatewayUsers" /></div>
-          <div><label for="desktop-edit-group_id" class="input-label mb-1.5 block">{{ t('admin.desktop.group') }}</label><Select id="desktop-edit-group_id" dropdown-class="desktop-detail-select" :aria-label="t('admin.desktop.group')" v-model="organizationForm.group_id" :options="groupOptions" searchable :loading="groupsLoading" /></div>
-          <p v-if="gatewayUserLocked" class="text-sm text-gray-500 dark:text-dark-400">{{ t('admin.desktop.provisioningLockedHint') }}</p>
-        </template>
+        </fieldset>
+        <fieldset class="detail-form-section">
+          <legend class="detail-section-title">{{ t('admin.desktop.organizationForm.resources') }}</legend>
+          <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div class="sm:col-span-2">
+              <label for="desktop-edit-gateway_user_id" class="input-label mb-1.5 block">{{ t('admin.desktop.gatewayUser') }}</label>
+              <Select id="desktop-edit-gateway_user_id" dropdown-class="desktop-detail-select" :aria-label="t('admin.desktop.gatewayUser')" v-model="organizationForm.gateway_user_id" :options="gatewayUserOptions" searchable remote :loading="gatewayUsersLoading" :disabled="gatewayUserLocked" aria-describedby="desktop-edit-gateway-hint" @search="loadGatewayUsers" />
+              <p id="desktop-edit-gateway-hint" class="detail-caption mt-1.5">{{ t(gatewayUserLocked ? 'admin.desktop.provisioningLockedHint' : 'admin.desktop.organizationForm.gatewayHint') }}</p>
+            </div>
+            <div>
+              <label for="desktop-edit-group_id" class="input-label mb-1.5 block">{{ t('admin.desktop.group') }}</label><Select id="desktop-edit-group_id" dropdown-class="desktop-detail-select" :aria-label="t('admin.desktop.group')" v-model="organizationForm.group_id" :options="groupOptions" searchable :loading="groupsLoading" aria-describedby="desktop-edit-group-hint" />
+              <p id="desktop-edit-group-hint" class="detail-caption mt-1.5">{{ t('admin.desktop.organizationForm.groupHint') }}</p>
+            </div>
+            <div>
+              <label for="desktop-edit-member-limit" class="input-label mb-1.5 block">{{ t('admin.desktop.memberLimit') }} <span class="text-red-500">*</span></label>
+              <input id="desktop-edit-member-limit" v-model.number="organizationForm.member_limit" class="input" type="number" :min="Math.max(1, organization?.member_count || 0)" step="1" required aria-describedby="desktop-edit-capacity-hint" />
+              <p id="desktop-edit-capacity-hint" class="detail-caption mt-1.5">{{ t('admin.desktop.organizationForm.currentCapacity', { count: organization?.member_count || 0 }) }} {{ t('admin.desktop.organizationForm.capacityHint') }}</p>
+            </div>
+          </div>
+        </fieldset>
+        <fieldset class="detail-form-section">
+          <legend class="detail-section-title">{{ t('admin.desktop.organizationForm.reporting') }}</legend>
+          <div class="mt-4 space-y-4">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <label class="detail-form-toggle">
+                <input v-model="organizationForm.conversation_reporting_enabled" @change="!organizationForm.conversation_reporting_enabled && (organizationForm.conversation_summary_enabled = false)" data-testid="desktop-edit-conversation-reporting" type="checkbox" class="mt-0.5 h-4 w-4 shrink-0 rounded" aria-describedby="desktop-edit-reporting-hint" />
+                <span class="min-w-0"><span class="text-sm font-medium">{{ t('admin.desktop.conversationReporting') }}</span><span id="desktop-edit-reporting-hint" class="detail-caption mt-1 block">{{ t('admin.desktop.conversationReportingHint') }}</span></span>
+              </label>
+              <label class="detail-form-toggle" :class="{ 'cursor-not-allowed opacity-60': !organizationForm.conversation_reporting_enabled }">
+                <input v-model="organizationForm.conversation_summary_enabled" data-testid="desktop-edit-summary" type="checkbox" class="mt-0.5 h-4 w-4 shrink-0 rounded" :disabled="!organizationForm.conversation_reporting_enabled" aria-describedby="desktop-edit-summary-hint" />
+                <span class="min-w-0"><span class="text-sm font-medium">{{ t('admin.desktop.reports.enabled') }}</span><span id="desktop-edit-summary-hint" class="detail-caption mt-1 block">{{ t('admin.desktop.organizationForm.summaryHint') }}</span><span class="detail-caption mt-1 block">{{ t('admin.desktop.reports.schedule') }}</span></span>
+              </label>
+            </div>
+            <Input v-if="organizationForm.conversation_summary_enabled" v-model="organizationForm.analysis_model" :label="t('admin.desktop.reports.model')" required :hint="t('admin.desktop.reports.modelHint')" maxlength="200" />
+          </div>
+        </fieldset>
+        <fieldset class="detail-form-section" aria-describedby="desktop-edit-policy-hint">
+          <legend class="detail-section-title">{{ t('admin.desktop.managementPolicy.title') }}</legend>
+          <p id="desktop-edit-policy-hint" class="detail-caption mt-4">{{ t('admin.desktop.managementPolicy.hint') }}</p>
+          <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label for="desktop-edit-analysis-limit" class="input-label mb-1.5 block">{{ t('admin.desktop.managementPolicy.analysisLimit') }}</label>
+              <input id="desktop-edit-analysis-limit" v-model.number="organizationForm.management_policy.analysis_limit_1d" class="input" type="number" min="0" step="any" aria-describedby="desktop-edit-analysis-limit-hint" />
+              <p id="desktop-edit-analysis-limit-hint" class="input-hint mt-1.5">{{ t('admin.desktop.organizationForm.analysisZero') }}</p>
+            </div>
+            <div v-for="field in retentionFields" :key="field">
+              <label :for="`desktop-edit-${field}`" class="input-label mb-1.5 block">{{ t(`admin.desktop.managementPolicy.${field}`) }}</label>
+              <input :id="`desktop-edit-${field}`" v-model.number="organizationForm.management_policy[field]" class="input" type="number" min="0" max="3650" step="1" :aria-describedby="`desktop-edit-${field}-hint`" />
+              <p :id="`desktop-edit-${field}-hint`" class="input-hint mt-1.5">{{ t('admin.desktop.organizationForm.retentionZero') }}</p>
+            </div>
+          </div>
+        </fieldset>
       </form>
       <template #footer><div class="flex justify-end gap-3"><button class="btn btn-secondary" type="button" @click="closeOrganizationEdit">{{ t('common.cancel') }}</button><button class="btn btn-primary" type="submit" form="desktop-organization-edit" :disabled="organizationSaving">{{ organizationSaving ? t('common.saving') : t('common.save') }}</button></div></template>
     </BaseDialog>
@@ -229,6 +288,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { useResizeObserver } from '@vueuse/core'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { saveAs } from 'file-saver'
@@ -286,6 +346,8 @@ const dashboardPath = computed(() => authStore.isAdmin ? '/admin/dashboard' : '/
 const canViewConversations = computed(() => !selfManaged || organization.value?.conversation_reporting_enabled === true)
 const unfilteredConversationFilters = {}
 const analyticsRange = ref<DesktopAnalyticsRange>({ days: 30 })
+const tabScroll = ref<HTMLElement>()
+const tabIcons = { usage: 'chartBar', members: 'users', configuration: 'cog', conversations: 'chat', reports: 'document', grants: 'shield' } as const
 const tabs = computed(() => {
   const result: { value: DetailTab; label: string }[] = [{ value: 'usage', label: t('admin.desktop.usageStatistics.tab') }, { value: 'members', label: t('admin.desktop.members') }, { value: 'configuration', label: t('admin.desktop.configuration') }]
   if (canViewConversations.value) result.push({ value: 'conversations', label: t('admin.desktop.conversations.title') })
@@ -331,6 +393,11 @@ let memberExportController: AbortController | undefined
 let gatewayController: AbortController | undefined
 
 const gatewayUserLocked = computed(() => (organization.value?.member_count ?? 0) > 0)
+const analysisLimitLabel = computed(() => {
+  const limit = organization.value?.management_policy?.analysis_limit_1d
+  return limit === undefined ? '—' : limit === 0 ? t('admin.desktop.organizationForm.unlimited') : formatUsageCost(limit)
+})
+function retentionLabel(days: number) { return days === 0 ? t('admin.desktop.organizationForm.forever') : t('admin.desktop.organizationForm.retentionDays', { count: days }) }
 const memberLimitReached = computed(() => Boolean(organization.value && organization.value.member_count >= organization.value.member_limit))
 const canCreateMember = computed(() => organization.value?.status === 'active' && !memberLimitReached.value)
 const memberEmptyDescription = computed(() => {
@@ -613,6 +680,17 @@ async function saveConfiguration() {
 watch([canViewConversations, () => organization.value?.conversation_summary_enabled, () => organization.value?.public_id], () => {
   if (selfManaged && organization.value && (route.query.tab === 'grants' || (route.query.tab === 'reports' && !organization.value.conversation_summary_enabled) || (!canViewConversations.value && route.query.tab === 'conversations'))) setTab('usage')
 })
+function keepActiveTabVisible() {
+  const scroll = tabScroll.value
+  const selected = scroll?.querySelector<HTMLElement>('[aria-selected="true"]')
+  if (!scroll || !selected) return
+  const viewport = scroll.getBoundingClientRect()
+  const tab = selected.getBoundingClientRect()
+  if (tab.left < viewport.left) scroll.scrollLeft += tab.left - viewport.left
+  else if (tab.right > viewport.right) scroll.scrollLeft += tab.right - viewport.right
+}
+watch([activeTab, () => organization.value?.public_id], keepActiveTabVisible, { flush: 'post' })
+useResizeObserver(tabScroll, keepActiveTabVisible)
 
 watch(() => route.params.organizationId, async () => {
   if (!selfManaged) {
