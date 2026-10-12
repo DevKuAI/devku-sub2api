@@ -60,7 +60,7 @@
             <p>{{ detailError }}</p>
             <button v-if="selected" class="btn btn-secondary mt-3" type="button" @click="openRecord(selected)">{{ t('admin.desktop.conversations.retry') }}</button>
           </div>
-          <div v-else-if="detail" :key="detail.record_id" class="mx-auto max-w-3xl space-y-5">
+          <div v-else-if="detail" :key="detail.record_id" class="min-w-0 space-y-5">
             <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500 dark:text-dark-400">
               <span>{{ t('admin.desktop.conversations.receivedAt') }} · {{ formatDateTime(detail.received_at) }}</span>
               <span :class="detail.capture_status === 'response_missing' ? 'text-amber-700 dark:text-amber-400' : ''">{{ t(detail.capture_status === 'captured' ? 'admin.desktop.conversations.captured' : 'admin.desktop.conversations.responseMissing') }}</span>

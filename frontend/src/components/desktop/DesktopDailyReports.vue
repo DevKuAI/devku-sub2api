@@ -346,7 +346,7 @@ onBeforeUnmount(() => { disposed = true; cancel() })
 .report-badge[data-tone='info'] { @apply bg-primary-50 text-primary-700 dark:bg-dark-800 dark:text-primary-300; }
 .report-empty { @apply rounded-xl bg-gray-50 px-4 py-10 text-center dark:bg-dark-800; }
 .report-member-table, .report-table-hint { display: none; }
-.report-content { @apply text-base text-gray-900 dark:text-gray-100; max-width: 70ch; line-height: 1.6; overflow-wrap: anywhere; }
+.report-content { @apply text-base text-gray-900 dark:text-gray-100; max-width: 100%; line-height: 1.6; overflow-wrap: anywhere; }
 .report-content :deep(h1), .report-content :deep(h2), .report-content :deep(h3), .report-content :deep(h4) { margin: 1.5em 0 0.75em; font-weight: 600; line-height: 1.4; }
 .report-content :deep(h1) { font-size: 1.375rem; }
 .report-content :deep(h2) { font-size: 1.25rem; }
