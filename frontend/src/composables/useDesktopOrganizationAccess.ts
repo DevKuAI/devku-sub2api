@@ -5,10 +5,14 @@ import type { DesktopOrganization } from '@/api/admin/desktop'
 
 const organization = ref<DesktopOrganization | null>(null)
 const loadedForUserID = ref<number | null>(null)
+let generation = 0
 let pendingUserID: number | null = null
 let pendingLoad: Promise<DesktopOrganization | null> | null = null
 
 function resetDesktopOrganizationAccess(): void {
+  generation++
+  pendingLoad = null
+  pendingUserID = null
   organization.value = null
   loadedForUserID.value = null
 }
@@ -28,27 +32,29 @@ async function loadDesktopOrganizationAccess(force = false): Promise<DesktopOrga
   if (!force && loadedForUserID.value === userID) {
     return organization.value
   }
-  if (!force && pendingLoad && pendingUserID === userID) {
+  if (pendingLoad && pendingUserID === userID) {
     return pendingLoad
   }
 
+  if (pendingUserID !== null && pendingUserID !== userID) resetDesktopOrganizationAccess()
+  const current = ++generation
   pendingUserID = userID
   pendingLoad = desktopOrganizationAPI.getOrganization()
     .then((result) => {
-      if (Number(authStore.user?.id || 0) === userID) {
+      if (current === generation && authStore.isAuthenticated && Number(authStore.user?.id || 0) === userID) {
         organization.value = result
         loadedForUserID.value = userID
       }
-      return result
+      return current === generation && authStore.isAuthenticated && Number(authStore.user?.id || 0) === userID ? result : null
     })
     .catch(() => {
-      if (Number(authStore.user?.id || 0) === userID) {
+      if (current === generation && authStore.isAuthenticated && Number(authStore.user?.id || 0) === userID) {
         resetDesktopOrganizationAccess()
       }
       return null
     })
     .finally(() => {
-      if (pendingUserID === userID) {
+      if (current === generation && pendingUserID === userID) {
         pendingUserID = null
         pendingLoad = null
       }

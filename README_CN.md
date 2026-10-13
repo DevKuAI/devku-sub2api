@@ -53,7 +53,7 @@ Sub2API 是用于分发和管理上游 AI 服务订阅配额的 API 网关。平
 
 - **Seedance (Ark) 视频任务**：支持原生任务创建、查询和删除。使用前需为 OpenAI 平台的 API Key 账号启用 Seedance 端点能力，并开启分组的媒体权限。首次查询到 `succeeded` 时，按上游 `usage.completion_tokens` 计费；当前不后台轮询，也不通过回调自动结算。需保留 Redis 任务绑定，并在有效期内查询完成结果。配置、访问限制和计费规则见 [Seedance API 指南](docs/seedance-api.md)。
 - **插件宿主服务**：新增按插件身份隔离的 Redis KV 存储、受已声明能力限制的账号目录，以及只读 `plugin.status` UI 通道。宿主服务协商为可选功能，兼容旧插件。详见 [Plugin API](backend/pkg/pluginapi/README.md) 和 [UI bridge](backend/pkg/pluginapi/docs/ui-bridge.md)。
-- **Antigravity 兼容性**：仅在 Anthropic Messages 转换到 Antigravity 时移除开头的 Claude attribution 元数据。原生 Anthropic 转发行为不变，不应为此问题全局禁用 attribution。详见 [429 排查记录与适用范围](docs/ANTIGRAVITY_ATTRIBUTION_429.md)。
+- **Antigravity 兼容性**：仅在 Anthropic Messages 转换到 Antigravity 时移除开头的 Claude attribution 元数据。原生 Anthropic 转发行为不变，不应为此问题全局禁用 attribution。
 
 ## 上游 v0.2.2 兼容性说明
 
@@ -660,6 +660,8 @@ Antigravity 账户支持可选的**混合调度**功能。开启后，通用端�
 
 ## 项目结构
 
+项目文档：[文档索引](docs/README.md)、[开发指南](docs/DEV_GUIDE.md)、[账目管理](docs/accounting-management/README.md)。
+
 ```
 sub2api/
 ├── backend/                  # Go 后端服务
@@ -669,7 +671,7 @@ sub2api/
 │   │   ├── model/            # 数据模型
 │   │   ├── service/          # 业务逻辑
 │   │   ├── handler/          # HTTP 处理器
-│   │   └── gateway/          # API 网关核心
+│   │   └── repository/       # 数据访问层
 │   └── resources/            # 静态资源
 │
 ├── frontend/                 # Vue 3 前端
@@ -679,11 +681,20 @@ sub2api/
 │       ├── views/            # 页面组件
 │       └── components/       # 通用组件
 │
-└── deploy/                   # 部署文件
-    ├── docker-compose.yml    # Docker Compose 配置
-    ├── .env.example          # Docker Compose 环境变量
-    ├── config.example.yaml   # 二进制部署完整配置文件
-    └── install.sh            # 一键安装脚本
+├── deploy/                   # 部署文件
+│   ├── docker-compose.yml    # Docker Compose 配置
+│   ├── .env.example          # Docker Compose 环境变量
+│   ├── config.example.yaml   # 二进制部署完整配置文件
+│   └── install.sh            # 一键安装脚本
+│
+├── docs/                     # 项目文档与功能交接
+│   ├── README.md             # 文档索引
+│   ├── DEV_GUIDE.md          # 开发指南
+│   └── accounting-management/ # 账目管理设计、实现与验证
+├── assets/                   # README 标识与合作伙伴图片
+├── openspec/                 # 变更提案与功能规格
+├── skills/                   # 项目集成 skills
+└── tools/                    # 仓库维护工具
 ```
 
 ---

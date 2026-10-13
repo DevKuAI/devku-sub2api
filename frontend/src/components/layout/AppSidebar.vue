@@ -757,6 +757,7 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
   }
   if (flagDesktop() && canManageDesktopOrganization.value) {
     items.push({ path: '/desktop/organization', label: t('nav.desktopOrganization'), icon: ServerIcon })
+    items.push({ path: '/organization/accounting', label: t('accounting.customerTitle'), icon: CreditCardIcon })
   }
   if (hasSubscriptionAccounts.value) {
     items.push({ path: '/subscription-accounts', label: t('nav.subscriptionAccounts'), icon: CreditCardIcon })
@@ -819,6 +820,7 @@ const adminNavItems = computed((): NavItem[] => {
     { path: '/admin/bi', label: t('nav.biOperations'), icon: ChartIcon, featureFlag: flagBIFallback, openInNewWindow: true },
     { path: '/admin/users', label: t('nav.users'), icon: UsersIcon, hideInSimpleMode: true },
     { path: '/admin/groups', label: t('nav.groups'), icon: FolderIcon },
+    { path: '/admin/accounting', label: t('accounting.title'), icon: CreditCardIcon },
     {
       path: '/admin/desktop',
       label: t('nav.desktopManagement'),
@@ -1045,7 +1047,12 @@ watch(
   { immediate: true }
 )
 
+function refreshOrganizationOnFocus() {
+  if (authStore.user?.id && flagDesktop()) void refreshDesktopOrganizationAccess(true)
+}
+
 onMounted(() => {
+  window.addEventListener('focus', refreshOrganizationOnFocus)
   void refreshBatchImageAccess()
   if (isAdmin.value) {
     adminSettingsStore.fetch()
@@ -1061,6 +1068,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('focus', refreshOrganizationOnFocus)
   if (sidebarNavRef.value) {
     appStore.sidebarScrollTop = sidebarNavRef.value.scrollTop
   }

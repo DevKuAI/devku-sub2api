@@ -44,6 +44,9 @@ func RegisterAdminRoutes(
 		// 部署与运营合规确认
 		registerAdminComplianceRoutes(admin, h)
 
+		if h.Accounting != nil {
+			h.Accounting.RegisterAdmin(admin)
+		}
 		// 仪表盘
 		registerDashboardRoutes(admin, h)
 

@@ -53,7 +53,7 @@ Sub2APIは、上流AIサービスのサブスクリプションクォータを�
 
 - **Seedance (Ark) 動画タスク**：ネイティブ形式でのタスク作成・照会・削除に対応します。利用前に、OpenAI プラットフォームの API Key アカウントで Seedance エンドポイント機能を有効にし、グループのメディア権限を許可してください。照会で初めて `succeeded` を確認した時点で、上流の `usage.completion_tokens` に基づき課金します。バックグラウンドでのポーリングやコールバックによる自動精算は行いません。Redis のタスク紐付けを保持し、有効期間内に完了結果を照会してください。設定・アクセス制限・課金規則は [Seedance API ガイド](docs/seedance-api.md) を参照してください。
 - **プラグイン宿主サービス**：プラグインの識別情報で分離された Redis KV ストレージ、宣言済みの機能範囲に限定されたアカウントディレクトリ、読み取り専用の `plugin.status` UI チャネルを追加します。宿主サービスのネゴシエーションは任意で、既存のプラグインとの互換性を維持します。[Plugin API](backend/pkg/pluginapi/README.md) と [UI bridge](backend/pkg/pluginapi/docs/ui-bridge.md) を参照してください。
-- **Antigravity の互換性**：Anthropic Messages から Antigravity への変換時に限り、先頭の Claude attribution メタデータを除去します。ネイティブ Anthropic 転送は変更しません。この問題への対処として attribution を全体で無効にしないでください。[429 の調査記録と適用範囲](docs/ANTIGRAVITY_ATTRIBUTION_429.md) を参照してください。
+- **Antigravity の互換性**：Anthropic Messages から Antigravity への変換時に限り、先頭の Claude attribution メタデータを除去します。ネイティブ Anthropic 転送は変更しません。この問題への対処として attribution を全体で無効にしないでください。
 
 ## 上流 v0.2.2 の互換性について
 
@@ -619,6 +619,8 @@ Antigravity アカウントはオプションの**ハイブリッドスケジュ
 
 ## プロジェクト構成
 
+プロジェクト文書：[文書一覧](docs/README.md)、[開発ガイド](docs/DEV_GUIDE.md)、[会計管理](docs/accounting-management/README.md)。
+
 ```
 sub2api/
 ├── backend/                  # Go バックエンドサービス
@@ -628,7 +630,7 @@ sub2api/
 │   │   ├── model/            # データモデル
 │   │   ├── service/          # ビジネスロジック
 │   │   ├── handler/          # HTTP ハンドラー
-│   │   └── gateway/          # API ゲートウェイコア
+│   │   └── repository/       # データアクセス
 │   └── resources/            # 静的リソース
 │
 ├── frontend/                 # Vue 3 フロントエンド
@@ -638,11 +640,20 @@ sub2api/
 │       ├── views/            # ページコンポーネント
 │       └── components/       # 再利用可能なコンポーネント
 │
-└── deploy/                   # デプロイファイル
-    ├── docker-compose.yml    # Docker Compose 設定
-    ├── .env.example          # Docker Compose 用環境変数
-    ├── config.example.yaml   # バイナリデプロイ用フル設定ファイル
-    └── install.sh            # ワンクリックインストールスクリプト
+├── deploy/                   # デプロイファイル
+│   ├── docker-compose.yml    # Docker Compose 設定
+│   ├── .env.example          # Docker Compose 用環境変数
+│   ├── config.example.yaml   # バイナリデプロイ用フル設定ファイル
+│   └── install.sh            # ワンクリックインストールスクリプト
+│
+├── docs/                     # プロジェクト文書と機能引き継ぎ
+│   ├── README.md             # 文書一覧
+│   ├── DEV_GUIDE.md          # 開発ガイド
+│   └── accounting-management/ # 会計管理の設計、実装、検証
+├── assets/                   # README のロゴとパートナー画像
+├── openspec/                 # 変更提案と仕様
+├── skills/                   # プロジェクト連携 skills
+└── tools/                    # リポジトリ保守ツール
 ```
 
 ---

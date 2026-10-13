@@ -1,3 +1,4 @@
+import { useDesktopOrganizationAccess } from '@/composables/useDesktopOrganizationAccess'
 /**
  * Vue Router configuration for Sub2API frontend
  * Defines all application routes with lazy loading and navigation guards
@@ -305,6 +306,19 @@ const routes: RouteRecordRaw[] = [
       titleKey: 'subscriptionAccounts.title',
       descriptionKey: 'subscriptionAccounts.description'
     }
+  },
+  {
+    path: '/organization/accounting',
+    name: 'OrganizationAccounting',
+    component: () => import('@/features/accounting/AccountingView.vue'),
+    props: { customer: true },
+    meta: { requiresAuth: true, requiresAdmin: false, requiresDesktop: true, requiresOrganizationAccounting: true, title: 'Financial records', titleKey: 'accounting.customerTitle' }
+  },
+  {
+    path: '/admin/accounting',
+    name: 'AdminAccounting',
+    component: () => import('@/features/accounting/AccountingView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Accounting', titleKey: 'accounting.title' }
   },
   {
     path: '/desktop/organization',
@@ -1044,6 +1058,14 @@ router.beforeEach(async (to, _from, next) => {
   if (to.meta.requiresDesktop && appStore.cachedPublicSettings?.desktop_enabled !== true) {
     next(authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
     return
+  }
+
+  if (to.meta.requiresOrganizationAccounting) {
+    const organization = await useDesktopOrganizationAccess().refreshDesktopOrganizationAccess(true)
+    if (!organization) {
+      next(authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
+      return
+    }
   }
 
   // 订阅功能是 opt-out 开关：只有显式 false 才拦截「我的订阅」页直达。

@@ -133,7 +133,7 @@ type DesktopConfig struct {
 
 // DesktopUpdateStorageConfig configures stable Desktop updater artifacts in S3-compatible storage.
 type DesktopUpdateStorageConfig struct {
-	ResourceBucket  string `mapstructure:"resource_bucket"` // Private bucket for MCP and Skill packages; shares the connection credentials.
+	ResourceBucket  string `mapstructure:"resource_bucket"` // Private bucket for MCP/Skill packages and accounting proofs; each uses a separate prefix.
 	Endpoint        string `mapstructure:"endpoint"`
 	Region          string `mapstructure:"region"`
 	Bucket          string `mapstructure:"bucket"`

@@ -12,6 +12,7 @@
           </div>
           <p v-if="organization" class="mt-1 break-all font-mono text-sm text-gray-500 dark:text-dark-400">{{ organization.code }}</p>
         </div>
+        <router-link v-if="organization" class="btn btn-secondary" :to="selfManaged ? '/organization/accounting' : { path: '/admin/accounting', query: { organization_id: organizationID } }">{{ t('accounting.customerTitle') }}</router-link>
         <button v-if="organization && !selfManaged" class="btn btn-secondary shrink-0" type="button" :title="t('common.edit')" :aria-label="t('common.edit')" @click="openEditOrganization">
           <Icon name="edit" size="sm" /><span>{{ t('common.edit') }}</span>
         </button>

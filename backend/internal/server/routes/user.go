@@ -28,6 +28,9 @@ func RegisterUserRoutes(
 	authenticated.Use(gin.HandlerFunc(auditLog))
 	{
 		registerDesktopUserRoutesIfEnabled(authenticated, h, cfg)
+		if h.Accounting != nil {
+			h.Accounting.RegisterOrganization(authenticated)
+		}
 		authenticated.GET("/subscription-accounts", panelRateLimiter.Heavy(), h.Admin.Account.ListMySubscriptionAccounts)
 		authenticated.GET("/subscription-accounts/tibo-reset-monitor", panelRateLimiter.Heavy(), h.TiboResetMonitor.Get)
 		authenticated.GET("/subscription-accounts/:id/usage", panelRateLimiter.Heavy(), h.Admin.Account.GetMySubscriptionAccountUsage)

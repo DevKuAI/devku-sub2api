@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>账目管理 · Sub2API 原型</title>
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --panel: #ffffff;
+      --panel-soft: #f8fafb;
+      --ink: #14212b;
+      --muted: #71808d;
+      --faint: #9aa7b2;
+      --line: #e5eaee;
+      --line-strong: #d8e0e6;
+      --nav: #16222d;
+      --nav-muted: #98a9b7;
+      --blue: #1f6feb;
+      --blue-soft: #eaf2ff;
+      --green: #18865b;
+      --green-soft: #e9f7f0;
+      --orange: #bd6a1c;
+      --orange-soft: #fff3e6;
+      --red: #c94c53;
+      --red-soft: #fff0f1;
+      --shadow: 0 16px 40px rgba(20, 33, 43, .08);
+      --radius: 12px;
+      --radius-sm: 8px;
+      --ease: cubic-bezier(.2, .8, .2, 1);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 1060px; background: var(--bg); color: var(--ink); }
+    button, select, input { font: inherit; }
+    button { cursor: pointer; }
+    .app { display: flex; min-height: 100vh; }
+    .sidebar { width: 224px; flex: 0 0 224px; background: var(--nav); color: #fff; padding: 24px 14px; display: flex; flex-direction: column; }
+    .brand { display: flex; align-items: center; gap: 10px; padding: 0 11px 28px; }
+    .brand-mark { width: 26px; height: 26px; border-radius: 7px; background: #dcecff; color: var(--nav); display: grid; place-items: center; font-size: 12px; font-weight: 800; letter-spacing: -.04em; }
+    .brand-name { font-size: 16px; font-weight: 720; letter-spacing: -.02em; }
+    .brand-name span { color: #86b7ff; font-weight: 500; }
+    .nav-group { margin-bottom: 24px; }
+    .nav-label { color: #6f8391; text-transform: uppercase; font-size: 10px; letter-spacing: .12em; padding: 0 12px 8px; }
+    .nav-item { width: 100%; border: 0; color: var(--nav-muted); background: transparent; display: flex; align-items: center; gap: 11px; text-align: left; padding: 10px 12px; border-radius: 8px; margin: 3px 0; font-size: 13px; transition: .18s var(--ease); }
+    .nav-item:hover { color: #fff; background: rgba(255,255,255,.06); }
+    .nav-item.active { color: #fff; background: #24394b; box-shadow: inset 2px 0 0 #75adff; }
+    .nav-icon { width: 16px; height: 16px; border: 1.4px solid currentColor; border-radius: 4px; opacity: .78; }
+    .nav-item:nth-child(3) .nav-icon { border-radius: 50%; }
+    .nav-foot { margin-top: auto; border-top: 1px solid rgba(255,255,255,.09); padding: 16px 10px 0; color: #8da0ae; font-size: 12px; line-height: 1.6; }
+    .nav-foot strong { display: block; color: #dce6ed; font-size: 12px; font-weight: 600; }
+    .main { flex: 1; min-width: 0; }
+    .topbar { height: 72px; background: rgba(255,255,255,.94); border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; padding: 0 34px; position: sticky; top: 0; z-index: 5; backdrop-filter: blur(12px); }
+    .crumbs { color: var(--faint); font-size: 12px; display: flex; gap: 8px; align-items: center; }
+    .crumbs b { color: var(--ink); font-weight: 650; }
+    .top-actions { display: flex; align-items: center; gap: 16px; }
+    .proto-chip { font-size: 11px; color: #557087; background: #f2f6fa; border: 1px solid #dfe8ef; padding: 5px 9px; border-radius: 999px; }
+    .avatar { width: 31px; height: 31px; border-radius: 50%; background: #d6e5ff; color: #23599b; display: grid; place-items: center; font-size: 12px; font-weight: 700; }
+    .content { padding: 34px 38px 48px; max-width: 1600px; margin: 0 auto; }
+    .page-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 27px; }
+    h1 { margin: 0; font-size: 28px; line-height: 1.14; letter-spacing: -.045em; font-weight: 750; }
+    .subtitle { color: var(--muted); margin-top: 9px; font-size: 13px; }
+    .primary-actions { display: flex; gap: 10px; }
+    .btn { border: 1px solid var(--line-strong); background: #fff; color: #3d4c58; border-radius: 8px; padding: 9px 13px; font-size: 12px; font-weight: 650; transition: .18s var(--ease); }
+    .btn:hover { border-color: #aebdca; background: #f8fafc; transform: translateY(-1px); }
+    .btn-primary { color: #fff; border-color: var(--blue); background: var(--blue); box-shadow: 0 4px 10px rgba(31,111,235,.16); }
+    .btn-primary:hover { background: #185dc9; border-color: #185dc9; }
+    .btn-quiet { border-color: transparent; background: transparent; color: var(--muted); }
+    .filters { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; }
+    .control { height: 38px; border: 1px solid var(--line-strong); background: #fff; color: #3b4b57; border-radius: 8px; padding: 0 11px; font-size: 12px; outline: none; }
+    .control:focus { border-color: #8eb7ef; box-shadow: 0 0 0 3px var(--blue-soft); }
+    .control.search { min-width: 220px; padding-left: 34px; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='15' height='15' viewBox='0 0 24 24' fill='none' stroke='%2393a0aa' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-4-4'/%3E%3C/svg%3E") 11px center no-repeat; }
+    .filters .filter-note { margin-left: auto; color: var(--faint); font-size: 11px; }
+    .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 23px; }
+    .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 19px 20px 17px; min-height: 123px; position: relative; overflow: hidden; }
+    .kpi::after { content: ""; position: absolute; width: 92px; height: 92px; right: -31px; bottom: -42px; border-radius: 50%; border: 18px solid var(--blue-soft); opacity: .9; }
+    .kpi:nth-child(2)::after { border-color: var(--green-soft); }
+    .kpi:nth-child(3)::after { border-color: #edf0ff; }
+    .kpi:nth-child(4)::after { border-color: var(--orange-soft); }
+    .kpi-label { color: var(--muted); font-size: 12px; display: flex; align-items: center; gap: 6px; }
+    .kpi-label i { display: inline-block; width: 6px; height: 6px; background: var(--blue); border-radius: 50%; }
+    .kpi:nth-child(2) .kpi-label i { background: var(--green); }
+    .kpi:nth-child(3) .kpi-label i { background: #6e7fe8; }
+    .kpi:nth-child(4) .kpi-label i { background: var(--orange); }
+    .kpi-value { font-size: 25px; font-weight: 740; letter-spacing: -.04em; margin-top: 14px; }
+    .kpi-foot { font-size: 11px; color: var(--faint); margin-top: 7px; }
+    .grid-main { display: grid; grid-template-columns: minmax(0, 1fr) 310px; gap: 18px; align-items: start; }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+    .panel-head { display: flex; align-items: center; justify-content: space-between; padding: 17px 19px; border-bottom: 1px solid var(--line); }
+    .panel-title { font-size: 14px; font-weight: 700; letter-spacing: -.015em; }
+    .panel-meta { font-size: 11px; color: var(--faint); }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { color: var(--faint); font-size: 10px; font-weight: 650; text-align: left; letter-spacing: .02em; background: #fbfcfd; padding: 11px 13px; white-space: nowrap; }
+    td { border-top: 1px solid #edf0f2; padding: 14px 13px; white-space: nowrap; vertical-align: middle; }
+    tbody tr { cursor: pointer; transition: background .18s var(--ease); }
+    tbody tr:hover { background: #f8fbff; }
+    .company { display: flex; align-items: center; gap: 10px; min-width: 170px; }
+    .company-mark { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; color: #24578e; background: #e8f1fb; font-size: 11px; font-weight: 750; }
+    .company-name { font-weight: 650; color: #263641; }
+    .company-id { color: var(--faint); font-size: 10px; margin-top: 3px; }
+    .contact { color: #53636f; }
+    .contact small { color: var(--faint); display: block; font-size: 10px; margin-top: 3px; }
+    .money { font-variant-numeric: tabular-nums; font-weight: 650; }
+    .tax-pill { color: #657580; background: #f4f6f8; border-radius: 5px; padding: 3px 6px; font-size: 10px; }
+    .status { display: inline-flex; align-items: center; gap: 5px; padding: 4px 7px; border-radius: 999px; font-size: 10px; font-weight: 650; }
+    .status::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+    .status.green { color: var(--green); background: var(--green-soft); }
+    .status.orange { color: var(--orange); background: var(--orange-soft); }
+    .status.red { color: var(--red); background: var(--red-soft); }
+    .side-stack { display: grid; gap: 18px; }
+    .todo-list { padding: 8px 17px 13px; }
+    .todo { display: flex; gap: 11px; align-items: flex-start; padding: 12px 2px; border-bottom: 1px solid #edf0f2; }
+    .todo:last-child { border-bottom: 0; }
+    .todo-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--orange); margin-top: 5px; flex: 0 0 auto; }
+    .todo:nth-child(2) .todo-dot { background: var(--blue); }
+    .todo:nth-child(3) .todo-dot { background: var(--red); }
+    .todo strong { font-size: 12px; font-weight: 650; display: block; }
+    .todo span { display: block; color: var(--muted); font-size: 11px; margin-top: 4px; line-height: 1.45; }
+    .mini-chart { padding: 17px 17px 18px; }
+    .chart-header { display: flex; justify-content: space-between; align-items: flex-start; }
+    .chart-value { margin-top: 10px; font-size: 21px; letter-spacing: -.04em; font-weight: 740; }
+    .chart-caption { color: var(--green); font-size: 10px; margin-top: 4px; }
+    .chart { height: 112px; margin-top: 17px; display: flex; align-items: end; gap: 8px; border-bottom: 1px solid var(--line); padding: 0 4px; position: relative; }
+    .chart::before, .chart::after { content: ""; position: absolute; left: 0; right: 0; border-top: 1px dashed #ecf0f2; }
+    .chart::before { top: 28%; } .chart::after { top: 63%; }
+    .bar { flex: 1; background: #cfe0fb; border-radius: 4px 4px 0 0; position: relative; z-index: 1; min-width: 14px; transition: .2s var(--ease); }
+    .bar:hover { background: var(--blue); }
+    .bar.active { background: var(--blue); }
+    .chart-labels { display: flex; justify-content: space-between; color: var(--faint); font-size: 9px; padding: 7px 2px 0; }
+    .footer-note { margin-top: 18px; color: var(--faint); font-size: 10px; }
+    .drawer-backdrop { position: fixed; inset: 0; background: rgba(15, 25, 33, .28); opacity: 0; pointer-events: none; transition: .25s var(--ease); z-index: 10; }
+    .drawer-backdrop.open { opacity: 1; pointer-events: auto; }
+    .drawer { position: fixed; z-index: 11; top: 0; right: 0; bottom: 0; width: min(650px, 92vw); background: #fff; box-shadow: -20px 0 50px rgba(16, 27, 37, .15); transform: translateX(100%); transition: transform .34s var(--ease); overflow: auto; }
+    .drawer.open { transform: translateX(0); }
+    .drawer-head { padding: 26px 28px 20px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: rgba(255,255,255,.96); backdrop-filter: blur(12px); z-index: 2; }
+    .drawer-top { display: flex; justify-content: space-between; align-items: flex-start; }
+    .drawer-title { font-size: 20px; font-weight: 750; letter-spacing: -.04em; }
+    .drawer-sub { color: var(--muted); margin-top: 6px; font-size: 11px; }
+    .close { width: 30px; height: 30px; border: 1px solid var(--line); border-radius: 7px; background: #fff; color: var(--muted); font-size: 19px; line-height: 1; }
+    .close:hover { background: #f6f8fa; color: var(--ink); }
+    .drawer-tabs { display: flex; gap: 18px; margin-top: 22px; overflow-x: auto; }
+    .tab { border: 0; padding: 0 0 9px; background: transparent; color: var(--muted); font-size: 12px; white-space: nowrap; border-bottom: 2px solid transparent; }
+    .tab.active { color: var(--blue); border-color: var(--blue); font-weight: 680; }
+    .drawer-body { padding: 24px 28px 44px; }
+    .detail-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin-bottom: 24px; }
+    .detail-kpi { padding: 12px 13px; background: var(--panel-soft); border: 1px solid var(--line); border-radius: 8px; }
+    .detail-kpi span { display: block; color: var(--muted); font-size: 10px; }
+    .detail-kpi strong { display: block; margin-top: 6px; font-size: 15px; letter-spacing: -.03em; }
+    .section { margin-top: 24px; }
+    .section-title { display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 720; margin-bottom: 11px; }
+    .section-title small { color: var(--faint); font-weight: 500; }
+    .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+    .info-item { padding: 11px 13px; background: #fff; border-bottom: 1px solid var(--line); }
+    .info-item:nth-child(odd) { border-right: 1px solid var(--line); }
+    .info-item:nth-last-child(-n+2) { border-bottom: 0; }
+    .info-label { font-size: 10px; color: var(--faint); }
+    .info-value { font-size: 12px; color: #354651; margin-top: 5px; }
+    .record-list { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+    .record { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 13px 14px; border-bottom: 1px solid var(--line); }
+    .record:last-child { border-bottom: 0; }
+    .record-main { min-width: 0; }
+    .record-title { color: #31434f; font-size: 12px; font-weight: 650; }
+    .record-meta { color: var(--faint); font-size: 10px; margin-top: 4px; }
+    .record-side { text-align: right; flex: 0 0 auto; }
+    .record-amount { font-size: 12px; font-weight: 720; }
+    .record-side small { display: block; color: var(--muted); font-size: 10px; margin-top: 4px; }
+    .file { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 8px; margin-top: 8px; }
+    .file-icon { width: 26px; height: 30px; background: #edf4ff; color: var(--blue); border-radius: 5px; display: grid; place-items: center; font-size: 9px; font-weight: 750; }
+    .file-name { font-size: 11px; font-weight: 650; }
+    .file-meta { color: var(--faint); font-size: 10px; margin-top: 3px; }
+    .file-toggle { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--muted); }
+    .switch { width: 29px; height: 17px; border: 0; border-radius: 20px; background: #cfd8df; position: relative; padding: 0; }
+    .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 11px; height: 11px; border-radius: 50%; background: #fff; transition: .18s var(--ease); }
+    .switch.on { background: var(--blue); }
+    .switch.on::after { left: 15px; }
+    .empty { padding: 28px 15px; text-align: center; color: var(--faint); font-size: 12px; border: 1px dashed var(--line-strong); border-radius: 8px; }
+    .toast { position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 18px); opacity: 0; pointer-events: none; background: #1d2b36; color: #fff; padding: 10px 15px; border-radius: 8px; font-size: 12px; box-shadow: var(--shadow); transition: .22s var(--ease); z-index: 30; }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+    @media (max-width: 1180px) { .sidebar { width: 196px; flex-basis: 196px; } .content { padding-left: 25px; padding-right: 25px; } .grid-main { grid-template-columns: minmax(0, 1fr) 270px; } .kpi-value { font-size: 21px; } }
+    @media (max-width: 980px) { body { min-width: 0; } .sidebar { width: 70px; flex-basis: 70px; padding-left: 9px; padding-right: 9px; } .brand { padding-left: 12px; } .brand-name, .nav-label, .nav-item span:not(.nav-icon), .nav-foot { display: none; } .nav-item { justify-content: center; padding-left: 0; padding-right: 0; } .topbar { padding: 0 20px; } .content { padding: 25px 18px 40px; } .grid-main { grid-template-columns: 1fr; } .side-stack { grid-template-columns: 1fr 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><div class="brand-mark">S2</div><div class="brand-name">sub<span>2</span>api</div></div>
+      <div class="nav-group">
+        <div class="nav-label">工作台</div>
+        <button class="nav-item"><i class="nav-icon"></i><span>总览</span></button>
+        <button class="nav-item"><i class="nav-icon"></i><span>企业管理</span></button>
+        <button class="nav-item active"><i class="nav-icon"></i><span>账目管理</span></button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">资源</div>
+        <button class="nav-item"><i class="nav-icon"></i><span>VCC 卡</span></button>
+        <button class="nav-item"><i class="nav-icon"></i><span>文件中心</span></button>
+      </div>
+      <div class="nav-foot"><strong>原型数据</strong>账目管理 v0.1<br />仅用于产品评审</div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="crumbs"><span>管理后台</span><b>/</b><b>账目管理</b></div>
+        <div class="top-actions"><span class="proto-chip">产品原型 · v0.1</span><div class="avatar">林</div></div>
+      </header>
+
+      <div class="content">
+        <div class="page-head">
+          <div><h1>账目管理</h1><div class="subtitle">收款、VCC 分配与消费、合同发票和企业对账</div></div>
+          <div class="primary-actions"><button class="btn" id="expenseBtn">＋ 新增支出</button><button class="btn btn-primary" id="transferBtn">＋ 新增到账</button></div>
+        </div>
+
+        <div class="filters">
+          <select class="control" id="companyFilter"><option value="all">全部企业 · 12 家</option><option value="huadong">华东智造科技</option><option value="remote">远程研发中心</option><option value="xinghe">星河软件</option></select>
+          <select class="control"><option>近 30 天</option><option>本月</option><option>上月</option><option>自定义日期</option></select>
+          <select class="control"><option>全部状态</option><option>已确认</option><option>待处理</option><option>存在差异</option></select>
+          <input class="control search" id="searchInput" placeholder="搜索企业、联系人、交易号" />
+          <span class="filter-note">数据更新于今天 09:42</span>
+        </div>
+
+        <section class="kpis">
+          <div class="kpi"><div class="kpi-label"><i></i>已到账</div><div class="kpi-value">¥128,600.00</div><div class="kpi-foot">本月 · 8 笔到账</div></div>
+          <div class="kpi"><div class="kpi-label"><i></i>已分配 VCC</div><div class="kpi-value">¥100,000.00</div><div class="kpi-foot">覆盖 6 家企业 · 7 张卡</div></div>
+          <div class="kpi"><div class="kpi-label"><i></i>VCC 已消费</div><div class="kpi-value">¥36,420.80</div><div class="kpi-foot">确认消费 42 笔</div></div>
+          <div class="kpi"><div class="kpi-label"><i></i>未对账</div><div class="kpi-value">6 <small style="font-size:13px;font-weight:600;color:#71808d">笔</small></div><div class="kpi-foot">涉及金额 ¥8,920.00</div></div>
+        </section>
+
+        <div class="grid-main">
+          <section class="panel">
+            <div class="panel-head"><div class="panel-title">企业账目</div><div class="panel-meta">12 家企业 · 近 30 天</div></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>企业 / 联系人</th><th>实际销售金额</th><th>税务</th><th>到账金额</th><th>VCC 余额</th><th>对账状态</th></tr></thead>
+                <tbody id="companyRows">
+                  <tr data-company="huadong"><td><div class="company"><div class="company-mark">华</div><div><div class="company-name">华东智造科技</div><div class="company-id">org_8F2A · 制造业</div></div></div></td><td><span class="money">¥58,000.00</span></td><td><span class="tax-pill">含税 · 6%</span></td><td><span class="money">¥58,000.00</span></td><td><span class="money">¥21,840.00</span></td><td><span class="status green">已对账</span></td></tr>
+                  <tr data-company="remote"><td><div class="company"><div class="company-mark" style="background:#eeeaff;color:#6153a5">远</div><div><div class="company-name">远程研发中心</div><div class="company-id">org_32C1 · 软件服务</div></div></div></td><td><span class="money">¥42,000.00</span></td><td><span class="tax-pill">未税 · 6%</span></td><td><span class="money">¥44,520.00</span></td><td><span class="money">¥31,200.00</span></td><td><span class="status orange">待对账</span></td></tr>
+                  <tr data-company="xinghe"><td><div class="company"><div class="company-mark" style="background:#fff0e6;color:#ad6425">星</div><div><div class="company-name">星河软件</div><div class="company-id">org_5D77 · 软件服务</div></div></div></td><td><span class="money">¥28,600.00</span></td><td><span class="tax-pill">含税 · 3%</span></td><td><span class="money">¥28,600.00</span></td><td><span class="money">¥9,540.00</span></td><td><span class="status red">有差异</span></td></tr>
+                  <tr data-company="all"><td><div class="company"><div class="company-mark" style="background:#eef6f1;color:#29835b">云</div><div><div class="company-name">云启信息技术</div><div class="company-id">org_91B4 · 信息服务</div></div></div></td><td><span class="money">¥16,800.00</span></td><td><span class="tax-pill">含税 · 6%</span></td><td><span class="money">¥16,800.00</span></td><td><span class="money">¥4,320.00</span></td><td><span class="status green">已对账</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-top:1px solid var(--line);color:var(--faint);font-size:11px"><span>点击企业查看完整账目</span><button class="btn btn-quiet">查看全部企业 →</button></div>
+          </section>
+
+          <div class="side-stack">
+            <section class="panel"><div class="panel-head"><div class="panel-title">待处理事项</div><div class="panel-meta">4 项</div></div><div class="todo-list"><div class="todo"><i class="todo-dot"></i><div><strong>2 笔到账待确认</strong><span>请核对截图和银行流水号</span></div></div><div class="todo"><i class="todo-dot"></i><div><strong>3 张发票待上传</strong><span>远程研发中心 · 星河软件</span></div></div><div class="todo"><i class="todo-dot"></i><div><strong>1 张 VCC 消费待对账</strong><span>¥1,280.00 · 远程研发中心</span></div></div></div></section>
+            <section class="panel"><div class="mini-chart"><div class="chart-header"><div><div class="panel-title">到账趋势</div><div class="chart-value">¥128,600</div><div class="chart-caption">↑ 较上月 +18.4%</div></div><span class="panel-meta">近 30 天</span></div><div class="chart"><i class="bar" style="height:32%"></i><i class="bar" style="height:46%"></i><i class="bar" style="height:40%"></i><i class="bar" style="height:64%"></i><i class="bar" style="height:52%"></i><i class="bar" style="height:76%"></i><i class="bar active" style="height:92%"></i></div><div class="chart-labels"><span>05/14</span><span>05/21</span><span>05/28</span></div></div></section>
+          </div>
+        </div>
+        <div class="footer-note">原型数据仅用于页面评审 · 实际金额、企业和文件来自后端账目数据</div>
+      </div>
+    </main>
+  </div>
+
+  <div class="drawer-backdrop" id="backdrop"></div>
+  <aside class="drawer" id="drawer">
+    <div class="drawer-head"><div class="drawer-top"><div><div class="drawer-title" id="drawerTitle">华东智造科技</div><div class="drawer-sub" id="drawerSub">org_8F2A · 企业账目 · 更新于今天 09:42</div></div><button class="close" id="closeDrawer">×</button></div><div class="drawer-tabs"><button class="tab active" data-tab="overview">账目概览</button><button class="tab" data-tab="transfer">到账与税务</button><button class="tab" data-tab="vcc">VCC 消费</button><button class="tab" data-tab="docs">合同发票</button><button class="tab" data-tab="share">甲方可见</button></div></div>
+    <div class="drawer-body" id="drawerBody"></div>
+  </aside>
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const companyData = {
+      huadong: { name: '华东智造科技', id: 'org_8F2A', contact: '周敏 · 138****2281', sales: '¥58,000.00', received: '¥58,000.00', vcc: '¥21,840.00', tax: '含税 · 6%', transferNo: 'BOC2024061800192' },
+      remote: { name: '远程研发中心', id: 'org_32C1', contact: '陈野 · chen***@remote.cn', sales: '¥42,000.00', received: '¥44,520.00', vcc: '¥31,200.00', tax: '未税 · 6%', transferNo: 'ICBC2024061700327' },
+      xinghe: { name: '星河软件', id: 'org_5D77', contact: '林晓 · 139****7742', sales: '¥28,600.00', received: '¥28,600.00', vcc: '¥9,540.00', tax: '含税 · 3%', transferNo: 'CMB2024061600088' },
+      all: { name: '云启信息技术', id: 'org_91B4', contact: '王宁 · 137****9018', sales: '¥16,800.00', received: '¥16,800.00', vcc: '¥4,320.00', tax: '含税 · 6%', transferNo: 'ABC2024061500104' }
+    };
+    let current = companyData.huadong;
+    const drawer = document.getElementById('drawer');
+    const backdrop = document.getElementById('backdrop');
+    const drawerBody = document.getElementById('drawerBody');
+    const toast = document.getElementById('toast');
+    function money(v) { return v; }
+    function parseAmount(v) { return Number(String(v).replace(/[^0-9.-]/g, '')); }
+    function formatAmount(v) { return '¥' + v.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    function renderTab(tab) {
+      const d = current;
+      const sales = parseAmount(d.sales);
+      const rate = d.tax.includes('6%') ? 0.06 : 0.03;
+      const inclusive = d.tax.includes('含税');
+      const netSales = inclusive ? sales / (1 + rate) : sales;
+      const taxAmount = inclusive ? sales - netSales : sales * rate;
+      const receivable = inclusive ? sales : sales + taxAmount;
+      const received = parseAmount(d.received);
+      const difference = received - receivable;
+      const base = `<div class="detail-kpis"><div class="detail-kpi"><span>实际销售金额</span><strong>${d.sales}</strong></div><div class="detail-kpi"><span>实际到账</span><strong>${d.received}</strong></div><div class="detail-kpi"><span>VCC 可用余额</span><strong>${d.vcc}</strong></div></div>`;
+      if (tab === 'overview') drawerBody.innerHTML = base + `<div class="section"><div class="section-title">企业与联系人 <small>来自现有企业记录</small></div><div class="info-grid"><div class="info-item"><div class="info-label">企业 ID</div><div class="info-value">${d.id}</div></div><div class="info-item"><div class="info-label">联系人</div><div class="info-value">${d.contact}</div></div><div class="info-item"><div class="info-label">合同状态</div><div class="info-value"><span class="status green">已签署</span></div></div><div class="info-item"><div class="info-label">对账状态</div><div class="info-value"><span class="status ${d.name === '星河软件' ? 'red' : 'green'}">${d.name === '星河软件' ? '有差异' : '已对账'}</span></div></div></div></div><div class="section"><div class="section-title">最近记录 <small>近 30 天</small></div><div class="record-list"><div class="record"><div class="record-main"><div class="record-title">对公转账到账</div><div class="record-meta">2024-06-18 · ${d.transferNo}</div></div><div class="record-side"><div class="record-amount">+${d.received}</div><small><span class="status green">已确认</span></small></div></div><div class="record"><div class="record-main"><div class="record-title">VCC 消费 · Anthropic API</div><div class="record-meta">2024-06-21 · 已共享凭证</div></div><div class="record-side"><div class="record-amount">−¥2,480.00</div><small><span class="status green">已对账</span></small></div></div></div></div>`;
+      if (tab === 'transfer') drawerBody.innerHTML = base + `<div class="section"><div class="section-title">销售与税务</div><div class="info-grid"><div class="info-item"><div class="info-label">实际销售金额</div><div class="info-value">${d.sales}</div></div><div class="info-item"><div class="info-label">是否含税</div><div class="info-value">${inclusive ? '含税' : '未税'}</div></div><div class="info-item"><div class="info-label">税率 / 税点</div><div class="info-value">${(rate * 100).toFixed(0)}%</div></div><div class="info-item"><div class="info-label">不含税销售额</div><div class="info-value">${formatAmount(netSales)}</div></div><div class="info-item"><div class="info-label">税额</div><div class="info-value">${formatAmount(taxAmount)}</div></div><div class="info-item"><div class="info-label">到账差额</div><div class="info-value">${formatAmount(difference)}${difference === 0 ? '' : ' · 待说明'}</div></div></div></div><div class="section"><div class="section-title">到账记录 <small>${d.transferNo}</small></div><div class="record-list"><div class="record"><div class="record-main"><div class="record-title">中国银行 · 对公转账</div><div class="record-meta">2024-06-18 14:32 · 已上传到账截图</div></div><div class="record-side"><div class="record-amount">${d.received}</div><small><span class="status green">已确认</span></small></div></div></div><div class="file"><div class="file-icon">IMG</div><div><div class="file-name">transfer-proof-0618.png</div><div class="file-meta">转账到账截图 · 1.2 MB</div></div><button class="btn btn-quiet" onclick="showToast('原型：打开截图预览')">预览</button></div></div>`;
+      if (tab === 'vcc') drawerBody.innerHTML = base + `<div class="section"><div class="section-title">VCC 卡 <small>1 张</small></div><div class="info-grid"><div class="info-item"><div class="info-label">卡片</div><div class="info-value">AI-项目卡 · •••• 4821</div></div><div class="info-item"><div class="info-label">分配金额</div><div class="info-value">¥30,000.00</div></div><div class="info-item"><div class="info-label">当前可用</div><div class="info-value">${d.vcc}</div></div><div class="info-item"><div class="info-label">状态</div><div class="info-value"><span class="status green">正常</span></div></div></div></div><div class="section"><div class="section-title">消费记录 <small>共 12 笔</small></div><div class="record-list"><div class="record"><div class="record-main"><div class="record-title">Anthropic API</div><div class="record-meta">2024-06-21 · 服务商交易号 TXN-2180</div></div><div class="record-side"><div class="record-amount">−¥2,480.00</div><small><span class="status green">已对账</span></small></div></div><div class="record"><div class="record-main"><div class="record-title">Google Cloud</div><div class="record-meta">2024-06-19 · 服务商交易号 TXN-2094</div></div><div class="record-side"><div class="record-amount">−¥860.00</div><small><span class="status orange">待对账</span></small></div></div><div class="record"><div class="record-main"><div class="record-title">VCC 服务费</div><div class="record-meta">2024-06-18 · 自动扣款</div></div><div class="record-side"><div class="record-amount">−¥120.00</div><small><span class="status green">已对账</span></small></div></div></div></div>`;
+      if (tab === 'docs') drawerBody.innerHTML = base + `<div class="section"><div class="section-title">合同</div><div class="file"><div class="file-icon">PDF</div><div><div class="file-name">华东智造科技-AI服务合同.pdf</div><div class="file-meta">已签署 · 2024-06-12 · 2.8 MB</div></div><span class="status green">甲方可见</span></div></div><div class="section"><div class="section-title">发票 <small>1 张已核对</small></div><div class="file"><div class="file-icon">PDF</div><div><div class="file-name">发票-20240618-001.pdf</div><div class="file-meta">专票 · 价税合计 ¥58,000.00</div></div><span class="status green">已核对</span></div></div><div class="section"><div class="section-title">AI 厂商 Invoice <small>固定凭证类型</small></div><div class="record-list"><div class="record"><div class="record-main"><div class="record-title">Anthropic · 2024 年 6 月账单</div><div class="record-meta">已上传 Invoice · 金额 $420.00</div></div><span class="status green">Invoice</span></div></div><div class="file"><div class="file-icon">PDF</div><div><div class="file-name">anthropic-invoice-2024-06.pdf</div><div class="file-meta">AI 厂商 Invoice · 420 KB</div></div><span class="status green">已上传</span></div></div>`;
+      if (tab === 'share') drawerBody.innerHTML = base + `<div class="section"><div class="section-title">甲方可见范围 <small>仅影响组织账号</small></div><div class="record-list"><div class="record"><div class="record-main"><div class="record-title">到账与税务</div><div class="record-meta">销售金额、含税标记、税率、到账状态</div></div><button class="switch on" aria-label="到账与税务可见"></button></div><div class="record"><div class="record-main"><div class="record-title">VCC 消费</div><div class="record-meta">商户、日期、金额、消费状态</div></div><button class="switch on" aria-label="VCC 消费可见"></button></div><div class="record"><div class="record-main"><div class="record-title">合同和发票</div><div class="record-meta">仅展示已共享的文件</div></div><button class="switch on" aria-label="合同发票可见"></button></div><div class="record"><div class="record-main"><div class="record-title">我方支出</div><div class="record-meta">供应商、成本和内部付款记录</div></div><button class="switch" aria-label="我方支出不可见"></button></div></div></div><div class="section"><div class="empty">组织端不展示完整卡号、CVV、服务商费率、我方成本和其他企业数据。</div></div>`;
+    }
+    function openDrawer(key) { current = companyData[key] || companyData.huadong; document.getElementById('drawerTitle').textContent = current.name; document.getElementById('drawerSub').textContent = `${current.id} · 企业账目 · 更新于今天 09:42`; document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'overview')); renderTab('overview'); drawer.classList.add('open'); backdrop.classList.add('open'); }
+    function closeDrawer() { drawer.classList.remove('open'); backdrop.classList.remove('open'); }
+    function showToast(message) { toast.textContent = message; toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 2200); }
+    document.querySelectorAll('#companyRows tr').forEach(row => row.addEventListener('click', () => openDrawer(row.dataset.company)));
+    document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => { document.querySelectorAll('.tab').forEach(t => t.classList.remove('active')); tab.classList.add('active'); renderTab(tab.dataset.tab); }));
+    document.getElementById('closeDrawer').addEventListener('click', closeDrawer); backdrop.addEventListener('click', closeDrawer);
+    document.getElementById('companyFilter').addEventListener('change', e => { const value = e.target.value; document.querySelectorAll('#companyRows tr').forEach(row => row.style.display = value === 'all' || row.dataset.company === value ? '' : 'none'); });
+    document.getElementById('searchInput').addEventListener('input', e => { const q = e.target.value.trim(); document.querySelectorAll('#companyRows tr').forEach(row => row.style.display = !q || row.textContent.toLowerCase().includes(q.toLowerCase()) ? '' : 'none'); });
+    document.getElementById('transferBtn').addEventListener('click', () => showToast('原型：打开“新增到账”表单'));
+    document.getElementById('expenseBtn').addEventListener('click', () => showToast('原型：打开“新增支出”表单'));
+    document.querySelectorAll('.nav-item').forEach(item => item.addEventListener('click', () => { document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active')); item.classList.add('active'); if (item.textContent.includes('账目')) showToast('当前已在账目管理'); else showToast('原型：该模块待接入'); }));
+    document.addEventListener('click', e => { if (e.target.classList.contains('switch')) { e.target.classList.toggle('on'); showToast(e.target.classList.contains('on') ? '已设为甲方可见' : '已设为内部可见'); } });
+  </script>
+</body>
+</html>

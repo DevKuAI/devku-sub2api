@@ -149,8 +149,8 @@ bi:
 # Desktop 更新产物存储（通过 S3-compatible API 连接阿里云 OSS）
 # =============================================================================
 # Updater distribution is independent of desktop.enabled; its bucket/public_base_url allow anonymous reads.
-# MCP/Skill resources use resource_bucket privately and require desktop.enabled.
-# 安装包公开分发与 desktop.enabled 无关；MCP/Skill 使用 resource_bucket 私有存储并受开关控制。
+# MCP/Skill packages and accounting proofs share resource_bucket with separate folders.
+# 安装包公开分发与 desktop.enabled 无关；MCP/Skill 与账目附件共用私有 resource_bucket，通过文件夹隔离。
 desktop_update_storage:
   endpoint: "https://oss-cn-hangzhou.aliyuncs.com"
   region: "cn-hangzhou"

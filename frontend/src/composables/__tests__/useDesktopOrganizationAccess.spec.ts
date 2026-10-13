@@ -42,3 +42,32 @@ describe('useDesktopOrganizationAccess', () => {
     expect(access.canManageDesktopOrganization.value).toBe(false)
   })
 })
+
+describe('Desktop accounting access cache isolation', () => {
+  it('does not restore an old account’s organization after a delayed response', async () => {
+    useDesktopOrganizationAccess().resetDesktopOrganizationAccess()
+    authStore.isAuthenticated = true
+    authStore.user = { id: 9 }
+    let resolveOld!: (value: unknown) => void
+    getOrganization.mockReturnValueOnce(new Promise(resolve => { resolveOld = resolve }))
+    const access = useDesktopOrganizationAccess()
+    const first = access.refreshDesktopOrganizationAccess(true)
+    authStore.user = { id: 10 }
+    getOrganization.mockResolvedValueOnce({ public_id: 'org_new' })
+    await access.refreshDesktopOrganizationAccess(true)
+    resolveOld({ public_id: 'org_old' })
+    expect(await first).toBeNull()
+    expect(access.managedDesktopOrganization.value?.public_id).toBe('org_new')
+  })
+  it('coalesces forced refreshes so menu and page access do not overwrite each other', async () => {
+    useDesktopOrganizationAccess().resetDesktopOrganizationAccess()
+    authStore.isAuthenticated = true
+    authStore.user = { id: 9 }
+    getOrganization.mockClear()
+    getOrganization.mockResolvedValue({ public_id: 'org_one' })
+    const access = useDesktopOrganizationAccess()
+    await Promise.all([access.refreshDesktopOrganizationAccess(true), access.refreshDesktopOrganizationAccess(true)])
+    expect(getOrganization).toHaveBeenCalledTimes(1)
+    expect(access.canManageDesktopOrganization.value).toBe(true)
+  })
+})

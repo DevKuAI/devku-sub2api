@@ -134,6 +134,11 @@ deploy/docker-compose.override.yml
 .gocache/
 vite.config.js
 docs/*
+!docs/README.md
+!docs/DEV_GUIDE.md
+!docs/accounting-management/
+!docs/accounting-management/*.md
+!docs/accounting-management/prototype.html
 !docs/PAYMENT.md
 !docs/PAYMENT_CN.md
 !docs/ADMIN_PAYMENT_INTEGRATION_API.md

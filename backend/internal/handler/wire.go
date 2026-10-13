@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"github.com/Wei-Shaw/sub2api/internal/accounting"
 	"github.com/Wei-Shaw/sub2api/internal/bi"
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/handler/admin"
@@ -189,6 +190,7 @@ func ProvideAdminSettingHandler(settingService *service.SettingService, emailSer
 
 // ProvideHandlers creates the Handlers struct
 func ProvideHandlers(
+	accountingHandler *accounting.Handler,
 	biHandler *bi.Handler,
 	authHandler *AuthHandler,
 	userHandler *UserHandler,
@@ -220,6 +222,7 @@ func ProvideHandlers(
 	_ *service.OpenAIQuotaAutoResetService,
 ) *Handlers {
 	return &Handlers{
+		Accounting:       accountingHandler,
 		BI:               biHandler,
 		Auth:             authHandler,
 		User:             userHandler,
@@ -251,6 +254,8 @@ func ProvideHandlers(
 
 // ProviderSet is the Wire provider set for all handlers
 var ProviderSet = wire.NewSet(
+	accounting.NewEngine,
+	accounting.NewHandler,
 	bi.NewHandler,
 	// Top-level handlers
 	NewAuthHandler,

@@ -53,7 +53,7 @@ Sub2API is an API gateway for distributing and managing subscription quotas from
 
 - **Seedance (Ark) video tasks:** Supports native task creation, status queries, and deletion. Enable the Seedance endpoint capability on an OpenAI API key account and the group's media permission before use. Billing occurs when a query first observes `succeeded`, using upstream `usage.completion_tokens`; there is no background polling or automatic callback settlement. Preserve Redis task bindings and query completed tasks within their lifetime. See the [configuration, access restrictions, and billing guide](docs/seedance-api.md).
 - **Plugin host services:** Adds Redis-backed KV storage isolated by plugin identity, an account directory limited to declared capabilities, and the read-only `plugin.status` UI channel. Host-service negotiation is optional and remains compatible with older plugins. See the [Plugin API](backend/pkg/pluginapi/README.md) and [UI bridge](backend/pkg/pluginapi/docs/ui-bridge.md).
-- **Antigravity compatibility:** Removes leading Claude attribution metadata only in the Anthropic Messages-to-Antigravity conversion. Native Anthropic forwarding is unchanged; do not globally disable attribution to address this issue. See the [429 investigation and scope](docs/ANTIGRAVITY_ATTRIBUTION_429.md).
+- **Antigravity compatibility:** Removes leading Claude attribution metadata only in the Anthropic Messages-to-Antigravity conversion. Native Anthropic forwarding is unchanged; do not globally disable attribution to address this issue.
 
 ## Upstream v0.2.2 compatibility
 
@@ -780,6 +780,8 @@ Antigravity accounts support optional **hybrid scheduling**. When enabled, the g
 
 ## Project Structure
 
+Project documentation: [index](docs/README.md), [development guide](docs/DEV_GUIDE.md), and [accounting management](docs/accounting-management/README.md).
+
 ```
 sub2api/
 ├── backend/                  # Go backend service
@@ -789,7 +791,7 @@ sub2api/
 │   │   ├── model/            # Data models
 │   │   ├── service/          # Business logic
 │   │   ├── handler/          # HTTP handlers
-│   │   └── gateway/          # API gateway core
+│   │   └── repository/       # Data access
 │   └── resources/            # Static resources
 │
 ├── frontend/                 # Vue 3 frontend
@@ -799,11 +801,20 @@ sub2api/
 │       ├── views/            # Page components
 │       └── components/       # Reusable components
 │
-└── deploy/                   # Deployment files
-    ├── docker-compose.yml    # Docker Compose configuration
-    ├── .env.example          # Environment variables for Docker Compose
-    ├── config.example.yaml   # Full config file for binary deployment
-    └── install.sh            # One-click installation script
+├── deploy/                   # Deployment files
+│   ├── docker-compose.yml    # Docker Compose configuration
+│   ├── .env.example          # Environment variables for Docker Compose
+│   ├── config.example.yaml   # Full config file for binary deployment
+│   └── install.sh            # One-click installation script
+│
+├── docs/                     # Documentation and feature handoffs
+│   ├── README.md             # Documentation index
+│   ├── DEV_GUIDE.md          # Development guide
+│   └── accounting-management/ # Accounting design, implementation and verification
+├── assets/                   # README logos and partner images
+├── openspec/                 # Change proposals and specifications
+├── skills/                   # Project integration skills
+└── tools/                    # Repository maintenance utilities
 ```
 
 ---
