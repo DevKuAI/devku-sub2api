@@ -141,6 +141,14 @@ func registerBIAdminRoutes(admin *gin.RouterGroup, h *handler.Handlers, cfg *con
 	})
 	sources := biAdmin.Group("/sources")
 	sources.GET("", h.BI.AdminListSources)
+	sources.POST("/:source_id/sync-sub2api", gin.HandlerFunc(stepUpAuth), func(c *gin.Context) {
+		actor, ok := middleware.GetAuthSubjectFromContext(c)
+		if !ok {
+			middleware.AbortWithError(c, 401, "UNAUTHORIZED", "Authentication required")
+			return
+		}
+		h.BI.AdminSyncSub2api(c, actor.UserID)
+	})
 	sources.POST("", gin.HandlerFunc(stepUpAuth), func(c *gin.Context) {
 		actor, ok := middleware.GetAuthSubjectFromContext(c)
 		if !ok {

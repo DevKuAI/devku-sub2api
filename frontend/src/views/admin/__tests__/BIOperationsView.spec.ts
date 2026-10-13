@@ -13,6 +13,7 @@ vi.mock('@/api/admin', () => ({
   adminAPI: { bi: { getOverview, listBindings, listChallenges, listSessions } },
 }))
 vi.mock('@/stores', () => ({ useAppStore: () => ({ showSuccess: vi.fn() }) }))
+vi.mock('vue-router', () => ({ useRoute: () => ({ query: {} }) }))
 
 describe('BI Operations identity lists', () => {
   beforeEach(() => {

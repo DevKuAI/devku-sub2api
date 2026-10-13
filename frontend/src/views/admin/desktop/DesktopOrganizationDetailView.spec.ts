@@ -172,6 +172,15 @@ describe('DesktopOrganizationDetailView', () => {
     route.query.tab = 'members'
   })
 
+  it('links the organization grant page to its BI source setup', async () => {
+    route.query.tab = 'grants'
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.findAll('button').find(button => button.text() === '配置数据源')!.trigger('click')
+    expect(router.push).toHaveBeenCalledWith({ path: '/admin/bi', query: { tab: 'sources', organization_id: 'org_one' } })
+    wrapper.unmount()
+  })
+
   it.each([false, true])('shows import and optional remarks in create and edit forms with selfManaged=%s', async (selfManaged) => {
     const wrapper = selfManaged ? mountManagedView() : mountView()
     const api = selfManaged ? managedDesktopAPI : desktopAPI

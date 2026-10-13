@@ -741,7 +741,7 @@ const flagRiskControl = makeSidebarFlag(FeatureFlags.riskControl)
 const flagPluginManagement = makeSidebarFlag(FeatureFlags.pluginManagement)
 const flagDesktop = makeSidebarFlag(FeatureFlags.desktop)
 const flagOpsMonitoring = () => adminSettingsStore.opsMonitoringEnabled
-const flagBIFallback = () => !flagOpsMonitoring() && biEnabled.value
+const flagBI = () => biEnabled.value
 const flagAdminPayment = () => adminSettingsStore.paymentEnabled
 const flagBatchImageAccess = () => canUseBatchImage.value
 
@@ -817,7 +817,7 @@ const adminNavItems = computed((): NavItem[] => {
   const baseItems: NavItem[] = [
     { path: '/admin/dashboard', label: t('nav.dashboard'), icon: DashboardIcon },
     { path: '/admin/ops', label: t('nav.ops'), icon: ChartIcon, featureFlag: flagOpsMonitoring },
-    { path: '/admin/bi', label: t('nav.biOperations'), icon: ChartIcon, featureFlag: flagBIFallback, openInNewWindow: true },
+    { path: '/admin/bi', label: t('nav.biOperations'), icon: ChartIcon, featureFlag: flagBI, openInNewWindow: true },
     { path: '/admin/users', label: t('nav.users'), icon: UsersIcon, hideInSimpleMode: true },
     { path: '/admin/groups', label: t('nav.groups'), icon: FolderIcon },
     { path: '/admin/accounting', label: t('accounting.title'), icon: CreditCardIcon },

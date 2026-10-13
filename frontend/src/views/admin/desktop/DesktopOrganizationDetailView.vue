@@ -146,6 +146,10 @@
       </section>
 
       <section v-else-if="organization && activeTab === 'grants'" :id="panelId('grants')" tabindex="0" role="tabpanel" :aria-labelledby="tabId('grants')">
+        <div v-if="!selfManaged" class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded border border-gray-200 bg-gray-50 px-4 py-3 dark:border-dark-700 dark:bg-dark-800/50">
+          <div><h2 class="text-sm font-semibold">BI 数据源</h2><p class="mt-1 text-sm text-gray-500 dark:text-dark-400">授权后还需导入真实用量数据，小程序才能读取分析结果。</p></div>
+          <button class="btn btn-secondary" type="button" @click="router.push({ path: '/admin/bi', query: { tab: 'sources', organization_id: organizationID } })">配置数据源</button>
+        </div>
         <BIGrantManagement v-if="!selfManaged && organization" :key="organizationID" :organization-id="organizationID" />
       </section>
 

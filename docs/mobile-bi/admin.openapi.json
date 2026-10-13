@@ -3,7 +3,7 @@
   "info": {
     "title": "得酷 BI 原站授权管理 API",
     "version": "1.1.0",
-    "description": "API v1.1.0 的 28 个原站授权与运维操作。bi.enabled=true 时注册，复用原站管理员认证、审计、合规确认及面板限流。与 openapi.yaml 的 59 个小程序/采集操作分别导入。当前已本地实现，尚未完成真实环境验收。"
+    "description": "API v1.1.0 的 29 个原站授权与运维操作。bi.enabled=true 时注册，复用原站管理员认证、审计、合规确认及面板限流。与 openapi.yaml 的 59 个小程序/采集操作分别导入。当前已本地实现，尚未完成真实环境验收。"
   },
   "servers": [
     {
@@ -3066,6 +3066,119 @@
           }
         }
       }
+    },
+    "/api/v1/admin/bi/sources/{source_id}/sync-sub2api": {
+      "post": {
+        "operationId": "syncBISub2apiSource",
+        "tags": [
+          "BI 运维"
+        ],
+        "summary": "按次导入企业 sub2api 用量日志",
+        "description": "要求原站管理员 step-up 和有效 Connector 凭证；凭证须匹配请求企业与路径 source_id，且允许 usage。只用于独立的 sub2api 日志来源；已声明完整水位的来源不可使用。每次提交 1–500 条，queued 仅表示入队，按批次查询终态后继续下一批。idle 表示该时间范围无未导入记录，不创建空批次或推进水位。凭证不写入审计。",
+        "x-implementation-status": "implemented-local",
+        "parameters": [
+          {
+            "name": "source_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminSub2apiSyncInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful BI operations response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminSub2apiSyncResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "Step-up authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "来源已有在途批次、checkpoint 冲突或来源声明完整水位",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3531,6 +3644,109 @@
       "AdminBIRequest": {
         "type": "object",
         "additionalProperties": true
+      },
+      "AdminSub2apiSyncInput": {
+        "type": "object",
+        "required": [
+          "organization_id",
+          "connector_token",
+          "since",
+          "limit"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "organization_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "connector_token": {
+            "type": "string",
+            "minLength": 32,
+            "maxLength": 2048,
+            "writeOnly": true
+          },
+          "since": {
+            "type": "string",
+            "format": "date-time",
+            "description": "日志起始时间，不能晚于当前时间。下一批沿用相同起点。"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500
+          }
+        }
+      },
+      "AdminSub2apiSyncResponse": {
+        "type": "object",
+        "required": [
+          "code",
+          "message",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "const": 0
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "status",
+              "records",
+              "job"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "queued",
+                  "idle"
+                ]
+              },
+              "records": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 500
+              },
+              "job": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "source_id",
+                      "status",
+                      "received_at",
+                      "errors"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "source_id": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "const": "queued"
+                      },
+                      "received_at": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "errors": {
+                        "type": "array"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
       }
     }
   }

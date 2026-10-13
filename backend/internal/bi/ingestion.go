@@ -12,6 +12,11 @@ import (
 )
 
 func (s *Service) SubmitImport(ctx context.Context, connector Connector, key string, raw []byte) (ImportJob, error) {
+	return s.submitImport(ctx, connector, key, raw, nil, nil)
+}
+
+// Administrative admission can lock credentials first and record its audit before commit.
+func (s *Service) submitImport(ctx context.Context, connector Connector, key string, raw []byte, beforeAdmission func(*sql.Tx) error, beforeCommit func(*sql.Tx, ImportJob) error) (ImportJob, error) {
 	if len(raw) > 2<<20 {
 		return ImportJob{}, apiError(413, "PAYLOAD_TOO_LARGE", "Import payload exceeds 2 MiB")
 	}
@@ -44,6 +49,11 @@ func (s *Service) SubmitImport(ctx context.Context, connector Connector, key str
 		return ImportJob{}, err
 	}
 	defer func() { _ = tx.Rollback() }()
+	if beforeAdmission != nil {
+		if err := beforeAdmission(tx); err != nil {
+			return ImportJob{}, err
+		}
+	}
 	var checkpoint sql.NullString
 	err = tx.QueryRowContext(ctx, `SELECT checkpoint FROM bi_connector_sources WHERE organization_id=$1 AND source_id=$2 FOR UPDATE`, connector.OrganizationID, connector.SourceID).Scan(&checkpoint)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -94,6 +104,11 @@ func (s *Service) SubmitImport(ctx context.Context, connector Connector, key str
 		VALUES($1,$2,$3,$4,$5,$6,$7)`, job.ID, connector.OrganizationID, connector.SourceID, tokenHash(key), payloadHash, string(canonical), job.ReceivedAt)
 	if err != nil {
 		return ImportJob{}, err
+	}
+	if beforeCommit != nil {
+		if err := beforeCommit(tx, job); err != nil {
+			return ImportJob{}, err
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return ImportJob{}, err

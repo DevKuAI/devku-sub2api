@@ -151,6 +151,7 @@ const biAdminAPI = {
   listSources: (params?: Record<string, unknown>) => list<BISourceOperation>('/admin/bi/sources', params),
   listCredentials: (sourceID: string, organizationID?: string, params?: Record<string, unknown>) => apiClient.get<ListResponse<BICredentialOperation>>(`/admin/bi/sources/${encodeURIComponent(sourceID)}/credentials`, { params: { ...(organizationID ? { organization_id: organizationID } : {}), ...params } }).then(({ data }) => data),
   issueCredential: (input: Record<string, unknown>) => apiClient.post<{ credential_id: string; token: string }>('/admin/bi/sources', input).then(({ data }) => data),
+  syncSub2api: (sourceID: string, input: { organization_id: string; connector_token: string; since: string; limit: number }) => apiClient.post<{ status: 'idle' | 'queued'; records: number; job: { id: string } | null }>(`/admin/bi/sources/${encodeURIComponent(sourceID)}/sync-sub2api`, input).then(({ data }) => data),
   revokeCredential: (id: string) => apiClient.post(`/admin/bi/credentials/${encodeURIComponent(id)}/revoke`).then(({ data }) => data),
   rotateCredential: (id: string, expires_at: string) => apiClient.post(`/admin/bi/credentials/${encodeURIComponent(id)}/rotate`, { expires_at }).then(({ data }) => data),
   listImports: (params?: Record<string, unknown>) => list<BIImportOperation>('/admin/bi/imports', params),

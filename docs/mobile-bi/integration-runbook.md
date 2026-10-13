@@ -62,7 +62,9 @@
 
 先完成第 2 节的授权，使 BI 企业映射存在。适配负责人为每个来源确定稳定 `source_id`、namespace、允许的记录类型，以及首次导入范围。来源 ID 表示生产者，`SourceRecord.id` 表示内容来源对象，两者用途不同。
 
-运维侧配置 `BI_DATABASE_DSN`，并设置以下非敏感操作变量：`BI_ORGANIZATION_ID`、`BI_SOURCE_ID`、`BI_NAMESPACE`、`BI_ALLOWED_KINDS`。在仓库根目录执行：
+管理员可在 Desktop 企业详情的「小程序企业授权」中点击「配置数据源」，进入已预填企业 ID 的 `/admin/bi`「数据源」页。首次接入 sub2api 用量时，可填入推荐的 `source_sub2api`、`sub2api`、`usage` 后签发 Connector 凭证；已登记来源轮换凭证时必须沿用原 source ID 和 namespace。签发只登记来源，不代表已导入可分析的数据。
+
+若不通过后台签发，运维侧配置 `BI_DATABASE_DSN`，并设置以下非敏感操作变量：`BI_ORGANIZATION_ID`、`BI_SOURCE_ID`、`BI_NAMESPACE`、`BI_ALLOWED_KINDS`。在仓库根目录执行：
 
 ```bash
 cd backend
@@ -90,7 +92,11 @@ go run ./cmd/bi-connector -operation issue \
 
 ### sub2api 日志适配
 
-为该适配器登记允许 `usage` 的独立来源。配置 `BI_CONNECTOR_TOKEN` 和实际导入起点 `BI_USAGE_SINCE`（RFC3339）后，在 backend 目录执行：
+为该适配器登记允许 `usage` 的独立来源。管理员可在「BI 运维 → 数据源」的来源行点击「开始同步 sub2api 用量」，填入有效凭证和日志起始时间。刚签发的同企业、同来源凭证会自动填入，页面不将凭证存入浏览器持久存储。每次最多 500 条；页面查询批次结果，`applied` 后保持相同起点继续下一批，直到显示没有可导入日志。失败批次在「数据同步」中查看完整错误并重试。此入口按次执行，不会自动调度持续同步。
+
+后台调用 `POST /api/v1/admin/bi/sources/{source_id}/sync-sub2api`，请求体为 `organization_id`、`connector_token`、RFC3339 格式的 `since` 和 `limit`（1–500）；要求原站管理员 step-up。接口同时验证 Connector 来源权限，将导入入队与管理员审计放在同一事务中。无新增日志时返回 `{status:"idle",records:0,job:null}`，不提交空水位。
+
+也可使用 CLI。配置 `BI_CONNECTOR_TOKEN` 和实际导入起点 `BI_USAGE_SINCE`（RFC3339）后，在 backend 目录执行：
 
 ```bash
 go run ./cmd/bi-connector -operation sync-sub2api \

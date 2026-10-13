@@ -80,9 +80,9 @@ describe('AppSidebar Desktop navigation', () => {
 })
 
 describe('AppSidebar BI navigation', () => {
-  it('only shows a BI fallback when ops monitoring is disabled and BI is available', () => {
-    expect(componentSource).toContain('const flagBIFallback = () => !flagOpsMonitoring() && biEnabled.value')
-    expect(componentSource).toMatch(/path: '\/admin\/bi'[^\n]*featureFlag: flagBIFallback[^\n]*openInNewWindow: true/)
+  it('shows BI operations whenever BI is available', () => {
+    expect(componentSource).toContain('const flagBI = () => biEnabled.value')
+    expect(componentSource).toMatch(/path: '\/admin\/bi'[^\n]*featureFlag: flagBI[^\n]*openInNewWindow: true/)
     expect(componentSource).toContain(":target=\"item.openInNewWindow ? '_blank' : undefined\"")
   })
 })

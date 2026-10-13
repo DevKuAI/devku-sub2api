@@ -113,7 +113,7 @@ func TestBIAdminRoutesMatchSupplementalOpenAPI(t *testing.T) {
 				}
 			}
 		}
-		require.Len(t, seen, 28)
+		require.Len(t, seen, 29)
 	}
 }
 
@@ -125,5 +125,16 @@ func TestBIAdminBindingApprovalRequiresStepUp(t *testing.T) {
 		middleware.StepUpAuthMiddleware(func(c *gin.Context) { c.AbortWithStatus(423) }))
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, httptest.NewRequest("POST", "/api/v1/admin/bi/organizations/org/grants/manager/bindings/approve", strings.NewReader(`{}`)))
+	require.Equal(t, 423, w.Code)
+}
+
+func TestBIAdminSub2apiSyncRequiresStepUp(t *testing.T) {
+	r := gin.New()
+	admin := r.Group("/api/v1/admin")
+	h := &handler.Handlers{BI: bi.NewHandler(nil, nil, &config.Config{}, nil, nil, nil)}
+	registerBIAdminRoutes(admin, h, &config.Config{BI: config.BIConfig{Enabled: true}},
+		middleware.StepUpAuthMiddleware(func(c *gin.Context) { c.AbortWithStatus(423) }))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest("POST", "/api/v1/admin/bi/sources/source_sub2api/sync-sub2api", strings.NewReader(`{}`)))
 	require.Equal(t, 423, w.Code)
 }
