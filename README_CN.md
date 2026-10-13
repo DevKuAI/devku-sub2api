@@ -2,19 +2,18 @@
 
 <img src="assets/logo.svg" alt="Sub2API Logo" width="128" />
 
-# Sub2API
+# Sub2API · DevKu
 
-[![Go](https://img.shields.io/badge/Go-1.27.2-00ADD8.svg)](https://golang.org/)
-[![Vue](https://img.shields.io/badge/Vue-3.4+-4FC08D.svg)](https://vuejs.org/)
+[![Go](https://img.shields.io/badge/Go-1.27.2-00ADD8.svg)](https://go.dev/)
+[![Vue](https://img.shields.io/badge/Vue-3.5-4FC08D.svg)](https://vuejs.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-336791.svg)](https://www.postgresql.org/)
 [![Redis](https://img.shields.io/badge/Redis-7+-DC382D.svg)](https://redis.io/)
-[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
 
-**面向订阅配额分发与管理的 AI API 网关**
+**AI API 网关、Desktop 企业管理、财务账目与 BI**
 
-[English](README.md) | 中文 | [日本語](README_JA.md)
+[English](README.md) | 简体中文
 
-[上游仓库](https://github.com/Wei-Shaw/sub2api)
+[项目仓库](https://github.com/DevKuAI/devku-sub2api) · [发布版本](https://github.com/DevKuAI/devku-sub2api/releases) · [上游仓库](https://github.com/Wei-Shaw/sub2api)
 
 </div>
 
@@ -29,72 +28,160 @@
 
 ## 项目概述
 
-Sub2API 是用于分发和管理上游 AI 服务订阅配额的 API 网关。平台统一管理用户 API Key、上游账号接入、身份验证、用量统计、计费、请求路由和负载均衡。
+Sub2API 是可自行部署的 AI API 网关，用于管理上游 OAuth 和 API Key 账号、路由请求、分配配额，以及记录用量和成本。本仓库是 [Wei-Shaw/sub2api](https://github.com/Wei-Shaw/sub2api) 的 DevKu 分支，扩展了 Desktop 企业管理、账户侧订阅查看、企业账目管理和 BI 运维功能。
 
-## 核心功能
+从本文选择部署方式并完成服务配置。功能说明和 API 契约见 [文档索引](docs/README.md)。下列部署命令使用 DevKu 的发布包和镜像；从 `main` 安装的代码可能包含尚未发布的改动。
 
-- **上游账号管理**：支持 OAuth、API Key 等上游账号类型。
-- **API Key 管理**：为用户创建和管理 API Key，管理员可按用户设置可创建的 API Key 数量上限。
-- **用量统计与计费**：按 Token 跟踪用量并计算成本。
-- **请求调度**：选择可用的上游账号，并支持粘性会话。
-- **并发与速率限制**：支持用户级、账号级并发限制，以及请求和 Token 速率限制。
-- **内置支付**：支持 EasyPay 易支付、支付宝、微信支付和 Stripe，用户可自助充值，无需独立部署支付服务（[配置指南](docs/PAYMENT_CN.md)）。
-- **管理后台**：通过 Web 界面进行监控和管理。
-- **复合分组**：在多 Provider 分组中，将请求模型解析到具体的上游 Provider。
-- **外部系统集成**：通过 iframe 将工单等外部系统嵌入管理后台。
+[功能](#功能) · [部署](#部署) · [配置](#配置) · [Provider 与兼容性](#provider-与兼容性) · [开发](#开发) · [文档入口](#文档入口) · [许可证](#许可证)
 
-## 上游 v0.2.15 功能与兼容性说明
+## 功能
 
-- **Command Code 与 Cline**：新增两个 Provider 的 API Key 账号。Command Code 根据模型能力选择原生 Messages、Responses 或 Chat Completions 端点；Cline 使用 Chat Completions，并转换入站 Messages 或 Responses 请求。Cline 积分与 ClinePass 限额分别作用于对应模型。
-- **Platform catalog**：账号创建、路由和默认平台配额共用平台清单。数据库迁移移除平台 CHECK 约束，由应用校验平台是否已登记。
-- **输出速度**：使用记录展示单次请求的 output TPS，运维面板展示其分位数和样本量，与系统吞吐量分别统计。长上下文计费标签表示已应用对应定价档位，不再显示为固定倍率。
+| 模块 | 能力 |
+| --- | --- |
+| Gateway | Messages、Responses、Chat Completions、Gemini 及 Provider 专用协议；请求路由、粘性会话、负载均衡和复合分组。协议支持范围取决于所选 Provider。 |
+| 账号与 API Key | OAuth/API Key 上游账号、用户 API Key 创建数量限制、模型 allowlist、账户绑定，以及订阅账号状态和配额的只读查看。 |
+| 用量与限制 | Token 和成本统计、用户级/账号级并发、请求/Token 速率限制、API Key 消费窗口、输出 TPS 和运维看板。输出 TPS 与系统吞吐量分开统计；长上下文计费标签展示实际采用的价格档位。 |
+| 在线支付 | EasyPay 易支付、支付宝、微信支付和 Stripe，支持用户自助充值；见 [支付配置](docs/PAYMENT_CN.md)。 |
+| Desktop 企业 | 企业与成员、企业挂载 Web 账户、成员 Model Token、模型配置、用量统计、会话/对话上报和日报。对话上报由企业级开关控制。 |
+| Desktop 资源与更新 | MCP/Skill 包管理与鉴权分发，以及基于 S3 兼容存储的 Desktop 更新发布。私有资源与公开更新文件使用独立 bucket。 |
+| 企业账目 | 到账与税务、VCC 分配/消费/退款、合同、发票、AI Invoice、支出与分次付款、对账、CSV 导出、私有附件和审计。不同币种分别记账。 |
+| 企业 BI | 微信绑定与管理授权、Connector 凭证、数据源配置、手动导入 sub2api 用量、报告、保留期限/清理和审计。真实数据源、微信设备和生产容量验收仍按 [BI 文档](docs/mobile-bi/README.md) 跟踪。 |
+| 管理与扩展 | Web 管理后台、运行监控、插件宿主服务，以及通过 iframe 接入外部系统。 |
 
-## 上游 v0.2.7 功能与兼容性说明
+### 企业账户入口
 
-- **Seedance (Ark) 视频任务**：支持原生任务创建、查询和删除。使用前需为 OpenAI 平台的 API Key 账号启用 Seedance 端点能力，并开启分组的媒体权限。首次查询到 `succeeded` 时，按上游 `usage.completion_tokens` 计费；当前不后台轮询，也不通过回调自动结算。需保留 Redis 任务绑定，并在有效期内查询完成结果。配置、访问限制和计费规则见 [Seedance API 指南](docs/seedance-api.md)。
-- **插件宿主服务**：新增按插件身份隔离的 Redis KV 存储、受已声明能力限制的账号目录，以及只读 `plugin.status` UI 通道。宿主服务协商为可选功能，兼容旧插件。详见 [Plugin API](backend/pkg/pluginapi/README.md) 和 [UI bridge](backend/pkg/pluginapi/docs/ui-bridge.md)。
-- **Antigravity 兼容性**：仅在 Anthropic Messages 转换到 Antigravity 时移除开头的 Claude attribution 元数据。原生 Anthropic 转发行为不变，不应为此问题全局禁用 attribution。
+- Desktop 企业通过 `gateway_user_id` 绑定现有 Web 账户；绑定账户可在 `/desktop/organization` 查看本企业。
+- 管理员在 `/admin/accounting` 管理所有企业的账目。绑定企业的 Web 账户显示「财务账目」，进入 `/organization/accounting`；没有账目时仍显示入口和空状态。绑定企业的 Admin 在「我的账户」下查看。
+- 企业页面只读，仅展示本企业的到账、卡片消费及明确共享的合同/发票，不公开内部支出、利润或敏感卡片信息。Desktop 成员会话不能访问账目。
+- 财务账目独立于在线支付、Gateway 余额和 API 用量计费；录入到账不会给 Gateway 账户充值。
 
-## 上游 v0.2.2 兼容性说明
+## 部署
 
-- 分组模型白名单现在同时约束模型列表和请求准入。迁移将 `groups.models_list_config` 重命名为 `model_allowlist`，并保留原有数据。升级前请检查已启用的列表，因为这些配置现在也会限制请求使用的模型。
-- Grok 媒体请求会排除有明确 Free 或禁止访问计费证据的 OAuth 账号。缺失或格式异常的计费信息会在转发前触发探测；探测成功但响应不完整时，账号以 `billing_inconclusive` 状态保留请求资格。可设置 `extra.grok_media_eligible=false` 排除账号，或设为 `true` 强制允许。聊天和视频状态查询不受此规则影响；没有可用账号时返回 HTTP `503`（`grok_media_no_eligible_account`）。
+| 方式 | 前置条件 | 初始化方式 |
+| --- | --- | --- |
+| **Docker Compose（推荐）** | Docker 20.10+、Compose v2+ | 包含 PostgreSQL 和 Redis，首次启动自动初始化。 |
+| Linux 二进制 | Linux amd64/arm64、systemd、安装时需要 root；已运行的 PostgreSQL 15+ 和 Redis 7+ | Web setup 向导或 CLI `--setup`。 |
+| Apple `container` | Apple silicon、macOS 26、`container` 1.1.0+ | 本地三服务环境；见 [操作说明与限制](deploy/APPLE_CONTAINER.md)。 |
+| 源码编译 | Go 1.27.2、Node.js 20、pnpm 9、PostgreSQL 和 Redis | 见 [开发](#开发)。 |
 
-## 技术栈
+### Docker Compose 快速开始
 
-| 组件 | 技术 |
-|------|------|
-| 后端 | Go 1.27.2, Gin, Ent |
-| 前端 | Vue 3.4+, Vite 5+, TailwindCSS |
-| 数据库 | PostgreSQL 15+ |
-| 缓存/队列 | Redis 7+ |
+在新的部署目录中执行：
 
----
+```bash
+mkdir -p sub2api-deploy
+cd sub2api-deploy
+curl -fsSL https://raw.githubusercontent.com/DevKuAI/devku-sub2api/main/deploy/docker-deploy.sh -o docker-deploy.sh
+bash docker-deploy.sh
+docker compose up -d
+docker compose ps
+docker compose logs -f sub2api
+```
 
-## Nginx 反向代理配置
+准备脚本将本地目录版 Compose 下载为 `docker-compose.yml`，生成包含 PostgreSQL/JWT/Desktop/TOTP 密钥的 `.env`，并创建 `data/`、`postgres_data/` 和 `redis_data/`。脚本会显示生成的凭证；终端输出和 `.env` 均应妥善保管。
 
-通过 Nginx 反向代理 Sub2API（或 CRS 服务）并搭配 Codex CLI 使用时，需要在 Nginx 配置的 `http` 块中添加：
+访问 `http://YOUR_SERVER_IP:8080`。容器部署会自动初始化；`ADMIN_EMAIL` 或 `ADMIN_PASSWORD` 留空时，可从首次启动日志中取得生成的登录凭证：
+
+```bash
+docker compose logs sub2api | grep "Generated admin"
+```
+
+生产环境应先配置 HTTPS 和反向代理，再开放服务。完成管理员初始化后，添加上游账号和分组，再创建绑定目标分组的用户 API Key。API Key 页面的「使用密钥」提供受支持客户端的配置。
+
+<details>
+<summary>手动部署 Compose</summary>
+
+```bash
+git clone https://github.com/DevKuAI/devku-sub2api.git sub2api
+cd sub2api/deploy
+cp .env.example .env
+chmod 600 .env
+```
+
+启动前编辑 `.env`。分别使用 `openssl rand -hex 32` 生成 `POSTGRES_PASSWORD`、`JWT_SECRET` 和 `TOTP_ENCRYPTION_KEY`，重启和恢复时保留 JWT 与加密密钥。按需填写 `ADMIN_EMAIL`、`ADMIN_PASSWORD` 和 `SERVER_PORT`（默认 `8080`），避免使用容易猜测的管理员凭证。
+
+```bash
+mkdir -p data postgres_data redis_data
+docker compose -f docker-compose.local.yml up -d
+docker compose -f docker-compose.local.yml ps
+docker compose -f docker-compose.local.yml logs -f sub2api
+```
+
+仓库中的 `docker-compose.local.yml` 使用本地目录，`docker-compose.yml` 使用 named volumes。后续操作保持相同的 `-f` 文件选择。准备脚本生成的 `docker-compose.yml` 已采用本地目录方式。
+
+</details>
+
+### Linux 二进制安装
+
+安装脚本将 DevKu 发布包安装到 `/opt/sub2api`，并配置系统用户和 systemd unit：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/DevKuAI/devku-sub2api/main/deploy/install.sh -o install.sh
+sudo bash install.sh
+sudo systemctl start sub2api
+sudo systemctl enable sub2api
+sudo journalctl -u sub2api -f
+```
+
+全新安装时，访问 `http://YOUR_SERVER_IP:8080`，完成数据库、Redis 和管理员配置。不要预先创建 `config.yaml`，否则会跳过向导。使用 CLI 初始化时，应在服务用户和服务数据目录的上下文中运行已安装的二进制并传入 `--setup`。历史 YAML 字段 `default.admin_email` / `default.admin_password` 不负责初始化管理员。
+
+### 升级与备份
+
+Compose 部署应先备份数据库和持久化数据，再重新创建容器：
+
+```bash
+docker compose pull
+docker compose up -d
+docker compose ps
+docker compose logs --tail=100 sub2api
+```
+
+手动部署本地目录版时，命令应带上 `-f docker-compose.local.yml`。需要可复现部署时，固定具体的 DevKu 镜像 tag。二进制安装可使用后台「检查更新」及其支持的回滚流程；Compose 升级应更新镜像。
+
+备份范围包括 PostgreSQL、应用数据/配置、`.env` 和加密密钥；保留会话及媒体任务绑定依赖的 Redis 状态。不要直接复制运行中的数据库目录：使用数据库备份工具，或停服后归档本地目录。私有 S3 文件需要独立的备份和保留策略。迁移及生命周期命令见 [部署操作说明](deploy/README.md)。
+
+## 配置
+
+容器配置参考 [deploy/.env.example](deploy/.env.example)，二进制配置参考 [deploy/config.example.yaml](deploy/config.example.yaml)。非空环境变量覆盖 YAML；Compose 模板还可能提供默认值。修改 `.env` 后执行 `docker compose up -d` 重新创建容器，仅重启不会载入新的环境变量。
+
+| 配置项 | 用途 |
+| --- | --- |
+| `JWT_SECRET` | 固定 Web 会话签名密钥，使用 `openssl rand -hex 32` 生成。 |
+| `TOTP_ENCRYPTION_KEY` | 2FA 和敏感 VCC 字段的固定加密密钥，使用 `openssl rand -hex 32` 生成，恢复时必须保留。 |
+| `DESKTOP_ENABLED` | 默认 `false`。启用前配置独立的 `DESKTOP_JWT_SECRET`（`openssl rand -base64 32`）和外部可访问、以 `/v1` 结尾的 HTTPS `DESKTOP_PUBLIC_GATEWAY_BASE_URL`。控制 Desktop 及企业账户账目访问。 |
+| `DESKTOP_UPDATE_STORAGE_RESOURCE_BUCKET` | MCP/Skill 和账目附件共用的私有 bucket，复用 `DESKTOP_UPDATE_STORAGE_*` S3 连接。账目文件位于 `accounting/{organization_id}/{attachment_id}/`，无需独立账目 bucket。 |
+| `BI_ENABLED` | 默认 `false`。需配置真实 `BI_APPID`/`BI_APP_SECRET`、独立的 base64 `BI_JWT_SECRET`/`BI_IDENTITY_SECRET`，并发布带独立 HTTPS 站点地址的 BI 隐私说明。详见 [BI 配置](docs/mobile-bi/configuration.md)。 |
+
+未配置 S3 时，基础账目记录仍可使用；上传及依赖凭证的确认返回 `ACCOUNTING_STORAGE_UNAVAILABLE`。敏感卡片信息录入要求固定加密密钥，读取接口仅返回卡号后四位。记录与附件的共享开关独立，默认不共享。详见 [账目配置与 API 规则](docs/accounting-management/implementation.md)。
+
+### 反向代理与安全
+
+- 根据部署环境配置 HTTPS、CORS origin、CSP 和上游 URL 校验。关闭 URL allowlist 时，默认允许 HTTP 上游地址；生产环境应显式设置 `SECURITY_URL_ALLOWLIST_ALLOW_INSECURE_HTTP=false`，仅允许 HTTPS。HTTP 会使密钥和数据面临窃听及 MITM 风险。
+- `security.trust_forwarded_ip_for_api_key_acl` 为兼容升级默认 `true`。此模式下应限制源站仅接受 CDN/代理访问，并由边缘代理覆盖可信请求头。需要使用 Gin 的信任边界时，关闭该配置，将 `server.trusted_proxies` 设为直接连接服务的准确代理 CIDR。
+- `SECURITY_FORWARDED_CLIENT_IP_HEADERS=True-Client-IP,X-CDN-Client-IP` 最多配置 16 个经过校验、标准化和去重的请求头名称；后台安全设置支持无需重启更新。关闭兼容接管模式后，忽略自定义和内置原始转发头。详见 [边缘安全与迁移说明](deploy/EDGE_SECURITY.md)。
+- 关闭 URL 校验或响应头过滤时，应在网络层限制上游出口、阻止 private/loopback/link-local 目标、强制 TLS，并在代理层移除敏感响应头。生产环境还应核对 `billing.circuit_breaker` 和 `turnstile.required`。
+
+Nginx 默认丢弃 `session_id` 等包含下划线的请求头，会影响 Codex 粘性路由。在 `http` block 中启用：
 
 ```nginx
 underscores_in_headers on;
 ```
 
-Nginx 默认会丢弃名称中含下划线的请求头（如 `session_id`），这会导致多账号环境下的粘性会话功能失效。
+<details>
+<summary>Codex Fast/Flex、WebSocket 与 h2c 配置</summary>
 
-## Codex Fast/Flex 策略说明
+### Codex Fast/Flex 策略
 
-管理员后台的 `系统设置 -> 网关服务 -> OpenAI Fast/Flex 策略` 只负责处理请求体中的 `service_tier`，不会修改 Codex 客户端的模型目录，也不会让 Codex UI 自动出现 Speed 或 `/fast` 选项。
+后台 Gateway 设置中的 OpenAI Fast/Flex 策略控制请求体 `service_tier`，不会改变 Codex 客户端模型目录，也不会自动显示 Speed 或 `/fast`。
 
-策略支持以下处理方式：
-
-- `pass`：保留客户端传入的 `service_tier`；`fast` 会规范为上游使用的 `priority`。
+- `pass`：保留客户端 `service_tier`，将 `fast` 标准化为上游使用的 `priority`。
 - `filter`：移除 `service_tier`，按普通优先级请求。
 - `block`：拒绝匹配的 Fast/Flex 请求。
-- `force_priority`：将匹配请求强制设置为 `priority`，会按 Priority/Fast 价格计费。为避免升级后改变既有规则语义，`all` 只匹配显式存在的 tier；如需让省略 `service_tier` 的 OpenAI 请求也强制升级，必须新增 `service_tier=missing + force_priority` 规则。非 OpenAI 平台不会执行缺省 tier 注入。这种方式可以让请求实际使用 Fast，但 Codex UI 仍可能不显示 Fast 状态。
+- `force_priority`：将匹配请求设为 `priority`，按 Priority/Fast 价格计费。为保留既有规则语义，`all` 只匹配显式提供 tier 的请求。要升级未传 `service_tier` 的 OpenAI 请求，添加 `service_tier=missing + force_priority` 规则；其他平台不注入缺省 tier。即使 Codex 未显示 Fast 状态，请求也可能已使用 Fast。
 
-Codex 的 Fast 入口由客户端模型目录驱动。只有当前模型目录声明了 `additional_speed_tiers: ["fast"]` 和对应的 `service_tiers`，Codex 才会显示 `/fast`。通过 API Key 或自定义模型提供商连接 Sub2API 时，如果模型目录没有这些字段，即使后台配置了 `force_priority`，重启 Codex 后也不会出现 Speed 选项。
+Codex 的 Fast 控件依赖客户端模型目录声明 `additional_speed_tiers: ["fast"]` 及对应 `service_tiers`。通过 API Key 或自定义 Provider 连接时，若目录缺少这些字段，设置 `force_priority` 或重启 Codex 不会使 Speed 选项出现。
 
-客户端可在 `~/.codex/config.toml` 中直接指定默认请求级别：
+可在 `~/.codex/config.toml` 设置默认请求 tier：
 
 ```toml
 service_tier = "fast"
@@ -103,443 +190,58 @@ service_tier = "fast"
 fast_mode = true
 ```
 
-其中 `service_tier = "fast"` 会让请求携带 Fast 设置；`features.fast_mode` 只启用客户端 Fast 功能。模型目录没有声明 Fast 能力时，`/fast` 仍可能不显示。可通过 Sub2API 使用记录确认最终 `service_tier` 是否为 `priority`。
+`service_tier = "fast"` 会在请求中携带 Fast 设置；`features.fast_mode` 只启用客户端功能。模型目录缺少 Fast 能力时，`/fast` 仍可能不可用。应在 Sub2API 用量记录中确认最终 `service_tier` 是否为 `priority`。
 
----
+### OpenAI Responses WebSocket 限制与 HTTP 回退
 
-## 部署方式
-
-### 方式一：脚本安装（推荐）
-
-一键安装脚本，自动从 GitHub Releases 下载预编译的二进制文件。
-
-#### 前置条件
-
-- Linux 服务器（amd64 或 arm64）
-- PostgreSQL 15+（已安装并运行）
-- Redis 7+（已安装并运行）
-- Root 权限
-
-#### 安装步骤
-
-```bash
-curl -sSL https://raw.githubusercontent.com/DevKuAI/devku-sub2api/main/deploy/install.sh | sudo bash
-```
-
-脚本会自动：
-1. 检测系统架构
-2. 下载最新版本
-3. 安装二进制文件到 `/opt/sub2api`
-4. 创建 systemd 服务
-5. 配置系统用户和权限
-
-#### 安装后配置
-
-```bash
-# 1. 启动服务
-sudo systemctl start sub2api
-
-# 2. 设置开机自启
-sudo systemctl enable sub2api
-
-# 3. 在浏览器中打开设置向导
-# http://你的服务器IP:8080
-```
-
-设置向导将引导你完成：
-- 数据库配置
-- Redis 配置
-- 管理员账号创建
-
-#### 升级
-
-可以直接在 **管理后台** 左上角点击 **检测更新** 按钮进行在线升级。
-
-网页升级功能支持：
-- 自动检测新版本
-- 一键下载并应用更新
-- 支持回滚
-
-#### 常用命令
-
-```bash
-# 查看状态
-sudo systemctl status sub2api
-
-# 查看日志
-sudo journalctl -u sub2api -f
-
-# 重启服务
-sudo systemctl restart sub2api
-
-# 卸载
-curl -sSL https://raw.githubusercontent.com/DevKuAI/devku-sub2api/main/deploy/install.sh | sudo bash -s -- uninstall -y
-```
-
----
-
-### 方式二：Docker Compose（推荐）
-
-使用 Docker Compose 部署，包含 PostgreSQL 和 Redis 容器。
-
-#### 前置条件
-
-- Docker 20.10+
-- Docker Compose v2+
-
-#### 快速开始（一键部署）
-
-使用自动化部署脚本快速搭建：
-
-```bash
-# 创建部署目录
-mkdir -p sub2api-deploy && cd sub2api-deploy
-
-# 下载并运行部署准备脚本
-curl -sSL https://raw.githubusercontent.com/DevKuAI/devku-sub2api/main/deploy/docker-deploy.sh | bash
-
-# 启动服务
-docker compose up -d
-
-# 查看日志
-docker compose logs -f sub2api
-```
-
-**脚本功能：**
-- 下载 `docker-compose.local.yml`（本地保存为 `docker-compose.yml`）和 `.env.example`
-- 自动生成安全凭证（JWT_SECRET、TOTP_ENCRYPTION_KEY、POSTGRES_PASSWORD）
-- 创建 `.env` 文件并填充自动生成的密钥
-- 创建数据目录（使用本地目录，便于备份和迁移）
-- 显示生成的凭证供你记录
-
-#### 手动部署
-
-如果你希望手动配置：
-
-```bash
-# 1. 克隆仓库
-git clone https://github.com/DevKuAI/devku-sub2api.git sub2api
-cd sub2api/deploy
-
-# 2. 复制环境配置文件
-cp .env.example .env
-chmod 600 .env
-
-# 3. 编辑配置（生成安全密码）
-nano .env
-```
-
-**`.env` 必须配置项：**
-
-```bash
-# PostgreSQL 密码（必需）
-POSTGRES_PASSWORD=your_secure_password_here
-
-# JWT 密钥（推荐 - 重启后保持用户登录状态）
-JWT_SECRET=your_jwt_secret_here
-
-# TOTP 加密密钥（推荐 - 重启后保留双因素认证）
-TOTP_ENCRYPTION_KEY=your_totp_key_here
-
-# 可选：管理员账号
-# 留空则首次启动时自动生成随机邮箱（登录用户名）和密码，并输出到日志。
-# 请勿使用 admin@example.com 这类可被猜中的值，它们是暴力破解的目标。
-ADMIN_EMAIL=
-ADMIN_PASSWORD=
-
-# 可选：自定义端口
-SERVER_PORT=8080
-```
-
-**生成安全密钥：**
-```bash
-# 生成 JWT_SECRET
-openssl rand -hex 32
-
-# 生成 TOTP_ENCRYPTION_KEY
-openssl rand -hex 32
-
-# 生成 POSTGRES_PASSWORD
-openssl rand -hex 32
-```
-
-```bash
-# 4. 创建数据目录（本地版）
-mkdir -p data postgres_data redis_data
-
-# 5. 启动所有服务
-# 选项 A：本地目录版（推荐 - 易于迁移）
-docker compose -f docker-compose.local.yml up -d
-
-# 选项 B：命名卷版（简单设置）
-docker compose up -d
-
-# 6. 查看状态
-docker compose -f docker-compose.local.yml ps
-
-# 7. 查看日志
-docker compose -f docker-compose.local.yml logs -f sub2api
-```
-
-#### 部署版本对比
-
-| 版本 | 数据存储 | 迁移便利性 | 适用场景 |
-|------|---------|-----------|---------|
-| **docker-compose.local.yml** | 本地目录 | ✅ 简单（打包整个目录） | 生产环境、频繁备份 |
-| **docker-compose.yml** | 命名卷 | ⚠️ 需要 docker 命令 | 简单设置 |
-
-**推荐：** 使用 `docker-compose.local.yml`（脚本部署）以便更轻松地管理数据。
-
-#### 启用“数据管理”功能（datamanagementd）
-
-如需启用管理后台“数据管理”，需要额外部署宿主机数据管理进程 `datamanagementd`。
-
-关键点：
-
-- 主进程固定探测：`/tmp/sub2api-datamanagement.sock`
-- 只有该 Socket 可连通时，数据管理功能才会开启
-- Docker 场景需将宿主机 Socket 挂载到容器同路径
-
-详细部署步骤见：`deploy/DATAMANAGEMENTD_CN.md`
-
-#### 访问
-
-在浏览器中打开 `http://你的服务器IP:8080`
-
-如果管理员邮箱（登录用户名）或密码是自动生成的，在日志中查找：
-```bash
-docker compose -f docker-compose.local.yml logs sub2api | grep "Generated admin"
-```
-
-#### 升级
-
-```bash
-# 拉取最新镜像并重建容器
-docker compose -f docker-compose.local.yml pull
-docker compose -f docker-compose.local.yml up -d
-```
-
-#### 轻松迁移（本地目录版）
-
-使用 `docker-compose.local.yml` 时，可以轻松迁移到新服务器：
-
-```bash
-# 源服务器
-docker compose -f docker-compose.local.yml down
-cd ..
-tar czf sub2api-complete.tar.gz sub2api-deploy/
-
-# 传输到新服务器
-scp sub2api-complete.tar.gz user@new-server:/path/
-
-# 新服务器
-tar xzf sub2api-complete.tar.gz
-cd sub2api-deploy/
-docker compose -f docker-compose.local.yml up -d
-```
-
-#### 常用命令
-
-```bash
-# 停止所有服务
-docker compose -f docker-compose.local.yml down
-
-# 重启
-docker compose -f docker-compose.local.yml restart
-
-# 查看所有日志
-docker compose -f docker-compose.local.yml logs -f
-
-# 删除所有数据（谨慎！）
-docker compose -f docker-compose.local.yml down
-rm -rf data/ postgres_data/ redis_data/
-```
-
----
-
-### 方式三：Apple container（macOS）
-
-Apple 芯片 Mac 在 macOS 26 上可使用 Apple `container` 1.1.0 或更高版本运行完整的 Sub2API、PostgreSQL 和 Redis：
-
-```bash
-git clone https://github.com/DevKuAI/devku-sub2api.git sub2api
-cd sub2api/deploy
-./apple-container.sh init
-./apple-container.sh up
-./apple-container.sh status
-```
-
-该方式面向本地开发和人工运维，不提供持续重启监管；生产部署仍推荐 Docker Compose。生命周期命令、持久化、升级和运行时限制见 [deploy/APPLE_CONTAINER.md](deploy/APPLE_CONTAINER.md)。
-
----
-
-### 方式四：源码编译
-
-从源码编译安装，适合开发或定制需求。
-
-#### 前置条件
-
-- Go 1.21+
-- Node.js 18+
-- PostgreSQL 15+
-- Redis 7+
-
-#### 编译步骤
-
-```bash
-# 1. 克隆仓库
-git clone https://github.com/DevKuAI/devku-sub2api.git sub2api
-cd sub2api
-
-# 2. 安装 pnpm（如果还没有安装）
-npm install -g pnpm
-
-# 3. 编译前端
-cd frontend
-pnpm install
-pnpm run build
-# 构建产物输出到 ../backend/internal/web/dist/
-
-# 4. 编译后端（嵌入前端）
-cd ../backend
-VERSION="$(./scripts/resolve-version.sh)"
-go build -tags embed -ldflags="-X main.Version=${VERSION}" -o sub2api ./cmd/server
-
-# 5. 创建配置文件
-cp ../deploy/config.example.yaml ./config.yaml
-
-# 6. 编辑配置
-nano config.yaml
-```
-
-> **注意：** `-tags embed` 参数会将前端嵌入到二进制文件中。不使用此参数编译的程序将不包含前端界面。
-
-**`config.yaml` 关键配置：**
+`gateway.openai_ws` 限制客户端 Responses WebSocket 的连接时长和总数量。这些限制独立于每轮请求的用户/账号并发槽位；并发槽位会在轮次之间释放。
 
 ```yaml
-server:
-  host: "0.0.0.0"
-  port: 8080
-  mode: "release"
-
-database:
-  host: "localhost"
-  port: 5432
-  user: "postgres"
-  password: "your_password"
-  dbname: "sub2api"
-
-redis:
-  host: "localhost"
-  port: 6379
-  password: ""
-
-jwt:
-  secret: "change-this-to-a-secure-random-string"
-  expire_hour: 24
-
-default:
-  user_concurrency: 5
-  user_balance: 0
-  api_key_prefix: "sk-"
-  rate_multiplier: 1.0
+gateway:
+  openai_ws:
+    # Total time to receive and decompress the first client message.
+    client_first_message_timeout_seconds: 30
+    # Close a socket idle between completed turns; 0 disables the limit.
+    ingress_inter_turn_idle_timeout_seconds: 300
+    # Distributed live-session limit per API key; 0 disables the limit.
+    max_ingress_connections_per_api_key: 64
 ```
 
-`config.yaml` 还支持以下安全相关配置：
+首条消息超时是读取与解压的总期限。大上下文、图片较多或网络较慢时，可将其提高到 120–300 秒。该限制在 HTTP bridge 路由前生效，bridge 模式不能绕过。
 
-- `cors.allowed_origins` 配置 CORS 白名单
-- `security.url_allowlist` 配置上游/价格数据/CRS 主机白名单
-- `security.url_allowlist.enabled` 可关闭 URL 校验（慎用）
-- `security.url_allowlist.allow_insecure_http` 关闭校验时允许 HTTP URL
-- `security.url_allowlist.allow_private_hosts` 允许私有/本地 IP 地址
-- `security.response_headers.enabled` 可启用可配置响应头过滤（关闭时使用默认白名单）
-- `security.csp` 配置 Content-Security-Policy
-- `billing.circuit_breaker` 计费异常时 fail-closed
-- `security.trust_forwarded_ip_for_api_key_acl` 控制旧版原始转发头接管（为升级兼容默认开启）；关闭后严格使用 `server.trusted_proxies`，其中只应填写直接连接 Sub2API 的精确代理 CIDR
-- `security.forwarded_client_ip_headers` 最多配置 16 个第三方 CDN 客户端 IP 请求头；仅在旧版接管开启时按顺序优先于内置请求头解析
-- `turnstile.required` 在 release 模式强制启用 Turnstile
+连接上限通过 Redis 协调，租约为 60 秒，每 20 秒刷新。进程在完整租约周期内无法确认租约时，会关闭本地 WebSocket，避免继续使用未计入全局上限的连接。
 
-自定义客户端 IP 请求头可通过 YAML 配置，也可使用逗号分隔的环境变量：
-
-```bash
-SECURITY_FORWARDED_CLIENT_IP_HEADERS=True-Client-IP,X-CDN-Client-IP
-```
-
-请求头名称会经过合法性校验、规范化和大小写无关去重。管理员可在安全设置中动态更新列表，无需重启；新安装会持久化 YAML/环境变量默认值，旧安装缺少数据库字段时会自动回填。关闭旧版接管后，自定义头和内置原始转发头均被忽略，只使用 `server.trusted_proxies`。开启接管时必须限制源站仅允许 CDN/代理访问，并确保边缘代理覆盖所有受信客户端 IP 请求头。完整迁移规则和信任边界见 [`deploy/EDGE_SECURITY.md`](deploy/EDGE_SECURITY.md)。
-
-**网关防御纵深建议（重点）**
-
-- `gateway.upstream_response_read_max_bytes`：限制非流式上游响应读取大小（默认 `8MB`），用于防止异常响应导致内存放大。
-- `gateway.proxy_probe_response_read_max_bytes`：限制代理探测响应读取大小（默认 `1MB`）。
-- `gateway.gemini_debug_response_headers`：默认 `false`，仅在排障时短时开启，避免高频请求日志开销。
-- `/auth/register`、`/auth/login`、`/auth/login/2fa`、`/auth/send-verify-code` 已提供服务端兜底限流（Redis 故障时 fail-close）。
-- 推荐将 WAF/CDN 作为第一层防护，服务端限流与响应读取上限作为第二层兜底；两层同时保留，避免旁路流量与误配置风险。
-
-**⚠️ 安全警告：HTTP URL 配置**
-
-当 `security.url_allowlist.enabled=false` 时，系统仅执行最小 URL 校验，且**默认允许 HTTP URL**（开发友好模式，Docker Compose 部署的默认值一致）。生产环境建议显式收紧为仅允许 HTTPS：
+选择账号级 `http_bridge` 等 WS 模式前，先启用 v2 mode router：
 
 ```yaml
-security:
-  url_allowlist:
-    enabled: false                # 禁用白名单检查
-    allow_insecure_http: false    # 仅允许 HTTPS（生产环境推荐）
+gateway:
+  openai_ws:
+    mode_router_v2_enabled: true
 ```
 
-**或通过环境变量：**
+也可设置 `GATEWAY_OPENAI_WS_MODE_ROUTER_V2_ENABLED=true`。`http_bridge` 保留客户端 WebSocket，使用上游 HTTP/SSE，适合逐步启用或缓解上游 WebSocket 问题。
+
+#### 强制 OpenAI 上游 HTTP/SSE
+
+出口代理或网络导致 OpenAI Responses WebSocket 反复重连时，可在持久化部署配置中启用全局回退：
+
+```yaml
+gateway:
+  openai_ws:
+    force_http: true
+```
+
+Compose 和 Apple `container` 可在 `.env` 中设置：
 
 ```bash
-SECURITY_URL_ALLOWLIST_ENABLED=false
-SECURITY_URL_ALLOWLIST_ALLOW_INSECURE_HTTP=false
+GATEWAY_OPENAI_WS_FORCE_HTTP=true
 ```
 
-**允许 HTTP 的风险：**
-- API 密钥和数据以**明文传输**（可被截获）
-- 易受**中间人攻击 (MITM)**
-- **不适合生产环境**
+该配置将原本使用 WebSocket 的 OpenAI 上游 Responses 流量改为 HTTP/SSE，不改变客户端协议，也不强制 HTTP/1.1。代理不兼容 HTTP/2 时，另行配置 `gateway.openai_http2.enabled` 或 `GATEWAY_OPENAI_HTTP2_ENABLED=false`。
 
-**适用场景：**
-- ✅ 开发/测试环境的本地服务器（http://localhost）
-- ✅ 内网可信端点
-- ✅ 获取 HTTPS 前测试账号连通性
-- ❌ 生产环境（仅使用 HTTPS）
+全局 `force_http` 无需启用 `mode_router_v2_enabled`。将设置保存在部署的 `.env` 或 `config.yaml` 中，避免只修改运行中容器而在更新后丢失。
 
-**设置 `allow_insecure_http: false` 后，HTTP URL 会返回如下错误：**
-```
-Invalid base URL: invalid url scheme: http
-```
-
-如关闭 URL 校验或响应头过滤，请加强网络层防护：
-- 出站访问白名单限制上游域名/IP
-- 阻断私网/回环/链路本地地址
-- 强制仅允许 TLS 出站
-- 在反向代理层移除敏感响应头
-
-#### ⚠️ 重要：创建管理员账号
-
-初始管理员账号**只能通过 setup 向导创建**（首次启动时访问 `http://<host>:8080`）。`config.yaml` 中的 `default.admin_email` / `default.admin_password` 字段**不会被用来创建管理员**——它们只是出于历史原因保留在模板里。
-
-由于上面第 5 步预先创建了 `config.yaml`，**setup 向导在首次启动时会被跳过**：服务检测到 config 已存在，会直接进入正常模式，此时 `users` 表为空，首次登录会返回 `invalid email or password`。
-
-**创建管理员的两种方式：**
-
-1. **推荐——让向导自动生成 `config.yaml`：** 跳过上面的第 5 步（不要执行 `cp`）。直接运行 `./sub2api`，访问 `http://localhost:8080`，向导会引导你完成数据库、Redis 和管理员账号配置，并自动写出 `config.yaml`。
-
-2. **如果你已经创建了 `config.yaml`：** 首次启动前先把它临时移走以触发向导，完成后再恢复：
-   ```bash
-   mv config.yaml config.yaml.bak
-   ./sub2api        # 向导在 http://localhost:8080 启动，并生成新的 config.yaml
-   # 向导完成后 Ctrl+C 停服，再恢复你的配置：
-   mv config.yaml.bak config.yaml
-   ./sub2api        # 重启进入正常模式，用刚创建的管理员登录
-   ```
-
-```bash
-# 6. 运行应用
-./sub2api
-```
-
-#### HTTP/2 (h2c) 与 HTTP/1.1 回退
+### HTTP/2（h2c）与 HTTP/1.1 回退
 
 后端明文端口默认支持 h2c，并保留 HTTP/1.1 回退用于 WebSocket 与旧客户端。浏览器通常不支持 h2c，性能收益主要在反向代理或内网链路。
 
@@ -554,47 +256,17 @@ transport http {
 **验证：**
 
 ```bash
-# h2c prior knowledge
+# h2c prior knowledge.
 curl --http2-prior-knowledge -I http://localhost:8080/health
-# HTTP/1.1 回退
+# HTTP/1.1 fallback.
 curl --http1.1 -I http://localhost:8080/health
-# WebSocket 回退验证（需管理员 token）
+# WebSocket fallback requires an administrator token.
 websocat -H="Sec-WebSocket-Protocol: sub2api-admin, jwt.<ADMIN_TOKEN>" ws://localhost:8080/api/v1/admin/ops/ws/qps
 ```
 
-#### 开发模式
+</details>
 
-```bash
-# 后端（支持热重载）
-cd backend
-go run ./cmd/server
-
-# 前端（支持热重载）
-cd frontend
-pnpm run dev
-```
-
-#### 代码生成
-
-修改 `backend/ent/schema` 后，需要重新生成 Ent + Wire：
-
-```bash
-cd backend
-go generate ./ent
-go generate ./cmd/server
-```
-
----
-
-## OpenAI 图片模型
-
-支持 `gpt-image-2.5-flare`、`gpt-image-2.5-sunburst` 及其 `2026-09-08` 日期快照，可通过 `/v1/images/generations`、`/v1/images/edits` 调用。`quality` 支持 `xhigh`、`max`、`auto`，合法自定义尺寸和图片 usage 明细保持透传。
-
-OAuth / Setup Token 图片请求使用 Responses 主控模型调用 `image_generation` 工具，默认主控为 `gpt-5.6-luna`。可设置 `SUB2API_IMAGES_MAIN_MODEL` 切换为账号支持的文本模型；Docker Compose 用户修改 `.env` 后执行 `docker compose up -d` 重建容器。该配置不会替换所选图片模型，也不会覆盖 `/v1/responses` 请求中已经提供的文本主控模型。
-
-升级后，无模型限制的账号自动支持新模型。已有显式账号映射或分组白名单需要加入两个 2.5 模型（日期快照按需加入）；升级不会自动扩大管理员设置的模型权限。新模型内置价格包含官方文本输入、图片输入和图片输出 token 费率，远端价格表尚未更新时使用内置 2.5 价格；实际按次或按 token 计费仍由既有分组/渠道配置决定。
-
-## 简易模式
+### 简易模式
 
 简易模式适合个人开发者或内部团队快速使用，不依赖完整 SaaS 功能。
 
@@ -605,9 +277,118 @@ OAuth / Setup Token 图片请求使用 Responses 主控模型调用 `image_gener
 - 窗口限制以数据库为准，只记录 API Key 窗口用量。它在请求完成后记账，并发中的请求可能以各自最终费用超过窗口上限。启用前的历史用量不会自动补算。
 - 安全注意事项：生产环境需同时设置 `SIMPLE_MODE_CONFIRM=true` 才允许启动
 
----
+## Provider 与兼容性
 
-## TypeSafe / Jev 使用说明
+### 路由、视频与插件兼容性
+
+- **Command Code 与 Cline**：均支持 API Key 账号。Command Code 根据模型能力选择原生 Messages、Responses 或 Chat Completions 端点；Cline 使用 Chat Completions，并转换入站 Messages/Responses。Cline 积分与 ClinePass 限额分别作用于对应模型。
+- **Platform catalog**：账号创建、路由和默认平台配额共用目录。迁移已移除数据库 platform CHECK 约束，由应用校验已注册平台。
+- **模型 allowlist**：同时限制模型列表和请求准入。`groups.models_list_config` 迁移为 `model_allowlist` 时保留数据；升级前核对已有列表，因为启用的列表现在也会限制请求。
+- **Seedance（Ark）**：支持原生任务创建、查询和删除；要求 OpenAI API Key 账号开启 Seedance 能力，分组开启媒体权限。查询首次观察到 `succeeded` 时按 `usage.completion_tokens` 计费，无后台轮询或回调自动结算。应保留 Redis 任务绑定，并在生命周期内查询已完成任务。见 [Seedance 配置与计费](docs/seedance-api.md)。
+- **插件宿主服务**：Redis KV 按插件身份隔离，账号目录受声明能力限制，`plugin.status` 只读。宿主协商为可选功能，兼容旧插件。见 [Plugin API](backend/pkg/pluginapi/README.md) 和 [UI bridge](backend/pkg/pluginapi/docs/ui-bridge.md)。
+- **Antigravity attribution**：仅在 Anthropic Messages 转 Antigravity 时移除开头的 Claude attribution metadata。原生 Anthropic 转发保持不变，不应全局关闭 attribution。
+
+<details>
+<summary>图片模型、Grok / xAI、TypeSafe / Jev 与 Antigravity 说明</summary>
+
+### OpenAI 图片模型
+
+支持 `gpt-image-2.5-flare`、`gpt-image-2.5-sunburst` 及其 `2026-09-08` 日期快照，可通过 `/v1/images/generations`、`/v1/images/edits` 调用。`quality` 支持 `xhigh`、`max`、`auto`，合法自定义尺寸和图片 usage 明细保持透传。
+
+OAuth / Setup Token 图片请求使用 Responses 主控模型调用 `image_generation` 工具，默认主控为 `gpt-5.6-luna`。可设置 `SUB2API_IMAGES_MAIN_MODEL` 切换为账号支持的文本模型；Docker Compose 用户修改 `.env` 后执行 `docker compose up -d` 重建容器。该配置不会替换所选图片模型，也不会覆盖 `/v1/responses` 请求中已经提供的文本主控模型。
+
+升级后，无模型限制的账号自动支持新模型。已有显式账号映射或分组白名单需要加入两个 2.5 模型（日期快照按需加入）；升级不会自动扩大管理员设置的模型权限。新模型内置价格包含官方文本输入、图片输入和图片输出 token 费率，远端价格表尚未更新时使用内置 2.5 价格；实际按次或按 token 计费仍由既有分组/渠道配置决定。
+
+### 异步图片任务
+
+OpenAI/Grok 长时间运行的图片生成与编辑可提交到 `/v1/images/generations/async` 或 `/v1/images/edits/async`，再通过 `/v1/images/tasks/{task_id}` 轮询，无需持续占用 CDN 连接。请求响应示例见 [异步图片任务](docs/ASYNC_IMAGE_TASKS.md)。
+
+### Grok / xAI
+
+支持 xAI OAuth 订阅账号和标准 xAI API Key 账号，两类账号均可转发 OpenAI 兼容的 Responses 请求。
+
+#### 接口范围
+
+- 平台名称：`grok`；账号类型：OAuth 订阅账号和 API Key 账号。
+- Responses：`/v1/responses`、`/responses` 和 `/backend-api/codex/responses`。OAuth 转发到订阅代理，API Key 转发到 `https://api.x.ai/v1/responses`。
+- Claude 兼容入口：`/v1/messages`，转换为 xAI Responses，并以 Anthropic Messages 格式返回，适用于 Claude CLI 类客户端。
+- Chat Completions：`/v1/chat/completions` 和 `/chat/completions`，根据账号类型转发到对应 xAI 上游。
+- 接受 Codex CLI 风格的 Responses WebSocket 入站请求，并桥接到 xAI HTTP/SSE Responses 上游。
+- 文本模型：`grok-4.5`、`grok-4.3`、`grok-build-0.1`、`grok-composer-2.5-fast`、`grok-4.20-0309-reasoning`、`grok-4.20-0309-non-reasoning` 和 `grok-4.20-multi-agent-0309`。
+- Grok 分组媒体接口：`/v1/images/generations`、`/images/generations`、`/v1/images/edits`、`/images/edits`、`/v1/videos/generations`、`/videos/generations`、`/v1/videos/edits`、`/videos/edits`、`/v1/videos/extensions`、`/videos/extensions`、`/v1/videos/{request_id}` 和 `/videos/{request_id}`。生成、编辑和扩展操作要求分组开启图片生成权限。
+- 媒体模型：`grok-imagine`、`grok-imagine-image-quality`、`grok-imagine-image`、`grok-imagine-image-2.0`、`grok-imagine-edit`、`grok-imagine-video` 和 `grok-imagine-video-1.5`。
+- JSON 图片编辑与视频生成中的 `image`、`images`、`reference_images` 和 `mask` 对象使用 `url` 引用图片；兼容旧 `image_url` 字段，转发前会标准化为 `url`。
+- 不包含 TTS、转录、浏览器自动化、cookie 或 Grok 网页抓取。
+
+#### OAuth 配置
+
+Grok OAuth 使用 PKCE，无需向仓库提交私有密钥。默认值遵循兼容客户端使用的公开 xAI OAuth 流程，均支持通过环境变量覆盖：
+
+| 变量 | 默认值 |
+| --- | --- |
+| `XAI_OAUTH_CLIENT_ID` | 公开的 xAI OAuth client ID |
+| `XAI_OAUTH_SCOPE` | `openid profile email offline_access grok-cli:access api:access` |
+| `XAI_OAUTH_REDIRECT_URI` | `http://127.0.0.1:56121/callback` |
+| `XAI_OAUTH_AUTHORIZE_URL` | `https://auth.x.ai/oauth2/authorize` |
+| `XAI_OAUTH_TOKEN_URL` | `https://auth.x.ai/oauth2/token` |
+| `XAI_BASE_URL` | `https://api.x.ai/v1`；用于运行诊断，请求转发由账号 `base_url` 控制。 |
+| `XAI_GROK_CLI_VERSION` | `0.2.114`；可覆盖发往 `cli-chat-proxy.grok.com` 的客户端标识，但低于此固定版本的覆盖值会被忽略。 |
+
+管理员可从后台创建 OAuth 或 API Key 账号，也可通过 Admin API 授权或重新授权：
+
+| 接口 | 用途 |
+| --- | --- |
+| `POST /api/v1/admin/grok/oauth/auth-url` | 生成 xAI OAuth 授权 URL。 |
+| `POST /api/v1/admin/grok/oauth/exchange-code` | 通过回调 URL、查询串或授权码换取凭证。 |
+| `POST /api/v1/admin/grok/oauth/refresh-token` | 校验或刷新 Grok refresh token。 |
+| `POST /api/v1/admin/grok/accounts/:id/refresh` | 刷新已有 Grok 账号。 |
+
+OAuth 凭证复用已有账号 JSON 字段：`access_token`、`refresh_token`、`token_type`、`expires_at`、`base_url`，以及可选的 `email`、`subscription_tier` 和 `entitlement_status`。OAuth 推理默认访问 `https://cli-chat-proxy.grok.com/v1`；存储了旧 `https://api.x.ai/v1` 默认地址的 OAuth 账号会在运行时转向订阅代理，显式自定义地址保持不变。
+
+API Key 账号在创建弹窗中选择「Grok → API Key」，默认 base URL 为 `https://api.x.ai/v1`，凭证使用已有 `base_url` 和 `api_key` 字段。
+
+#### Grok Build CLI 配置
+
+1. 在后台添加 `grok` OAuth 账号并完成 xAI 授权，或添加 Grok API Key 账号。
+2. 创建 Grok 分组、关联上游账号，再创建绑定该分组的 Sub2API API Key。
+3. 在 API Key 页面点击「使用密钥」，选择「Grok CLI」。弹窗提供 macOS/Linux 或 Windows 的文件路径与 base URL；「OpenCode」Tab 也提供对应配置。
+4. 手动配置时，编辑 `~/.grok/config.toml`（Windows 为 `%USERPROFILE%\.grok\config.toml`）：
+
+```toml
+[models]
+default = "grok"
+web_search = "grok"
+
+[model."grok"]
+model = "grok-4.5"
+base_url = "https://your-sub2api.example.com/v1"
+name = "Grok 4.5"
+api_key = "sk-your-sub2api-key"
+api_backend = "responses"
+context_window = 1000000
+supports_backend_search = true
+```
+
+合并配置前备份已有文件。文件含 Sub2API API Key，应妥善保管并在系统支持时限制访问权限。检查生效配置并发起 smoke request：
+
+```bash
+grok inspect
+grok -p "Reply with sub2api-ok" -m grok
+```
+
+这里的 `base_url` 是以 `/v1` 结尾的 Sub2API 公开地址，不是 `api.x.ai` 或内部 OAuth 代理。
+
+#### 配额、状态与媒体资格
+
+xAI 配额采用被动观测，不推测订阅额度。上游提供相关请求头时，从成功或限流响应中记录 allowlist 内的 rate-limit headers。首次有效响应前配额显示为未知，仍展示本地 Sub2API 用量。
+
+`401` 会使无效凭证账号暂时退出调度；`403` 按访问权限或 entitlement 问题处理，不进入 token 刷新循环；`429` 使用 `Retry-After` 或短暂 cooldown 暂停调度。
+
+新建图片和视频请求使用媒体资格检查。API Key 账号可参与调度；OAuth 账号存在明确 Free 或禁止计费证据时会被排除。缺失或格式异常的观测先探测再调度；成功但不完整的计费响应标记为 `billing_inconclusive`，为兼容既有行为仍允许调度，因为未知 schema 不代表没有权限。导入账号时会主动执行计费优先的配额探测。聊天和视频状态查询不受此媒体隔离规则影响。没有可用媒体账号时返回 HTTP `503`，错误类型为 `grok_media_no_eligible_account`。
+
+管理员可通过账号创建/更新 API 设置 `extra.grok_media_eligible=false` 排除账号，或设为 `true` 强制允许。更新时设为 `null` 可恢复自动探测；省略字段保留原覆盖值。只有周额度周期不能作为付费档位证据。图片成功响应必须包含实际图片输出，空 HTTP `200` 会触发账号 failover，不计为成功生成。
+
+### TypeSafe / Jev 使用说明
 
 Sub2API 支持使用 TypeSafe API Key 账户，通过 Jev 原生、非流式的 System One 协议调用模型。
 
@@ -630,85 +411,117 @@ curl https://your-sub2api.example.com/v1/systemone \
 
 `jev-latest` 内置价格为输入 `$0.042/百万 tokens`、输出 `$0`，渠道定价可以覆盖。凭据、欠费、权限、限流、过载、服务端和网络错误（`401`、`402`、`403`、`429`、`529`、`5xx`、传输错误）沿用现有账号错误策略（含自定义错误码与临时不可调度规则）并切换账号；请求错误（`400`、`413`、`422`）不会切换账号重试，也不会改变账号状态。TypeSafe 分组（以及路由到 TypeSafe 的 Composite 请求）调用 Messages、Chat Completions、Responses、count_tokens 时返回 `404`。
 
----
-
-## Antigravity 使用说明
+### Antigravity 使用说明
 
 Sub2API 支持 [Antigravity](https://antigravity.so/) 账户，授权后可通过专用端点访问 Claude 和 Gemini 模型。
 
-### 专用端点
+#### 专用端点
 
 | 端点 | 模型 |
 |------|------|
 | `/antigravity/v1/messages` | Claude 模型 |
 | `/antigravity/v1beta/` | Gemini 模型 |
 
-### Claude Code 配置示例
+#### Claude Code 配置示例
 
 ```bash
 export ANTHROPIC_BASE_URL="http://localhost:8080/antigravity"
 export ANTHROPIC_AUTH_TOKEN="sk-xxx"
 ```
 
-### 混合调度模式
+#### 混合调度模式
 
 Antigravity 账户支持可选的**混合调度**功能。开启后，通用端点 `/v1/messages` 和 `/v1beta/` 也会调度该账户。
 
 > **⚠️ 注意**：Anthropic Claude 和 Antigravity Claude **不能在同一上下文中混合使用**，请通过分组功能做好隔离。
 
----
+</details>
 
-## 项目结构
+## 开发
 
-项目文档：[文档索引](docs/README.md)、[开发指南](docs/DEV_GUIDE.md)、[账目管理](docs/accounting-management/README.md)。
+当前后端要求 **Go 1.27.2**（`backend/go.mod`）。CI 使用 **Node.js 20 和 pnpm 9**，应使用对应版本及仓库 lockfile。前端采用 Vue 3.5、TypeScript、Vite 5、Pinia 和 Tailwind CSS；后端采用 Gin、Ent、SQL Repository、PostgreSQL 和 Redis。当前 Compose 使用 PostgreSQL 18 和 Redis 8。
 
+### 编译包含 Web UI 的二进制
+
+先启动 PostgreSQL 和 Redis，并安装所需 toolchain，再执行：
+
+```bash
+git clone https://github.com/DevKuAI/devku-sub2api.git sub2api
+cd sub2api
+pnpm --dir frontend install --frozen-lockfile
+pnpm --dir frontend run build
+cd backend
+VERSION="$(./scripts/resolve-version.sh)"
+go build -tags embed -ldflags="-X main.Version=${VERSION}" -o sub2api ./cmd/server
+./sub2api
 ```
+
+Vite 将前端输出到 `backend/internal/web/dist/`，`-tags embed` 将其嵌入服务二进制；不带该 tag 的二进制不提供 Web UI。全新环境首次启动时，访问 `http://localhost:8080` 完成 setup 向导，让向导生成 `config.yaml`，完成后重新启动进程。YAML 示例用于核对配置项，不要在初始化前复制为正式配置。
+
+### 本地开发
+
+先安装依赖，再从仓库根目录打开两个终端分别执行：
+
+```bash
+# Backend: initialize through CLI setup first on a fresh environment.
+cd backend
+go run ./cmd/server --setup
+go run ./cmd/server
+```
+
+```bash
+# Frontend: Vite serves on port 3000 and proxies to localhost:8080.
+pnpm --dir frontend run dev
+```
+
+后端地址不同时设置 `VITE_DEV_PROXY_TARGET`。`go run` 不提供后端自动热重载。修改 Ent schema 或 Wire provider 后，执行 `make -C backend generate` 并检查生成文件 diff。
+
+### 验证
+
+```bash
+make -C backend test-unit
+make -C backend test-integration
+(cd backend && golangci-lint run ./...)
+pnpm --dir frontend run lint:check
+pnpm --dir frontend run typecheck
+pnpm --dir frontend run test:run
+pnpm --dir frontend run build
+make -C backend build
+git diff --check
+```
+
+集成测试需要 Docker 和实际启动的测试容器；跳过不能计为通过。`make test-frontend` 执行 lint、typecheck 和选定的关键 Vitest 测试，上面的 `test:run` 执行完整前端测试。`make -C backend build` 仅编译后端；包含 UI 的二进制使用前述显式 `-tags embed` 命令。详见 [开发指南](docs/DEV_GUIDE.md) 和 [CI workflow](.github/workflows/backend-ci.yml)。
+
+## 文档入口
+
+| 主题 | 入口 |
+| --- | --- |
+| 文档索引 | [docs/README.md](docs/README.md) |
+| 部署与安全 | [部署说明](deploy/README.md)、[边缘安全](deploy/EDGE_SECURITY.md)、[Apple container](deploy/APPLE_CONTAINER.md) |
+| 开发 | [开发指南](docs/DEV_GUIDE.md) |
+| Desktop API | [API v1](docs/DESKTOP_API_V1.md)、[OpenAPI](docs/DESKTOP_API_V1.openapi.yaml)、[会话/对话 v2](docs/DESKTOP_SESSION_CONVERSATION_V2.md)、[日报](docs/DESKTOP_DAILY_REPORTS.md) |
+| Desktop 资源 | [MCP/Skill 分发](docs/desktop-resources-v1.md) |
+| 账目管理 | [设计、实现/配置与验证](docs/accounting-management/README.md) |
+| BI | [API 契约、配置、联调与验收](docs/mobile-bi/README.md) |
+| 支付与路由 | [支付](docs/PAYMENT_CN.md)、[复合分组](docs/COMPOSITE_GROUPS.md) |
+| 插件 | [开发指南](docs/PLUGIN_DEVELOPMENT.md)、[Plugin API](backend/pkg/pluginapi/README.md) |
+
+```text
 sub2api/
-├── backend/                  # Go 后端服务
-│   ├── cmd/server/           # 应用入口
-│   ├── internal/             # 内部模块
-│   │   ├── config/           # 配置管理
-│   │   ├── model/            # 数据模型
-│   │   ├── service/          # 业务逻辑
-│   │   ├── handler/          # HTTP 处理器
-│   │   └── repository/       # 数据访问层
-│   └── resources/            # 静态资源
-│
-├── frontend/                 # Vue 3 前端
-│   └── src/
-│       ├── api/              # API 调用
-│       ├── stores/           # 状态管理
-│       ├── views/            # 页面组件
-│       └── components/       # 通用组件
-│
-├── deploy/                   # 部署文件
-│   ├── docker-compose.yml    # Docker Compose 配置
-│   ├── .env.example          # Docker Compose 环境变量
-│   ├── config.example.yaml   # 二进制部署完整配置文件
-│   └── install.sh            # 一键安装脚本
-│
-├── docs/                     # 项目文档与功能交接
-│   ├── README.md             # 文档索引
-│   ├── DEV_GUIDE.md          # 开发指南
-│   └── accounting-management/ # 账目管理设计、实现与验证
-├── assets/                   # README 标识与合作伙伴图片
-├── openspec/                 # 变更提案与功能规格
-├── skills/                   # 项目集成 skills
-└── tools/                    # 仓库维护工具
+├── backend/    # Go 服务、迁移、嵌入的 Web UI 与服务端工具
+├── frontend/   # Vue 应用与测试
+├── deploy/     # 安装脚本、Compose 模板与运维文档
+├── docs/       # 开发指南、功能设计、API 契约与验证记录
+├── assets/     # README 图片
+├── openspec/   # 变更提案与规格
+├── skills/     # 集成 skills
+├── tools/      # 仓库维护工具
+├── .github/    # CI 与发布 workflow
+└── .agents/    # 项目 Agent skills
 ```
-
----
 
 ## 许可证
 
-本项目基于 [GNU 宽通用公共许可证 v3.0](LICENSE)（或更高版本）授权。
+本项目采用 [GNU Lesser General Public License v3.0](LICENSE)（或更高版本）。
 
-Copyright (c) 2026 Wesley Liddick
-
----
-
-<div align="center">
-
-**如果觉得有用，请给个 Star 支持一下！**
-
-</div>
+Copyright (c) 2026 DevKu.ai

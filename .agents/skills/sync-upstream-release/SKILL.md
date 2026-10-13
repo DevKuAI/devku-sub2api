@@ -116,7 +116,7 @@ Build the preservation inventory from current fork-only commits rather than rely
 - DevKu branding, curated multilingual README content, and blue theme;
 - fork-specific release workflow, container registries, and publishing configuration.
 
-Keep `README.md`, `README_CN.md`, and `README_JA.md` aligned. Port useful upstream functional documentation deliberately, including new behavior, configuration, compatibility notes, and security notices. Do not replace the curated README files wholesale.
+Keep `README.md` and `README_CN.md` aligned. Japanese README content is intentionally removed; do not reintroduce it during upstream synchronization. Port useful upstream functional documentation deliberately, including new behavior, configuration, compatibility notes, and security notices. Do not replace the curated README files wholesale.
 
 Exclude upstream sponsor, donation, affiliate, referral, community-recruitment, hosted-service marketing, ranking badge, and similar promotional sections or links unless the user explicitly asks to include them. Exclude promotional-only partner images and other assets that have no functional consumer. Preserve neutral upstream attribution. If filtering requires deleting a tracked path, stop and request the deletion authorization required by the repository instructions.
 

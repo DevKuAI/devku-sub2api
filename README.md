@@ -2,19 +2,18 @@
 
 <img src="assets/logo.svg" alt="Sub2API Logo" width="128" />
 
-# Sub2API
+# Sub2API · DevKu
 
-[![Go](https://img.shields.io/badge/Go-1.27.2-00ADD8.svg)](https://golang.org/)
-[![Vue](https://img.shields.io/badge/Vue-3.4+-4FC08D.svg)](https://vuejs.org/)
+[![Go](https://img.shields.io/badge/Go-1.27.2-00ADD8.svg)](https://go.dev/)
+[![Vue](https://img.shields.io/badge/Vue-3.5-4FC08D.svg)](https://vuejs.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-336791.svg)](https://www.postgresql.org/)
 [![Redis](https://img.shields.io/badge/Redis-7+-DC382D.svg)](https://redis.io/)
-[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
 
-**AI API Gateway for Managing and Distributing Subscription Quotas**
+**AI API gateway with Desktop enterprise management, accounting and BI**
 
-English | [中文](README_CN.md) | [日本語](README_JA.md)
+English | [简体中文](README_CN.md)
 
-[Upstream repository](https://github.com/Wei-Shaw/sub2api)
+[Repository](https://github.com/DevKuAI/devku-sub2api) · [Releases](https://github.com/DevKuAI/devku-sub2api/releases) · [Upstream](https://github.com/Wei-Shaw/sub2api)
 
 </div>
 
@@ -29,61 +28,149 @@ Review these conditions before deploying or using Sub2API:
 
 ## Overview
 
-Sub2API is an API gateway for distributing and managing subscription quotas from upstream AI services. It manages user API keys, upstream account access, authentication, usage accounting, billing, request routing, and load balancing.
+Sub2API is a self-hosted AI API gateway that manages upstream OAuth and API-key accounts, routes requests, distributes quotas, and records usage and costs. This repository is the DevKu fork of [Wei-Shaw/sub2api](https://github.com/Wei-Shaw/sub2api), with Desktop enterprise management, account-facing subscription views, enterprise accounting, and BI administration.
+
+Use this README to choose a deployment method and configure the service. See the [documentation index](docs/README.md) for feature guides and API contracts. Deployment commands below use DevKu releases and images; installing from `main` may include changes newer than the latest release.
+
+[Features](#features) · [Deployment](#deployment) · [Configuration](#configuration) · [Providers and compatibility](#providers-and-compatibility) · [Development](#development) · [Documentation](#documentation) · [License](#license)
 
 ## Features
 
-- **Upstream account management:** Supports OAuth and API key-based upstream accounts.
-- **API key management:** Issues and manages user API keys. Administrators can set the maximum number of keys each user can create.
-- **Usage accounting and billing:** Tracks token usage and calculates costs.
-- **Request scheduling:** Selects upstream accounts and supports sticky sessions.
-- **Concurrency and rate limits:** Applies per-user and per-account concurrency limits, request rate limits, and token rate limits.
-- **Built-in payments:** Supports EasyPay, Alipay, WeChat Pay, and Stripe for user self-service top-ups without a separate payment service ([Configuration Guide](docs/PAYMENT.md)).
-- **Admin dashboard:** Provides a web interface for monitoring and administration.
-- **Composite groups:** Resolves requested models to concrete upstream providers within multi-provider groups.
-- **External integrations:** Embeds external systems, such as ticketing tools, in the admin dashboard through an iframe.
+| Area | Capabilities |
+| --- | --- |
+| Gateway | Messages, Responses, Chat Completions, Gemini and provider-specific protocols; routing, sticky sessions, load balancing and composite groups. Protocol support depends on the selected provider. |
+| Accounts and API keys | OAuth/API-key upstream accounts, user key creation limits, model allowlists, account bindings and read-only subscription-account status and quota views. |
+| Usage and limits | Token and cost accounting, user/account concurrency limits, request/token rate limits, per-key spending windows, output TPS and operations dashboards. Output TPS is distinct from system throughput; long-context billing labels show the applied pricing tier. |
+| Payments | EasyPay, Alipay, WeChat Pay and Stripe for self-service top-ups; [payment configuration](docs/PAYMENT.md). |
+| Desktop enterprises | Organizations and members, enterprise-to-Web-account binding, managed Model Tokens, model configuration, usage statistics, session/conversation reporting and daily reports. Reporting is controlled per enterprise. |
+| Desktop resources and updates | MCP/Skill package management and authenticated distribution, plus Desktop update publishing backed by S3-compatible storage. Private resource storage is separate from public update artifacts. |
+| Enterprise accounting | Transfers and tax calculations, VCC allocations/transactions/refunds, contracts, invoices, AI Invoice, expenses and installments, reconciliation, CSV export, private attachments and audits. Currencies are tracked separately. |
+| Enterprise BI | WeChat binding and management grants, Connector credentials, data-source setup, manual sub2api usage-log imports, reports, retention/cleanup and audits. Real-source, WeChat-device and production-capacity acceptance remains tracked in the [BI documentation](docs/mobile-bi/README.md). |
+| Administration and extensions | Web administration, operational monitoring, plugin host services and iframe integration with external systems. |
 
-## Upstream v0.2.15 features and compatibility
+### Enterprise account access
 
-- **Command Code and Cline:** Adds API key accounts for both providers. Command Code selects native Messages, Responses, or Chat Completions endpoints using model capabilities; Cline uses Chat Completions and converts incoming Messages or Responses requests. Cline credit and ClinePass limits affect their respective models independently.
-- **Platform catalog:** Account creation, routing, and default platform quotas share a catalog. The database migration removes platform CHECK constraints; the application validates registered platforms.
-- **Output speed:** Usage records show per-request output TPS. The operations dashboard provides output TPS percentiles and sample counts, separately from system throughput. Long-context billing labels indicate the applied pricing tier rather than a fixed multiplier.
+- Desktop organizations bind an existing Web account through `gateway_user_id`. The bound account can view its enterprise at `/desktop/organization`.
+- Administrators manage all enterprises' accounting at `/admin/accounting`. A bound Web account gets **Financial records** at `/organization/accounting`, even before any accounting records exist. For a bound Admin, this appears under **My account**.
+- The enterprise view is read-only and contains only its own transfers, card spending, and explicitly shared contracts/invoices. Internal expenses, profit and sensitive card data are excluded. Desktop member sessions cannot access accounting.
+- Financial accounting is independent of online payments, Gateway balance and API usage billing; recording a transfer does not top up a Gateway account.
 
-## Upstream v0.2.7 features and compatibility
+## Deployment
 
-- **Seedance (Ark) video tasks:** Supports native task creation, status queries, and deletion. Enable the Seedance endpoint capability on an OpenAI API key account and the group's media permission before use. Billing occurs when a query first observes `succeeded`, using upstream `usage.completion_tokens`; there is no background polling or automatic callback settlement. Preserve Redis task bindings and query completed tasks within their lifetime. See the [configuration, access restrictions, and billing guide](docs/seedance-api.md).
-- **Plugin host services:** Adds Redis-backed KV storage isolated by plugin identity, an account directory limited to declared capabilities, and the read-only `plugin.status` UI channel. Host-service negotiation is optional and remains compatible with older plugins. See the [Plugin API](backend/pkg/pluginapi/README.md) and [UI bridge](backend/pkg/pluginapi/docs/ui-bridge.md).
-- **Antigravity compatibility:** Removes leading Claude attribution metadata only in the Anthropic Messages-to-Antigravity conversion. Native Anthropic forwarding is unchanged; do not globally disable attribution to address this issue.
+| Method | Requirements | Initialization |
+| --- | --- | --- |
+| **Docker Compose (recommended)** | Docker 20.10+ and Compose v2+ | Includes PostgreSQL and Redis; automatic first-run setup. |
+| Linux binary | Linux amd64/arm64, systemd, root for installation; PostgreSQL 15+ and Redis 7+ already running | Web setup wizard or CLI `--setup`. |
+| Apple `container` | Apple silicon, macOS 26, `container` 1.1.0+ | Local three-service stack; [operations and limitations](deploy/APPLE_CONTAINER.md). |
+| Source build | Go 1.27.2, Node.js 20, pnpm 9, PostgreSQL and Redis | See [Development](#development). |
 
-## Upstream v0.2.2 compatibility
+### Docker Compose quick start
 
-- Group model allowlists now constrain both model listing and request admission. The migration renames `groups.models_list_config` to `model_allowlist` while preserving its data; review existing enabled lists before upgrading because they now restrict requests too.
-- Grok media requests exclude OAuth accounts with explicit Free or forbidden billing evidence. Missing or malformed observations are probed before dispatch; successful but incomplete responses remain eligible as `billing_inconclusive`. Set `extra.grok_media_eligible=false` to exclude an account or `true` to force eligibility. Chat and video status queries are unaffected; no eligible account returns HTTP `503` (`grok_media_no_eligible_account`).
+Run in a new deployment directory:
 
-## Tech Stack
+```bash
+mkdir -p sub2api-deploy
+cd sub2api-deploy
+curl -fsSL https://raw.githubusercontent.com/DevKuAI/devku-sub2api/main/deploy/docker-deploy.sh -o docker-deploy.sh
+bash docker-deploy.sh
+docker compose up -d
+docker compose ps
+docker compose logs -f sub2api
+```
 
-| Component | Technology |
-|-----------|------------|
-| Backend | Go 1.27.2, Gin, Ent |
-| Frontend | Vue 3.4+, Vite 5+, TailwindCSS |
-| Database | PostgreSQL 15+ |
-| Cache/Queue | Redis 7+ |
+The preparation script downloads the local-directory Compose variant as `docker-compose.yml`, writes `.env` with generated PostgreSQL/JWT/Desktop/TOTP secrets, and creates `data/`, `postgres_data/` and `redis_data/`. It displays generated credentials; keep both the output and `.env` private.
 
----
+Open `http://YOUR_SERVER_IP:8080`. Container deployments initialize automatically. If `ADMIN_EMAIL` or `ADMIN_PASSWORD` is blank, first-run logs show the generated login credentials:
 
-## Nginx Reverse Proxy Configuration
+```bash
+docker compose logs sub2api | grep "Generated admin"
+```
 
-When using Nginx as a reverse proxy for Sub2API (or CRS) with Codex CLI, add the following to the `http` block in your Nginx configuration:
+For production, configure HTTPS and the reverse proxy before exposing the service. Complete the admin setup, add upstream accounts and groups, and create a user API key for the required group. Supported client configuration is available through **Use Key** on the API-key page.
+
+<details>
+<summary>Manual Compose deployment</summary>
+
+```bash
+git clone https://github.com/DevKuAI/devku-sub2api.git sub2api
+cd sub2api/deploy
+cp .env.example .env
+chmod 600 .env
+```
+
+Edit `.env` before starting. Generate each of `POSTGRES_PASSWORD`, `JWT_SECRET` and `TOTP_ENCRYPTION_KEY` independently with `openssl rand -hex 32`. Keep JWT and encryption keys stable across restarts and restores. Optionally set `ADMIN_EMAIL`, `ADMIN_PASSWORD` and `SERVER_PORT` (default `8080`); avoid guessable administrator credentials.
+
+```bash
+mkdir -p data postgres_data redis_data
+docker compose -f docker-compose.local.yml up -d
+docker compose -f docker-compose.local.yml ps
+docker compose -f docker-compose.local.yml logs -f sub2api
+```
+
+`docker-compose.local.yml` uses local directories; `docker-compose.yml` in the repository uses named volumes. Use the same `-f` selection for later operations. The preparation script's generated `docker-compose.yml` already uses local directories.
+
+</details>
+
+### Linux binary
+
+The installer downloads a DevKu release to `/opt/sub2api` and configures the system user and systemd unit:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/DevKuAI/devku-sub2api/main/deploy/install.sh -o install.sh
+sudo bash install.sh
+sudo systemctl start sub2api
+sudo systemctl enable sub2api
+sudo journalctl -u sub2api -f
+```
+
+On a fresh installation, visit `http://YOUR_SERVER_IP:8080` and complete database, Redis and administrator setup. Do not pre-create `config.yaml`: its presence skips the wizard. For CLI setup, run the installed binary with `--setup` under the service's user and data-directory context. Historical `default.admin_email` / `default.admin_password` YAML fields do not initialize the administrator.
+
+### Updates and backups
+
+For Compose, back up the database and persistent data before recreating containers:
+
+```bash
+docker compose pull
+docker compose up -d
+docker compose ps
+docker compose logs --tail=100 sub2api
+```
+
+Use `-f docker-compose.local.yml` for a manual local-directory deployment. Pin an explicit DevKu image tag if deployment reproducibility is required. Binary installations can use **Check for Updates** in the admin dashboard, including the supported rollback flow; Compose upgrades should use image updates.
+
+Back up PostgreSQL, application data/configuration, `.env` and encryption keys; preserve Redis state used for sessions and media-task bindings. Do not copy live database directories as a backup: use database-aware backups or stop the stack before archiving local directories. Private S3 objects require a separate backup/retention policy. See [deployment operations](deploy/README.md) for migration and lifecycle commands.
+
+## Configuration
+
+Use [deploy/.env.example](deploy/.env.example) for containers and [deploy/config.example.yaml](deploy/config.example.yaml) for binary deployments. Non-empty environment values override YAML; Compose templates may also supply defaults. After changing `.env`, recreate containers with `docker compose up -d`; restarting alone does not load new environment values.
+
+| Setting | Purpose |
+| --- | --- |
+| `JWT_SECRET` | Fixed Web-session signing secret; generate with `openssl rand -hex 32`. |
+| `TOTP_ENCRYPTION_KEY` | Fixed encryption key for 2FA and sensitive VCC fields; generate with `openssl rand -hex 32` and retain during restore. |
+| `DESKTOP_ENABLED` | Default `false`. Enabling requires `DESKTOP_JWT_SECRET` (independent, `openssl rand -base64 32`) and an externally reachable HTTPS `DESKTOP_PUBLIC_GATEWAY_BASE_URL` ending in `/v1`. Controls Desktop APIs and organization accounting access. |
+| `DESKTOP_UPDATE_STORAGE_RESOURCE_BUCKET` | Private MCP/Skill and accounting attachment bucket, using the existing `DESKTOP_UPDATE_STORAGE_*` S3 connection. Accounting objects use `accounting/{organization_id}/{attachment_id}/`; no separate accounting bucket is needed. |
+| `BI_ENABLED` | Default `false`. Requires real `BI_APPID`/`BI_APP_SECRET`, independent base64 `BI_JWT_SECRET`/`BI_IDENTITY_SECRET`, and a published BI privacy notice with its own HTTPS site URL. See [BI configuration](docs/mobile-bi/configuration.md). |
+
+Accounting remains usable for basic records without S3. Uploads and confirmations requiring evidence return `ACCOUNTING_STORAGE_UNAVAILABLE`. Card-sensitive fields require a fixed encryption key; read APIs return only the last four digits. Record and attachment sharing are independent and default to private. See [accounting configuration and API rules](docs/accounting-management/implementation.md).
+
+### Reverse proxy and security
+
+- Configure HTTPS, CORS origins, CSP and upstream URL validation for the deployment. When URL allowlisting is disabled, HTTP upstream URLs are allowed by default; explicitly set `SECURITY_URL_ALLOWLIST_ALLOW_INSECURE_HTTP=false` for HTTPS-only upstream access. HTTP exposes keys and data to interception/MITM.
+- `security.trust_forwarded_ip_for_api_key_acl` defaults to `true` for upgrade compatibility. In that mode, restrict origin access to the CDN/proxy and overwrite trusted headers at the edge. To enforce Gin's trust boundary, disable it and set `server.trusted_proxies` to the exact directly connected proxy CIDRs.
+- `SECURITY_FORWARDED_CLIENT_IP_HEADERS=True-Client-IP,X-CDN-Client-IP` accepts up to 16 validated, canonicalized, de-duplicated header names. Admin security settings can update them without restart. With legacy takeover disabled, raw custom and built-in forwarding headers are ignored. See [edge security and migration](deploy/EDGE_SECURITY.md).
+- If URL validation or response-header filtering is disabled, enforce upstream egress allowlists, block private/loopback/link-local targets, enforce TLS and strip sensitive response headers at the proxy. Review `billing.circuit_breaker` and `turnstile.required` for production.
+
+Nginx drops underscore headers such as `session_id` by default, which breaks Codex sticky routing. Enable them in its `http` block:
 
 ```nginx
 underscores_in_headers on;
 ```
 
-Nginx drops headers containing underscores by default (e.g. `session_id`), which breaks sticky session routing in multi-account setups.
+<details>
+<summary>Codex Fast/Flex, WebSocket and h2c settings</summary>
 
----
-
-## Codex Fast/Flex Policies
+### Codex Fast/Flex policies
 
 The OpenAI Fast/Flex policy under the admin gateway settings controls `service_tier` in request bodies. It does not change the Codex client model catalog or automatically expose Speed or `/fast` in the UI.
 
@@ -107,398 +194,7 @@ fast_mode = true
 
 `service_tier = "fast"` includes the Fast setting in requests; `features.fast_mode` only enables the client feature. Without Fast capability in the model catalog, `/fast` may remain unavailable. Check Sub2API usage records to confirm whether the final `service_tier` is `priority`.
 
----
-
-## Deployment
-
-### Method 1: Script Installation (Recommended)
-
-One-click installation script that downloads pre-built binaries from GitHub Releases.
-
-#### Prerequisites
-
-- Linux server (amd64 or arm64)
-- PostgreSQL 15+ (installed and running)
-- Redis 7+ (installed and running)
-- Root privileges
-
-#### Installation Steps
-
-```bash
-curl -sSL https://raw.githubusercontent.com/DevKuAI/devku-sub2api/main/deploy/install.sh | sudo bash
-```
-
-The script will:
-1. Detect your system architecture
-2. Download the latest release
-3. Install binary to `/opt/sub2api`
-4. Create systemd service
-5. Configure system user and permissions
-
-#### Post-Installation
-
-```bash
-# 1. Start the service
-sudo systemctl start sub2api
-
-# 2. Enable auto-start on boot
-sudo systemctl enable sub2api
-
-# 3. Open Setup Wizard in browser
-# http://YOUR_SERVER_IP:8080
-```
-
-The Setup Wizard will guide you through:
-- Database configuration
-- Redis configuration
-- Admin account creation
-
-#### Upgrade
-
-You can upgrade directly from the **Admin Dashboard** by clicking the **Check for Updates** button in the top-left corner.
-
-The web interface will:
-- Check for new versions automatically
-- Download and apply updates with one click
-- Support rollback if needed
-
-#### Useful Commands
-
-```bash
-# Check status
-sudo systemctl status sub2api
-
-# View logs
-sudo journalctl -u sub2api -f
-
-# Restart service
-sudo systemctl restart sub2api
-
-# Uninstall
-curl -sSL https://raw.githubusercontent.com/DevKuAI/devku-sub2api/main/deploy/install.sh | sudo bash -s -- uninstall -y
-```
-
----
-
-### Method 2: Docker Compose (Recommended)
-
-Deploy with Docker Compose, including PostgreSQL and Redis containers.
-
-#### Prerequisites
-
-- Docker 20.10+
-- Docker Compose v2+
-
-#### Quick Start (One-Click Deployment)
-
-Use the automated deployment script for easy setup:
-
-```bash
-# Create deployment directory
-mkdir -p sub2api-deploy && cd sub2api-deploy
-
-# Download and run deployment preparation script
-curl -sSL https://raw.githubusercontent.com/DevKuAI/devku-sub2api/main/deploy/docker-deploy.sh | bash
-
-# Start services
-docker compose up -d
-
-# View logs
-docker compose logs -f sub2api
-```
-
-**What the script does:**
-- Downloads `docker-compose.local.yml` (saved as `docker-compose.yml`) and `.env.example`
-- Generates secure credentials (JWT_SECRET, TOTP_ENCRYPTION_KEY, POSTGRES_PASSWORD)
-- Creates `.env` file with auto-generated secrets
-- Creates data directories (uses local directories for easy backup/migration)
-- Displays generated credentials for your reference
-
-#### Manual Deployment
-
-If you prefer manual setup:
-
-```bash
-# 1. Clone the repository
-git clone https://github.com/DevKuAI/devku-sub2api.git sub2api
-cd sub2api/deploy
-
-# 2. Copy environment configuration
-cp .env.example .env
-chmod 600 .env
-
-# 3. Edit configuration (generate secure passwords)
-nano .env
-```
-
-**Required configuration in `.env`:**
-
-```bash
-# PostgreSQL password (REQUIRED)
-POSTGRES_PASSWORD=your_secure_password_here
-
-# JWT Secret (RECOMMENDED - keeps users logged in after restart)
-JWT_SECRET=your_jwt_secret_here
-
-# TOTP Encryption Key (RECOMMENDED - preserves 2FA after restart)
-TOTP_ENCRYPTION_KEY=your_totp_key_here
-
-# Optional: Admin account
-# Leave empty to auto-generate a random email (login username) and password, shown in logs on first startup.
-# Avoid guessable values such as admin@example.com: they are brute-force targets.
-ADMIN_EMAIL=
-ADMIN_PASSWORD=
-
-# Optional: Custom port
-SERVER_PORT=8080
-```
-
-**Generate secure secrets:**
-```bash
-# Generate JWT_SECRET
-openssl rand -hex 32
-
-# Generate TOTP_ENCRYPTION_KEY
-openssl rand -hex 32
-
-# Generate POSTGRES_PASSWORD
-openssl rand -hex 32
-```
-
-```bash
-# 4. Create data directories (for local version)
-mkdir -p data postgres_data redis_data
-
-# 5. Start all services
-# Option A: Local directory version (recommended - easy migration)
-docker compose -f docker-compose.local.yml up -d
-
-# Option B: Named volumes version (simple setup)
-docker compose up -d
-
-# 6. Check status
-docker compose -f docker-compose.local.yml ps
-
-# 7. View logs
-docker compose -f docker-compose.local.yml logs -f sub2api
-```
-
-#### Deployment Versions
-
-| Version | Data Storage | Migration | Best For |
-|---------|-------------|-----------|----------|
-| **docker-compose.local.yml** | Local directories | ✅ Easy (tar entire directory) | Production, frequent backups |
-| **docker-compose.yml** | Named volumes | ⚠️ Requires docker commands | Simple setup |
-
-**Recommendation:** Use `docker-compose.local.yml` (deployed by script) for easier data management.
-
-#### Access
-
-Open `http://YOUR_SERVER_IP:8080` in your browser.
-
-If the admin email (login username) or password was auto-generated, find them in logs:
-```bash
-docker compose -f docker-compose.local.yml logs sub2api | grep "Generated admin"
-```
-
-#### Upgrade
-
-```bash
-# Pull latest image and recreate container
-docker compose -f docker-compose.local.yml pull
-docker compose -f docker-compose.local.yml up -d
-```
-
-#### Easy Migration (Local Directory Version)
-
-When using `docker-compose.local.yml`, migrate to a new server easily:
-
-```bash
-# On source server
-docker compose -f docker-compose.local.yml down
-cd ..
-tar czf sub2api-complete.tar.gz sub2api-deploy/
-
-# Transfer to new server
-scp sub2api-complete.tar.gz user@new-server:/path/
-
-# On new server
-tar xzf sub2api-complete.tar.gz
-cd sub2api-deploy/
-docker compose -f docker-compose.local.yml up -d
-```
-
-#### Useful Commands
-
-```bash
-# Stop all services
-docker compose -f docker-compose.local.yml down
-
-# Restart
-docker compose -f docker-compose.local.yml restart
-
-# View all logs
-docker compose -f docker-compose.local.yml logs -f
-
-# Remove all data (caution!)
-docker compose -f docker-compose.local.yml down
-rm -rf data/ postgres_data/ redis_data/
-```
-
----
-
-### Method 3: Apple container (macOS)
-
-Apple-silicon Macs running macOS 26 can run the full Sub2API, PostgreSQL, and Redis stack with Apple `container` 1.1.0 or newer:
-
-```bash
-git clone https://github.com/DevKuAI/devku-sub2api.git sub2api
-cd sub2api/deploy
-./apple-container.sh init
-./apple-container.sh up
-./apple-container.sh status
-```
-
-This is an operator-managed local workflow; Docker Compose remains the recommended production path. See [deploy/APPLE_CONTAINER.md](deploy/APPLE_CONTAINER.md) for lifecycle commands, persistence, upgrades, and runtime limitations.
-
----
-
-### Method 4: Build from Source
-
-Build and run from source code for development or customization.
-
-#### Prerequisites
-
-- Go 1.21+
-- Node.js 18+
-- PostgreSQL 15+
-- Redis 7+
-
-#### Build Steps
-
-```bash
-# 1. Clone the repository
-git clone https://github.com/DevKuAI/devku-sub2api.git sub2api
-cd sub2api
-
-# 2. Install pnpm (if not already installed)
-npm install -g pnpm
-
-# 3. Build frontend
-cd frontend
-pnpm install
-pnpm run build
-# Output will be in ../backend/internal/web/dist/
-
-# 4. Build backend with embedded frontend
-cd ../backend
-VERSION="$(./scripts/resolve-version.sh)"
-go build -tags embed -ldflags="-X main.Version=${VERSION}" -o sub2api ./cmd/server
-
-# 5. Create configuration file
-cp ../deploy/config.example.yaml ./config.yaml
-
-# 6. Edit configuration
-nano config.yaml
-```
-
-> **Note:** The `-tags embed` flag embeds the frontend into the binary. Without this flag, the binary will not serve the frontend UI.
-
-**Key configuration in `config.yaml`:**
-
-```yaml
-server:
-  host: "0.0.0.0"
-  port: 8080
-  mode: "release"
-
-database:
-  host: "localhost"
-  port: 5432
-  user: "postgres"
-  password: "your_password"
-  dbname: "sub2api"
-
-redis:
-  host: "localhost"
-  port: 6379
-  username: ""
-  password: ""
-
-jwt:
-  secret: "change-this-to-a-secure-random-string"
-  expire_hour: 24
-
-default:
-  user_concurrency: 5
-  user_balance: 0
-  api_key_prefix: "sk-"
-  rate_multiplier: 1.0
-```
-
-Additional security-related options are available in `config.yaml`:
-
-- `cors.allowed_origins` for CORS allowlist
-- `security.url_allowlist` for upstream/pricing/CRS host allowlists
-- `security.url_allowlist.enabled` to disable URL validation (use with caution)
-- `security.url_allowlist.allow_insecure_http` to allow HTTP URLs when validation is disabled
-- `security.url_allowlist.allow_private_hosts` to allow private/local IP addresses
-- `security.response_headers.enabled` to enable configurable response header filtering (disabled uses default allowlist)
-- `security.csp` to control Content-Security-Policy headers
-- `billing.circuit_breaker` to fail closed on billing errors
-- `security.trust_forwarded_ip_for_api_key_acl` enables legacy raw forwarded-header takeover (enabled by default for upgrade compatibility); disable it to enforce `server.trusted_proxies`, which should contain only the exact proxy CIDRs that connect directly to Sub2API
-- `security.forwarded_client_ip_headers` configures up to 16 third-party CDN client-IP header names; they are checked in order before the built-in headers only while legacy takeover is enabled
-- `turnstile.required` to require Turnstile in release mode
-
-Custom client-IP headers can be set in YAML or as a comma-separated environment variable:
-
-```bash
-SECURITY_FORWARDED_CLIENT_IP_HEADERS=True-Client-IP,X-CDN-Client-IP
-```
-
-Header names are validated, canonicalized, and de-duplicated. The admin security settings can update the list without a restart; new installations persist YAML/environment defaults and existing installations backfill a missing database value. When legacy takeover is disabled, all custom and built-in raw forwarding headers are ignored and Gin uses only `server.trusted_proxies`. While takeover is enabled, firewall the origin to CDN/proxy addresses and make the edge overwrite every trusted client-IP header. See [`deploy/EDGE_SECURITY.md`](deploy/EDGE_SECURITY.md) for the complete migration and trust-boundary rules.
-
-**⚠️ Security Warning: HTTP URL Configuration**
-
-When `security.url_allowlist.enabled=false`, the system performs minimal URL validation and **allows HTTP URLs by default** (dev-friendly mode; Docker Compose deployments use the same default). For production, explicitly tighten this to HTTPS-only:
-
-```yaml
-security:
-  url_allowlist:
-    enabled: false                # Disable allowlist checks
-    allow_insecure_http: false    # HTTPS only (recommended for production)
-```
-
-**Or via environment variable:**
-
-```bash
-SECURITY_URL_ALLOWLIST_ENABLED=false
-SECURITY_URL_ALLOWLIST_ALLOW_INSECURE_HTTP=false
-```
-
-**Risks of allowing HTTP:**
-- API keys and data transmitted in **plaintext** (vulnerable to interception)
-- Susceptible to **man-in-the-middle (MITM) attacks**
-- **NOT suitable for production** environments
-
-**When to use HTTP:**
-- ✅ Development/testing with local servers (http://localhost)
-- ✅ Internal networks with trusted endpoints
-- ✅ Testing account connectivity before obtaining HTTPS
-- ❌ Production environments (use HTTPS only)
-
-**Example error for HTTP URLs when `allow_insecure_http: false` is set:**
-```
-Invalid base URL: invalid url scheme: http
-```
-
-If you disable URL validation or response header filtering, harden your network layer:
-- Enforce an egress allowlist for upstream domains/IPs
-- Block private/loopback/link-local ranges
-- Enforce TLS-only outbound traffic
-- Strip sensitive upstream response headers at the proxy
-
-#### OpenAI Responses WebSocket ingress limits
+### OpenAI Responses WebSocket limits and HTTP fallback
 
 `gateway.openai_ws` bounds the lifetime and aggregate count of client-facing
 Responses WebSocket sessions. These safeguards apply independently from
@@ -564,63 +260,27 @@ takes effect without enabling `mode_router_v2_enabled`. Keep the setting in the
 deployment's persisted `.env` or `config.yaml`, rather than inside a running
 container, so it is read again after an image update or container recreation.
 
-#### ⚠️ Important: Creating the Admin Account
+### HTTP/2 (h2c) and HTTP/1.1 fallback
 
-The initial admin account is **only created via the setup wizard** (served at `http://<host>:8080` on first run). The `default.admin_email` / `default.admin_password` fields in `config.yaml` are **not used** to create it — they exist in the template for historical reasons.
+The backend's plaintext port supports h2c with HTTP/1.1 fallback for WebSockets and older clients. Browsers generally do not support h2c; it primarily benefits proxy and internal-network traffic. A Caddy upstream transport can use:
 
-Because step 5 above pre-creates `config.yaml`, the setup wizard will be **skipped on first run**: the server detects an existing config and boots straight into normal mode with an empty `users` table, so the first login attempt fails with `invalid email or password`.
-
-**Two ways to create the admin account:**
-
-1. **Recommended — let the wizard generate `config.yaml`:** Skip step 5 (do not run the `cp`). Start `./sub2api` directly; the setup wizard at `http://localhost:8080` walks you through database, Redis, and admin account setup, then writes `config.yaml` for you.
-
-2. **If you already created `config.yaml`:** Temporarily move it aside so the wizard can trigger on first run, then restore it afterwards:
-   ```bash
-   mv config.yaml config.yaml.bak
-   ./sub2api        # wizard runs at http://localhost:8080 and writes a fresh config.yaml
-   # stop the server (Ctrl+C) once the wizard completes, then restore your config:
-   mv config.yaml.bak config.yaml
-   ./sub2api        # restart in normal mode and log in with the admin you just created
-   ```
-
-```bash
-# 6. Run the application
-./sub2api
+```caddyfile
+transport http {
+    versions h2c h1
+}
 ```
 
-#### Development Mode
+Verify with an HTTP/2-capable curl; the WebSocket check requires an administrator token:
 
 ```bash
-# Backend (with hot reload)
-cd backend
-go run ./cmd/server
-
-# Frontend (with hot reload)
-cd frontend
-pnpm run dev
+curl --http2-prior-knowledge -I http://localhost:8080/health
+curl --http1.1 -I http://localhost:8080/health
+websocat -H="Sec-WebSocket-Protocol: sub2api-admin, jwt.<ADMIN_TOKEN>" ws://localhost:8080/api/v1/admin/ops/ws/qps
 ```
 
-#### Code Generation
+</details>
 
-When editing `backend/ent/schema`, regenerate Ent + Wire:
-
-```bash
-cd backend
-go generate ./ent
-go generate ./cmd/server
-```
-
----
-
-## OpenAI Image Models
-
-Supports `gpt-image-2.5-flare`, `gpt-image-2.5-sunburst`, and their `2026-09-08` snapshots through `/v1/images/generations` and `/v1/images/edits`. Supported `quality` values include `xhigh`, `max`, and `auto`. Valid custom sizes and detailed image usage are passed through unchanged.
-
-OAuth / Setup Token image requests use a Responses orchestrator model to call the `image_generation` tool. The default orchestrator is `gpt-5.6-luna`. Set `SUB2API_IMAGES_MAIN_MODEL` to use a text model supported by the account; Docker Compose users must run `docker compose up -d` after changing `.env` to recreate the container. This setting does not replace the selected image model or override a text orchestrator model already provided in a `/v1/responses` request.
-
-After upgrading, accounts without model restrictions support the new models automatically. Existing explicit account mappings or group allowlists must include the two 2.5 models, with dated snapshots added as needed; upgrading does not automatically expand administrator-defined model permissions. Built-in pricing covers the official text input, image input, and image output token rates, and is used for the 2.5 models if the remote pricing table has not been updated. Per-request or per-token billing still follows the existing group/channel configuration.
-
-## Simple Mode
+### Simple Mode
 
 Simple Mode is designed for individual developers or internal teams who want quick access without full SaaS features.
 
@@ -631,19 +291,37 @@ Simple Mode is designed for individual developers or internal teams who want qui
 - Window enforcement uses the database as its source of truth and records only API-key window usage. It is a post-request soft cap, so concurrent in-flight requests can overshoot by their final costs. Historical simple-mode usage is not backfilled.
 - Security note: In production, you must also set `SIMPLE_MODE_CONFIRM=true` to allow startup
 
----
+## Providers and compatibility
 
-## Asynchronous Image Tasks
+### Routing, video and plugin compatibility
+
+- **Command Code and Cline:** Both support API-key accounts. Command Code selects native Messages, Responses or Chat Completions endpoints using model capabilities. Cline uses Chat Completions and converts incoming Messages/Responses; Cline credit and ClinePass limits affect their respective models independently.
+- **Platform catalog:** Account creation, routing and default platform quotas share a catalog. Database platform CHECK constraints were removed by migration; the application validates registered platforms.
+- **Model allowlists:** Group allowlists constrain both listing and request admission. The migration from `groups.models_list_config` to `model_allowlist` preserves data; review previously enabled lists because they now restrict requests too.
+- **Seedance (Ark):** Native task creation, query and deletion require the Seedance capability on an OpenAI API-key account and group media permission. Billing happens when a query first observes `succeeded`, using `usage.completion_tokens`. There is no background polling or callback settlement; preserve Redis bindings and query completed tasks within their lifetime. See [Seedance configuration and billing](docs/seedance-api.md).
+- **Plugin host services:** Redis KV is isolated by plugin identity; account-directory access is capability-limited and `plugin.status` is read-only. Optional negotiation remains compatible with older plugins. See the [Plugin API](backend/pkg/pluginapi/README.md) and [UI bridge](backend/pkg/pluginapi/docs/ui-bridge.md).
+- **Antigravity attribution:** Only the Anthropic Messages-to-Antigravity conversion removes leading Claude attribution metadata. Native Anthropic forwarding is unchanged; do not globally disable attribution to address it.
+
+<details>
+<summary>Image models, Grok / xAI, TypeSafe / Jev and Antigravity details</summary>
+
+### OpenAI Image Models
+
+Supports `gpt-image-2.5-flare`, `gpt-image-2.5-sunburst`, and their `2026-09-08` snapshots through `/v1/images/generations` and `/v1/images/edits`. Supported `quality` values include `xhigh`, `max`, and `auto`. Valid custom sizes and detailed image usage are passed through unchanged.
+
+OAuth / Setup Token image requests use a Responses orchestrator model to call the `image_generation` tool. The default orchestrator is `gpt-5.6-luna`. Set `SUB2API_IMAGES_MAIN_MODEL` to use a text model supported by the account; Docker Compose users must run `docker compose up -d` after changing `.env` to recreate the container. This setting does not replace the selected image model or override a text orchestrator model already provided in a `/v1/responses` request.
+
+After upgrading, accounts without model restrictions support the new models automatically. Existing explicit account mappings or group allowlists must include the two 2.5 models, with dated snapshots added as needed; upgrading does not automatically expand administrator-defined model permissions. Built-in pricing covers the official text input, image input, and image output token rates, and is used for the 2.5 models if the remote pricing table has not been updated. Per-request or per-token billing still follows the existing group/channel configuration.
+
+### Asynchronous Image Tasks
 
 Long-running OpenAI/Grok image generation and editing can be submitted through `/v1/images/generations/async` or `/v1/images/edits/async`, then polled at `/v1/images/tasks/{task_id}` without holding a CDN connection open. See [Asynchronous Image Tasks](docs/ASYNC_IMAGE_TASKS.md) for request and response examples.
 
----
-
-## Grok / xAI Support
+### Grok / xAI Support
 
 Sub2API supports both Grok subscription accounts through xAI OAuth and standard xAI API-key accounts. Both account types forward OpenAI-compatible Responses traffic to xAI.
 
-### Supported Scope
+#### Supported Scope
 
 - Platform name: `grok`
 - Account types: OAuth subscription accounts and xAI API-key accounts
@@ -657,7 +335,7 @@ Sub2API supports both Grok subscription accounts through xAI OAuth and standard 
 - JSON image-edit and video-generation requests accept image references in `image`, `images`, `reference_images`, and `mask` objects. Use `url` for xAI-compatible payloads; the legacy `image_url` field remains accepted and is normalized to `url` before forwarding.
 - Out of scope for this provider: TTS, transcription, browser automation, cookies, and Grok web scraping
 
-### OAuth Configuration
+#### OAuth Configuration
 
 The Grok OAuth flow uses PKCE and does not require committing private secrets. The default client details follow the public xAI OAuth flow used by compatible clients, and every value can be overridden by environment variable:
 
@@ -684,7 +362,7 @@ OAuth credential storage reuses the existing account JSON fields: `access_token`
 
 For API-key accounts, select **Grok → API Key** in the create-account dialog. The official base URL defaults to `https://api.x.ai/v1`; credentials use the existing `base_url` and `api_key` account fields. OAuth accounts continue to use the subscription flow above.
 
-### Grok Build CLI Configuration
+#### Grok Build CLI Configuration
 
 1. In the Sub2API admin dashboard, add either a `grok` OAuth account and complete xAI authorization, or add a Grok API-key account.
 2. Create a Grok group, attach the account to it, then create a Sub2API API key assigned to that group.
@@ -715,7 +393,7 @@ grok -p "Reply with sub2api-ok" -m grok
 
 The `base_url` above is the public Sub2API URL ending in `/v1`, not `api.x.ai` or the internal xAI OAuth proxy URL.
 
-### Usage And Quota Display
+#### Usage And Quota Display
 
 xAI quota is passive. Sub2API does not invent subscription quota values; it records whitelisted xAI rate-limit headers from successful or rate-limited upstream responses when xAI sends them. Before the first usable upstream response, the dashboard shows quota as unknown and still displays local Sub2API usage stats.
 
@@ -725,9 +403,7 @@ New Grok image and video generation requests use a media-specific eligibility ch
 
 Administrators can override automatic media eligibility through the account create/update API by setting `extra.grok_media_eligible` to `false` (exclude) or `true` (force eligible). On update, set it to `null` to remove the override and return to automatic probe-based behavior; omitting the field preserves the current override. A weekly allowance period alone is not treated as a paid tier signal. Successful image responses must contain at least one actual image output; empty HTTP `200` responses trigger account failover instead of being counted and returned as successful generations.
 
----
-
-## TypeSafe / Jev Support
+### TypeSafe / Jev Support
 
 Sub2API supports TypeSafe API-key accounts through Jev's native, non-streaming System One protocol.
 
@@ -750,85 +426,117 @@ curl https://your-sub2api.example.com/v1/systemone \
 
 The built-in `jev-latest` price is `$0.042` per million input tokens and `$0` for output tokens. Channel pricing can override both values. Credential, billing, permission, rate-limit, overload, server, and network failures (`401`, `402`, `403`, `429`, `529`, `5xx`, transport errors) use the existing account error policy (including custom error codes and temporary-unschedulable rules) and fail over to another account; request errors (`400`, `413`, and `422`) are returned without retrying another account and never change account state. TypeSafe groups (and Composite requests routed to TypeSafe) reject Messages, Chat Completions, Responses, and count_tokens requests with `404`.
 
----
-
-## Antigravity Support
+### Antigravity Support
 
 Sub2API supports [Antigravity](https://antigravity.so/) accounts. After authorization, dedicated endpoints are available for Claude and Gemini models.
 
-### Dedicated Endpoints
+#### Dedicated Endpoints
 
 | Endpoint | Model |
 |----------|-------|
 | `/antigravity/v1/messages` | Claude models |
 | `/antigravity/v1beta/` | Gemini models |
 
-### Claude Code Configuration
+#### Claude Code Configuration
 
 ```bash
 export ANTHROPIC_BASE_URL="http://localhost:8080/antigravity"
 export ANTHROPIC_AUTH_TOKEN="sk-xxx"
 ```
 
-### Hybrid Scheduling Mode
+#### Hybrid Scheduling Mode
 
 Antigravity accounts support optional **hybrid scheduling**. When enabled, the general endpoints `/v1/messages` and `/v1beta/` will also route requests to Antigravity accounts.
 
 > **⚠️ Warning**: Anthropic Claude and Antigravity Claude **cannot be mixed within the same conversation context**. Use groups to isolate them properly.
 
----
+</details>
 
-## Project Structure
+## Development
 
-Project documentation: [index](docs/README.md), [development guide](docs/DEV_GUIDE.md), and [accounting management](docs/accounting-management/README.md).
+The current backend requires **Go 1.27.2** (`backend/go.mod`). CI uses **Node.js 20 and pnpm 9**; use those versions and the committed lockfile. The frontend uses Vue 3.5, TypeScript, Vite 5, Pinia and Tailwind CSS; the backend uses Gin, Ent, SQL repositories, PostgreSQL and Redis. Compose currently ships PostgreSQL 18 and Redis 8.
 
+### Build a binary with the Web UI
+
+With PostgreSQL and Redis running and the required toolchains installed:
+
+```bash
+git clone https://github.com/DevKuAI/devku-sub2api.git sub2api
+cd sub2api
+pnpm --dir frontend install --frozen-lockfile
+pnpm --dir frontend run build
+cd backend
+VERSION="$(./scripts/resolve-version.sh)"
+go build -tags embed -ldflags="-X main.Version=${VERSION}" -o sub2api ./cmd/server
+./sub2api
 ```
+
+Vite writes the frontend to `backend/internal/web/dist/`; `-tags embed` bundles it into the server. Without that tag, the binary does not serve the Web UI. On a fresh first run, complete the setup wizard at `http://localhost:8080`; let it create `config.yaml` and restart the process after setup. Use the example YAML to review settings, rather than copying it before initialization.
+
+### Local development
+
+Install dependencies first, then run these commands in separate terminals from the repository root:
+
+```bash
+# Backend: initialize through CLI setup first on a fresh environment.
+cd backend
+go run ./cmd/server --setup
+go run ./cmd/server
+```
+
+```bash
+# Frontend: Vite serves on port 3000 and proxies to localhost:8080.
+pnpm --dir frontend run dev
+```
+
+Set `VITE_DEV_PROXY_TARGET` if the backend runs elsewhere. `go run` does not provide automatic backend hot reload. After changing Ent schemas or Wire providers, run `make -C backend generate` and review the generated diff.
+
+### Validation
+
+```bash
+make -C backend test-unit
+make -C backend test-integration
+(cd backend && golangci-lint run ./...)
+pnpm --dir frontend run lint:check
+pnpm --dir frontend run typecheck
+pnpm --dir frontend run test:run
+pnpm --dir frontend run build
+make -C backend build
+git diff --check
+```
+
+Integration tests require Docker and live test containers; skipped integration tests are not a pass. `make test-frontend` runs lint, typecheck and a selected critical Vitest set; `test:run` above runs the full frontend suite. `make -C backend build` is a backend-only build; use the explicit `-tags embed` command for a binary with the UI. See the [development guide](docs/DEV_GUIDE.md) and [CI workflow](.github/workflows/backend-ci.yml).
+
+## Documentation
+
+| Topic | Entry |
+| --- | --- |
+| Documentation index | [docs/README.md](docs/README.md) |
+| Deployment and security | [Deployment](deploy/README.md), [edge security](deploy/EDGE_SECURITY.md), [Apple container](deploy/APPLE_CONTAINER.md) |
+| Development | [Developer guide](docs/DEV_GUIDE.md) |
+| Desktop APIs | [API v1](docs/DESKTOP_API_V1.md), [OpenAPI](docs/DESKTOP_API_V1.openapi.yaml), [sessions/conversations v2](docs/DESKTOP_SESSION_CONVERSATION_V2.md), [daily reports](docs/DESKTOP_DAILY_REPORTS.md) |
+| Desktop resources | [MCP/Skill distribution](docs/desktop-resources-v1.md) |
+| Accounting | [Design, implementation/configuration and validation](docs/accounting-management/README.md) |
+| BI | [API contracts, configuration, integration and acceptance](docs/mobile-bi/README.md) |
+| Payments and routing | [Payments](docs/PAYMENT.md), [composite groups](docs/COMPOSITE_GROUPS.md) |
+| Plugins | [Development guide](docs/PLUGIN_DEVELOPMENT.md), [Plugin API](backend/pkg/pluginapi/README.md) |
+
+```text
 sub2api/
-├── backend/                  # Go backend service
-│   ├── cmd/server/           # Application entry
-│   ├── internal/             # Internal modules
-│   │   ├── config/           # Configuration
-│   │   ├── model/            # Data models
-│   │   ├── service/          # Business logic
-│   │   ├── handler/          # HTTP handlers
-│   │   └── repository/       # Data access
-│   └── resources/            # Static resources
-│
-├── frontend/                 # Vue 3 frontend
-│   └── src/
-│       ├── api/              # API calls
-│       ├── stores/           # State management
-│       ├── views/            # Page components
-│       └── components/       # Reusable components
-│
-├── deploy/                   # Deployment files
-│   ├── docker-compose.yml    # Docker Compose configuration
-│   ├── .env.example          # Environment variables for Docker Compose
-│   ├── config.example.yaml   # Full config file for binary deployment
-│   └── install.sh            # One-click installation script
-│
-├── docs/                     # Documentation and feature handoffs
-│   ├── README.md             # Documentation index
-│   ├── DEV_GUIDE.md          # Development guide
-│   └── accounting-management/ # Accounting design, implementation and verification
-├── assets/                   # README logos and partner images
-├── openspec/                 # Change proposals and specifications
-├── skills/                   # Project integration skills
-└── tools/                    # Repository maintenance utilities
+├── backend/    # Go service, migrations, embedded Web UI and server tools
+├── frontend/   # Vue application and tests
+├── deploy/     # Installation scripts, Compose templates and operations guides
+├── docs/       # Development guides, feature designs, API contracts and validation
+├── assets/     # README images
+├── openspec/   # Change proposals and specifications
+├── skills/     # Integration skills
+├── tools/      # Repository maintenance utilities
+├── .github/    # CI and release workflows
+└── .agents/    # Project Agent skills
 ```
-
----
 
 ## License
 
 This project is licensed under the [GNU Lesser General Public License v3.0](LICENSE) (or later).
 
-Copyright (c) 2026 Wesley Liddick
-
----
-
-<div align="center">
-
-**If you find this project useful, please give it a star!**
-
-</div>
+Copyright (c) 2026 DevKu.ai
