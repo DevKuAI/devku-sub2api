@@ -150,6 +150,34 @@ func (_u *DesktopOrganizationUpdate) SetNillableConversationSummaryEnabled(v *bo
 	return _u
 }
 
+// SetWeeklySummaryEnabled sets the "weekly_summary_enabled" field.
+func (_u *DesktopOrganizationUpdate) SetWeeklySummaryEnabled(v bool) *DesktopOrganizationUpdate {
+	_u.mutation.SetWeeklySummaryEnabled(v)
+	return _u
+}
+
+// SetNillableWeeklySummaryEnabled sets the "weekly_summary_enabled" field if the given value is not nil.
+func (_u *DesktopOrganizationUpdate) SetNillableWeeklySummaryEnabled(v *bool) *DesktopOrganizationUpdate {
+	if v != nil {
+		_u.SetWeeklySummaryEnabled(*v)
+	}
+	return _u
+}
+
+// SetMonthlySummaryEnabled sets the "monthly_summary_enabled" field.
+func (_u *DesktopOrganizationUpdate) SetMonthlySummaryEnabled(v bool) *DesktopOrganizationUpdate {
+	_u.mutation.SetMonthlySummaryEnabled(v)
+	return _u
+}
+
+// SetNillableMonthlySummaryEnabled sets the "monthly_summary_enabled" field if the given value is not nil.
+func (_u *DesktopOrganizationUpdate) SetNillableMonthlySummaryEnabled(v *bool) *DesktopOrganizationUpdate {
+	if v != nil {
+		_u.SetMonthlySummaryEnabled(*v)
+	}
+	return _u
+}
+
 // SetAnalysisModel sets the "analysis_model" field.
 func (_u *DesktopOrganizationUpdate) SetAnalysisModel(v string) *DesktopOrganizationUpdate {
 	_u.mutation.SetAnalysisModel(v)
@@ -457,6 +485,12 @@ func (_u *DesktopOrganizationUpdate) sqlSave(ctx context.Context) (_node int, er
 	if value, ok := _u.mutation.ConversationSummaryEnabled(); ok {
 		_spec.SetField(desktoporganization.FieldConversationSummaryEnabled, field.TypeBool, value)
 	}
+	if value, ok := _u.mutation.WeeklySummaryEnabled(); ok {
+		_spec.SetField(desktoporganization.FieldWeeklySummaryEnabled, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.MonthlySummaryEnabled(); ok {
+		_spec.SetField(desktoporganization.FieldMonthlySummaryEnabled, field.TypeBool, value)
+	}
 	if value, ok := _u.mutation.AnalysisModel(); ok {
 		_spec.SetField(desktoporganization.FieldAnalysisModel, field.TypeString, value)
 	}
@@ -730,6 +764,34 @@ func (_u *DesktopOrganizationUpdateOne) SetConversationSummaryEnabled(v bool) *D
 func (_u *DesktopOrganizationUpdateOne) SetNillableConversationSummaryEnabled(v *bool) *DesktopOrganizationUpdateOne {
 	if v != nil {
 		_u.SetConversationSummaryEnabled(*v)
+	}
+	return _u
+}
+
+// SetWeeklySummaryEnabled sets the "weekly_summary_enabled" field.
+func (_u *DesktopOrganizationUpdateOne) SetWeeklySummaryEnabled(v bool) *DesktopOrganizationUpdateOne {
+	_u.mutation.SetWeeklySummaryEnabled(v)
+	return _u
+}
+
+// SetNillableWeeklySummaryEnabled sets the "weekly_summary_enabled" field if the given value is not nil.
+func (_u *DesktopOrganizationUpdateOne) SetNillableWeeklySummaryEnabled(v *bool) *DesktopOrganizationUpdateOne {
+	if v != nil {
+		_u.SetWeeklySummaryEnabled(*v)
+	}
+	return _u
+}
+
+// SetMonthlySummaryEnabled sets the "monthly_summary_enabled" field.
+func (_u *DesktopOrganizationUpdateOne) SetMonthlySummaryEnabled(v bool) *DesktopOrganizationUpdateOne {
+	_u.mutation.SetMonthlySummaryEnabled(v)
+	return _u
+}
+
+// SetNillableMonthlySummaryEnabled sets the "monthly_summary_enabled" field if the given value is not nil.
+func (_u *DesktopOrganizationUpdateOne) SetNillableMonthlySummaryEnabled(v *bool) *DesktopOrganizationUpdateOne {
+	if v != nil {
+		_u.SetMonthlySummaryEnabled(*v)
 	}
 	return _u
 }
@@ -1070,6 +1132,12 @@ func (_u *DesktopOrganizationUpdateOne) sqlSave(ctx context.Context) (_node *Des
 	}
 	if value, ok := _u.mutation.ConversationSummaryEnabled(); ok {
 		_spec.SetField(desktoporganization.FieldConversationSummaryEnabled, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.WeeklySummaryEnabled(); ok {
+		_spec.SetField(desktoporganization.FieldWeeklySummaryEnabled, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.MonthlySummaryEnabled(); ok {
+		_spec.SetField(desktoporganization.FieldMonthlySummaryEnabled, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.AnalysisModel(); ok {
 		_spec.SetField(desktoporganization.FieldAnalysisModel, field.TypeString, value)

@@ -28,7 +28,7 @@ func TestBIRoutesAreFeatureGatedAndPreserveWebErrorContract(t *testing.T) {
 			service.SettingKeyFrontendURL:     "https://unrelated.example.com",
 			service.SettingKeyBIPrivacyNotice: `{"site_url":"https://example.com","title":"Privacy","version":"1","content_md":"Privacy content"}`,
 		}}, cfg)
-		h := bi.NewHandler(nil, rdb, cfg, nil, nil, settings)
+		h := bi.NewHandler(nil, rdb, cfg, nil, settings)
 		r := gin.New()
 		deny := func(c *gin.Context) { middleware.AbortWithError(c, 401, "TOKEN_EXPIRED", "Expired") }
 		RegisterBIRoutes(r, h, middleware.JWTAuthMiddleware(deny), cfg)
@@ -41,9 +41,9 @@ func TestBIRoutesAreFeatureGatedAndPreserveWebErrorContract(t *testing.T) {
 		}
 		require.Equal(t, 200, w.Code)
 		require.Equal(t, "private, no-store", w.Header().Get("Cache-Control"))
-		require.JSONEq(t, `{"api_version":"v1","min_client_version":"0.1.0","timezone":"Asia/Shanghai","demo_available":false,"binding_enabled":true,"privacy_notice_version":"1","privacy_notice_url":"https://example.com/legal/bi-privacy"}`, w.Body.String())
+		require.JSONEq(t, `{"api_version":"v1","min_client_version":"0.1.0","timezone":"Asia/Shanghai","demo_available":false,"identity_mode":"independent_wechat","privacy_notice_version":"1","privacy_notice_url":"https://example.com/legal/bi-privacy"}`, w.Body.String())
 		w = httptest.NewRecorder()
-		r.ServeHTTP(w, httptest.NewRequest("POST", "/api/bi/v1/auth/bindings/approve", strings.NewReader(`{}`)))
+		r.ServeHTTP(w, httptest.NewRequest("POST", "/api/bi/v1/invitations/accept", strings.NewReader(`{}`)))
 		require.Equal(t, 401, w.Code)
 		var body bi.Error
 		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))

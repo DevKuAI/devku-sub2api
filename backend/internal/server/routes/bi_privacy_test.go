@@ -33,7 +33,7 @@ func TestBIPrivacyAdminPublishPublicReadAndBootstrap(t *testing.T) {
 	})
 	registerSettingsRoutes(group, h)
 	r.GET("/api/v1/settings/bi-privacy", handler.NewSettingHandler(settings, "test").GetBIPrivacyNotice)
-	r.GET("/api/bi/v1/bootstrap", bi.Headers, bi.NewHandler(nil, nil, cfg, nil, nil, settings).Bootstrap)
+	r.GET("/api/bi/v1/bootstrap", bi.Headers, bi.NewHandler(nil, nil, cfg, nil, settings).Bootstrap)
 	var spec struct {
 		Paths map[string]map[string]struct {
 			OperationID string `yaml:"operationId"`

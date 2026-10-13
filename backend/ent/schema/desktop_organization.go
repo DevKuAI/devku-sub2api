@@ -36,6 +36,8 @@ func (DesktopOrganization) Fields() []ent.Field {
 		field.Int("member_limit").Positive().Default(10),
 		field.Bool("conversation_reporting_enabled").Default(false),
 		field.Bool("conversation_summary_enabled").Default(false),
+		field.Bool("weekly_summary_enabled").Default(false),
+		field.Bool("monthly_summary_enabled").Default(false),
 		field.String("analysis_model").MaxLen(200).Default(""),
 		field.Time("summary_enabled_at").Optional().Nillable(),
 		field.Int64("auth_version").Positive().Default(1),

@@ -24216,6 +24216,8 @@ type DesktopOrganizationMutation struct {
 	addmember_limit                *int
 	conversation_reporting_enabled *bool
 	conversation_summary_enabled   *bool
+	weekly_summary_enabled         *bool
+	monthly_summary_enabled        *bool
 	analysis_model                 *string
 	summary_enabled_at             *time.Time
 	auth_version                   *int64
@@ -24728,6 +24730,78 @@ func (m *DesktopOrganizationMutation) ResetConversationSummaryEnabled() {
 	m.conversation_summary_enabled = nil
 }
 
+// SetWeeklySummaryEnabled sets the "weekly_summary_enabled" field.
+func (m *DesktopOrganizationMutation) SetWeeklySummaryEnabled(b bool) {
+	m.weekly_summary_enabled = &b
+}
+
+// WeeklySummaryEnabled returns the value of the "weekly_summary_enabled" field in the mutation.
+func (m *DesktopOrganizationMutation) WeeklySummaryEnabled() (r bool, exists bool) {
+	v := m.weekly_summary_enabled
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldWeeklySummaryEnabled returns the old "weekly_summary_enabled" field's value of the DesktopOrganization entity.
+// If the DesktopOrganization object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopOrganizationMutation) OldWeeklySummaryEnabled(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldWeeklySummaryEnabled is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldWeeklySummaryEnabled requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldWeeklySummaryEnabled: %w", err)
+	}
+	return oldValue.WeeklySummaryEnabled, nil
+}
+
+// ResetWeeklySummaryEnabled resets all changes to the "weekly_summary_enabled" field.
+func (m *DesktopOrganizationMutation) ResetWeeklySummaryEnabled() {
+	m.weekly_summary_enabled = nil
+}
+
+// SetMonthlySummaryEnabled sets the "monthly_summary_enabled" field.
+func (m *DesktopOrganizationMutation) SetMonthlySummaryEnabled(b bool) {
+	m.monthly_summary_enabled = &b
+}
+
+// MonthlySummaryEnabled returns the value of the "monthly_summary_enabled" field in the mutation.
+func (m *DesktopOrganizationMutation) MonthlySummaryEnabled() (r bool, exists bool) {
+	v := m.monthly_summary_enabled
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMonthlySummaryEnabled returns the old "monthly_summary_enabled" field's value of the DesktopOrganization entity.
+// If the DesktopOrganization object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopOrganizationMutation) OldMonthlySummaryEnabled(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMonthlySummaryEnabled is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMonthlySummaryEnabled requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMonthlySummaryEnabled: %w", err)
+	}
+	return oldValue.MonthlySummaryEnabled, nil
+}
+
+// ResetMonthlySummaryEnabled resets all changes to the "monthly_summary_enabled" field.
+func (m *DesktopOrganizationMutation) ResetMonthlySummaryEnabled() {
+	m.monthly_summary_enabled = nil
+}
+
 // SetAnalysisModel sets the "analysis_model" field.
 func (m *DesktopOrganizationMutation) SetAnalysisModel(s string) {
 	m.analysis_model = &s
@@ -25213,7 +25287,7 @@ func (m *DesktopOrganizationMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *DesktopOrganizationMutation) Fields() []string {
-	fields := make([]string, 0, 17)
+	fields := make([]string, 0, 19)
 	if m.created_at != nil {
 		fields = append(fields, desktoporganization.FieldCreatedAt)
 	}
@@ -25243,6 +25317,12 @@ func (m *DesktopOrganizationMutation) Fields() []string {
 	}
 	if m.conversation_summary_enabled != nil {
 		fields = append(fields, desktoporganization.FieldConversationSummaryEnabled)
+	}
+	if m.weekly_summary_enabled != nil {
+		fields = append(fields, desktoporganization.FieldWeeklySummaryEnabled)
+	}
+	if m.monthly_summary_enabled != nil {
+		fields = append(fields, desktoporganization.FieldMonthlySummaryEnabled)
 	}
 	if m.analysis_model != nil {
 		fields = append(fields, desktoporganization.FieldAnalysisModel)
@@ -25293,6 +25373,10 @@ func (m *DesktopOrganizationMutation) Field(name string) (ent.Value, bool) {
 		return m.ConversationReportingEnabled()
 	case desktoporganization.FieldConversationSummaryEnabled:
 		return m.ConversationSummaryEnabled()
+	case desktoporganization.FieldWeeklySummaryEnabled:
+		return m.WeeklySummaryEnabled()
+	case desktoporganization.FieldMonthlySummaryEnabled:
+		return m.MonthlySummaryEnabled()
 	case desktoporganization.FieldAnalysisModel:
 		return m.AnalysisModel()
 	case desktoporganization.FieldSummaryEnabledAt:
@@ -25336,6 +25420,10 @@ func (m *DesktopOrganizationMutation) OldField(ctx context.Context, name string)
 		return m.OldConversationReportingEnabled(ctx)
 	case desktoporganization.FieldConversationSummaryEnabled:
 		return m.OldConversationSummaryEnabled(ctx)
+	case desktoporganization.FieldWeeklySummaryEnabled:
+		return m.OldWeeklySummaryEnabled(ctx)
+	case desktoporganization.FieldMonthlySummaryEnabled:
+		return m.OldMonthlySummaryEnabled(ctx)
 	case desktoporganization.FieldAnalysisModel:
 		return m.OldAnalysisModel(ctx)
 	case desktoporganization.FieldSummaryEnabledAt:
@@ -25428,6 +25516,20 @@ func (m *DesktopOrganizationMutation) SetField(name string, value ent.Value) err
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetConversationSummaryEnabled(v)
+		return nil
+	case desktoporganization.FieldWeeklySummaryEnabled:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetWeeklySummaryEnabled(v)
+		return nil
+	case desktoporganization.FieldMonthlySummaryEnabled:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMonthlySummaryEnabled(v)
 		return nil
 	case desktoporganization.FieldAnalysisModel:
 		v, ok := value.(string)
@@ -25610,6 +25712,12 @@ func (m *DesktopOrganizationMutation) ResetField(name string) error {
 		return nil
 	case desktoporganization.FieldConversationSummaryEnabled:
 		m.ResetConversationSummaryEnabled()
+		return nil
+	case desktoporganization.FieldWeeklySummaryEnabled:
+		m.ResetWeeklySummaryEnabled()
+		return nil
+	case desktoporganization.FieldMonthlySummaryEnabled:
+		m.ResetMonthlySummaryEnabled()
 		return nil
 	case desktoporganization.FieldAnalysisModel:
 		m.ResetAnalysisModel()

@@ -8,221 +8,64 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func RegisterBIRoutes(r *gin.Engine, h *bi.Handler, jwtAuth middleware.JWTAuthMiddleware, cfg *config.Config) {
+func RegisterBIRoutes(r *gin.Engine, h *bi.Handler, _ middleware.JWTAuthMiddleware, cfg *config.Config) {
 	if cfg == nil || !cfg.BI.Enabled || h == nil {
 		return
 	}
-	api := r.Group("/api/bi/v1")
-	api.Use(bi.Boundary)
-	api.Use(func(c *gin.Context) {
-		middleware.SetErrorResponder(c, bi.WriteMiddlewareError)
-		c.Next()
-	})
+	api := r.Group("/api/bi/v1", bi.Boundary)
 	api.GET("/bootstrap", h.Bootstrap)
-	auth := api.Group("/auth")
-	auth.Use(h.RateLimit(middleware.SecurityClientIP))
+	auth := api.Group("/auth", h.RateLimit(middleware.SecurityClientIP))
 	auth.POST("/wechat", h.Login)
-	auth.POST("/bindings/exchange", h.ExchangeBinding)
 	auth.POST("/refresh", h.Refresh)
 	auth.POST("/logout", h.Logout)
-	web := auth.Group("")
-	web.Use(gin.HandlerFunc(jwtAuth), h.RequireWebAudience)
-	web.POST("/bindings/approve", h.ApproveBinding)
-	web.GET("/bindings", h.ListBindings)
-	web.DELETE("/bindings/:binding_id", h.RevokeBinding)
-	mobile := api.Group("")
-	mobile.Use(h.MobileAuth)
+	mobile := api.Group("", h.MobileAuth)
 	mobile.GET("/me", h.Me)
 	mobile.GET("/organizations", h.Organizations)
-	mobile.DELETE("/auth/binding", h.RemoveBinding)
-	analytics := mobile.Group("/organizations/:organization_id")
-	analytics.GET("/data-status", h.DataStatus)
-	analytics.GET("/metric-definitions", h.MetricDefinitions)
-	analytics.GET("/filter-options", h.FilterOptions)
-	analytics.POST("/analysis-contexts", h.CreateAnalysisContext)
-	analytics.GET("/analysis-contexts/:context_id", h.GetAnalysisContext)
-	for _, operation := range []string{"overview", "adoption", "tokens", "feedback", "assets", "trend", "comparisons"} {
-		analytics.GET("/analytics/"+operation, h.QueryAnalysis(operation))
+	invites := mobile.Group("/invitations", h.RateLimit(middleware.SecurityClientIP))
+	invites.POST("/preview", h.PreviewInvitation)
+	invites.POST("/accept", h.AcceptInvitation)
+	desktop := mobile.Group("/organizations/:organization_id/desktop")
+	for _, route := range []struct{ path, operation string }{{"", "organization"}, {"/overview", "overview"}, {"/usage", "usage"}, {"/models", "models"}, {"/members", "members"}, {"/members/:member_id", "member"}, {"/members/:member_id/models", "member_models"}, {"/clients", "clients"}, {"/clients/:client", "client"}, {"/conversations/statistics", "conversation_statistics"}, {"/conversations", "conversations"}, {"/conversations/:record_id", "conversation"}, {"/daily-reports", "daily"}, {"/daily-reports/:date/summary", "daily_summary"}, {"/daily-reports/:date/members", "daily_members"}, {"/daily-reports/:date/members/:member_id", "daily_member"}, {"/daily-reports/:date/text", "daily_text"}, {"/period-reports", "periods"}, {"/period-reports/:report_id", "period"}, {"/period-reports/:report_id/sources", "sources"}, {"/period-reports/:report_id/sources/:date", "source"}, {"/period-reports/:report_id/text", "period_text"}} {
+		desktop.GET(route.path, h.NativeRead(route.operation))
 	}
-	analytics.GET("/teams/:team_id", h.QueryAnalysis("team"))
-	analytics.GET("/members", h.QueryAnalysis("members"))
-	analytics.GET("/members/:member_id", h.QueryAnalysis("member"))
-	analytics.GET("/applications", h.QueryAnalysis("applications"))
-	analytics.GET("/applications/:application_id", h.QueryAnalysis("application"))
-	analytics.GET("/scenes", h.QueryAnalysis("scenes"))
-	analytics.GET("/scenes/:scene_id", h.QueryAnalysis("scene"))
-	analytics.GET("/knowledge", h.QueryContent("knowledge"))
-	analytics.GET("/knowledge/:knowledge_id", h.QueryContent("knowledge_detail"))
-	analytics.GET("/knowledge/:knowledge_id/versions", h.QueryContent("versions"))
-	analytics.GET("/knowledge/:knowledge_id/versions/:version_id", h.QueryContent("version"))
-	analytics.GET("/knowledge/:knowledge_id/references", h.QueryContent("references"))
-	analytics.GET("/cases", h.QueryContent("cases"))
-	analytics.GET("/cases/:case_id", h.QueryContent("case"))
-	analytics.GET("/sources/:source_id", h.QueryContent("source"))
-	analytics.GET("/evaluations", h.QueryContent("evaluations"))
-	analytics.GET("/evaluations/:evaluation_id", h.QueryContent("evaluation"))
-	analytics.GET("/evaluations/:evaluation_id/samples", h.QueryContent("samples"))
-	analytics.GET("/search", h.QueryContent("search"))
-	analytics.GET("/me/favorites", h.QueryContent("favorites"))
-	analytics.PUT("/me/favorites/:knowledge_id", h.PutFavorite)
-	analytics.DELETE("/me/favorites/:knowledge_id", h.DeleteFavorite)
-	analytics.GET("/me/knowledge-notes/:knowledge_id", h.GetNote)
-	analytics.PUT("/me/knowledge-notes/:knowledge_id", h.PutNote)
-	analytics.DELETE("/me/knowledge-notes/:knowledge_id", h.DeleteNote)
-	analytics.POST("/reports", h.CreateReport)
-	analytics.GET("/reports", h.ListReports)
-	analytics.GET("/reports/:report_id", h.GetReport)
-	analytics.GET("/reports/:report_id/text", h.GetReportText)
-	analytics.POST("/reports/:report_id/shares", h.CreateShare)
-	analytics.GET("/reports/:report_id/shares", h.ListShares)
-	analytics.DELETE("/shares/:share_id", h.DeleteShare)
-	mobile.GET("/shares/:share_id", h.ResolveShare)
-	ingestion := api.Group("/internal/ingestion", h.ConnectorAuth)
-	ingestion.POST("/batches", h.SubmitImport)
-	ingestion.GET("/batches/:batch_id", h.GetImport)
-	ingestion.GET("/sources/:source_id/checkpoint", h.GetCheckpoint)
 	h.Start()
 }
-
-func registerBIAdminRoutes(admin *gin.RouterGroup, h *handler.Handlers, cfg *config.Config, stepUpAuth middleware.StepUpAuthMiddleware) {
-	if cfg == nil || !cfg.BI.Enabled || h.BI == nil {
+func registerBIManagement(group *gin.RouterGroup, h *bi.Handler, stepUp middleware.StepUpAuthMiddleware) {
+	group.Use(bi.Boundary, h.ManagerScope)
+	group.GET("/invitations", h.ListInvitations)
+	group.GET("/users", h.ListAccess)
+	secure := group.Group("", gin.HandlerFunc(stepUp))
+	secure.POST("/invitations", h.CreateInvitation)
+	secure.POST("/invitations/:invitation_id/revoke", h.RevokeInvitation)
+	secure.PUT("/users/:bi_user_id/access", h.UpdateAccess)
+}
+func registerBIManagedRoutes(group *gin.RouterGroup, h *handler.Handlers, cfg *config.Config, stepUp middleware.StepUpAuthMiddleware) {
+	if cfg == nil || !cfg.BI.Enabled || !cfg.Desktop.Enabled || h.BI == nil {
 		return
 	}
-	group := admin.Group("/bi/organizations/:organization_id/grants")
-	group.Use(bi.Headers)
-	group.GET("", h.BI.AdminListGrants)
-	group.PUT("", gin.HandlerFunc(stepUpAuth), func(c *gin.Context) {
-		actor, ok := middleware.GetAuthSubjectFromContext(c)
-		if !ok {
-			bi.WriteError(c, bi.ErrUnauthenticated)
-			return
-		}
-		h.BI.AdminSaveGrant(c, actor.UserID)
-	})
-	group.POST("/:manager_id/revoke", gin.HandlerFunc(stepUpAuth), func(c *gin.Context) {
-		actor, ok := middleware.GetAuthSubjectFromContext(c)
-		if !ok {
-			bi.WriteError(c, bi.ErrUnauthenticated)
-			return
-		}
-		h.BI.AdminRevokeGrant(c, actor.UserID)
-	})
-	group.POST("/:manager_id/bindings/approve", gin.HandlerFunc(stepUpAuth), func(c *gin.Context) {
-		actor, ok := middleware.GetAuthSubjectFromContext(c)
-		if !ok {
-			bi.WriteError(c, bi.ErrUnauthenticated)
-			return
-		}
-		h.BI.AdminApproveBindingForGrant(c, actor.UserID)
-	})
-
-	biAdmin := admin.Group("/bi")
-	biAdmin.GET("/overview", h.BI.AdminOverview)
-	biAdmin.GET("/retention", h.BI.AdminGetRetention)
-	biAdmin.PUT("/retention", gin.HandlerFunc(stepUpAuth), func(c *gin.Context) {
-		actor, ok := middleware.GetAuthSubjectFromContext(c)
-		if !ok {
-			middleware.AbortWithError(c, 401, "UNAUTHORIZED", "Authentication required")
-			return
-		}
-		h.BI.AdminUpdateRetention(c, actor.UserID)
-	})
-	identities := biAdmin.Group("/identities")
-	identities.GET("/bindings", h.BI.AdminListBindings)
-	identities.GET("/challenges", h.BI.AdminListChallenges)
-	identities.GET("/sessions", h.BI.AdminListSessions)
-	identities.POST("/bindings/:binding_id/revoke", gin.HandlerFunc(stepUpAuth), func(c *gin.Context) {
-		actor, ok := middleware.GetAuthSubjectFromContext(c)
-		if !ok {
-			middleware.AbortWithError(c, 401, "UNAUTHORIZED", "Authentication required")
-			return
-		}
-		h.BI.AdminRevokeBinding(c, actor.UserID)
-	})
-	sources := biAdmin.Group("/sources")
-	sources.GET("", h.BI.AdminListSources)
-	sources.POST("/:source_id/sync-sub2api", gin.HandlerFunc(stepUpAuth), func(c *gin.Context) {
-		actor, ok := middleware.GetAuthSubjectFromContext(c)
-		if !ok {
-			middleware.AbortWithError(c, 401, "UNAUTHORIZED", "Authentication required")
-			return
-		}
-		h.BI.AdminSyncSub2api(c, actor.UserID)
-	})
-	sources.POST("", gin.HandlerFunc(stepUpAuth), func(c *gin.Context) {
-		actor, ok := middleware.GetAuthSubjectFromContext(c)
-		if !ok {
-			middleware.AbortWithError(c, 401, "UNAUTHORIZED", "Authentication required")
-			return
-		}
-		h.BI.AdminIssueCredential(c, actor.UserID)
-	})
-	sources.GET("/:source_id/credentials", h.BI.AdminListCredentials)
-	sources.POST("/:source_id/credentials", gin.HandlerFunc(stepUpAuth), func(c *gin.Context) {
-		actor, ok := middleware.GetAuthSubjectFromContext(c)
-		if !ok {
-			middleware.AbortWithError(c, 401, "UNAUTHORIZED", "Authentication required")
-			return
-		}
-		h.BI.AdminIssueCredential(c, actor.UserID)
-	})
-	credentials := biAdmin.Group("/credentials")
-	credentials.POST("/:credential_id/revoke", gin.HandlerFunc(stepUpAuth), func(c *gin.Context) {
-		actor, ok := middleware.GetAuthSubjectFromContext(c)
-		if !ok {
-			middleware.AbortWithError(c, 401, "UNAUTHORIZED", "Authentication required")
-			return
-		}
-		h.BI.AdminRevokeCredential(c, actor.UserID)
-	})
-	credentials.POST("/:credential_id/rotate", gin.HandlerFunc(stepUpAuth), func(c *gin.Context) {
-		actor, ok := middleware.GetAuthSubjectFromContext(c)
-		if !ok {
-			middleware.AbortWithError(c, 401, "UNAUTHORIZED", "Authentication required")
-			return
-		}
-		h.BI.AdminRotateCredential(c, actor.UserID)
-	})
-	imports := biAdmin.Group("/imports")
-	imports.GET("", h.BI.AdminListImports)
-	imports.GET("/:batch_id", h.BI.AdminGetImport)
-	imports.POST("/:batch_id/retry", gin.HandlerFunc(stepUpAuth), func(c *gin.Context) {
-		actor, ok := middleware.GetAuthSubjectFromContext(c)
-		if !ok {
-			middleware.AbortWithError(c, 401, "UNAUTHORIZED", "Authentication required")
-			return
-		}
-		h.BI.AdminRetryImport(c, actor.UserID)
-	})
-	biAdmin.GET("/quality", h.BI.AdminListQuality)
-	reports := biAdmin.Group("/reports")
-	reports.GET("", h.BI.AdminListReports)
-	reports.GET("/:report_id", h.BI.AdminGetReport)
-	reports.POST("/:report_id/retry", gin.HandlerFunc(stepUpAuth), func(c *gin.Context) {
-		actor, ok := middleware.GetAuthSubjectFromContext(c)
-		if !ok {
-			middleware.AbortWithError(c, 401, "UNAUTHORIZED", "Authentication required")
-			return
-		}
-		h.BI.AdminRetryReport(c, actor.UserID)
-	})
-	reports.POST("/:report_id/archive", gin.HandlerFunc(stepUpAuth), func(c *gin.Context) {
-		actor, ok := middleware.GetAuthSubjectFromContext(c)
-		if !ok {
-			middleware.AbortWithError(c, 401, "UNAUTHORIZED", "Authentication required")
-			return
-		}
-		h.BI.AdminArchiveReport(c, actor.UserID)
-	})
-	cleanup := biAdmin.Group("/cleanup")
-	cleanup.GET("", h.BI.AdminCleanupStatus)
-	cleanup.POST("/run", gin.HandlerFunc(stepUpAuth), func(c *gin.Context) {
-		actor, ok := middleware.GetAuthSubjectFromContext(c)
-		if !ok {
-			middleware.AbortWithError(c, 401, "UNAUTHORIZED", "Authentication required")
-			return
-		}
-		h.BI.AdminRunCleanup(c, actor.UserID)
-	})
-	biAdmin.GET("/audit", h.BI.AdminListAudit)
+	registerBIManagement(group.Group("/desktop/organization/bi"), h.BI, stepUp)
+}
+func registerBIAdminRoutes(admin *gin.RouterGroup, h *handler.Handlers, cfg *config.Config, stepUp middleware.StepUpAuthMiddleware) {
+	if cfg == nil || h.BI == nil {
+		return
+	}
+	root := admin.Group("/bi", bi.Boundary, func(c *gin.Context) { c.Set("bi.admin", true); c.Next() }, h.BI.ManagerScope)
+	root.GET("/overview", h.BI.OperationsOverview)
+	if !cfg.BI.Enabled {
+		return
+	}
+	registerBIManagement(root.Group("/organizations/:organization_id"), h.BI, stepUp)
+	root.GET("/organizations", h.BI.OperationsOrganizations)
+	root.GET("/identities/users", h.BI.OperationsUsers)
+	root.GET("/identities/sessions", h.BI.OperationsSessions)
+	root.PUT("/identities/users/:bi_user_id/status", gin.HandlerFunc(stepUp), h.BI.SetUserStatus)
+	root.GET("/report-tasks", h.BI.OperationsTasks)
+	root.GET("/report-tasks/:kind/:task_id", h.BI.OperationsTask)
+	root.GET("/report-tasks/:kind/:task_id/executions", h.BI.OperationsTaskExecutions)
+	root.GET("/report-executions", h.BI.OperationsExecutions)
+	root.GET("/audit", h.BI.OperationsAudit)
+	root.GET("/retention", h.BI.GetRetention)
+	root.PUT("/retention", gin.HandlerFunc(stepUp), h.BI.SaveRetention)
+	root.GET("/cleanup", h.BI.CleanupStatus)
+	root.POST("/cleanup/run", gin.HandlerFunc(stepUp), h.BI.RunCleanup)
 }

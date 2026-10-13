@@ -105,6 +105,16 @@ func ConversationSummaryEnabled(v bool) predicate.DesktopOrganization {
 	return predicate.DesktopOrganization(sql.FieldEQ(FieldConversationSummaryEnabled, v))
 }
 
+// WeeklySummaryEnabled applies equality check predicate on the "weekly_summary_enabled" field. It's identical to WeeklySummaryEnabledEQ.
+func WeeklySummaryEnabled(v bool) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldEQ(FieldWeeklySummaryEnabled, v))
+}
+
+// MonthlySummaryEnabled applies equality check predicate on the "monthly_summary_enabled" field. It's identical to MonthlySummaryEnabledEQ.
+func MonthlySummaryEnabled(v bool) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldEQ(FieldMonthlySummaryEnabled, v))
+}
+
 // AnalysisModel applies equality check predicate on the "analysis_model" field. It's identical to AnalysisModelEQ.
 func AnalysisModel(v string) predicate.DesktopOrganization {
 	return predicate.DesktopOrganization(sql.FieldEQ(FieldAnalysisModel, v))
@@ -578,6 +588,26 @@ func ConversationSummaryEnabledEQ(v bool) predicate.DesktopOrganization {
 // ConversationSummaryEnabledNEQ applies the NEQ predicate on the "conversation_summary_enabled" field.
 func ConversationSummaryEnabledNEQ(v bool) predicate.DesktopOrganization {
 	return predicate.DesktopOrganization(sql.FieldNEQ(FieldConversationSummaryEnabled, v))
+}
+
+// WeeklySummaryEnabledEQ applies the EQ predicate on the "weekly_summary_enabled" field.
+func WeeklySummaryEnabledEQ(v bool) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldEQ(FieldWeeklySummaryEnabled, v))
+}
+
+// WeeklySummaryEnabledNEQ applies the NEQ predicate on the "weekly_summary_enabled" field.
+func WeeklySummaryEnabledNEQ(v bool) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldNEQ(FieldWeeklySummaryEnabled, v))
+}
+
+// MonthlySummaryEnabledEQ applies the EQ predicate on the "monthly_summary_enabled" field.
+func MonthlySummaryEnabledEQ(v bool) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldEQ(FieldMonthlySummaryEnabled, v))
+}
+
+// MonthlySummaryEnabledNEQ applies the NEQ predicate on the "monthly_summary_enabled" field.
+func MonthlySummaryEnabledNEQ(v bool) predicate.DesktopOrganization {
+	return predicate.DesktopOrganization(sql.FieldNEQ(FieldMonthlySummaryEnabled, v))
 }
 
 // AnalysisModelEQ applies the EQ predicate on the "analysis_model" field.

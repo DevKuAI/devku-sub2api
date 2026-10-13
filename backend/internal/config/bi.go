@@ -11,17 +11,15 @@ import (
 
 // BIConfig keeps mini-program credentials separate from web and Desktop identities.
 type BIConfig struct {
-	ReportRetentionMonths int    `mapstructure:"report_retention_months"`
-	Enabled               bool   `mapstructure:"enabled"`
-	AppID                 string `mapstructure:"appid"`
-	AppSecret             string `mapstructure:"app_secret"`
-	JWTSecret             string `mapstructure:"jwt_secret"`
-	IdentitySecret        string `mapstructure:"identity_secret"`
-	MinClientVersion      string `mapstructure:"min_client_version"`
+	Enabled          bool   `mapstructure:"enabled"`
+	AppID            string `mapstructure:"appid"`
+	AppSecret        string `mapstructure:"app_secret"`
+	JWTSecret        string `mapstructure:"jwt_secret"`
+	IdentitySecret   string `mapstructure:"identity_secret"`
+	MinClientVersion string `mapstructure:"min_client_version"`
 }
 
 func setBIDefaults() {
-	viper.SetDefault("bi.report_retention_months", 24)
 	viper.SetDefault("bi.enabled", false)
 	for _, key := range []string{"appid", "app_secret", "jwt_secret", "identity_secret"} {
 		viper.SetDefault("bi."+key, "")
@@ -32,9 +30,6 @@ func setBIDefaults() {
 func (c *Config) validateBI() error {
 	if !c.BI.Enabled {
 		return nil
-	}
-	if c.BI.ReportRetentionMonths < 0 || c.BI.ReportRetentionMonths > 120 {
-		return fmt.Errorf("bi.report_retention_months must be between 1 and 120 (zero uses 24)")
 	}
 	for name, value := range map[string]string{
 		"appid": c.BI.AppID, "app_secret": c.BI.AppSecret, "min_client_version": c.BI.MinClientVersion,

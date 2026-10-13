@@ -35,6 +35,10 @@ const (
 	FieldConversationReportingEnabled = "conversation_reporting_enabled"
 	// FieldConversationSummaryEnabled holds the string denoting the conversation_summary_enabled field in the database.
 	FieldConversationSummaryEnabled = "conversation_summary_enabled"
+	// FieldWeeklySummaryEnabled holds the string denoting the weekly_summary_enabled field in the database.
+	FieldWeeklySummaryEnabled = "weekly_summary_enabled"
+	// FieldMonthlySummaryEnabled holds the string denoting the monthly_summary_enabled field in the database.
+	FieldMonthlySummaryEnabled = "monthly_summary_enabled"
 	// FieldAnalysisModel holds the string denoting the analysis_model field in the database.
 	FieldAnalysisModel = "analysis_model"
 	// FieldSummaryEnabledAt holds the string denoting the summary_enabled_at field in the database.
@@ -93,6 +97,8 @@ var Columns = []string{
 	FieldMemberLimit,
 	FieldConversationReportingEnabled,
 	FieldConversationSummaryEnabled,
+	FieldWeeklySummaryEnabled,
+	FieldMonthlySummaryEnabled,
 	FieldAnalysisModel,
 	FieldSummaryEnabledAt,
 	FieldAuthVersion,
@@ -144,6 +150,10 @@ var (
 	DefaultConversationReportingEnabled bool
 	// DefaultConversationSummaryEnabled holds the default value on creation for the "conversation_summary_enabled" field.
 	DefaultConversationSummaryEnabled bool
+	// DefaultWeeklySummaryEnabled holds the default value on creation for the "weekly_summary_enabled" field.
+	DefaultWeeklySummaryEnabled bool
+	// DefaultMonthlySummaryEnabled holds the default value on creation for the "monthly_summary_enabled" field.
+	DefaultMonthlySummaryEnabled bool
 	// DefaultAnalysisModel holds the default value on creation for the "analysis_model" field.
 	DefaultAnalysisModel string
 	// AnalysisModelValidator is a validator for the "analysis_model" field. It is called by the builders before save.
@@ -210,6 +220,16 @@ func ByConversationReportingEnabled(opts ...sql.OrderTermOption) OrderOption {
 // ByConversationSummaryEnabled orders the results by the conversation_summary_enabled field.
 func ByConversationSummaryEnabled(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldConversationSummaryEnabled, opts...).ToFunc()
+}
+
+// ByWeeklySummaryEnabled orders the results by the weekly_summary_enabled field.
+func ByWeeklySummaryEnabled(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldWeeklySummaryEnabled, opts...).ToFunc()
+}
+
+// ByMonthlySummaryEnabled orders the results by the monthly_summary_enabled field.
+func ByMonthlySummaryEnabled(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldMonthlySummaryEnabled, opts...).ToFunc()
 }
 
 // ByAnalysisModel orders the results by the analysis_model field.

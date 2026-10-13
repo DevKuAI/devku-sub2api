@@ -41,6 +41,10 @@ type DesktopOrganization struct {
 	ConversationReportingEnabled bool `json:"conversation_reporting_enabled,omitempty"`
 	// ConversationSummaryEnabled holds the value of the "conversation_summary_enabled" field.
 	ConversationSummaryEnabled bool `json:"conversation_summary_enabled,omitempty"`
+	// WeeklySummaryEnabled holds the value of the "weekly_summary_enabled" field.
+	WeeklySummaryEnabled bool `json:"weekly_summary_enabled,omitempty"`
+	// MonthlySummaryEnabled holds the value of the "monthly_summary_enabled" field.
+	MonthlySummaryEnabled bool `json:"monthly_summary_enabled,omitempty"`
 	// AnalysisModel holds the value of the "analysis_model" field.
 	AnalysisModel string `json:"analysis_model,omitempty"`
 	// SummaryEnabledAt holds the value of the "summary_enabled_at" field.
@@ -112,7 +116,7 @@ func (*DesktopOrganization) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case desktoporganization.FieldManagementPolicy, desktoporganization.FieldTargetConfig:
 			values[i] = new([]byte)
-		case desktoporganization.FieldConversationReportingEnabled, desktoporganization.FieldConversationSummaryEnabled:
+		case desktoporganization.FieldConversationReportingEnabled, desktoporganization.FieldConversationSummaryEnabled, desktoporganization.FieldWeeklySummaryEnabled, desktoporganization.FieldMonthlySummaryEnabled:
 			values[i] = new(sql.NullBool)
 		case desktoporganization.FieldID, desktoporganization.FieldMemberLimit, desktoporganization.FieldAuthVersion, desktoporganization.FieldGatewayUserID, desktoporganization.FieldGroupID:
 			values[i] = new(sql.NullInt64)
@@ -201,6 +205,18 @@ func (_m *DesktopOrganization) assignValues(columns []string, values []any) erro
 				return fmt.Errorf("unexpected type %T for field conversation_summary_enabled", values[i])
 			} else if value.Valid {
 				_m.ConversationSummaryEnabled = value.Bool
+			}
+		case desktoporganization.FieldWeeklySummaryEnabled:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field weekly_summary_enabled", values[i])
+			} else if value.Valid {
+				_m.WeeklySummaryEnabled = value.Bool
+			}
+		case desktoporganization.FieldMonthlySummaryEnabled:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field monthly_summary_enabled", values[i])
+			} else if value.Valid {
+				_m.MonthlySummaryEnabled = value.Bool
 			}
 		case desktoporganization.FieldAnalysisModel:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -331,6 +347,12 @@ func (_m *DesktopOrganization) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("conversation_summary_enabled=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ConversationSummaryEnabled))
+	builder.WriteString(", ")
+	builder.WriteString("weekly_summary_enabled=")
+	builder.WriteString(fmt.Sprintf("%v", _m.WeeklySummaryEnabled))
+	builder.WriteString(", ")
+	builder.WriteString("monthly_summary_enabled=")
+	builder.WriteString(fmt.Sprintf("%v", _m.MonthlySummaryEnabled))
 	builder.WriteString(", ")
 	builder.WriteString("analysis_model=")
 	builder.WriteString(_m.AnalysisModel)

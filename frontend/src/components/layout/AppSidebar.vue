@@ -203,7 +203,6 @@ import { resolveSiteBillingMode } from '@/utils/siteBillingMode'
 import { useBatchImageAccess } from '@/composables/useBatchImageAccess'
 import { useDesktopOrganizationAccess } from '@/composables/useDesktopOrganizationAccess'
 import { useSubscriptionAccountAccess } from '@/composables/useSubscriptionAccountAccess'
-import { adminAPI } from '@/api/admin'
 
 interface NavItem {
   path: string
@@ -1036,16 +1035,7 @@ watch(
   { immediate: true }
 )
 
-watch(
-  [isAdmin, () => adminSettingsStore.opsMonitoringEnabled],
-  ([admin, opsEnabled]) => {
-    biEnabled.value = false
-    if (admin && !opsEnabled) {
-      void adminAPI.bi.getOverview().then(() => { biEnabled.value = true }).catch(() => { biEnabled.value = false })
-    }
-  },
-  { immediate: true }
-)
+watch(isAdmin, (admin) => { biEnabled.value = admin }, { immediate: true })
 
 function refreshOrganizationOnFocus() {
   if (authStore.user?.id && flagDesktop()) void refreshDesktopOrganizationAccess(true)

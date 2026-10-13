@@ -141,8 +141,6 @@ bi:
   # Publish the privacy notice in Admin Settings > Login agreement.
   # Set its independent HTTPS site URL there; the app appends /legal/bi-privacy.
   min_client_version: "0.1.0"
-  # Calendar months; confirm the retention policy before enabling production BI.
-  report_retention_months: 24
 
 # =============================================================================
 # Desktop Update Artifact Storage (Aliyun OSS through its S3-compatible API)

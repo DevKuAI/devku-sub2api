@@ -1044,6 +1044,8 @@ var (
 		{Name: "member_limit", Type: field.TypeInt, Default: 10},
 		{Name: "conversation_reporting_enabled", Type: field.TypeBool, Default: false},
 		{Name: "conversation_summary_enabled", Type: field.TypeBool, Default: false},
+		{Name: "weekly_summary_enabled", Type: field.TypeBool, Default: false},
+		{Name: "monthly_summary_enabled", Type: field.TypeBool, Default: false},
 		{Name: "analysis_model", Type: field.TypeString, Size: 200, Default: ""},
 		{Name: "summary_enabled_at", Type: field.TypeTime, Nullable: true},
 		{Name: "auth_version", Type: field.TypeInt64, Default: 1},
@@ -1060,13 +1062,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "desktop_organizations_groups_desktop_organizations",
-				Columns:    []*schema.Column{DesktopOrganizationsColumns[16]},
+				Columns:    []*schema.Column{DesktopOrganizationsColumns[18]},
 				RefColumns: []*schema.Column{GroupsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "desktop_organizations_users_desktop_organizations",
-				Columns:    []*schema.Column{DesktopOrganizationsColumns[17]},
+				Columns:    []*schema.Column{DesktopOrganizationsColumns[19]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -1083,7 +1085,7 @@ var (
 			{
 				Name:    "idx_desktop_organizations_gateway_user_active",
 				Unique:  true,
-				Columns: []*schema.Column{DesktopOrganizationsColumns[17]},
+				Columns: []*schema.Column{DesktopOrganizationsColumns[19]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "deleted_at IS NULL",
 				},
@@ -1091,7 +1093,7 @@ var (
 			{
 				Name:    "idx_desktop_organizations_group_active",
 				Unique:  false,
-				Columns: []*schema.Column{DesktopOrganizationsColumns[16]},
+				Columns: []*schema.Column{DesktopOrganizationsColumns[18]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "deleted_at IS NULL",
 				},

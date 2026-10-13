@@ -98,7 +98,7 @@ function mountView() {
         DesktopAnalyticsRangePicker: true,
         DesktopConversationStatistics: true,
         DesktopConversationRecords: true,
-        DesktopDailyReports: true,
+        DesktopPeriodReports: true,
         Pagination: true,
         BaseDialog: true,
         ConfirmDialog: true,
@@ -122,7 +122,7 @@ function mountManagedView() {
         DesktopAnalyticsRangePicker: true,
         DesktopConversationStatistics: true,
         DesktopConversationRecords: true,
-        DesktopDailyReports: true,
+        DesktopPeriodReports: true,
         Pagination: true,
         BaseDialog: true,
         ConfirmDialog: true,
@@ -172,12 +172,12 @@ describe('DesktopOrganizationDetailView', () => {
     route.query.tab = 'members'
   })
 
-  it('links the organization grant page to its BI source setup', async () => {
+  it('links organization access management to native BI operations', async () => {
     route.query.tab = 'grants'
     const wrapper = mountView()
     await flushPromises()
-    await wrapper.findAll('button').find(button => button.text() === '配置数据源')!.trigger('click')
-    expect(router.push).toHaveBeenCalledWith({ path: '/admin/bi', query: { tab: 'sources', organization_id: 'org_one' } })
+    await wrapper.findAll('button').find(button => button.text() === 'nav.biOperations')!.trigger('click')
+    expect(router.push).toHaveBeenCalledWith('/admin/bi')
     wrapper.unmount()
   })
 
@@ -272,7 +272,7 @@ describe('DesktopOrganizationDetailView', () => {
   })
 
   it('keeps billing decimals valid and enforces whole-day retention periods in the edit form', async () => {
-    const wrapper = mount(DesktopOrganizationDetailView, { global: { stubs: { AppLayout: { template: '<main><slot /></main>' }, DataTable: true, DesktopOrganizationUsageStatistics: true, DesktopAnalyticsRangePicker: true, DesktopConversationStatistics: true, DesktopConversationRecords: true, DesktopDailyReports: true, BaseDialog: { props: ['show'], template: '<section v-if="show"><slot /></section>' }, ConfirmDialog: true, Select: true, Input: true } } })
+    const wrapper = mount(DesktopOrganizationDetailView, { global: { stubs: { AppLayout: { template: '<main><slot /></main>' }, DataTable: true, DesktopOrganizationUsageStatistics: true, DesktopAnalyticsRangePicker: true, DesktopConversationStatistics: true, DesktopConversationRecords: true, DesktopPeriodReports: true, BaseDialog: { props: ['show'], template: '<section v-if="show"><slot /></section>' }, ConfirmDialog: true, Select: true, Input: true } } })
     await flushPromises()
     await (wrapper.vm as any).openEditOrganization(); await flushPromises()
     const budget = wrapper.get('#desktop-edit-analysis-limit')
@@ -775,7 +775,7 @@ describe('DesktopOrganizationDetailView', () => {
     await vm.saveOrganization()
 
     expect(desktopAPI.updateOrganization).toHaveBeenCalledWith('org_one', {
-      name: organization.name, status: 'active', member_limit: 25, conversation_reporting_enabled: false, conversation_summary_enabled: false, analysis_model: '',
+      name: organization.name, status: 'active', member_limit: 25, conversation_reporting_enabled: false, conversation_summary_enabled: false, weekly_summary_enabled: false, monthly_summary_enabled: false, analysis_model: '',
     })
     expect(wrapper.text()).toContain('1 / 25')
     wrapper.unmount()
@@ -939,12 +939,12 @@ describe('associated user report visibility', () => {
     const wrapper = mountManagedView()
     await flushPromises()
     expect(wrapper.find('#desktop-organization-tab-reports').exists()).toBe(true)
-    expect(wrapper.find('desktop-daily-reports-stub').exists()).toBe(true)
+    expect(wrapper.find('desktop-period-reports-stub').exists()).toBe(true)
     managedDesktopAPI.getOrganization.mockResolvedValue({ ...organization, conversation_summary_enabled: false, analysis_model: 'analysis-model' })
     await (wrapper.vm as any).loadOrganization()
     await flushPromises()
     expect(wrapper.find('#desktop-organization-tab-reports').exists()).toBe(false)
-    expect(wrapper.find('desktop-daily-reports-stub').exists()).toBe(false)
+    expect(wrapper.find('desktop-period-reports-stub').exists()).toBe(false)
     expect(router.replace).toHaveBeenCalledWith({ query: { tab: 'usage' } })
     wrapper.unmount()
   })

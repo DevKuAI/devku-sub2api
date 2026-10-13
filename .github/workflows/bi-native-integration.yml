@@ -1,0 +1,30 @@
+name: BI Native Integration
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'backend/internal/bi/**'
+      - 'backend/internal/**/desktop*'
+      - 'backend/migrations/**'
+      - 'docs/mobile-bi/**'
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - name: Independent identity and Desktop integration
+        working-directory: backend
+        run: go test -tags=integration ./internal/bi ./internal/repository -run 'Independent|OperationsMetadata|Desktop.*(Native|Period|Report)|BIUpgrade' -count=1 -timeout=25m
+      - name: Native protocol and period unit tests
+        working-directory: backend
+        run: go test -tags=unit ./internal/server/routes ./internal/service -run 'BI|DesktopPeriod' -count=1

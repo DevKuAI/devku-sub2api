@@ -1,7 +1,6 @@
 package bi
 
 import (
-	"errors"
 	"net/http"
 )
 
@@ -29,9 +28,6 @@ var (
 	ErrUnauthenticated = apiError(http.StatusUnauthorized, "UNAUTHENTICATED", "Session is invalid or expired")
 	ErrForbidden       = apiError(http.StatusForbidden, "FORBIDDEN", "Permission denied")
 	ErrNotFound        = apiError(http.StatusNotFound, "NOT_FOUND", "Resource not found")
-	ErrBindingConflict = apiError(http.StatusConflict, "BINDING_CONFLICT", "The WeChat identity is already bound")
-	ErrBindingExpired  = apiError(http.StatusGone, "BINDING_EXPIRED", "Binding challenge is expired or revoked")
-	ErrPendingBinding  = errors.New("binding awaits account approval")
 )
 
 func invalid(field, reason string) *Error {

@@ -1,48 +1,1029 @@
 {
-  "openapi": "3.1.0",
+  "openapi": "3.0.3",
   "info": {
-    "title": "得酷 BI 原站授权管理 API",
-    "version": "1.1.0",
-    "description": "API v1.1.0 的 29 个原站授权与运维操作。bi.enabled=true 时注册，复用原站管理员认证、审计、合规确认及面板限流。与 openapi.yaml 的 59 个小程序/采集操作分别导入。当前已本地实现，尚未完成真实环境验收。"
+    "title": "BI 运维与平台企业授权",
+    "version": "2.0.0",
+    "description": "Desktop 原生数据与独立微信身份。未接入的 BI 功能不提供旧接口。"
   },
   "servers": [
     {
-      "url": "/"
-    }
-  ],
-  "security": [
-    {
-      "AdminBearer": []
-    },
-    {
-      "AdminAPIKey": []
-    }
-  ],
-  "tags": [
-    {
-      "name": "企业授权"
+      "url": "http://127.0.0.1:8080",
+      "description": "本地联调；替换为部署站点"
     }
   ],
   "paths": {
-    "/api/v1/admin/bi/organizations/{organization_id}/grants": {
-      "parameters": [
-        {
-          "name": "organization_id",
-          "in": "path",
+    "/api/v1/admin/bi/organizations/{organization_id}/invitations": {
+      "get": {
+        "operationId": "adminListInvitations",
+        "summary": "adminListInvitations",
+        "security": [
+          {
+            "WebBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/InvitationPage"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "登录失效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "无功能权限或企业功能未启用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "不可用，不泄露对象信息",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "版本冲突",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务或数据不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "adminCreateInvitation",
+        "summary": "adminCreateInvitation",
+        "security": [
+          {
+            "WebBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/IssuedInvitation"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "登录失效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "无功能权限或企业功能未启用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "不可用，不泄露对象信息",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "版本冲突",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务或数据不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "需要原站管理员验证"
+          }
+        },
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
           "required": true,
-          "description": "现有 Desktop 企业 public_id。",
-          "schema": {
-            "$ref": "#/components/schemas/Id"
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "capabilities": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/Capability"
+                    }
+                  },
+                  "note": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "capabilities"
+                ]
+              }
+            }
+          }
+        },
+        "x-step-up-required": true
+      }
+    },
+    "/api/v1/admin/bi/organizations/{organization_id}/invitations/{invitation_id}/revoke": {
+      "post": {
+        "operationId": "adminRevokeInvitation",
+        "summary": "adminRevokeInvitation",
+        "security": [
+          {
+            "WebBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Ok"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "登录失效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "无功能权限或企业功能未启用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "不可用，不泄露对象信息",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "版本冲突",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务或数据不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "需要原站管理员验证"
+          }
+        },
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "invitation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {}
+              }
+            }
+          }
+        },
+        "x-step-up-required": true
+      }
+    },
+    "/api/v1/admin/bi/organizations/{organization_id}/users": {
+      "get": {
+        "operationId": "adminListAccess",
+        "summary": "adminListAccess",
+        "security": [
+          {
+            "WebBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/AccessManagementPage"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "登录失效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "无功能权限或企业功能未启用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "不可用，不泄露对象信息",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "版本冲突",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务或数据不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/bi/organizations/{organization_id}/users/{bi_user_id}/access": {
+      "put": {
+        "operationId": "adminUpdateAccess",
+        "summary": "adminUpdateAccess",
+        "security": [
+          {
+            "WebBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Access"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "登录失效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "无功能权限或企业功能未启用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "不可用，不泄露对象信息",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "版本冲突",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务或数据不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "需要原站管理员验证"
+          }
+        },
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "bi_user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "capabilities": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/Capability"
+                    }
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "active",
+                      "revoked"
+                    ]
+                  },
+                  "expected_revision": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "capabilities",
+                  "status",
+                  "expected_revision"
+                ]
+              }
+            }
+          }
+        },
+        "x-step-up-required": true
+      }
+    },
+    "/api/v1/admin/bi/overview": {
+      "get": {
+        "operationId": "getBIOperationsOverview",
+        "summary": "getBIOperationsOverview",
+        "security": [
+          {
+            "WebBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Overview"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "登录失效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "无功能权限或企业功能未启用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "不可用，不泄露对象信息",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "版本冲突",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务或数据不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
-      ],
+      }
+    },
+    "/api/v1/admin/bi/organizations": {
       "get": {
-        "operationId": "listBIManagerGrants",
-        "tags": [
-          "企业授权"
+        "operationId": "listBIOperationsOrganizations",
+        "summary": "listBIOperationsOrganizations",
+        "security": [
+          {
+            "WebBearer": []
+          }
         ],
-        "summary": "读取企业 BI 管理授权",
-        "description": "固定每页 50 条，按 manager_id 排序，包含已撤销授权。尚未建立 BI 映射的企业返回空列表，此结果不证明 Desktop 企业存在。",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/OperationsOrganizationPage"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "登录失效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "无功能权限或企业功能未启用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "不可用，不泄露对象信息",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "版本冲突",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务或数据不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/bi/identities/users": {
+      "get": {
+        "operationId": "listBIUsers",
+        "summary": "listBIUsers",
+        "security": [
+          {
+            "WebBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/UserPage"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "登录失效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "无功能权限或企业功能未启用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "不可用，不泄露对象信息",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "版本冲突",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务或数据不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
         "parameters": [
           {
             "name": "page",
@@ -53,548 +1034,10 @@
               "maximum": 100000,
               "default": 1
             }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "成功；保持原站响应 envelope。",
-            "headers": {
-              "X-Request-ID": {
-                "description": "到达 BI handler 后提供的诊断 ID。",
-                "schema": {
-                  "type": "string"
-                }
-              },
-              "Cache-Control": {
-                "description": "到达 BI handler 后为 private, no-store。",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GrantListResponse"
-                },
-                "example": {
-                  "code": 0,
-                  "message": "success",
-                  "data": {
-                    "items": [
-                      {
-                        "manager_id": "bim_test",
-                        "user_id": 12,
-                        "display_name": "测试管理者",
-                        "role": "viewer",
-                        "all_teams": false,
-                        "team_ids": [
-                          "hr:team-a"
-                        ],
-                        "capabilities": [
-                          "analytics:read"
-                        ],
-                        "revision": 1,
-                        "revoked": false
-                      }
-                    ],
-                    "page": 1,
-                    "has_more": false,
-                    "capabilities": [
-                      "analytics:read",
-                      "knowledge:read",
-                      "sources:read",
-                      "evaluations:read",
-                      "members:read",
-                      "reports:read",
-                      "reports:create",
-                      "reports:copy",
-                      "reports:share"
-                    ]
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "请求参数或 JSON 不合法",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "原站认证失败，或目标账号已停用/删除",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "需要原站管理员身份",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "企业或授权对象不存在；BI 未启用时路由不注册",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "423": {
-            "description": "需先完成原站管理员合规确认",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "原站面板限流",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "服务内部错误",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "operationId": "saveBIManagerGrant",
-        "tags": [
-          "企业授权"
-        ],
-        "summary": "新建或更新显式 BI 授权",
-        "description": "目标原站账号须有效，Desktop 企业须 active。首次保存同时建立 BI 企业映射；角色名称不自动授予 capability。team_ids 和 capabilities 去重排序；all_teams=true 时 team_ids 必须为空。expected_revision 冲突返回 409。JSON 正文上限 8 KiB。",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SaveGrant"
-              },
-              "example": {
-                "user_id": 12,
-                "role": "viewer",
-                "all_teams": false,
-                "team_ids": [
-                  "hr:team-a"
-                ],
-                "capabilities": [
-                  "analytics:read"
-                ],
-                "expected_revision": 0
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "成功；保持原站响应 envelope。",
-            "headers": {
-              "X-Request-ID": {
-                "description": "到达 BI handler 后提供的诊断 ID。",
-                "schema": {
-                  "type": "string"
-                }
-              },
-              "Cache-Control": {
-                "description": "到达 BI handler 后为 private, no-store。",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GrantResponse"
-                },
-                "example": {
-                  "code": 0,
-                  "message": "success",
-                  "data": {
-                    "manager_id": "bim_test",
-                    "user_id": 12,
-                    "display_name": "测试管理者",
-                    "role": "viewer",
-                    "all_teams": false,
-                    "team_ids": [
-                      "hr:team-a"
-                    ],
-                    "capabilities": [
-                      "analytics:read"
-                    ],
-                    "revision": 1,
-                    "revoked": false
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "请求参数或 JSON 不合法",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "原站认证失败，或目标账号已停用/删除",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "需要原站管理员身份",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "企业或授权对象不存在；BI 未启用时路由不注册",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "授权 revision 已变化，重新读取后再提交",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "BI 请求正文超过 8 KiB",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "423": {
-            "description": "需先完成原站管理员合规确认",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "原站面板限流",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "服务内部错误",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/bi/organizations/{organization_id}/grants/{manager_id}/revoke": {
-      "parameters": [
-        {
-          "name": "organization_id",
-          "in": "path",
-          "required": true,
-          "description": "现有 Desktop 企业 public_id。",
-          "schema": {
-            "$ref": "#/components/schemas/Id"
-          }
-        },
-        {
-          "name": "manager_id",
-          "in": "path",
-          "required": true,
-          "description": "列表返回的 BI manager_id，不是原站数字 user_id。",
-          "schema": {
-            "$ref": "#/components/schemas/Id"
-          }
-        }
-      ],
-      "post": {
-        "operationId": "revokeBIManagerGrant",
-        "tags": [
-          "企业授权"
-        ],
-        "summary": "撤销企业 BI 管理授权",
-        "description": "发送当前 revision；撤销后 revision 增加，旧 Context/报告/分享重新校验权限。已撤销且 revision 仍匹配时返回成功；旧 revision 仍返回 409。JSON 正文上限 8 KiB。",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RevokeGrant"
-              },
-              "example": {
-                "expected_revision": 1
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "成功；保持原站响应 envelope。",
-            "headers": {
-              "X-Request-ID": {
-                "description": "到达 BI handler 后提供的诊断 ID。",
-                "schema": {
-                  "type": "string"
-                }
-              },
-              "Cache-Control": {
-                "description": "到达 BI handler 后为 private, no-store。",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RevokeGrantResponse"
-                },
-                "example": {
-                  "code": 0,
-                  "message": "success",
-                  "data": {
-                    "revoked": true
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "请求参数或 JSON 不合法",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "原站认证失败，或目标账号已停用/删除",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "需要原站管理员身份",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "企业或授权对象不存在；BI 未启用时路由不注册",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "授权 revision 已变化，重新读取后再提交",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "BI 请求正文超过 8 KiB",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "423": {
-            "description": "需先完成原站管理员合规确认",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "原站面板限流",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "服务内部错误",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/bi/organizations/{organization_id}/grants/{manager_id}/bindings/approve": {
-      "parameters": [
-        {
-          "name": "organization_id",
-          "in": "path",
-          "required": true,
-          "description": "现有 Desktop 企业 public_id。",
-          "schema": { "$ref": "#/components/schemas/Id" }
-        },
-        {
-          "name": "manager_id",
-          "in": "path",
-          "required": true,
-          "description": "本企业有效授权返回的 BI manager_id。",
-          "schema": { "$ref": "#/components/schemas/Id" }
-        }
-      ],
-      "post": {
-        "operationId": "approveBIGrantBinding",
-        "tags": ["企业授权"],
-        "summary": "管理员为已授权账号确认小程序微信绑定",
-        "description": "管理员完成 step-up 后，输入目标用户小程序显示的 8 位绑定码并显式确认。目标账号必须启用，且在本企业有有效授权；绑定不会新增或扩大企业权限。操作记录管理员、目标账号和企业。绑定码默认 10 分钟有效。",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": { "$ref": "#/components/schemas/AdminApproveBinding" },
-              "example": { "user_code": "ABCD1234", "confirm_binding": true }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "绑定已审批，小程序仍需使用原票据和新的微信 code 兑换会话。",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/AdminApproveBindingResponse" },
-                "example": { "code": 0, "message": "success", "data": { "approved": true } }
-              }
-            }
-          },
-          "400": { "description": "绑定码或确认参数不合法", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
-          "401": { "description": "管理员认证失败或目标账号不可用", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
-          "403": { "description": "需要管理员身份或 step-up 校验", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
-          "404": { "description": "本企业无此有效授权", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
-          "409": { "description": "该微信身份已绑定其他账号", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
-          "410": { "description": "绑定码过期或已撤销", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
-        }
-      }
-    },
-    "/api/v1/admin/bi/overview": {
-      "get": {
-        "operationId": "getBIMaintenanceOverview",
-        "tags": [
-          "BI 运维"
-        ],
-        "summary": "getBIMaintenanceOverview",
-        "description": "Local BI operations endpoint. Mutating requests require the existing admin step-up policy.",
-        "x-implementation-status": "implemented-local",
-        "parameters": [
-          {
-            "name": "page",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 1
-            }
           },
           {
             "name": "page_size",
             "in": "query",
-            "required": false,
             "schema": {
               "type": "integer",
               "minimum": 1,
@@ -602,2513 +1045,48 @@
               "default": 20
             }
           }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful BI operations response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIMaintenanceResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Permission denied",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "423": {
-            "description": "Step-up authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/bi/retention": {
-      "get": {
-        "operationId": "getBIRetentionPolicy",
-        "tags": [
-          "BI 运维"
-        ],
-        "summary": "getBIRetentionPolicy",
-        "description": "Local BI operations endpoint. Mutating requests require the existing admin step-up policy.",
-        "x-implementation-status": "implemented-local",
-        "parameters": [
-          {
-            "name": "page",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 1
-            }
-          },
-          {
-            "name": "page_size",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 20
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful BI operations response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIMaintenanceResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Permission denied",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "423": {
-            "description": "Step-up authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "operationId": "updateBIRetentionPolicy",
-        "tags": [
-          "BI 运维"
-        ],
-        "summary": "updateBIRetentionPolicy",
-        "description": "Local BI operations endpoint. Mutating requests require the existing admin step-up policy.",
-        "x-implementation-status": "implemented-local",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AdminBIRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful BI operations response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIMaintenanceResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Permission denied",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "423": {
-            "description": "Step-up authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/bi/identities/bindings": {
-      "get": {
-        "operationId": "listBIBindings",
-        "tags": [
-          "BI 运维"
-        ],
-        "summary": "listBIBindings",
-        "description": "Local BI operations endpoint. Mutating requests require the existing admin step-up policy.",
-        "x-implementation-status": "implemented-local",
-        "parameters": [
-          {
-            "name": "page",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 1
-            }
-          },
-          {
-            "name": "page_size",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 20
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful BI operations response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIMaintenanceResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Permission denied",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "423": {
-            "description": "Step-up authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/bi/identities/challenges": {
-      "get": {
-        "operationId": "listBIChallenges",
-        "tags": [
-          "BI 运维"
-        ],
-        "summary": "listBIChallenges",
-        "description": "Local BI operations endpoint. Mutating requests require the existing admin step-up policy.",
-        "x-implementation-status": "implemented-local",
-        "parameters": [
-          {
-            "name": "page",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 1
-            }
-          },
-          {
-            "name": "page_size",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 20
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful BI operations response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIMaintenanceResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Permission denied",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "423": {
-            "description": "Step-up authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          }
-        }
+        ]
       }
     },
     "/api/v1/admin/bi/identities/sessions": {
       "get": {
         "operationId": "listBISessions",
-        "tags": [
-          "BI 运维"
-        ],
         "summary": "listBISessions",
-        "description": "Local BI operations endpoint. Mutating requests require the existing admin step-up policy.",
-        "x-implementation-status": "implemented-local",
-        "parameters": [
+        "security": [
           {
-            "name": "page",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 1
-            }
-          },
-          {
-            "name": "page_size",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 20
-            }
+            "WebBearer": []
           }
         ],
         "responses": {
           "200": {
-            "description": "Successful BI operations response",
+            "description": "成功",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AdminBIMaintenanceResponse"
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/OperationSessionPage"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
                 }
               }
             }
           },
           "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Permission denied",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "423": {
-            "description": "Step-up authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/bi/identities/bindings/{binding_id}/revoke": {
-      "post": {
-        "operationId": "revokeBIBinding",
-        "tags": [
-          "BI 运维"
-        ],
-        "summary": "revokeBIBinding",
-        "description": "Local BI operations endpoint. Mutating requests require the existing admin step-up policy.",
-        "x-implementation-status": "implemented-local",
-        "parameters": [
-          {
-            "name": "binding_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AdminBIRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful BI operations response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIMaintenanceResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Permission denied",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "423": {
-            "description": "Step-up authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/bi/sources": {
-      "get": {
-        "operationId": "listBISources",
-        "tags": [
-          "BI 运维"
-        ],
-        "summary": "listBISources",
-        "description": "Local BI operations endpoint. Mutating requests require the existing admin step-up policy.",
-        "x-implementation-status": "implemented-local",
-        "parameters": [
-          {
-            "name": "page",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 1
-            }
-          },
-          {
-            "name": "page_size",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 20
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful BI operations response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIMaintenanceResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Permission denied",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "423": {
-            "description": "Step-up authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "operationId": "issueBICredential",
-        "tags": [
-          "BI 运维"
-        ],
-        "summary": "issueBICredential",
-        "description": "Local BI operations endpoint. Mutating requests require the existing admin step-up policy.",
-        "x-implementation-status": "implemented-local",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AdminBIRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful BI operations response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIMaintenanceResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Permission denied",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "423": {
-            "description": "Step-up authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/bi/sources/{source_id}/credentials": {
-      "get": {
-        "operationId": "listBICredentials",
-        "tags": [
-          "BI 运维"
-        ],
-        "summary": "listBICredentials",
-        "description": "Local BI operations endpoint. Mutating requests require the existing admin step-up policy.",
-        "x-implementation-status": "implemented-local",
-        "parameters": [
-          {
-            "name": "source_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful BI operations response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIMaintenanceResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Permission denied",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "423": {
-            "description": "Step-up authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "operationId": "issueBISourceCredential",
-        "tags": [
-          "BI 运维"
-        ],
-        "summary": "issueBISourceCredential",
-        "description": "Local BI operations endpoint. Mutating requests require the existing admin step-up policy.",
-        "x-implementation-status": "implemented-local",
-        "parameters": [
-          {
-            "name": "source_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AdminBIRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful BI operations response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIMaintenanceResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Permission denied",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "423": {
-            "description": "Step-up authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/bi/credentials/{credential_id}/revoke": {
-      "post": {
-        "operationId": "revokeBICredential",
-        "tags": [
-          "BI 运维"
-        ],
-        "summary": "revokeBICredential",
-        "description": "Local BI operations endpoint. Mutating requests require the existing admin step-up policy.",
-        "x-implementation-status": "implemented-local",
-        "parameters": [
-          {
-            "name": "credential_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AdminBIRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful BI operations response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIMaintenanceResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Permission denied",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "423": {
-            "description": "Step-up authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/bi/credentials/{credential_id}/rotate": {
-      "post": {
-        "operationId": "rotateBICredential",
-        "tags": [
-          "BI 运维"
-        ],
-        "summary": "rotateBICredential",
-        "description": "Local BI operations endpoint. Mutating requests require the existing admin step-up policy.",
-        "x-implementation-status": "implemented-local",
-        "parameters": [
-          {
-            "name": "credential_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AdminBIRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful BI operations response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIMaintenanceResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Permission denied",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "423": {
-            "description": "Step-up authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/bi/imports": {
-      "get": {
-        "operationId": "listBIImports",
-        "tags": [
-          "BI 运维"
-        ],
-        "summary": "listBIImports",
-        "description": "Local BI operations endpoint. Mutating requests require the existing admin step-up policy.",
-        "x-implementation-status": "implemented-local",
-        "parameters": [
-          {
-            "name": "page",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 1
-            }
-          },
-          {
-            "name": "page_size",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 20
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful BI operations response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIMaintenanceResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Permission denied",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "423": {
-            "description": "Step-up authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/bi/imports/{batch_id}": {
-      "get": {
-        "operationId": "getBIImport",
-        "tags": [
-          "BI 运维"
-        ],
-        "summary": "getBIImport",
-        "description": "Local BI operations endpoint. Mutating requests require the existing admin step-up policy.",
-        "x-implementation-status": "implemented-local",
-        "parameters": [
-          {
-            "name": "batch_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "page",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 1
-            }
-          },
-          {
-            "name": "page_size",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 20
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful BI operations response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIMaintenanceResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Permission denied",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "423": {
-            "description": "Step-up authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/bi/imports/{batch_id}/retry": {
-      "post": {
-        "operationId": "retryBIImport",
-        "tags": [
-          "BI 运维"
-        ],
-        "summary": "retryBIImport",
-        "description": "Local BI operations endpoint. Mutating requests require the existing admin step-up policy.",
-        "x-implementation-status": "implemented-local",
-        "parameters": [
-          {
-            "name": "batch_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AdminBIRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful BI operations response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIMaintenanceResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Permission denied",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "423": {
-            "description": "Step-up authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/bi/quality": {
-      "get": {
-        "operationId": "listBIQuality",
-        "tags": [
-          "BI 运维"
-        ],
-        "summary": "listBIQuality",
-        "description": "Local BI operations endpoint. Mutating requests require the existing admin step-up policy.",
-        "x-implementation-status": "implemented-local",
-        "parameters": [
-          {
-            "name": "page",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 1
-            }
-          },
-          {
-            "name": "page_size",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 20
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful BI operations response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIMaintenanceResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Permission denied",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "423": {
-            "description": "Step-up authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/bi/reports": {
-      "get": {
-        "operationId": "listBIReports",
-        "tags": [
-          "BI 运维"
-        ],
-        "summary": "listBIReports",
-        "description": "Local BI operations endpoint. Mutating requests require the existing admin step-up policy.",
-        "x-implementation-status": "implemented-local",
-        "parameters": [
-          {
-            "name": "page",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 1
-            }
-          },
-          {
-            "name": "page_size",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 20
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful BI operations response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIMaintenanceResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Permission denied",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "423": {
-            "description": "Step-up authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/bi/reports/{report_id}": {
-      "get": {
-        "operationId": "getBIReport",
-        "tags": [
-          "BI 运维"
-        ],
-        "summary": "getBIReport",
-        "description": "Local BI operations endpoint. Mutating requests require the existing admin step-up policy.",
-        "x-implementation-status": "implemented-local",
-        "parameters": [
-          {
-            "name": "report_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "page",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 1
-            }
-          },
-          {
-            "name": "page_size",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 20
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful BI operations response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIMaintenanceResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Permission denied",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "423": {
-            "description": "Step-up authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/bi/reports/{report_id}/retry": {
-      "post": {
-        "operationId": "retryBIReport",
-        "tags": [
-          "BI 运维"
-        ],
-        "summary": "retryBIReport",
-        "description": "Local BI operations endpoint. Mutating requests require the existing admin step-up policy.",
-        "x-implementation-status": "implemented-local",
-        "parameters": [
-          {
-            "name": "report_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AdminBIRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful BI operations response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIMaintenanceResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Permission denied",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "423": {
-            "description": "Step-up authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/bi/reports/{report_id}/archive": {
-      "post": {
-        "operationId": "archiveBIReport",
-        "tags": [
-          "BI 运维"
-        ],
-        "summary": "archiveBIReport",
-        "description": "Local BI operations endpoint. Mutating requests require the existing admin step-up policy.",
-        "x-implementation-status": "implemented-local",
-        "parameters": [
-          {
-            "name": "report_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AdminBIRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful BI operations response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIMaintenanceResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Permission denied",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "423": {
-            "description": "Step-up authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/bi/cleanup": {
-      "get": {
-        "operationId": "getBICleanupStatus",
-        "tags": [
-          "BI 运维"
-        ],
-        "summary": "getBICleanupStatus",
-        "description": "Local BI operations endpoint. Mutating requests require the existing admin step-up policy.",
-        "x-implementation-status": "implemented-local",
-        "parameters": [
-          {
-            "name": "page",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 1
-            }
-          },
-          {
-            "name": "page_size",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 20
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful BI operations response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIMaintenanceResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Permission denied",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "423": {
-            "description": "Step-up authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/bi/cleanup/run": {
-      "post": {
-        "operationId": "runBICleanup",
-        "tags": [
-          "BI 运维"
-        ],
-        "summary": "runBICleanup",
-        "description": "Local BI operations endpoint. Mutating requests require the existing admin step-up policy.",
-        "x-implementation-status": "implemented-local",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AdminBIRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful BI operations response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIMaintenanceResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Permission denied",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "423": {
-            "description": "Step-up authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/bi/audit": {
-      "get": {
-        "operationId": "listBIAuditEvents",
-        "tags": [
-          "BI 运维"
-        ],
-        "summary": "listBIAuditEvents",
-        "description": "Local BI operations endpoint. Mutating requests require the existing admin step-up policy.",
-        "x-implementation-status": "implemented-local",
-        "parameters": [
-          {
-            "name": "page",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 1
-            }
-          },
-          {
-            "name": "page_size",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 20
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful BI operations response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIMaintenanceResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Permission denied",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "423": {
-            "description": "Step-up authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminBIErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/bi/sources/{source_id}/sync-sub2api": {
-      "post": {
-        "operationId": "syncBISub2apiSource",
-        "tags": [
-          "BI 运维"
-        ],
-        "summary": "按次导入企业 sub2api 用量日志",
-        "description": "要求原站管理员 step-up 和有效 Connector 凭证；凭证须匹配请求企业与路径 source_id，且允许 usage。只用于独立的 sub2api 日志来源；已声明完整水位的来源不可使用。每次提交 1–500 条，queued 仅表示入队，按批次查询终态后继续下一批。idle 表示该时间范围无未导入记录，不创建空批次或推进水位。凭证不写入审计。",
-        "x-implementation-status": "implemented-local",
-        "parameters": [
-          {
-            "name": "source_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AdminSub2apiSyncInput"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful BI operations response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminSub2apiSyncResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
+            "description": "参数无效",
             "content": {
               "application/json": {
                 "schema": {
@@ -3118,7 +1096,7 @@
             }
           },
           "401": {
-            "description": "Authentication required",
+            "description": "登录失效",
             "content": {
               "application/json": {
                 "schema": {
@@ -3128,7 +1106,7 @@
             }
           },
           "403": {
-            "description": "Permission denied",
+            "description": "无功能权限或企业功能未启用",
             "content": {
               "application/json": {
                 "schema": {
@@ -3137,28 +1115,8 @@
               }
             }
           },
-          "423": {
-            "description": "Step-up authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
+          "404": {
+            "description": "不可用，不泄露对象信息",
             "content": {
               "application/json": {
                 "schema": {
@@ -3168,7 +1126,1025 @@
             }
           },
           "409": {
-            "description": "来源已有在途批次、checkpoint 冲突或来源声明完整水位",
+            "description": "版本冲突",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务或数据不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/bi/report-tasks": {
+      "get": {
+        "operationId": "listBISummaryTasks",
+        "summary": "listBISummaryTasks",
+        "security": [
+          {
+            "WebBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/TaskMetadataPage"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "登录失效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "无功能权限或企业功能未启用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "不可用，不泄露对象信息",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "版本冲突",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务或数据不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "day",
+                "week",
+                "month"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/bi/report-tasks/{kind}/{task_id}": {
+      "get": {
+        "operationId": "getBISummaryTask",
+        "summary": "getBISummaryTask",
+        "security": [
+          {
+            "WebBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/TaskMetadata"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "登录失效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "无功能权限或企业功能未启用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "不可用，不泄露对象信息",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "版本冲突",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务或数据不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/bi/report-tasks/{kind}/{task_id}/executions": {
+      "get": {
+        "operationId": "listBITaskExecutions",
+        "summary": "listBITaskExecutions",
+        "security": [
+          {
+            "WebBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ExecutionMetadataPage"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "登录失效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "无功能权限或企业功能未启用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "不可用，不泄露对象信息",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "版本冲突",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务或数据不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/bi/report-executions": {
+      "get": {
+        "operationId": "listBISummaryExecutions",
+        "summary": "listBISummaryExecutions",
+        "security": [
+          {
+            "WebBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ExecutionMetadataPage"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "登录失效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "无功能权限或企业功能未启用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "不可用，不泄露对象信息",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "版本冲突",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务或数据不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "day",
+                "week",
+                "month"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/bi/audit": {
+      "get": {
+        "operationId": "listBIAudit",
+        "summary": "listBIAudit",
+        "security": [
+          {
+            "WebBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/AuditPage"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "登录失效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "无功能权限或企业功能未启用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "不可用，不泄露对象信息",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "版本冲突",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务或数据不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/bi/retention": {
+      "get": {
+        "operationId": "getBIRetention",
+        "summary": "getBIRetention",
+        "security": [
+          {
+            "WebBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Retention"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "登录失效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "无功能权限或企业功能未启用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "不可用，不泄露对象信息",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "版本冲突",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务或数据不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "saveBIRetention",
+        "summary": "saveBIRetention",
+        "security": [
+          {
+            "WebBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Retention"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "登录失效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "无功能权限或企业功能未启用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "不可用，不泄露对象信息",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "版本冲突",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务或数据不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "需要原站管理员验证"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Retention"
+              }
+            }
+          }
+        },
+        "x-step-up-required": true
+      }
+    },
+    "/api/v1/admin/bi/cleanup": {
+      "get": {
+        "operationId": "getBICleanup",
+        "summary": "getBICleanup",
+        "security": [
+          {
+            "WebBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Cleanup"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "登录失效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "无功能权限或企业功能未启用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "不可用，不泄露对象信息",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "版本冲突",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务或数据不可用",
             "content": {
               "application/json": {
                 "schema": {
@@ -3179,79 +2155,290 @@
           }
         }
       }
+    },
+    "/api/v1/admin/bi/identities/users/{bi_user_id}/status": {
+      "put": {
+        "operationId": "setBIUserStatus",
+        "summary": "setBIUserStatus",
+        "security": [
+          {
+            "WebBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Ok"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "登录失效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "无功能权限或企业功能未启用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "不可用，不泄露对象信息",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "版本冲突",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务或数据不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "需要原站管理员验证"
+          }
+        },
+        "parameters": [
+          {
+            "name": "bi_user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "active",
+                      "disabled"
+                    ]
+                  }
+                },
+                "required": [
+                  "status"
+                ]
+              }
+            }
+          }
+        },
+        "x-step-up-required": true
+      }
+    },
+    "/api/v1/admin/bi/cleanup/run": {
+      "post": {
+        "operationId": "runBICleanup",
+        "summary": "runBICleanup",
+        "security": [
+          {
+            "WebBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Cleanup"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "登录失效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "无功能权限或企业功能未启用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "不可用，不泄露对象信息",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "版本冲突",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务或数据不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "需要原站管理员验证"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {}
+              }
+            }
+          }
+        },
+        "x-step-up-required": true
+      }
     }
   },
   "components": {
     "securitySchemes": {
-      "AdminBearer": {
+      "MobileBearer": {
         "type": "http",
         "scheme": "bearer",
-        "bearerFormat": "JWT",
-        "description": "原站有效管理员 JWT，不接受 MobileBearer 或 ConnectorBearer。"
+        "bearerFormat": "JWT"
       },
-      "AdminAPIKey": {
-        "type": "apiKey",
-        "in": "header",
-        "name": "x-api-key",
-        "description": "原站管理员 API Key，仅在服务端或受控运维工具使用。"
+      "WebBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
       }
     },
     "schemas": {
-      "Id": {
-        "type": "string",
-        "minLength": 1,
-        "maxLength": 128,
-        "pattern": "^[A-Za-z0-9_.:-]+$"
-      },
-      "Capability": {
-        "type": "string",
-        "enum": [
-          "analytics:read",
-          "knowledge:read",
-          "sources:read",
-          "evaluations:read",
-          "members:read",
-          "reports:read",
-          "reports:create",
-          "reports:copy",
-          "reports:share"
-        ]
-      },
-      "Role": {
-        "type": "string",
-        "enum": [
-          "org_admin",
-          "team_manager",
-          "viewer"
-        ]
-      },
-      "Grant": {
+      "Access": {
         "type": "object",
-        "additionalProperties": false,
         "properties": {
-          "manager_id": {
-            "$ref": "#/components/schemas/Id"
-          },
-          "user_id": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 1
-          },
-          "display_name": {
+          "bi_user_id": {
             "type": "string"
           },
-          "role": {
-            "$ref": "#/components/schemas/Role"
+          "organization_id": {
+            "type": "string"
           },
-          "all_teams": {
-            "type": "boolean"
+          "name": {
+            "type": "string"
           },
-          "team_ids": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Id"
-            },
-            "maxItems": 100
+          "scope": {
+            "type": "string",
+            "enum": [
+              "organization"
+            ]
           },
           "capabilities": {
             "type": "array",
@@ -3261,492 +2448,781 @@
           },
           "revision": {
             "type": "integer",
-            "format": "int64",
-            "minimum": 1
+            "format": "int64"
           },
-          "revoked": {
-            "type": "boolean"
+          "status": {
+            "type": "string"
           }
         },
         "required": [
-          "manager_id",
-          "user_id",
-          "display_name",
-          "role",
-          "all_teams",
-          "team_ids",
+          "organization_id",
+          "name",
+          "scope",
           "capabilities",
           "revision",
-          "revoked"
+          "status"
         ]
       },
-      "SaveGrant": {
+      "AccessManagement": {
         "type": "object",
-        "additionalProperties": false,
         "properties": {
-          "user_id": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 1
+          "bi_user_id": {
+            "type": "string"
           },
-          "role": {
-            "$ref": "#/components/schemas/Role"
+          "display_name": {
+            "type": "string"
           },
-          "all_teams": {
-            "type": "boolean",
-            "default": false
+          "user_status": {
+            "type": "string"
           },
-          "team_ids": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Id"
-            },
-            "maxItems": 100
+          "status": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string"
           },
           "capabilities": {
             "type": "array",
-            "minItems": 1,
             "items": {
               "$ref": "#/components/schemas/Capability"
             }
           },
-          "expected_revision": {
+          "revision": {
             "type": "integer",
-            "format": "int64",
-            "minimum": 0,
-            "description": "首次为 0；修改使用刚读取的 revision。"
+            "format": "int64"
+          },
+          "updated_at": {
+            "type": "string"
+          },
+          "last_seen_at": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "AccessManagementPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AccessManagement"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "page_size": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "has_more": {
+            "type": "boolean"
           }
         },
         "required": [
-          "user_id",
-          "role",
-          "team_ids",
+          "items",
+          "page",
+          "page_size",
+          "total",
+          "has_more"
+        ]
+      },
+      "Audit": {
+        "type": "object",
+        "properties": {
+          "actor_type": {
+            "type": "string"
+          },
+          "actor_id": {
+            "type": "string"
+          },
+          "organization_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "action": {
+            "type": "string"
+          },
+          "target_id": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          }
+        }
+      },
+      "AuditPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Audit"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "page_size": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "has_more": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "page_size",
+          "total",
+          "has_more"
+        ]
+      },
+      "Capability": {
+        "type": "string",
+        "enum": [
+          "analytics:read",
+          "members:read",
+          "conversations:read",
+          "reports:read",
+          "reports:copy"
+        ]
+      },
+      "Cleanup": {
+        "type": "object",
+        "properties": {
+          "last_run_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "last_deleted": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "deleted": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "retryable": {
+            "type": "boolean"
+          },
+          "request_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "request_id"
+        ]
+      },
+      "ExecutionMetadata": {
+        "type": "object",
+        "properties": {
+          "organization_id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "period_start": {
+            "type": "string"
+          },
+          "period_end": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          },
+          "started_at": {
+            "type": "string"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "round": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "chunk": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "attempt": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "task_id": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "finished_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "total_tokens": {
+            "type": "string",
+            "nullable": true
+          },
+          "actual_cost": {
+            "type": "number",
+            "nullable": true
+          }
+        }
+      },
+      "ExecutionMetadataPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExecutionMetadata"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "page_size": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "has_more": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "page_size",
+          "total",
+          "has_more"
+        ]
+      },
+      "Invitation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "organization_id": {
+            "type": "string"
+          },
+          "organization_name": {
+            "type": "string"
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Capability"
+            }
+          },
+          "note": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "used",
+              "revoked",
+              "expired"
+            ]
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "claimed_by": {
+            "type": "string",
+            "nullable": true
+          },
+          "claimed_at": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "organization_id",
+          "organization_name",
           "capabilities",
-          "expected_revision"
-        ],
+          "status",
+          "expires_at"
+        ]
+      },
+      "InvitationPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Invitation"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "page_size": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "has_more": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "page_size",
+          "total",
+          "has_more"
+        ]
+      },
+      "IssuedInvitation": {
         "allOf": [
           {
-            "if": {
-              "required": [
-                "all_teams"
-              ],
-              "properties": {
-                "all_teams": {
-                  "const": true
-                }
+            "$ref": "#/components/schemas/Invitation"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "token": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
               }
             },
-            "then": {
-              "properties": {
-                "team_ids": {
-                  "maxItems": 0
-                }
+            "required": [
+              "token",
+              "path"
+            ]
+          }
+        ]
+      },
+      "Ok": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok"
+        ]
+      },
+      "OperationSession": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "bi_user_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "client_version": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "last_seen_at": {
+            "type": "string"
+          },
+          "expires_at": {
+            "type": "string"
+          },
+          "revoked_at": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "OperationSessionPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OperationSession"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "page_size": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "has_more": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "page_size",
+          "total",
+          "has_more"
+        ]
+      },
+      "OperationsOrganization": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "reporting_enabled": {
+            "type": "boolean"
+          },
+          "summary_enabled": {
+            "type": "boolean"
+          },
+          "weekly_summary_enabled": {
+            "type": "boolean"
+          },
+          "monthly_summary_enabled": {
+            "type": "boolean"
+          },
+          "analysis_model": {
+            "type": "string"
+          },
+          "users": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "last_received_at": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "OperationsOrganizationPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OperationsOrganization"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "page_size": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "has_more": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "page_size",
+          "total",
+          "has_more"
+        ]
+      },
+      "Overview": {
+        "type": "object",
+        "properties": {
+          "bi_enabled": {
+            "type": "boolean"
+          },
+          "desktop_enabled": {
+            "type": "boolean"
+          },
+          "privacy_notice_published": {
+            "type": "boolean"
+          },
+          "identity_mode": {
+            "type": "string"
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Capability"
+            }
+          },
+          "counts": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "config": {
+            "type": "object",
+            "properties": {
+              "appid": {
+                "type": "string"
+              },
+              "app_secret_configured": {
+                "type": "boolean"
+              },
+              "jwt_secret_configured": {
+                "type": "boolean"
+              },
+              "identity_secret_configured": {
+                "type": "boolean"
+              },
+              "min_client_version": {
+                "type": "string"
               }
             }
           }
-        ]
+        }
       },
-      "RevokeGrant": {
+      "Retention": {
         "type": "object",
-        "additionalProperties": false,
         "properties": {
-          "expected_revision": {
+          "audit_days": {
             "type": "integer",
-            "format": "int64",
-            "minimum": 1
-          }
-        },
-        "required": [
-          "expected_revision"
-        ]
-      },
-      "AdminApproveBinding": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "user_code": { "type": "string", "pattern": "^[A-Z0-9]{8}$" },
-          "confirm_binding": { "const": true }
-        },
-        "required": ["user_code", "confirm_binding"]
-      },
-      "AdminApproveBindingResponse": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "code": { "const": 0 },
-          "message": { "const": "success" },
-          "data": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": { "approved": { "const": true } },
-            "required": ["approved"]
-          }
-        },
-        "required": ["code", "message", "data"]
-      },
-      "GrantResponse": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "code": {
-            "const": 0
+            "minimum": 1,
+            "maximum": 3650
           },
-          "message": {
-            "const": "success"
-          },
-          "data": {
-            "$ref": "#/components/schemas/Grant"
-          }
-        },
-        "required": [
-          "code",
-          "message",
-          "data"
-        ]
-      },
-      "GrantListResponse": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "code": {
-            "const": 0
-          },
-          "message": {
-            "const": "success"
-          },
-          "data": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "items": {
-                "type": "array",
-                "maxItems": 50,
-                "items": {
-                  "$ref": "#/components/schemas/Grant"
-                }
-              },
-              "page": {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 100000
-              },
-              "has_more": {
-                "type": "boolean"
-              },
-              "capabilities": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/Capability"
-                }
-              }
-            },
-            "required": [
-              "items",
-              "page",
-              "has_more",
-              "capabilities"
-            ]
-          }
-        },
-        "required": [
-          "code",
-          "message",
-          "data"
-        ]
-      },
-      "RevokeGrantResponse": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "code": {
-            "const": 0
-          },
-          "message": {
-            "const": "success"
-          },
-          "data": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "revoked": {
-                "const": true
-              }
-            },
-            "required": [
-              "revoked"
-            ]
-          }
-        },
-        "required": [
-          "code",
-          "message",
-          "data"
-        ]
-      },
-      "AdminEnvelopeError": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "code": {
+          "ephemeral_days": {
             "type": "integer",
-            "minimum": 400,
-            "maximum": 599
+            "minimum": 1,
+            "maximum": 365
+          }
+        },
+        "required": [
+          "audit_days",
+          "ephemeral_days"
+        ]
+      },
+      "TaskMetadata": {
+        "type": "object",
+        "properties": {
+          "organization_id": {
+            "type": "string"
           },
-          "message": {
+          "organization_name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "period_start": {
+            "type": "string"
+          },
+          "period_end": {
+            "type": "string"
+          },
+          "status": {
             "type": "string"
           },
           "reason": {
             "type": "string"
           },
-          "metadata": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string"
-            }
-          }
-        },
-        "required": [
-          "code",
-          "message"
-        ]
-      },
-      "MiddlewareError": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "code": {
+          "model": {
             "type": "string"
           },
-          "message": {
-            "type": "string"
-          },
-          "metadata": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string"
-            }
-          }
-        },
-        "required": [
-          "code",
-          "message"
-        ]
-      },
-      "BIInputError": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "code": {
-            "type": "string"
-          },
-          "message": {
-            "type": "string"
-          },
-          "request_id": {
-            "type": "string"
-          },
-          "retryable": {
-            "type": "boolean"
-          },
-          "details": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "field": {
-                  "type": "string"
-                },
-                "reason": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "field",
-                "reason"
-              ]
-            }
-          }
-        },
-        "required": [
-          "code",
-          "message",
-          "request_id",
-          "retryable",
-          "details"
-        ]
-      },
-      "Error": {
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/AdminEnvelopeError"
-          },
-          {
-            "$ref": "#/components/schemas/MiddlewareError"
-          },
-          {
-            "$ref": "#/components/schemas/BIInputError"
-          }
-        ],
-        "description": "成功与业务错误沿用原站 envelope。原站鉴权/合规/限流可能返回字符串 code；BI JSON 解码错误使用 BIInputError。消费者应先判断 HTTP 状态及 code 类型。"
-      },
-      "AdminBIMaintenanceData": {
-        "type": "object",
-        "additionalProperties": true
-      },
-      "AdminBIMaintenanceResponse": {
-        "type": "object",
-        "required": [
-          "code",
-          "message",
-          "data"
-        ],
-        "properties": {
-          "code": {
-            "type": "integer"
-          },
-          "message": {
-            "type": "string"
-          },
-          "data": {
-            "$ref": "#/components/schemas/AdminBIMaintenanceData"
-          }
-        }
-      },
-      "AdminBIErrorResponse": {
-        "type": "object",
-        "required": [
-          "code",
-          "message"
-        ],
-        "properties": {
-          "code": {
-            "type": "string"
-          },
-          "message": {
-            "type": "string"
-          },
-          "request_id": {
-            "type": "string"
-          },
-          "retryable": {
-            "type": "boolean"
-          },
-          "details": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "additionalProperties": true
-            }
-          }
-        }
-      },
-      "AdminBIRequest": {
-        "type": "object",
-        "additionalProperties": true
-      },
-      "AdminSub2apiSyncInput": {
-        "type": "object",
-        "required": [
-          "organization_id",
-          "connector_token",
-          "since",
-          "limit"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "organization_id": {
-            "$ref": "#/components/schemas/Id"
-          },
-          "connector_token": {
-            "type": "string",
-            "minLength": 32,
-            "maxLength": 2048,
-            "writeOnly": true
-          },
-          "since": {
-            "type": "string",
-            "format": "date-time",
-            "description": "日志起始时间，不能晚于当前时间。下一批沿用相同起点。"
-          },
-          "limit": {
+          "task_id": {
             "type": "integer",
-            "minimum": 1,
-            "maximum": 500
+            "format": "int64"
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "available_sources": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "missing_sources": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "generated_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "total_tokens": {
+            "type": "string",
+            "nullable": true
+          },
+          "actual_cost": {
+            "type": "number",
+            "nullable": true
+          },
+          "report_id": {
+            "type": "string"
           }
         }
       },
-      "AdminSub2apiSyncResponse": {
+      "TaskMetadataPage": {
         "type": "object",
-        "required": [
-          "code",
-          "message",
-          "data"
-        ],
         "properties": {
-          "code": {
-            "const": 0
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskMetadata"
+            }
           },
-          "message": {
+          "page": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "page_size": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "has_more": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "page_size",
+          "total",
+          "has_more"
+        ]
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {
             "type": "string"
           },
-          "data": {
-            "type": "object",
-            "required": [
-              "status",
-              "records",
-              "job"
-            ],
-            "properties": {
-              "status": {
-                "enum": [
-                  "queued",
-                  "idle"
-                ]
-              },
-              "records": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 500
-              },
-              "job": {
-                "oneOf": [
-                  {
-                    "type": "null"
-                  },
-                  {
-                    "type": "object",
-                    "required": [
-                      "id",
-                      "source_id",
-                      "status",
-                      "received_at",
-                      "errors"
-                    ],
-                    "properties": {
-                      "id": {
-                        "type": "string"
-                      },
-                      "source_id": {
-                        "type": "string"
-                      },
-                      "status": {
-                        "const": "queued"
-                      },
-                      "received_at": {
-                        "type": "string",
-                        "format": "date-time"
-                      },
-                      "errors": {
-                        "type": "array"
-                      }
-                    }
-                  }
-                ]
-              }
-            }
+          "display_name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "disabled"
+            ]
+          },
+          "authorization_version": {
+            "type": "integer",
+            "format": "int64"
           }
-        }
+        },
+        "required": [
+          "id",
+          "display_name",
+          "status",
+          "authorization_version"
+        ]
+      },
+      "UserPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/User"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "page_size": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "has_more": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "page_size",
+          "total",
+          "has_more"
+        ]
       }
     }
   }

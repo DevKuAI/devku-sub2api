@@ -1216,14 +1216,22 @@ func init() {
 	desktoporganizationDescConversationSummaryEnabled := desktoporganizationFields[6].Descriptor()
 	// desktoporganization.DefaultConversationSummaryEnabled holds the default value on creation for the conversation_summary_enabled field.
 	desktoporganization.DefaultConversationSummaryEnabled = desktoporganizationDescConversationSummaryEnabled.Default.(bool)
+	// desktoporganizationDescWeeklySummaryEnabled is the schema descriptor for weekly_summary_enabled field.
+	desktoporganizationDescWeeklySummaryEnabled := desktoporganizationFields[7].Descriptor()
+	// desktoporganization.DefaultWeeklySummaryEnabled holds the default value on creation for the weekly_summary_enabled field.
+	desktoporganization.DefaultWeeklySummaryEnabled = desktoporganizationDescWeeklySummaryEnabled.Default.(bool)
+	// desktoporganizationDescMonthlySummaryEnabled is the schema descriptor for monthly_summary_enabled field.
+	desktoporganizationDescMonthlySummaryEnabled := desktoporganizationFields[8].Descriptor()
+	// desktoporganization.DefaultMonthlySummaryEnabled holds the default value on creation for the monthly_summary_enabled field.
+	desktoporganization.DefaultMonthlySummaryEnabled = desktoporganizationDescMonthlySummaryEnabled.Default.(bool)
 	// desktoporganizationDescAnalysisModel is the schema descriptor for analysis_model field.
-	desktoporganizationDescAnalysisModel := desktoporganizationFields[7].Descriptor()
+	desktoporganizationDescAnalysisModel := desktoporganizationFields[9].Descriptor()
 	// desktoporganization.DefaultAnalysisModel holds the default value on creation for the analysis_model field.
 	desktoporganization.DefaultAnalysisModel = desktoporganizationDescAnalysisModel.Default.(string)
 	// desktoporganization.AnalysisModelValidator is a validator for the "analysis_model" field. It is called by the builders before save.
 	desktoporganization.AnalysisModelValidator = desktoporganizationDescAnalysisModel.Validators[0].(func(string) error)
 	// desktoporganizationDescAuthVersion is the schema descriptor for auth_version field.
-	desktoporganizationDescAuthVersion := desktoporganizationFields[9].Descriptor()
+	desktoporganizationDescAuthVersion := desktoporganizationFields[11].Descriptor()
 	// desktoporganization.DefaultAuthVersion holds the default value on creation for the auth_version field.
 	desktoporganization.DefaultAuthVersion = desktoporganizationDescAuthVersion.Default.(int64)
 	// desktoporganization.AuthVersionValidator is a validator for the "auth_version" field. It is called by the builders before save.

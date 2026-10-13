@@ -99,6 +99,7 @@
                 <span class="min-w-0"><span class="text-sm font-medium">{{ t('admin.desktop.reports.enabled') }}</span><span id="desktop-create-summary-hint" class="detail-caption mt-1 block">{{ t('admin.desktop.organizationForm.summaryHint') }}</span><span class="detail-caption mt-1 block">{{ t('admin.desktop.reports.schedule') }}</span></span>
               </label>
             </div>
+            <div v-if="form.conversation_summary_enabled" class="space-y-3"><label class="flex gap-2"><input v-model="form.weekly_summary_enabled" type="checkbox" />{{ t('biNative.weeklyAuto') }}</label><label class="flex gap-2"><input v-model="form.monthly_summary_enabled" type="checkbox" />{{ t('biNative.monthlyAuto') }}</label><p class="detail-caption">{{ t('biNative.automaticHint') }}</p></div>
             <Input v-if="form.conversation_summary_enabled" v-model="form.analysis_model" :label="t('admin.desktop.reports.model')" required :hint="t('admin.desktop.reports.modelHint')" maxlength="200" />
             <p class="detail-caption">{{ t('admin.desktop.organizationForm.policyAfterCreate') }}</p>
           </div>
@@ -151,7 +152,7 @@ const usersLoading = ref(false)
 const groupsLoading = ref(false)
 const users = ref<AdminUser[]>([])
 const groups = ref<AdminGroup[]>([])
-const form = reactive({ name: '', code: '', gateway_user_id: null as number | null, group_id: null as number | null, member_limit: 10, conversation_reporting_enabled: false, conversation_summary_enabled: false, analysis_model: '' })
+const form = reactive({ name: '', code: '', gateway_user_id: null as number | null, group_id: null as number | null, member_limit: 10, conversation_reporting_enabled: false, conversation_summary_enabled: false, weekly_summary_enabled: false, monthly_summary_enabled: false, analysis_model: '' })
 let searchTimer: ReturnType<typeof setTimeout> | undefined
 let listController: AbortController | undefined
 let userController: AbortController | undefined
@@ -205,7 +206,7 @@ async function loadUsers(query = '') {
   finally { usersLoading.value = false }
 }
 async function openCreate() {
-  Object.assign(form, { name: '', code: '', gateway_user_id: null, group_id: null, member_limit: 10, conversation_reporting_enabled: false, conversation_summary_enabled: false, analysis_model: '' })
+  Object.assign(form, { name: '', code: '', gateway_user_id: null, group_id: null, member_limit: 10, conversation_reporting_enabled: false, conversation_summary_enabled: false, weekly_summary_enabled: false, monthly_summary_enabled: false, analysis_model: '' })
   showCreate.value = true; groupsLoading.value = true
   void loadUsers()
   try { groups.value = await adminAPI.desktop.listActiveGroups() }
@@ -219,7 +220,7 @@ async function createOrganization() {
   }
   creating.value = true
   try {
-    const created = await adminAPI.desktop.createOrganization({ name: form.name.trim(), code: form.code.trim().toLowerCase(), gateway_user_id: form.gateway_user_id, group_id: form.group_id, member_limit: form.member_limit, conversation_reporting_enabled: form.conversation_reporting_enabled, conversation_summary_enabled: form.conversation_summary_enabled, analysis_model: form.analysis_model.trim() })
+    const created = await adminAPI.desktop.createOrganization({ name: form.name.trim(), code: form.code.trim().toLowerCase(), gateway_user_id: form.gateway_user_id, group_id: form.group_id, member_limit: form.member_limit, conversation_reporting_enabled: form.conversation_reporting_enabled, conversation_summary_enabled: form.conversation_summary_enabled, weekly_summary_enabled: form.conversation_summary_enabled && form.weekly_summary_enabled, monthly_summary_enabled: form.conversation_summary_enabled && form.monthly_summary_enabled, analysis_model: form.analysis_model.trim() })
     appStore.showSuccess(t('admin.desktop.organizationCreated')); showCreate.value = false
     await router.push(`/admin/desktop/organizations/${encodeURIComponent(created.public_id)}`)
   } catch (error) { appStore.showError(errorMessage(error)) }

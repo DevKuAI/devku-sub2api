@@ -1,8 +1,8 @@
 <template>
   <section v-if="enabled" class="card p-6">
-    <h2 class="text-lg font-semibold">{{ t('bi.title') }}</h2>
-    <p class="mt-2 text-sm text-gray-500 dark:text-dark-400">{{ t('bi.description') }}</p>
-    <RouterLink to="/bi/bind" class="btn btn-secondary mt-4">{{ t('bi.open') }}</RouterLink>
+    <h2 class="text-lg font-semibold">{{ t('biNative.users') }}</h2>
+    <p class="mt-2 text-sm text-gray-500 dark:text-dark-400">{{ t('biNative.identityHint') }}</p>
+    <RouterLink to="/bi/access" class="btn btn-secondary mt-4">{{ t('biNative.invitations') }}</RouterLink>
   </section>
 </template>
 

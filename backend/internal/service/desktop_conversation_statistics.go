@@ -91,6 +91,7 @@ func (s *DesktopService) ConversationStatistics(ctx context.Context, organizatio
 	result.AsOf = periods.AsOf
 	if selected != nil {
 		result.RangeStart, result.RangeEnd = selected.StartDate, selected.EndDate
+		result.Timezone = selected.Start.Location().String()
 	}
 	return result, nil
 }

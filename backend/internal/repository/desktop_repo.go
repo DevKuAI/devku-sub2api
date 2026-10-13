@@ -120,6 +120,8 @@ func (r *desktopRepository) CreateOrganization(ctx context.Context, input servic
 			SetMemberLimit(memberLimit).
 			SetConversationReportingEnabled(input.ConversationReportingEnabled).
 			SetConversationSummaryEnabled(input.ConversationSummaryEnabled).
+			SetWeeklySummaryEnabled(input.WeeklySummaryEnabled).
+			SetMonthlySummaryEnabled(input.MonthlySummaryEnabled).
 			SetAnalysisModel(input.AnalysisModel).
 			SetNillableSummaryEnabledAt(input.SummaryEnabledAt).
 			Save(txCtx)
@@ -184,7 +186,7 @@ func (r *desktopRepository) GetOrganizationForGatewayUser(ctx context.Context, u
 }
 
 func (r *desktopRepository) UpdateOrganization(ctx context.Context, publicID string, input service.DesktopUpdateOrganizationInput) (*service.DesktopOrganization, []string, error) {
-	if r.gatewayUserID != nil && (input.GatewayUserID != nil || input.GroupID != nil || input.MemberLimit != nil || input.ConversationReportingEnabled != nil || input.ConversationSummaryEnabled != nil || input.AnalysisModel != nil || input.ManagementPolicy != nil) {
+	if r.gatewayUserID != nil && (input.GatewayUserID != nil || input.GroupID != nil || input.MemberLimit != nil || input.ConversationReportingEnabled != nil || input.ConversationSummaryEnabled != nil || input.WeeklySummaryEnabled != nil || input.MonthlySummaryEnabled != nil || input.AnalysisModel != nil || input.ManagementPolicy != nil) {
 		return nil, nil, service.ErrDesktopValidation
 	}
 	if input.MemberLimit != nil && *input.MemberLimit < 1 {
@@ -266,7 +268,20 @@ func (r *desktopRepository) UpdateOrganization(ctx context.Context, publicID str
 		if summary && (!reporting || strings.TrimSpace(model) == "") {
 			return service.ErrDesktopValidation
 		}
-		builder := client.DesktopOrganization.UpdateOne(organization)
+		weekly, monthly := organization.WeeklySummaryEnabled, organization.MonthlySummaryEnabled
+		if input.WeeklySummaryEnabled != nil {
+			weekly = *input.WeeklySummaryEnabled
+		}
+		if input.MonthlySummaryEnabled != nil {
+			monthly = *input.MonthlySummaryEnabled
+		}
+		if !summary || !reporting {
+			weekly, monthly = false, false
+			if (input.WeeklySummaryEnabled != nil && *input.WeeklySummaryEnabled) || (input.MonthlySummaryEnabled != nil && *input.MonthlySummaryEnabled) {
+				return service.ErrDesktopValidation
+			}
+		}
+		builder := client.DesktopOrganization.UpdateOne(organization).SetWeeklySummaryEnabled(weekly).SetMonthlySummaryEnabled(monthly)
 		if input.ConversationSummaryEnabled != nil {
 			builder.SetConversationSummaryEnabled(*input.ConversationSummaryEnabled)
 			if *input.ConversationSummaryEnabled && !organization.ConversationSummaryEnabled {
@@ -983,7 +998,7 @@ func desktopOrganizationEntityToService(row *dbent.DesktopOrganization) (*servic
 		AuthVersion: row.AuthVersion, GatewayUserID: row.GatewayUserID, GroupID: row.GroupID,
 		TargetConfig: target, TargetConfigAssigned: target != nil, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 		MemberCount: len(row.Edges.Members), MemberLimit: row.MemberLimit,
-		ConversationSummaryEnabled: row.ConversationSummaryEnabled, AnalysisModel: row.AnalysisModel, SummaryEnabledAt: row.SummaryEnabledAt,
+		WeeklySummaryEnabled: row.WeeklySummaryEnabled, MonthlySummaryEnabled: row.MonthlySummaryEnabled, ConversationSummaryEnabled: row.ConversationSummaryEnabled, AnalysisModel: row.AnalysisModel, SummaryEnabledAt: row.SummaryEnabledAt,
 		ConversationReportingEnabled: row.ConversationReportingEnabled,
 	}
 	if len(row.ManagementPolicy) > 0 {

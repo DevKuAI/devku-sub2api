@@ -142,15 +142,14 @@
       </section>
 
       <section v-else-if="organization && activeTab === 'reports'" :id="panelId('reports')" tabindex="0" role="tabpanel" :aria-labelledby="tabId('reports')">
-        <DesktopDailyReports v-if="organization" :organization-id="organizationID" :self-managed="selfManaged" :enabled="organization.conversation_summary_enabled" :analysis-model="organization.analysis_model" />
+        <DesktopPeriodReports v-if="organization" :organization-id="organizationID" :self-managed="selfManaged" :enabled="organization.conversation_summary_enabled" :analysis-model="organization.analysis_model" :weekly-enabled="organization.weekly_summary_enabled" :monthly-enabled="organization.monthly_summary_enabled" :initial-kind="String(route.query.report_kind || 'day')" :initial-start="String(route.query.period_start || '')" :initial-report-id="String(route.query.report_id || '')" :initial-date="String(route.query.report_date || '')" />
       </section>
 
       <section v-else-if="organization && activeTab === 'grants'" :id="panelId('grants')" tabindex="0" role="tabpanel" :aria-labelledby="tabId('grants')">
-        <div v-if="!selfManaged" class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded border border-gray-200 bg-gray-50 px-4 py-3 dark:border-dark-700 dark:bg-dark-800/50">
-          <div><h2 class="text-sm font-semibold">BI 数据源</h2><p class="mt-1 text-sm text-gray-500 dark:text-dark-400">授权后还需导入真实用量数据，小程序才能读取分析结果。</p></div>
-          <button class="btn btn-secondary" type="button" @click="router.push({ path: '/admin/bi', query: { tab: 'sources', organization_id: organizationID } })">配置数据源</button>
+        <div v-if="!selfManaged" class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded border border-gray-200 p-4 dark:border-dark-700">
+          <p class="text-sm text-gray-500">{{ t('biNative.identityHint') }}</p><button class="btn btn-secondary" type="button" @click="router.push('/admin/bi')">{{ t('nav.biOperations') }}</button>
         </div>
-        <BIGrantManagement v-if="!selfManaged && organization" :key="organizationID" :organization-id="organizationID" />
+        <BIGrantManagement v-if="organization" :key="organizationID" :organization-id="organizationID" :self-managed="selfManaged" />
       </section>
 
       <section v-else-if="organization" :id="panelId('configuration')" class="min-w-0" tabindex="0" role="tabpanel" :aria-labelledby="tabId('configuration')">
@@ -248,6 +247,7 @@
                 <span class="min-w-0"><span class="text-sm font-medium">{{ t('admin.desktop.reports.enabled') }}</span><span id="desktop-edit-summary-hint" class="detail-caption mt-1 block">{{ t('admin.desktop.organizationForm.summaryHint') }}</span><span class="detail-caption mt-1 block">{{ t('admin.desktop.reports.schedule') }}</span></span>
               </label>
             </div>
+            <div v-if="organizationForm.conversation_summary_enabled" class="space-y-3"><label class="flex gap-2"><input v-model="organizationForm.weekly_summary_enabled" type="checkbox" />{{ t('biNative.weeklyAuto') }}</label><label class="flex gap-2"><input v-model="organizationForm.monthly_summary_enabled" type="checkbox" />{{ t('biNative.monthlyAuto') }}</label><p class="detail-caption">{{ t('biNative.automaticHint') }}</p></div>
             <Input v-if="organizationForm.conversation_summary_enabled" v-model="organizationForm.analysis_model" :label="t('admin.desktop.reports.model')" required :hint="t('admin.desktop.reports.modelHint')" maxlength="200" />
           </div>
         </fieldset>
@@ -323,7 +323,7 @@ import DesktopAnalyticsRangePicker from '@/components/desktop/DesktopAnalyticsRa
 import DesktopOrganizationUsageStatistics from '@/components/desktop/DesktopOrganizationUsageStatistics.vue'
 import DesktopMemberImportDialog from '@/components/desktop/DesktopMemberImportDialog.vue'
 import type { DesktopAnalyticsRange } from '@/api/desktopOrganizationUsage'
-import DesktopDailyReports from '@/components/desktop/DesktopDailyReports.vue'
+import DesktopPeriodReports from '@/components/desktop/DesktopPeriodReports.vue'
 import BIGrantManagement from '@/components/bi/BIGrantManagement.vue'
 import '@/styles/desktopDetail.css'
 
@@ -357,7 +357,7 @@ const tabs = computed(() => {
   const result: { value: DetailTab; label: string }[] = [{ value: 'usage', label: t('admin.desktop.usageStatistics.tab') }, { value: 'members', label: t('admin.desktop.members') }, { value: 'configuration', label: t('admin.desktop.configuration') }]
   if (canViewConversations.value) result.push({ value: 'conversations', label: t('admin.desktop.conversations.title') })
   if (!selfManaged || organization.value?.conversation_summary_enabled) result.push({ value: 'reports', label: t('admin.desktop.reports.title') })
-  if (!selfManaged) result.push({ value: 'grants', label: t('bi.grants') })
+  result.push({ value: 'grants', label: t('biNative.users') })
   return result
 })
 const activeTab = computed<DetailTab>(() => tabs.value.find(tab => tab.value === route.query.tab)?.value ?? 'usage')
@@ -376,7 +376,7 @@ const gatewayUsersLoading = ref(false)
 const groups = ref<AdminGroup[]>([])
 const groupsLoading = ref(false)
 const blankPolicy = () => ({ analysis_limit_1d: 0, conversation_retention_days: 0, report_retention_days: 0, execution_retention_days: 0 })
-const organizationForm = reactive({ management_policy: blankPolicy(), name: '', status: 'active' as DesktopStatus, gateway_user_id: null as number | null, group_id: null as number | null, member_limit: 10, conversation_reporting_enabled: false, conversation_summary_enabled: false, analysis_model: '' })
+const organizationForm = reactive({ management_policy: blankPolicy(), name: '', status: 'active' as DesktopStatus, gateway_user_id: null as number | null, group_id: null as number | null, member_limit: 10, conversation_reporting_enabled: false, conversation_summary_enabled: false, weekly_summary_enabled: false, monthly_summary_enabled: false, analysis_model: '' })
 const showMemberDialog = ref(false)
 const showMemberImport = ref(false)
 const editingMember = ref<DesktopMember | null>(null)
@@ -564,7 +564,7 @@ async function loadGatewayUsers(query = '') {
 }
 async function openEditOrganization() {
   if (selfManaged || !organization.value) return
-  Object.assign(organizationForm, { name: organization.value.name, status: organization.value.status, gateway_user_id: organization.value.gateway_user.id, group_id: organization.value.group.id, member_limit: organization.value.member_limit, conversation_reporting_enabled: organization.value.conversation_reporting_enabled === true, conversation_summary_enabled: organization.value.conversation_summary_enabled === true, analysis_model: organization.value.analysis_model || '', management_policy: { ...blankPolicy(), ...organization.value.management_policy } })
+  Object.assign(organizationForm, { name: organization.value.name, status: organization.value.status, gateway_user_id: organization.value.gateway_user.id, group_id: organization.value.group.id, member_limit: organization.value.member_limit, conversation_reporting_enabled: organization.value.conversation_reporting_enabled === true, conversation_summary_enabled: organization.value.conversation_summary_enabled === true, weekly_summary_enabled: organization.value.weekly_summary_enabled === true, monthly_summary_enabled: organization.value.monthly_summary_enabled === true, analysis_model: organization.value.analysis_model || '', management_policy: { ...blankPolicy(), ...organization.value.management_policy } })
   organizationEditError.value = ''
   showOrganizationEdit.value = true
   groupsLoading.value = true
@@ -598,6 +598,8 @@ async function saveOrganization() {
     input.member_limit = organizationForm.member_limit
     input.conversation_reporting_enabled = organizationForm.conversation_reporting_enabled
     input.conversation_summary_enabled = organizationForm.conversation_summary_enabled
+    input.weekly_summary_enabled = organizationForm.conversation_summary_enabled && organizationForm.weekly_summary_enabled
+    input.monthly_summary_enabled = organizationForm.conversation_summary_enabled && organizationForm.monthly_summary_enabled
     input.analysis_model = organizationForm.analysis_model.trim()
     if (!gatewayUserLocked.value && organizationForm.gateway_user_id && organizationForm.gateway_user_id !== organization.value.gateway_user.id) input.gateway_user_id = organizationForm.gateway_user_id
     if (organizationForm.group_id && organizationForm.group_id !== organization.value.group.id) input.group_id = organizationForm.group_id
@@ -683,7 +685,7 @@ async function saveConfiguration() {
 }
 
 watch([canViewConversations, () => organization.value?.conversation_summary_enabled, () => organization.value?.public_id], () => {
-  if (selfManaged && organization.value && (route.query.tab === 'grants' || (route.query.tab === 'reports' && !organization.value.conversation_summary_enabled) || (!canViewConversations.value && route.query.tab === 'conversations'))) setTab('usage')
+  if (selfManaged && organization.value && ((route.query.tab === 'reports' && !organization.value.conversation_summary_enabled) || (!canViewConversations.value && route.query.tab === 'conversations'))) setTab('usage')
 })
 function keepActiveTabVisible() {
   const scroll = tabScroll.value

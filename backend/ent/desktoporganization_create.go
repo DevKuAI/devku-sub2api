@@ -142,6 +142,34 @@ func (_c *DesktopOrganizationCreate) SetNillableConversationSummaryEnabled(v *bo
 	return _c
 }
 
+// SetWeeklySummaryEnabled sets the "weekly_summary_enabled" field.
+func (_c *DesktopOrganizationCreate) SetWeeklySummaryEnabled(v bool) *DesktopOrganizationCreate {
+	_c.mutation.SetWeeklySummaryEnabled(v)
+	return _c
+}
+
+// SetNillableWeeklySummaryEnabled sets the "weekly_summary_enabled" field if the given value is not nil.
+func (_c *DesktopOrganizationCreate) SetNillableWeeklySummaryEnabled(v *bool) *DesktopOrganizationCreate {
+	if v != nil {
+		_c.SetWeeklySummaryEnabled(*v)
+	}
+	return _c
+}
+
+// SetMonthlySummaryEnabled sets the "monthly_summary_enabled" field.
+func (_c *DesktopOrganizationCreate) SetMonthlySummaryEnabled(v bool) *DesktopOrganizationCreate {
+	_c.mutation.SetMonthlySummaryEnabled(v)
+	return _c
+}
+
+// SetNillableMonthlySummaryEnabled sets the "monthly_summary_enabled" field if the given value is not nil.
+func (_c *DesktopOrganizationCreate) SetNillableMonthlySummaryEnabled(v *bool) *DesktopOrganizationCreate {
+	if v != nil {
+		_c.SetMonthlySummaryEnabled(*v)
+	}
+	return _c
+}
+
 // SetAnalysisModel sets the "analysis_model" field.
 func (_c *DesktopOrganizationCreate) SetAnalysisModel(v string) *DesktopOrganizationCreate {
 	_c.mutation.SetAnalysisModel(v)
@@ -300,6 +328,14 @@ func (_c *DesktopOrganizationCreate) defaults() error {
 		v := desktoporganization.DefaultConversationSummaryEnabled
 		_c.mutation.SetConversationSummaryEnabled(v)
 	}
+	if _, ok := _c.mutation.WeeklySummaryEnabled(); !ok {
+		v := desktoporganization.DefaultWeeklySummaryEnabled
+		_c.mutation.SetWeeklySummaryEnabled(v)
+	}
+	if _, ok := _c.mutation.MonthlySummaryEnabled(); !ok {
+		v := desktoporganization.DefaultMonthlySummaryEnabled
+		_c.mutation.SetMonthlySummaryEnabled(v)
+	}
 	if _, ok := _c.mutation.AnalysisModel(); !ok {
 		v := desktoporganization.DefaultAnalysisModel
 		_c.mutation.SetAnalysisModel(v)
@@ -364,6 +400,12 @@ func (_c *DesktopOrganizationCreate) check() error {
 	}
 	if _, ok := _c.mutation.ConversationSummaryEnabled(); !ok {
 		return &ValidationError{Name: "conversation_summary_enabled", err: errors.New(`ent: missing required field "DesktopOrganization.conversation_summary_enabled"`)}
+	}
+	if _, ok := _c.mutation.WeeklySummaryEnabled(); !ok {
+		return &ValidationError{Name: "weekly_summary_enabled", err: errors.New(`ent: missing required field "DesktopOrganization.weekly_summary_enabled"`)}
+	}
+	if _, ok := _c.mutation.MonthlySummaryEnabled(); !ok {
+		return &ValidationError{Name: "monthly_summary_enabled", err: errors.New(`ent: missing required field "DesktopOrganization.monthly_summary_enabled"`)}
 	}
 	if _, ok := _c.mutation.AnalysisModel(); !ok {
 		return &ValidationError{Name: "analysis_model", err: errors.New(`ent: missing required field "DesktopOrganization.analysis_model"`)}
@@ -459,6 +501,14 @@ func (_c *DesktopOrganizationCreate) createSpec() (*DesktopOrganization, *sqlgra
 	if value, ok := _c.mutation.ConversationSummaryEnabled(); ok {
 		_spec.SetField(desktoporganization.FieldConversationSummaryEnabled, field.TypeBool, value)
 		_node.ConversationSummaryEnabled = value
+	}
+	if value, ok := _c.mutation.WeeklySummaryEnabled(); ok {
+		_spec.SetField(desktoporganization.FieldWeeklySummaryEnabled, field.TypeBool, value)
+		_node.WeeklySummaryEnabled = value
+	}
+	if value, ok := _c.mutation.MonthlySummaryEnabled(); ok {
+		_spec.SetField(desktoporganization.FieldMonthlySummaryEnabled, field.TypeBool, value)
+		_node.MonthlySummaryEnabled = value
 	}
 	if value, ok := _c.mutation.AnalysisModel(); ok {
 		_spec.SetField(desktoporganization.FieldAnalysisModel, field.TypeString, value)
@@ -687,6 +737,30 @@ func (u *DesktopOrganizationUpsert) SetConversationSummaryEnabled(v bool) *Deskt
 // UpdateConversationSummaryEnabled sets the "conversation_summary_enabled" field to the value that was provided on create.
 func (u *DesktopOrganizationUpsert) UpdateConversationSummaryEnabled() *DesktopOrganizationUpsert {
 	u.SetExcluded(desktoporganization.FieldConversationSummaryEnabled)
+	return u
+}
+
+// SetWeeklySummaryEnabled sets the "weekly_summary_enabled" field.
+func (u *DesktopOrganizationUpsert) SetWeeklySummaryEnabled(v bool) *DesktopOrganizationUpsert {
+	u.Set(desktoporganization.FieldWeeklySummaryEnabled, v)
+	return u
+}
+
+// UpdateWeeklySummaryEnabled sets the "weekly_summary_enabled" field to the value that was provided on create.
+func (u *DesktopOrganizationUpsert) UpdateWeeklySummaryEnabled() *DesktopOrganizationUpsert {
+	u.SetExcluded(desktoporganization.FieldWeeklySummaryEnabled)
+	return u
+}
+
+// SetMonthlySummaryEnabled sets the "monthly_summary_enabled" field.
+func (u *DesktopOrganizationUpsert) SetMonthlySummaryEnabled(v bool) *DesktopOrganizationUpsert {
+	u.Set(desktoporganization.FieldMonthlySummaryEnabled, v)
+	return u
+}
+
+// UpdateMonthlySummaryEnabled sets the "monthly_summary_enabled" field to the value that was provided on create.
+func (u *DesktopOrganizationUpsert) UpdateMonthlySummaryEnabled() *DesktopOrganizationUpsert {
+	u.SetExcluded(desktoporganization.FieldMonthlySummaryEnabled)
 	return u
 }
 
@@ -969,6 +1043,34 @@ func (u *DesktopOrganizationUpsertOne) SetConversationSummaryEnabled(v bool) *De
 func (u *DesktopOrganizationUpsertOne) UpdateConversationSummaryEnabled() *DesktopOrganizationUpsertOne {
 	return u.Update(func(s *DesktopOrganizationUpsert) {
 		s.UpdateConversationSummaryEnabled()
+	})
+}
+
+// SetWeeklySummaryEnabled sets the "weekly_summary_enabled" field.
+func (u *DesktopOrganizationUpsertOne) SetWeeklySummaryEnabled(v bool) *DesktopOrganizationUpsertOne {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.SetWeeklySummaryEnabled(v)
+	})
+}
+
+// UpdateWeeklySummaryEnabled sets the "weekly_summary_enabled" field to the value that was provided on create.
+func (u *DesktopOrganizationUpsertOne) UpdateWeeklySummaryEnabled() *DesktopOrganizationUpsertOne {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.UpdateWeeklySummaryEnabled()
+	})
+}
+
+// SetMonthlySummaryEnabled sets the "monthly_summary_enabled" field.
+func (u *DesktopOrganizationUpsertOne) SetMonthlySummaryEnabled(v bool) *DesktopOrganizationUpsertOne {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.SetMonthlySummaryEnabled(v)
+	})
+}
+
+// UpdateMonthlySummaryEnabled sets the "monthly_summary_enabled" field to the value that was provided on create.
+func (u *DesktopOrganizationUpsertOne) UpdateMonthlySummaryEnabled() *DesktopOrganizationUpsertOne {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.UpdateMonthlySummaryEnabled()
 	})
 }
 
@@ -1435,6 +1537,34 @@ func (u *DesktopOrganizationUpsertBulk) SetConversationSummaryEnabled(v bool) *D
 func (u *DesktopOrganizationUpsertBulk) UpdateConversationSummaryEnabled() *DesktopOrganizationUpsertBulk {
 	return u.Update(func(s *DesktopOrganizationUpsert) {
 		s.UpdateConversationSummaryEnabled()
+	})
+}
+
+// SetWeeklySummaryEnabled sets the "weekly_summary_enabled" field.
+func (u *DesktopOrganizationUpsertBulk) SetWeeklySummaryEnabled(v bool) *DesktopOrganizationUpsertBulk {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.SetWeeklySummaryEnabled(v)
+	})
+}
+
+// UpdateWeeklySummaryEnabled sets the "weekly_summary_enabled" field to the value that was provided on create.
+func (u *DesktopOrganizationUpsertBulk) UpdateWeeklySummaryEnabled() *DesktopOrganizationUpsertBulk {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.UpdateWeeklySummaryEnabled()
+	})
+}
+
+// SetMonthlySummaryEnabled sets the "monthly_summary_enabled" field.
+func (u *DesktopOrganizationUpsertBulk) SetMonthlySummaryEnabled(v bool) *DesktopOrganizationUpsertBulk {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.SetMonthlySummaryEnabled(v)
+	})
+}
+
+// UpdateMonthlySummaryEnabled sets the "monthly_summary_enabled" field to the value that was provided on create.
+func (u *DesktopOrganizationUpsertBulk) UpdateMonthlySummaryEnabled() *DesktopOrganizationUpsertBulk {
+	return u.Update(func(s *DesktopOrganizationUpsert) {
+		s.UpdateMonthlySummaryEnabled()
 	})
 }
 

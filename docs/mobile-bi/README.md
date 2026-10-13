@@ -1,21 +1,28 @@
-# BI API 文档索引
+# 小程序 BI 与 Desktop 企业总结
 
-当前实现面向 API v1.1.0。主接口覆盖 59 个小程序/采集操作；原站后台 OpenAPI 覆盖 29 个授权与运维操作；隐私说明另有 3 个操作。它们已在本地实现；真实数据源、微信设备和生产容量验收仍按 [验收进度](./acceptance-progress.md) 跟踪。
+小程序采用独立微信身份，通过企业邀请获得功能权限，直接读取 Desktop 企业源数据。企业后台负责生成总结、配置策略和管理邀请；BI 运维仅展示身份、任务与计费 metadata。
 
-| 文档 | 用途 |
+## 当前范围
+
+- **已实现**：独立 `BIUser`、单次企业邀请、多企业功能授权、内存会话、Desktop 用量／模型／成员／客户端／会话／日报读取、周月总结任务与版本、企业授权管理、运维 metadata。
+- **保留设计、未接入**：采用率、稳定使用、留存、部门／岗位、企业应用、业务场景、知识复用、质量评估、收藏反馈及受控分享。生产页面显示「未接入」，没有对应旧接口调用。
+- **验证状态**：[验收进度](acceptance-progress.md)。代码实现、联调通过与生产验收分别记录。
+
+## 阅读入口
+
+| 文档 | 内容 |
 | --- | --- |
-| [主接口 OpenAPI](./openapi.yaml) | 59 个小程序/采集操作，请求响应 Schema、示例、权限、分页和错误契约；`x-implementation-status=implemented-local` |
-| [原站授权与运维 OpenAPI](./admin.openapi.json) | 29 个授权、身份、数据源、导入、报告、清理和审计操作，可独立导入 |
-| [隐私说明 OpenAPI](./privacy-notice.openapi.yaml) | 公开读取、后台读取和发布 3 个操作；程序内 `/legal/bi-privacy` 页面及 bootstrap 动态配置 |
-| [配置参考](./configuration.md) | 7 个服务配置项、环境变量、默认值、校验、部署入口、CLI 参数及固定值 |
-| [测试企业与联调操作](./integration-runbook.md) | 测试环境、授权、微信绑定、采集、修订和失败恢复 |
-| [实施记录](./implementation.md) | 已实现能力、兼容决策、迁移、容量基线和待确认项 |
-| [验收进度](./acceptance-progress.md) | 本地证据与真实环境待验收项 |
-| [实现复核](./review-2026-09-23.md) | Standards/Spec 两个方向的复核和修复记录 |
-| [查询优化记录](./query-optimization.md) | 历史读取、执行计划、知识状态与应用搜索修复，以及同进程容量对照 |
+| [协议](protocol.md) | 独立身份、邀请、内存凭证、退出、错误和权限 |
+| [数据模型与指标](data-model-and-metrics.md) | Desktop 数据来源、日期、大整数与未知值 |
+| [接口设计](desktop-api-design.md) | 三份 OpenAPI 与权限依赖 |
+| [路由映射](sub2api-mapping.md) | API、服务、查询及 DTO 边界 |
+| [周月总结](period-reports.md) | 自然周期、来源冻结、任务恢复、预算与版本 |
+| [页面交互](interaction-map.md) | 四个主入口、按需读取、失败恢复 |
+| [运维](operations.md) | 企业接入、身份、任务、审计保留 |
+| [配置](configuration.md) | 服务开关、密钥、隐私地址与部署 |
+| [联调说明](integration-runbook.md) | PostgreSQL、Go handlers 与实际 TypeScript client |
+| [验收](acceptance.md) | 业务、权限、数据、迁移与测试清单 |
 
-原始交接说明保留在 [backend-handoff.md](./backend-handoff.md)、[数据模型](./data-model-and-metrics.md)、[采集与历史](./ingestion-and-history.md)、[现有能力映射](./sub2api-mapping.md) 和 [验收清单](./acceptance.md)。这些 Markdown 描述的是交接时状态，实施进度以本目录新增记录为准。
+[小程序 OpenAPI](openapi.yaml)、[平台运维 OpenAPI](admin.openapi.json)、[企业后台扩展 OpenAPI](desktop.openapi.yaml) 为当前 v2 契约；[独立隐私说明 OpenAPI](privacy-notice.openapi.yaml) 继续有效。原 Desktop 基础接口见 [Desktop API](../DESKTOP_API_V1.openapi.yaml)。
 
-原交接引用的 `protocol.md`、`examples.json`、`contract-cases.json`、`interaction-map.md`、原校验工具/报告和 PRD 尚未取得。主 OpenAPI 已含内嵌示例；这些示例不构成可从空数据库顺序执行的种子脚本。`MetricDefinition.unit` 是否增加 `application` 仍待确认，当前没有把活跃应用数错误标记为 request。
-
-接口定义、配置文档和本地验证已有可交接结果；原协议及业务环境信息尚未全部完备。
+旧 v1 的绑定、Context、导入、事实、内容和报告分享已经退役，不兼容旧客户端。migration 257 仅清理明确列出的旧 BI 对象；Desktop、原站账号、计费、配置及独立隐私说明保留。

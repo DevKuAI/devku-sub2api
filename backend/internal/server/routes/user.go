@@ -18,6 +18,7 @@ func RegisterUserRoutes(
 	settingService *service.SettingService,
 	panelRateLimiter *middleware.PanelRateLimiter,
 	cfg *config.Config,
+	stepUps ...middleware.StepUpAuthMiddleware,
 ) {
 	authenticated := v1.Group("")
 	authenticated.Use(gin.HandlerFunc(jwtAuth))
@@ -28,6 +29,13 @@ func RegisterUserRoutes(
 	authenticated.Use(gin.HandlerFunc(auditLog))
 	{
 		registerDesktopUserRoutesIfEnabled(authenticated, h, cfg)
+		stepUp := middleware.StepUpAuthMiddleware(func(c *gin.Context) {
+			middleware.AbortWithError(c, 423, "STEP_UP_REQUIRED", "Additional verification required")
+		})
+		if len(stepUps) > 0 {
+			stepUp = stepUps[0]
+		}
+		registerBIManagedRoutes(authenticated, h, cfg, stepUp)
 		if h.Accounting != nil {
 			h.Accounting.RegisterOrganization(authenticated)
 		}
@@ -177,6 +185,10 @@ func registerDesktopUserRoutesIfEnabled(authenticated *gin.RouterGroup, h *handl
 	}
 	desktop := authenticated.Group("/desktop/organization")
 	desktop.Use(middleware.DesktopAdminBodyLimit())
+	desktop.GET("/period-reports", h.Desktop.ManagedPeriodReports)
+	desktop.GET("/period-reports/:report_id", h.Desktop.ManagedPeriodReports)
+	desktop.GET("/period-reports/:report_id/sources", h.Desktop.ManagedPeriodReports)
+	desktop.GET("/period-reports/:report_id/sources/:date", h.Desktop.ManagedPeriodReports)
 	desktop.GET("/daily-reports", h.Desktop.ManagedDailyReports)
 	desktop.GET("/daily-reports/:date/members", h.Desktop.ManagedDailyReports)
 	desktop.GET("/daily-reports/:date/members/:member_id", h.Desktop.ManagedDailyReports)

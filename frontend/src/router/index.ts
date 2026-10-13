@@ -290,10 +290,10 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
-    path: '/bi/bind',
+    path: '/bi/access',
     name: 'BIBindings',
     component: () => import('@/views/user/BIBindingsView.vue'),
-    meta: { requiresAuth: true, requiresAdmin: false, title: 'Mini-program bindings', titleKey: 'bi.title' }
+    meta: { requiresAuth: true, requiresAdmin: false, title: 'Mini-program invitations', titleKey: 'biNative.users' }
   },
   {
     path: '/subscription-accounts',

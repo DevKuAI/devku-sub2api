@@ -11,57 +11,51 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
-	"strings"
+	"sync"
 	"time"
-	"unicode/utf8"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
+	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 )
 
-const (
-	principalKey = "bi.principal"
-	webUserKey   = "bi.web_user"
-)
+const principalKey = "bi.principal"
 
 var requestIDPattern = regexp.MustCompile(`^[A-Za-z0-9_.:-]{1,128}$`)
 
 type Handler struct {
-	service  *Service
-	auth     *service.AuthService
-	redis    *redis.Client
-	worker   *Worker
-	settings *service.SettingService
+	service        *Service
+	redis          *redis.Client
+	settings       *service.SettingService
+	workerMu       sync.Mutex
+	desktopEnabled bool
+	cancel         context.CancelFunc
+	done           chan struct{}
 }
 
-func NewHandler(db *sql.DB, rdb *redis.Client, cfg *config.Config, auth *service.AuthService, users *service.UserService, settings *service.SettingService) *Handler {
-	svc := NewService(db, cfg.BI, users, newWeChatClient(cfg.BI.AppID, cfg.BI.AppSecret))
-	return &Handler{service: svc, auth: auth, redis: rdb, worker: &Worker{service: svc}, settings: settings}
+func NewHandler(db *sql.DB, rdb *redis.Client, cfg *config.Config, desktop *service.DesktopService, settings *service.SettingService) *Handler {
+	return &Handler{service: NewService(db, cfg.BI, desktop, newWeChatClient(cfg.BI.AppID, cfg.BI.AppSecret)), redis: rdb, settings: settings, desktopEnabled: cfg.Desktop.Enabled}
 }
-
-func (h *Handler) Start() { h.worker.Start() }
-func (h *Handler) Stop()  { h.worker.Stop() }
-
 func Headers(c *gin.Context) {
-	requestID, _ := c.Request.Context().Value(ctxkey.RequestID).(string)
-	if !requestIDPattern.MatchString(requestID) {
-		requestID = uuid.NewString()
+	id, _ := c.Request.Context().Value(ctxkey.RequestID).(string)
+	if !requestIDPattern.MatchString(id) {
+		id = uuid.NewString()
 	}
-	c.Set("bi.request_id", requestID)
-	c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), ctxkey.RequestID, requestID))
-	c.Header("X-Request-ID", requestID)
+	c.Set("bi.request_id", id)
+	c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), ctxkey.RequestID, id))
+	c.Header("X-Request-ID", id)
 	c.Header("Cache-Control", "private, no-store")
 }
-
 func Boundary(c *gin.Context) {
 	Headers(c)
-	for _, parameter := range c.Params {
-		if !requestIDPattern.MatchString(parameter.Value) {
-			WriteError(c, invalid(parameter.Key, "Invalid resource identifier"))
+	for _, p := range c.Params {
+		if !requestIDPattern.MatchString(p.Value) {
+			WriteError(c, invalid(p.Key, "Invalid resource identifier"))
 			return
 		}
 	}
@@ -70,103 +64,69 @@ func Boundary(c *gin.Context) {
 	c.Request = c.Request.WithContext(ctx)
 	defer func() {
 		if recover() != nil {
-			WriteError(c, apiError(500, "INTERNAL_ERROR", "An internal error occurred"))
+			WriteError(c, apiError(500, "INTERNAL_ERROR", "Request failed"))
 		}
 	}()
 	c.Next()
 }
-
 func WriteError(c *gin.Context, err error) {
 	var typed *Error
 	if !errors.As(err, &typed) {
-		slog.ErrorContext(c.Request.Context(), "BI request failed", "request_id", c.GetString("bi.request_id"), "operation", c.FullPath(), "error_type", fmt.Sprintf("%T", err))
-		typed = apiError(500, "INTERNAL_ERROR", "An internal error occurred")
-		if errors.Is(err, context.DeadlineExceeded) {
-			typed = apiError(503, "DATA_UNAVAILABLE", "Request timed out")
+		var application *infraerrors.Error
+		if errors.As(err, &application) && application.Code >= 400 && application.Code < 500 {
+			if application.Code == 404 {
+				typed = ErrNotFound
+			} else {
+				typed = apiError(int(application.Code), application.Reason, "Request cannot be completed")
+			}
+		} else {
+			slog.ErrorContext(c.Request.Context(), "BI request failed", "request_id", c.GetString("bi.request_id"), "operation", c.FullPath(), "error_type", fmt.Sprintf("%T", err))
+			typed = apiError(503, "DATA_UNAVAILABLE", "Data is temporarily unavailable")
 		}
 	}
 	response := *typed
 	response.RequestID = c.GetString("bi.request_id")
 	c.AbortWithStatusJSON(response.Status, response)
 }
-
-// WriteMiddlewareError adapts the existing web authentication error contract.
-func WriteMiddlewareError(c *gin.Context, status int, _, _ string) {
-	switch status {
-	case http.StatusUnauthorized:
-		WriteError(c, ErrUnauthenticated)
-	case http.StatusForbidden:
-		WriteError(c, ErrForbidden)
-	case http.StatusTooManyRequests:
-		WriteError(c, apiError(429, "RATE_LIMITED", "Too many requests"))
-	default:
-		WriteError(c, apiError(500, "INTERNAL_ERROR", "Authentication is unavailable"))
-	}
-}
-
 func decodeRequest(c *gin.Context, target any) bool {
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 8<<10)
 	decoder := json.NewDecoder(c.Request.Body)
 	decoder.DisallowUnknownFields()
-	err := decoder.Decode(target)
-	if err == nil {
-		var extra any
-		if trailingErr := decoder.Decode(&extra); trailingErr != io.EOF {
-			err = trailingErr
-			if err == nil {
-				err = errors.New("expected one JSON object")
-			}
-		}
-	}
-	if err != nil {
-		var tooLarge *http.MaxBytesError
-		if errors.As(err, &tooLarge) {
-			WriteError(c, apiError(413, "PAYLOAD_TOO_LARGE", "Request body exceeds 8 KiB"))
+	if err := decoder.Decode(target); err != nil {
+		var oversized *http.MaxBytesError
+		if errors.As(err, &oversized) {
+			WriteError(c, apiError(413, "PAYLOAD_TOO_LARGE", "Request body exceeds limit"))
 		} else {
-			WriteError(c, invalid("body", "Expected a JSON object with the documented fields"))
+			WriteError(c, invalid("body", "Expected documented JSON fields"))
 		}
+		return false
+	}
+	var extra any
+	if err := decoder.Decode(&extra); err != io.EOF {
+		WriteError(c, invalid("body", "Expected one JSON object"))
 		return false
 	}
 	return true
 }
-
-var rateLimitScript = redis.NewScript(`
-local count = redis.call('INCR', KEYS[1])
-if count == 1 then redis.call('EXPIRE', KEYS[1], 60) end
-return {count, redis.call('TTL', KEYS[1])}
-`)
-
-func (h *Handler) RateLimit(clientIP func(*gin.Context) string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// Keys contain a digest, never a credential, ticket, or raw client IP.
-		key := "bi:auth-limit:" + tokenHash(clientIP(c))
-		result, err := rateLimitScript.Run(c.Request.Context(), h.redis, []string{key}).Int64Slice()
-		if err != nil || len(result) != 2 {
-			WriteError(c, apiError(503, "DATA_UNAVAILABLE", "Authentication is temporarily unavailable"))
-			return
-		}
-		if result[0] > 30 {
-			c.Header("Retry-After", strconv.FormatInt(max(result[1], 1), 10))
-			limited := apiError(429, "RATE_LIMITED", "Too many authentication requests")
-			limited.Retryable = true
-			WriteError(c, limited)
-			return
-		}
-		c.Next()
-	}
-}
-
-// RequireWebAudience is run after the original web JWT/session middleware.
-func (h *Handler) RequireWebAudience(c *gin.Context) {
-	claims, err := h.auth.ValidateToken(bearerToken(c.GetHeader("Authorization")))
-	if err != nil || claims.UserID <= 0 || len(claims.Audience) != 1 || claims.Audience[0] != WebAudience || claims.Issuer != TokenIssuer {
-		WriteError(c, ErrUnauthenticated)
+func respond(c *gin.Context, status int, value any, err error) {
+	if err != nil {
+		WriteError(c, err)
 		return
 	}
-	c.Set(webUserKey, claims.UserID)
-	c.Next()
+	c.JSON(status, value)
 }
-
+func adminRespond(c *gin.Context, value any, err error) {
+	if err != nil {
+		WriteError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"code": 0, "message": "success", "data": value})
+}
+func principal(c *gin.Context) Principal {
+	p, _ := c.Get(principalKey)
+	value, _ := p.(Principal)
+	return value
+}
 func (h *Handler) MobileAuth(c *gin.Context) {
 	p, err := h.service.Authorize(c.Request.Context(), bearerToken(c.GetHeader("Authorization")))
 	if err != nil {
@@ -177,169 +137,152 @@ func (h *Handler) MobileAuth(c *gin.Context) {
 	c.Next()
 }
 
-func principal(c *gin.Context) Principal {
-	value, _ := c.Get(principalKey)
-	p, _ := value.(Principal)
-	return p
-}
+var rateLimitScript = redis.NewScript(`local n=redis.call('INCR',KEYS[1]);if n==1 then redis.call('EXPIRE',KEYS[1],60) end;return {n,redis.call('TTL',KEYS[1])}`)
 
+func (h *Handler) RateLimit(clientIP func(*gin.Context) string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if h.redis == nil {
+			WriteError(c, apiError(503, "DATA_UNAVAILABLE", "Authentication unavailable"))
+			return
+		}
+		v, err := rateLimitScript.Run(c.Request.Context(), h.redis, []string{"bi:auth-limit:" + tokenHash(clientIP(c))}).Int64Slice()
+		if err != nil || len(v) != 2 {
+			WriteError(c, apiError(503, "DATA_UNAVAILABLE", "Authentication unavailable"))
+			return
+		}
+		if v[0] > 30 {
+			c.Header("Retry-After", strconv.FormatInt(max(v[1], 1), 10))
+			e := apiError(429, "RATE_LIMITED", "Too many requests")
+			e.Retryable = true
+			WriteError(c, e)
+			return
+		}
+		c.Next()
+	}
+}
 func (h *Handler) Bootstrap(c *gin.Context) {
 	if h.settings == nil {
-		WriteError(c, apiError(503, "DATA_UNAVAILABLE", "Privacy notice is unavailable"))
+		WriteError(c, apiError(503, "DATA_UNAVAILABLE", "Privacy notice unavailable"))
 		return
 	}
 	notice, err := h.settings.GetBIPrivacyNotice(c.Request.Context())
 	if err != nil || !notice.Published() || notice.URL == "" {
-		WriteError(c, apiError(503, "DATA_UNAVAILABLE", "Publish the BI privacy notice and configure its HTTPS site URL"))
+		WriteError(c, apiError(503, "PRIVACY_NOTICE_UNAVAILABLE", "Publish the BI privacy notice"))
 		return
 	}
-	c.JSON(200, gin.H{"api_version": "v1", "min_client_version": h.service.config.MinClientVersion,
-		"timezone": "Asia/Shanghai", "demo_available": false, "binding_enabled": true,
-		"privacy_notice_version": notice.Version, "privacy_notice_url": notice.URL})
+	c.JSON(200, gin.H{"api_version": "v1", "min_client_version": h.service.config.MinClientVersion, "identity_mode": "independent_wechat", "timezone": "Asia/Shanghai", "demo_available": false, "privacy_notice_version": notice.Version, "privacy_notice_url": notice.URL})
 }
-
 func (h *Handler) Login(c *gin.Context) {
-	var input struct {
-		Code          string  `json:"code"`
-		ClientVersion *string `json:"client_version"`
+	var in struct {
+		Code          string `json:"code"`
+		ClientVersion string `json:"client_version"`
+		DisplayName   string `json:"display_name"`
 	}
-	if !decodeRequest(c, &input) {
+	if !decodeRequest(c, &in) {
 		return
 	}
-	if input.ClientVersion == nil || utf8.RuneCountInString(*input.ClientVersion) > 32 {
-		WriteError(c, invalid("client_version", "Client version is required and must not exceed 32 characters"))
+	if in.ClientVersion == "" {
+		WriteError(c, invalid("client_version", "Client version required"))
 		return
 	}
-	result, err := h.service.LoginWithOptions(c.Request.Context(), input.Code, LoginOptions{
-		ClientVersion: valueOrEmpty(input.ClientVersion),
-		DeviceID:      c.GetHeader("X-BI-Device-ID"),
-		Platform:      c.GetHeader("X-BI-Platform"),
-	})
-	respond(c, 200, result, err)
+	v, e := h.service.Login(c.Request.Context(), in.Code, LoginOptions{ClientVersion: in.ClientVersion, DisplayName: in.DisplayName})
+	respond(c, 200, v, e)
 }
-
-func valueOrEmpty(value *string) string {
-	if value == nil {
-		return ""
-	}
-	return *value
-}
-
-func (h *Handler) ApproveBinding(c *gin.Context) {
-	var input struct {
-		UserCode string `json:"user_code"`
-		Confirm  bool   `json:"confirm_binding"`
-	}
-	if !decodeRequest(c, &input) {
-		return
-	}
-	if !input.Confirm {
-		WriteError(c, invalid("confirm_binding", "Explicit binding confirmation is required"))
-		return
-	}
-	err := h.service.ApproveBinding(c.Request.Context(), c.GetInt64(webUserKey), input.UserCode, c.GetString("bi.request_id"))
-	respond(c, 200, gin.H{"ok": true}, err)
-}
-
-func (h *Handler) ExchangeBinding(c *gin.Context) {
-	var input struct {
-		Ticket string `json:"binding_ticket"`
-		Code   string `json:"code"`
-	}
-	if !decodeRequest(c, &input) {
-		return
-	}
-	result, err := h.service.ExchangeBinding(c.Request.Context(), input.Ticket, input.Code)
-	if errors.Is(err, ErrPendingBinding) {
-		c.JSON(202, gin.H{"status": "pending", "retry_after_seconds": 3})
-		return
-	}
-	respond(c, 200, result, err)
-}
-
-func readRefresh(c *gin.Context) (string, bool) {
-	var input struct {
+func (h *Handler) Refresh(c *gin.Context) {
+	var in struct {
 		Refresh string `json:"refresh_token"`
 	}
-	if !decodeRequest(c, &input) {
-		return "", false
-	}
-	if strings.TrimSpace(input.Refresh) == "" || len(input.Refresh) > 2048 {
-		WriteError(c, invalid("refresh_token", "Refresh token is required and must not exceed 2048 characters"))
-		return "", false
-	}
-	return input.Refresh, true
-}
-
-func (h *Handler) Refresh(c *gin.Context) {
-	refresh, ok := readRefresh(c)
-	if !ok {
+	if !decodeRequest(c, &in) {
 		return
 	}
-	result, err := h.service.Refresh(c.Request.Context(), refresh, c.GetString("bi.request_id"))
-	respond(c, 200, result, err)
+	v, e := h.service.Refresh(c.Request.Context(), in.Refresh, c.GetString("bi.request_id"))
+	respond(c, 200, v, e)
 }
-
 func (h *Handler) Logout(c *gin.Context) {
-	refresh, ok := readRefresh(c)
-	if !ok {
+	var in struct {
+		Refresh string `json:"refresh_token"`
+	}
+	if !decodeRequest(c, &in) {
 		return
 	}
-	err := h.service.Logout(c.Request.Context(), refresh, c.GetString("bi.request_id"))
-	respond(c, 200, gin.H{"ok": true}, err)
+	e := h.service.Logout(c.Request.Context(), in.Refresh, c.GetString("bi.request_id"))
+	respond(c, 200, gin.H{"ok": true}, e)
 }
-
 func (h *Handler) Me(c *gin.Context) {
-	result, err := h.service.Me(c.Request.Context(), principal(c))
-	respond(c, 200, result, err)
+	v, e := h.service.Me(c.Request.Context(), principal(c))
+	respond(c, 200, v, e)
 }
-
-func pageLimit(c *gin.Context) (int, bool) {
-	limit, err := strconv.Atoi(c.DefaultQuery("limit", "20"))
-	if err != nil || limit < 1 || limit > 100 || len(c.Query("cursor")) > 2048 {
-		WriteError(c, invalid("pagination", "Limit must be 1–100 and cursor must not exceed 2048 characters"))
-		return 0, false
-	}
-	return limit, true
-}
-
 func (h *Handler) Organizations(c *gin.Context) {
-	limit, ok := pageLimit(c)
+	page, size, ok := queryPage(c)
 	if !ok {
 		return
 	}
-	result, err := h.service.ListOrganizations(c.Request.Context(), principal(c), limit, c.Query("cursor"))
-	respond(c, 200, result, err)
+	v, e := h.service.Organizations(c.Request.Context(), principal(c), page, size)
+	respond(c, 200, v, e)
 }
-
-func (h *Handler) ListBindings(c *gin.Context) {
-	limit, ok := pageLimit(c)
-	if !ok {
+func (h *Handler) PreviewInvitation(c *gin.Context) {
+	var in struct {
+		Token string `json:"token"`
+	}
+	if !decodeRequest(c, &in) {
 		return
 	}
-	result, err := h.service.ListBindings(c.Request.Context(), c.GetInt64(webUserKey), limit, c.Query("cursor"))
-	respond(c, 200, result, err)
+	v, e := h.service.PreviewInvitation(c.Request.Context(), principal(c), in.Token)
+	respond(c, 200, v, e)
+}
+func (h *Handler) AcceptInvitation(c *gin.Context) {
+	var in struct {
+		Token   string `json:"token"`
+		Confirm bool   `json:"confirm_join"`
+	}
+	if !decodeRequest(c, &in) {
+		return
+	}
+	if !in.Confirm {
+		WriteError(c, invalid("confirm_join", "Explicit confirmation required"))
+		return
+	}
+	v, e := h.service.AcceptInvitation(c.Request.Context(), principal(c), in.Token, c.GetString("bi.request_id"))
+	respond(c, 200, v, e)
+}
+func queryPage(c *gin.Context) (int, int, bool) {
+	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
+	size, e := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	if err != nil || e != nil || page < 1 || page > 100000 || size < 1 || size > 100 {
+		WriteError(c, invalid("page", "Invalid pagination"))
+		return 0, 0, false
+	}
+	return page, size, true
 }
 
-func (h *Handler) RemoveBinding(c *gin.Context) {
-	p := principal(c)
-	err := h.service.RevokeBinding(c.Request.Context(), p.UserID, p.BindingID, c.GetString("bi.request_id"))
-	respond(c, 204, nil, err)
-}
-
-func (h *Handler) RevokeBinding(c *gin.Context) {
-	err := h.service.RevokeBinding(c.Request.Context(), c.GetInt64(webUserKey), c.Param("binding_id"), c.GetString("bi.request_id"))
-	respond(c, 204, nil, err)
-}
-
-func respond(c *gin.Context, status int, value any, err error) {
+// ManagerScope is called only inside the already authenticated web route group.
+func (h *Handler) ManagerScope(c *gin.Context) {
+	subject, ok := middleware.GetAuthSubjectFromContext(c)
+	if !ok {
+		WriteError(c, ErrUnauthenticated)
+		return
+	}
+	c.Set("bi.actor", subject.UserID)
+	if c.GetBool("bi.admin") {
+		c.Next()
+		return
+	}
+	if h.service.desktop == nil {
+		WriteError(c, ErrForbidden)
+		return
+	}
+	org, err := h.service.desktop.GetManagedOrganization(c.Request.Context(), subject.UserID)
 	if err != nil {
-		WriteError(c, err)
+		WriteError(c, ErrForbidden)
 		return
 	}
-	if status == http.StatusNoContent {
-		c.Status(status)
-		return
-	}
-	c.JSON(status, value)
+	c.Set("bi.managed_org", org.PublicID)
+	c.Next()
 }
+func managedOrganization(c *gin.Context) string {
+	if c.GetBool("bi.admin") {
+		return c.Param("organization_id")
+	}
+	return c.GetString("bi.managed_org")
+}
+func actor(c *gin.Context) int64 { return c.GetInt64("bi.actor") }

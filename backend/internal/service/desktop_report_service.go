@@ -9,8 +9,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 const desktopReportChunkRunes = 12000
@@ -312,6 +310,7 @@ func (s *DesktopReportService) tick(ctx context.Context) {
 	if s.now().In(s.loc).Hour() >= 2 {
 		s.enqueueAutomatic(ctx)
 	}
+	s.enqueueAutomaticPeriods(ctx)
 	workers := s.desktop.config.ReportWorkers
 	if workers <= 0 {
 		workers = 2
@@ -326,15 +325,31 @@ func (s *DesktopReportService) tick(ctx context.Context) {
 			return
 		}
 		task, err := s.repo.Claim(ctx)
-		if err != nil || task == nil {
+		if err != nil {
 			<-slots
-			if err != nil {
-				slog.Error("desktop report claim failed", "error", err)
+			slog.Error("desktop report claim failed", "error", err)
+			return
+		}
+		var period *DesktopPeriodTask
+		if task == nil {
+			if repo, e := s.periods(); e == nil {
+				period, err = repo.ClaimPeriod(ctx)
 			}
+		}
+		if err != nil || (task == nil && period == nil) {
+			<-slots
 			return
 		}
 		running.Add(1)
-		go func() { defer running.Done(); defer func() { <-slots }(); s.run(ctx, task) }()
+		go func() {
+			defer running.Done()
+			defer func() { <-slots }()
+			if task != nil {
+				s.run(ctx, task)
+			} else {
+				s.runPeriod(ctx, period)
+			}
+		}()
 	}
 }
 
@@ -588,107 +603,25 @@ func earlierReportTime(a, b time.Time) time.Time {
 
 func (s *DesktopReportService) analyze(ctx context.Context, t *DesktopReportTask, key *APIKey, work *DesktopReportWork, prompt, input, stage string) (string, error) {
 	t.Checkpoint = stage
-	if len(work.Inputs) == 0 {
-		work.Inputs = reportTextInputs(input, t.Payload.Model)
+	memberID := ""
+	if strings.HasPrefix(stage, "member:") {
+		memberID = strings.TrimPrefix(stage, "member:")
 	}
-	for {
-		for len(work.Outputs) < len(work.Inputs) {
-			o, err := s.current(ctx, t)
-			if err != nil {
-				return "", err
-			}
+	var record func(context.Context, int64, *UsageLog) error
+	if recorder, ok := s.repo.(DesktopReportUsageRecorder); ok {
+		record = recorder.RecordExecutionUsage
+	}
+	return s.generateSummary(ctx, key, work, prompt, input, "报表日期："+t.Date, reportGenerationHooks{
+		Model: t.Payload.Model, Stage: stage, Revision: t.Revision, MemberID: memberID,
+		Organization: func(ctx context.Context) (*DesktopOrganization, error) { return s.current(ctx, t) },
+		Validate: func(o *DesktopOrganization) error {
 			if reportConfigurationChanged(o, t) {
-				return "", NewDesktopReportUnavailable("configuration_changed")
+				return NewDesktopReportUnavailable("configuration_changed")
 			}
-			if key.RateLimit1d != o.ManagementPolicy.AnalysisLimit1d {
-				key, err = s.repo.AnalysisKey(ctx, o)
-				if err != nil {
-					return "", err
-				}
-				if s.desktop.apiKeys != nil {
-					s.desktop.apiKeys.InvalidateAuthCacheByKey(ctx, key.Key)
-				}
-			}
-			if err = s.check(ctx, o, key, t.Payload.Model); err != nil {
-				return "", err
-			}
-			if work.Attempts >= 3 {
-				return "", errors.New("report attempts exhausted")
-			}
-			work.Attempts++
-			if err = s.repo.Save(ctx, t, s.now(), false); err != nil {
-				return "", err
-			}
-			requestID := "desktop-report-" + stage + "-" + uuid.NewString()
-			execution := DesktopReportExecution{Revision: t.Revision, Kind: "summary", Model: t.Payload.Model, Round: work.Round, Chunk: len(work.Outputs) + 1, Attempt: work.Attempts, RequestID: requestID, Status: "running", StartedAt: s.now().UTC()}
-			if strings.HasPrefix(stage, "member:") {
-				execution.Kind = "member"
-				execution.MemberID = strings.TrimPrefix(stage, "member:")
-			}
-			if err = s.repo.BeginExecution(ctx, t, &execution); err != nil {
-				work.Attempts--
-				if errors.Is(err, ErrDesktopReportLeaseLost) {
-					return "", err
-				}
-				return "", NewDesktopReportUnavailable("execution_storage_unavailable")
-			}
-			callCtx := ctx
-			if recorder, ok := s.repo.(DesktopReportUsageRecorder); ok {
-				executionID := execution.ID
-				callCtx = WithDesktopReportUsageCapture(ctx, func(usage *UsageLog) {
-					usageCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
-					defer cancel()
-					if err := recorder.RecordExecutionUsage(usageCtx, executionID, usage); err != nil {
-						slog.Error("desktop report usage checkpoint failed", "execution_id", executionID, "error", err)
-					}
-				})
-			}
-			text, callErr := s.ai.Generate(callCtx, o, key, t.Payload.Model, prompt, "报表日期："+t.Date+"\n"+work.Inputs[len(work.Outputs)], requestID)
-			if callErr == nil && strings.TrimSpace(text) == "" {
-				callErr = errors.New("empty report output")
-			}
-			execution.Status = "completed"
-			if callErr != nil {
-				execution.Status, execution.Error = "failed", "upstream_failed"
-				var blocked *DesktopReportUnavailable
-				if errors.As(callErr, &blocked) {
-					execution.Status, execution.Error = "blocked", blocked.Reason
-					work.Attempts--
-				}
-			}
-			finished := s.now().UTC()
-			execution.FinishedAt = &finished
-			// Preserve the outcome even if shutdown or lease loss canceled the task context.
-			finishCtx, finishCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
-			finishErr := s.repo.FinishExecution(finishCtx, &execution)
-			finishCancel()
-			if finishErr != nil {
-				return "", finishErr
-			}
-			if callErr != nil {
-				return "", callErr
-			}
-
-			work.Outputs = append(work.Outputs, text)
-			work.Attempts = 0
-			work.RetryAt = time.Time{}
-			if err = s.repo.Save(ctx, t, s.now(), false); err != nil {
-				return "", err
-			}
-		}
-		if len(work.Outputs) == 1 {
-			return work.Outputs[0], nil
-		}
-		merged := strings.Join(work.Outputs, "\n\n")
-		if work.Round >= 8 {
-			work.Attempts = 3
-			return "", errors.New("report reduction did not converge")
-		}
-		work.Inputs = reportTextInputs(merged, t.Payload.Model)
-		work.Outputs = nil
-		work.Round++
-		if err := s.repo.Save(ctx, t, s.now(), false); err != nil {
-			return "", err
-		}
-	}
+			return nil
+		},
+		Save:   func(ctx context.Context) error { return s.repo.Save(ctx, t, s.now(), false) },
+		Begin:  func(ctx context.Context, e *DesktopReportExecution) error { return s.repo.BeginExecution(ctx, t, e) },
+		Finish: s.repo.FinishExecution, RecordUsage: record,
+	})
 }

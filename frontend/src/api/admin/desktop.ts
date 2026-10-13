@@ -96,6 +96,8 @@ export interface DesktopOrganization {
   member_limit: number
   conversation_reporting_enabled: boolean
   conversation_summary_enabled: boolean
+  weekly_summary_enabled?: boolean
+  monthly_summary_enabled?: boolean
   analysis_model: string
   target_config_assigned: boolean
   target_config?: DesktopTargetConfig | null
@@ -135,6 +137,8 @@ export interface CreateDesktopOrganizationRequest {
   member_limit?: number
   conversation_reporting_enabled?: boolean
   conversation_summary_enabled?: boolean
+  weekly_summary_enabled?: boolean
+  monthly_summary_enabled?: boolean
   analysis_model?: string
 }
 
@@ -147,6 +151,8 @@ export interface UpdateDesktopOrganizationRequest {
   member_limit?: number
   conversation_reporting_enabled?: boolean
   conversation_summary_enabled?: boolean
+  weekly_summary_enabled?: boolean
+  monthly_summary_enabled?: boolean
   analysis_model?: string
 }
 

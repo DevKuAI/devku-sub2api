@@ -1,4 +1,4 @@
-// Package bi implements the isolated enterprise analytics API.
+// Package bi exposes independent mini-program identities and scoped Desktop reads.
 package bi
 
 import "time"
@@ -9,26 +9,18 @@ const (
 	TokenIssuer    = "devku-sub2api"
 	AccessTTL      = 15 * time.Minute
 	RefreshTTL     = 12 * time.Hour
-	ChallengeTTL   = 10 * time.Minute
+	InvitationTTL  = 24 * time.Hour
 )
 
+var Capabilities = []string{"analytics:read", "members:read", "conversations:read", "reports:read", "reports:copy"}
+
 type User struct {
-	ID                   string   `json:"id"`
-	DisplayName          string   `json:"display_name"`
-	Capabilities         []string `json:"capabilities"`
-	AuthorizationVersion string   `json:"authorization_version"`
+	ID                   string `json:"id"`
+	DisplayName          string `json:"display_name"`
+	Status               string `json:"status"`
+	AuthorizationVersion int64  `json:"authorization_version"`
 }
-
-type Organization struct {
-	ID           string   `json:"id"`
-	Name         string   `json:"name"`
-	Status       string   `json:"status"`
-	Role         string   `json:"role"`
-	AllTeams     bool     `json:"all_teams"`
-	TeamIDs      []string `json:"team_ids"`
-	Capabilities []string `json:"capabilities"`
-}
-
+type Principal struct{ UserID, SessionID string }
 type Session struct {
 	Result           string `json:"result"`
 	AccessToken      string `json:"access_token"`
@@ -38,33 +30,45 @@ type Session struct {
 	RefreshExpiresIn int    `json:"refresh_expires_in"`
 	User             User   `json:"user"`
 }
-
-type BindingChallenge struct {
-	Result           string    `json:"result"`
-	BindingTicket    string    `json:"binding_ticket"`
-	UserCode         string    `json:"user_code"`
-	ExpiresAt        time.Time `json:"expires_at"`
-	VerificationPath string    `json:"verification_path"`
+type Access struct {
+	UserID                 string   `json:"bi_user_id"`
+	DisplayName            string   `json:"display_name"`
+	OrganizationID         string   `json:"organization_id"`
+	Name                   string   `json:"name"`
+	Scope                  string   `json:"scope"`
+	Capabilities           []string `json:"capabilities"`
+	Status                 string   `json:"status"`
+	Revision               int64    `json:"revision"`
+	InternalOrganizationID int64    `json:"-"`
 }
-
-type BindingSummary struct {
-	ID          string     `json:"id"`
-	DisplayName string     `json:"display_name"`
-	CreatedAt   time.Time  `json:"created_at"`
-	LastLoginAt *time.Time `json:"last_login_at"`
+type Invitation struct {
+	ID               string     `json:"id"`
+	OrganizationID   string     `json:"organization_id"`
+	OrganizationName string     `json:"organization_name"`
+	Capabilities     []string   `json:"capabilities"`
+	Note             string     `json:"note"`
+	Status           string     `json:"status"`
+	ExpiresAt        time.Time  `json:"expires_at"`
+	CreatedAt        time.Time  `json:"created_at"`
+	ClaimedBy        *string    `json:"claimed_by"`
+	ClaimedAt        *time.Time `json:"claimed_at"`
 }
-
+type IssuedInvitation struct {
+	Invitation
+	Token string `json:"token"`
+	Path  string `json:"path"`
+}
 type Page[T any] struct {
-	Items      []T     `json:"items"`
-	NextCursor *string `json:"next_cursor"`
-	HasMore    bool    `json:"has_more"`
-	SnapshotID string  `json:"snapshot_id"`
+	Items    []T   `json:"items"`
+	Page     int   `json:"page"`
+	PageSize int   `json:"page_size"`
+	Total    int64 `json:"total"`
+	HasMore  bool  `json:"has_more"`
 }
 
-// Principal holds only server-side identity; it must never be serialized.
-type Principal struct {
-	ManagerID string
-	UserID    int64
-	BindingID string
-	SessionID string
+func pageResult[T any](items []T, page, size int, total int64) Page[T] {
+	if items == nil {
+		items = []T{}
+	}
+	return Page[T]{Items: items, Page: page, PageSize: size, Total: total, HasMore: int64(page*size) < total}
 }

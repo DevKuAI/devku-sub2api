@@ -148,11 +148,11 @@ import DesktopReportExecutionHistory from './DesktopReportExecutionHistory.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import '@/styles/desktopAnalytics.css'
 
-const props = defineProps<{ organizationId: string; selfManaged: boolean; enabled: boolean; analysisModel: string }>()
+const props = defineProps<{ organizationId: string; selfManaged: boolean; enabled: boolean; analysisModel: string; initialDate?: string }>()
 const { t, te } = useI18n()
 const key = 'admin.desktop.reports'
 const yesterday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(Date.now() - 86400000))
-const date = ref(yesterday)
+const date = ref(/^\d{4}-\d{2}-\d{2}$/.test(props.initialDate || '') ? props.initialDate! : yesterday)
 const validDate = computed(() => Boolean(date.value) && date.value <= yesterday)
 const reportTabs = ['summary', 'members'] as const
 const activeTab = ref<'summary' | 'members'>('summary')

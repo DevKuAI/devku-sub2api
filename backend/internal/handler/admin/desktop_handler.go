@@ -31,6 +31,8 @@ func NewDesktopHandler(desktop *service.DesktopService) *DesktopHandler {
 }
 
 type desktopCreateOrganizationRequest struct {
+	WeeklySummaryEnabled         bool   `json:"weekly_summary_enabled"`
+	MonthlySummaryEnabled        bool   `json:"monthly_summary_enabled"`
 	ConversationSummaryEnabled   bool   `json:"conversation_summary_enabled"`
 	AnalysisModel                string `json:"analysis_model"`
 	ConversationReportingEnabled bool   `json:"conversation_reporting_enabled"`
@@ -43,6 +45,8 @@ type desktopCreateOrganizationRequest struct {
 
 type desktopUpdateOrganizationRequest struct {
 	ManagementPolicy             *service.DesktopManagementPolicy `json:"management_policy"`
+	WeeklySummaryEnabled         *bool                            `json:"weekly_summary_enabled"`
+	MonthlySummaryEnabled        *bool                            `json:"monthly_summary_enabled"`
 	ConversationSummaryEnabled   *bool                            `json:"conversation_summary_enabled"`
 	AnalysisModel                *string                          `json:"analysis_model"`
 	ConversationReportingEnabled *bool                            `json:"conversation_reporting_enabled"`
@@ -74,6 +78,8 @@ type desktopUpdateMemberRequest struct {
 
 type desktopOrganizationDTO struct {
 	ManagementPolicy             service.DesktopManagementPolicy `json:"management_policy"`
+	WeeklySummaryEnabled         bool                            `json:"weekly_summary_enabled"`
+	MonthlySummaryEnabled        bool                            `json:"monthly_summary_enabled"`
 	ConversationSummaryEnabled   bool                            `json:"conversation_summary_enabled"`
 	AnalysisModel                string                          `json:"analysis_model"`
 	ConversationReportingEnabled bool                            `json:"conversation_reporting_enabled"`
@@ -125,7 +131,7 @@ func (h *DesktopHandler) CreateOrganization(c *gin.Context) {
 	}
 	result, err := executeAdminIdempotent(c, desktopOrganizationCreateIdempotencyScope, req, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
 		organization, execErr := h.desktop.CreateOrganization(ctx, service.DesktopCreateOrganizationInput{
-			ConversationSummaryEnabled: req.ConversationSummaryEnabled, AnalysisModel: req.AnalysisModel,
+			WeeklySummaryEnabled: req.WeeklySummaryEnabled, MonthlySummaryEnabled: req.MonthlySummaryEnabled, ConversationSummaryEnabled: req.ConversationSummaryEnabled, AnalysisModel: req.AnalysisModel,
 			ConversationReportingEnabled: req.ConversationReportingEnabled,
 			Code:                         req.Code, Name: req.Name, GatewayUserID: req.GatewayUserID, GroupID: req.GroupID,
 			MemberLimit: req.MemberLimit,
@@ -171,7 +177,7 @@ func (h *DesktopHandler) UpdateOrganization(c *gin.Context) {
 		return
 	}
 	organization, err := h.desktop.UpdateOrganization(c.Request.Context(), c.Param("organization_id"), service.DesktopUpdateOrganizationInput{
-		ConversationSummaryEnabled: req.ConversationSummaryEnabled, AnalysisModel: req.AnalysisModel,
+		WeeklySummaryEnabled: req.WeeklySummaryEnabled, MonthlySummaryEnabled: req.MonthlySummaryEnabled, ConversationSummaryEnabled: req.ConversationSummaryEnabled, AnalysisModel: req.AnalysisModel,
 		ConversationReportingEnabled: req.ConversationReportingEnabled,
 		Name:                         req.Name, Status: req.Status, GatewayUserID: req.GatewayUserID, GroupID: req.GroupID,
 		MemberLimit: req.MemberLimit, ManagementPolicy: req.ManagementPolicy,
@@ -302,7 +308,7 @@ func adminDesktopIdempotencyResponse(c *gin.Context, result *service.Idempotency
 
 func desktopOrganizationFromService(value *service.DesktopOrganization, includeConfig bool) desktopOrganizationDTO {
 	dto := desktopOrganizationDTO{
-		ConversationSummaryEnabled: value.ConversationSummaryEnabled, AnalysisModel: value.AnalysisModel, ManagementPolicy: value.ManagementPolicy,
+		WeeklySummaryEnabled: value.WeeklySummaryEnabled, MonthlySummaryEnabled: value.MonthlySummaryEnabled, ConversationSummaryEnabled: value.ConversationSummaryEnabled, AnalysisModel: value.AnalysisModel, ManagementPolicy: value.ManagementPolicy,
 		ConversationReportingEnabled: value.ConversationReportingEnabled,
 		PublicID:                     value.PublicID, Code: value.Code, Name: value.Name, Status: value.Status,
 		GatewayUser: desktopGatewayUserDTO{ID: value.GatewayUserID, Email: value.GatewayUserEmail, Username: value.GatewayUserName},

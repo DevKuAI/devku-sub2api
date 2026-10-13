@@ -35,7 +35,7 @@ func (r *desktopReportRepository) ReadDay(ctx context.Context, org int64, date s
 	day := &service.DesktopReportDay{Summary: service.DesktopGeneratedReport{Status: "pending"}, Date: date, Timezone: "Asia/Shanghai", Status: "pending", Members: []service.DesktopReportMember{}, MissingMembers: []string{}, Page: q.Page, PageSize: q.PageSize}
 	var payload []byte
 	var task service.DesktopReportTask
-	err = r.db.QueryRowContext(ctx, `SELECT id,status,reason,revision,metadata || jsonb_build_object('summary',CASE WHEN $3 THEN summary ELSE '{}'::jsonb END) FROM desktop_daily_report_tasks WHERE organization_id=$1 AND report_date=$2::date`, org, date, q.Section == "summary").Scan(&task.ID, &task.Status, &task.Reason, &task.Revision, &payload)
+	err = r.db.QueryRowContext(ctx, `SELECT id,status,reason,revision,metadata || jsonb_build_object('summary',CASE WHEN $3 THEN summary ELSE jsonb_build_object('status',summary->'status','generated_at',summary->'generated_at') END) FROM desktop_daily_report_tasks WHERE organization_id=$1 AND report_date=$2::date`, org, date, q.Section == "summary").Scan(&task.ID, &task.Status, &task.Reason, &task.Revision, &payload)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
@@ -140,4 +140,10 @@ func (r *desktopReportRepository) reportMissingDates(ctx context.Context, org in
 		result = append(result, d)
 	}
 	return result, rows.Err()
+}
+
+func (r *desktopReportRepository) LatestSummaryDate(ctx context.Context, org int64, limit string) (string, error) {
+	var date string
+	err := r.db.QueryRowContext(ctx, `SELECT COALESCE(MAX(report_date)::text,'') FROM desktop_daily_report_tasks WHERE organization_id=$1 AND report_date<=$2::date AND summary->>'status' IN ('completed','partial') AND COALESCE(summary->>'content','')<>''`, org, limit).Scan(&date)
+	return date, err
 }

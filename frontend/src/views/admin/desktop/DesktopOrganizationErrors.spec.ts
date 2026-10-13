@@ -127,10 +127,10 @@ describe('Desktop organization member limit on creation', () => {
     expect(vm.form.member_limit).toBe(10)
     expect(vm.form.conversation_summary_enabled).toBe(false)
     expect(vm.form.analysis_model).toBe('')
-    Object.assign(vm.form, { name: 'Desktop', code: 'desktop', gateway_user_id: 42, group_id: 7, member_limit: limit, conversation_reporting_enabled: false, conversation_summary_enabled: false, analysis_model: '' })
+    Object.assign(vm.form, { name: 'Desktop', code: 'desktop', gateway_user_id: 42, group_id: 7, member_limit: limit, conversation_reporting_enabled: false, conversation_summary_enabled: false, weekly_summary_enabled: false, monthly_summary_enabled: false, analysis_model: '' })
     await vm.createOrganization()
 
-    expect(desktopAPI.createOrganization).toHaveBeenCalledWith({ name: 'Desktop', code: 'desktop', gateway_user_id: 42, group_id: 7, member_limit: limit, conversation_reporting_enabled: false, conversation_summary_enabled: false, analysis_model: '' })
+    expect(desktopAPI.createOrganization).toHaveBeenCalledWith({ name: 'Desktop', code: 'desktop', gateway_user_id: 42, group_id: 7, member_limit: limit, conversation_reporting_enabled: false, conversation_summary_enabled: false, weekly_summary_enabled: false, monthly_summary_enabled: false, analysis_model: '' })
     vm.form.conversation_summary_enabled = true
     vm.form.analysis_model = 'previous-model'
     await vm.openCreate()

@@ -67,6 +67,9 @@ func (s *DesktopService) CreateOrganization(ctx context.Context, input DesktopCr
 	if err := validateDesktopSummaryConfig(input.ConversationSummaryEnabled, input.ConversationReportingEnabled, input.AnalysisModel); err != nil {
 		return nil, err
 	}
+	if (input.WeeklySummaryEnabled || input.MonthlySummaryEnabled) && !input.ConversationSummaryEnabled {
+		return nil, ErrDesktopValidation
+	}
 	if input.ConversationSummaryEnabled {
 		now := s.now()
 		input.SummaryEnabledAt = &now

@@ -15,7 +15,6 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/desktoporganization"
 	"github.com/Wei-Shaw/sub2api/ent/schema/mixins"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/google/uuid"
 )
@@ -303,14 +302,14 @@ func (r *desktopConversationRepository) Statistics(ctx context.Context, organiza
 	}
 	dayIndex := make(map[string]int, periods.TrendDays)
 	for i := range result.Daily {
-		date := periods.TrendStart.In(timezone.Location()).AddDate(0, 0, i).Format("2006-01-02")
+		date := periods.TrendStart.AddDate(0, 0, i).Format("2006-01-02")
 		result.Daily[i].Date = date
 		dayIndex[date] = i
 	}
 	if periods.TrendDays == 0 {
 		return result, nil
 	}
-	zone := strings.ReplaceAll(timezone.Location().String(), "'", "''")
+	zone := strings.ReplaceAll(periods.TrendStart.Location().String(), "'", "''")
 	var days []struct {
 		Date          string `json:"date"`
 		Records       int64  `json:"records"`

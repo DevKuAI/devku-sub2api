@@ -1,89 +1,24 @@
 import { apiClient } from './client'
-import { buildGatewayUrl } from './url'
-
-const baseURL = buildGatewayUrl('/api/bi/v1')
-
-export interface BIPage<T> {
-  items: T[]
-  next_cursor: string | null
-  has_more: boolean
-  snapshot_id: string
-}
-
-export interface BIBinding {
-  id: string
-  display_name: string
-  created_at: string
-  last_login_at: string | null
-}
-
-export async function isBIEnabled(): Promise<boolean> {
-  try {
-    const { data } = await apiClient.get<{ binding_enabled: boolean }>('/bootstrap', { baseURL })
-    return data.binding_enabled === true
-  } catch (error) {
-    if ((error as { status?: number }).status === 404) return false
-    throw error
+export const biCapabilities = ['analytics:read', 'members:read', 'conversations:read', 'reports:read', 'reports:copy'] as const
+export type BICapability = typeof biCapabilities[number]
+export interface BIPage<T> { items: T[]; page: number; page_size: number; total: number; has_more: boolean }
+export interface BIUserAccess { bi_user_id: string; display_name: string; user_status: string; status: 'active' | 'revoked'; scope: 'organization'; capabilities: BICapability[]; revision: number; last_seen_at: string | null }
+export interface BIInvitation { id: string; organization_id: string; organization_name: string; capabilities: BICapability[]; note: string; status: string; expires_at: string; created_at: string; claimed_by: string | null; claimed_at: string | null }
+export interface BIIssuedInvitation extends BIInvitation { token: string; path: string }
+export function biManagement(organization: string, selfManaged = false) {
+  const base = selfManaged ? '/desktop/organization/bi' : `/admin/bi/organizations/${encodeURIComponent(organization)}`
+  return {
+    async users(page = 1) { return (await apiClient.get<BIPage<BIUserAccess>>(`${base}/users`, { params: { page, page_size: 20 } })).data },
+    async invitations(page = 1) { return (await apiClient.get<BIPage<BIInvitation>>(`${base}/invitations`, { params: { page, page_size: 20 } })).data },
+    async create(capabilities: BICapability[], note: string) { return (await apiClient.post<BIIssuedInvitation>(`${base}/invitations`, { capabilities, note })).data },
+    async revoke(id: string) { await apiClient.post(`${base}/invitations/${encodeURIComponent(id)}/revoke`, {}) },
+    async access(user: BIUserAccess, capabilities: BICapability[], status: BIUserAccess['status']) { return (await apiClient.put<BIUserAccess>(`${base}/users/${encodeURIComponent(user.bi_user_id)}/access`, { capabilities, status, expected_revision: user.revision })).data },
   }
 }
-
-export async function listBindings(cursor?: string): Promise<BIPage<BIBinding>> {
-  const { data } = await apiClient.get<BIPage<BIBinding>>('/auth/bindings', {
-    baseURL, params: { limit: 20, ...(cursor ? { cursor } : {}) },
-  })
-  return data
+export function capabilityDependencies(caps: BICapability[]): BICapability[] {
+  const next = new Set(caps)
+  if (next.has('conversations:read') || next.has('reports:read') || next.has('reports:copy')) next.add('members:read')
+  if (next.has('reports:copy')) next.add('reports:read')
+  return biCapabilities.filter(cap => next.has(cap))
 }
-
-export async function approveBinding(userCode: string): Promise<void> {
-  await apiClient.post('/auth/bindings/approve', { user_code: userCode, confirm_binding: true }, { baseURL })
-}
-
-export async function revokeBinding(id: string): Promise<void> {
-  await apiClient.delete(`/auth/bindings/${encodeURIComponent(id)}`, { baseURL })
-}
-
-export interface BIGrant {
-  manager_id: string
-  user_id: number
-  display_name: string
-  role: 'org_admin' | 'team_manager' | 'viewer'
-  all_teams: boolean
-  team_ids: string[]
-  capabilities: string[]
-  revision: number
-  revoked: boolean
-}
-
-export interface BIGrantInput {
-  user_id: number
-  role: BIGrant['role']
-  all_teams: boolean
-  team_ids: string[]
-  capabilities: string[]
-  expected_revision: number
-}
-
-export async function listGrants(organizationID: string, page = 1) {
-  const { data } = await apiClient.get<{ items: BIGrant[]; page: number; has_more: boolean; capabilities: string[] }>(
-    `/admin/bi/organizations/${encodeURIComponent(organizationID)}/grants`, { params: { page } },
-  )
-  return data
-}
-
-export async function saveGrant(organizationID: string, input: BIGrantInput): Promise<BIGrant> {
-  const { data } = await apiClient.put<BIGrant>(`/admin/bi/organizations/${encodeURIComponent(organizationID)}/grants`, input)
-  return data
-}
-
-export async function revokeGrant(organizationID: string, grant: BIGrant): Promise<void> {
-  await apiClient.post(`/admin/bi/organizations/${encodeURIComponent(organizationID)}/grants/${encodeURIComponent(grant.manager_id)}/revoke`, {
-    expected_revision: grant.revision,
-  })
-}
-
-export async function approveGrantBinding(organizationID: string, managerID: string, userCode: string): Promise<void> {
-  await apiClient.post(`/admin/bi/organizations/${encodeURIComponent(organizationID)}/grants/${encodeURIComponent(managerID)}/bindings/approve`, {
-    user_code: userCode,
-    confirm_binding: true,
-  })
-}
+export async function isBIEnabled() { return (await apiClient.get<{ bi_enabled: boolean }>('/settings')).data.bi_enabled === true }

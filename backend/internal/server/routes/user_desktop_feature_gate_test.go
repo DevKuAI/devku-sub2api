@@ -64,7 +64,7 @@ func TestDesktopUserRoutesFollowFeatureFlag(t *testing.T) {
 		want    int
 	}{
 		{name: "disabled"},
-		{name: "enabled", enabled: true, want: 16},
+		{name: "enabled", enabled: true, want: 20},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			router := gin.New()

@@ -76,10 +76,16 @@ func (r *desktopReportRepository) Cleanup(ctx context.Context, now time.Time) er
 			}
 		}
 		if err == nil && p.value.ReportRetentionDays > 0 {
-			_, err = tx.ExecContext(ctx, `DELETE FROM desktop_daily_report_tasks WHERE id IN(SELECT id FROM desktop_daily_report_tasks WHERE organization_id=$1 AND report_date<$2::date AND status NOT IN ('pending','waiting','running') AND (lease_until IS NULL OR lease_until<=NOW()) ORDER BY report_date,id LIMIT 100)`, p.id, today.AddDate(0, 0, -p.value.ReportRetentionDays).Format("2006-01-02"))
+			_, err = tx.ExecContext(ctx, `DELETE FROM desktop_daily_report_tasks WHERE id IN(SELECT id FROM desktop_daily_report_tasks WHERE organization_id=$1 AND report_date<$2::date AND status NOT IN ('pending','waiting','running') AND (lease_until IS NULL OR lease_until<=NOW()) AND NOT EXISTS(SELECT 1 FROM desktop_period_report_tasks p WHERE p.organization_id=$1 AND desktop_daily_report_tasks.report_date>=p.period_start AND desktop_daily_report_tasks.report_date<p.period_end AND (p.status IN ('pending','waiting','running') OR p.lease_until>NOW()) AND COALESCE(p.configuration->>'captured','false')<>'true') ORDER BY report_date,id LIMIT 100)`, p.id, today.AddDate(0, 0, -p.value.ReportRetentionDays).Format("2006-01-02"))
 		}
 		if err == nil && p.value.ExecutionRetentionDays > 0 {
 			_, err = tx.ExecContext(ctx, `DELETE FROM desktop_daily_report_executions WHERE id IN(SELECT e.id FROM desktop_daily_report_executions e LEFT JOIN desktop_daily_report_tasks t ON t.id=e.task_id WHERE e.organization_id=$1 AND e.report_date<$2::date AND (t.id IS NULL OR (t.status NOT IN ('pending','waiting','running') AND (t.lease_until IS NULL OR t.lease_until<=NOW()))) ORDER BY e.id LIMIT 1000)`, p.id, today.AddDate(0, 0, -p.value.ExecutionRetentionDays).Format("2006-01-02"))
+		}
+		if err == nil && p.value.ReportRetentionDays > 0 {
+			_, err = tx.ExecContext(ctx, `DELETE FROM desktop_period_report_tasks WHERE id IN(SELECT id FROM desktop_period_report_tasks WHERE organization_id=$1 AND period_end<=$2::date AND status NOT IN ('pending','waiting','running') AND (lease_until IS NULL OR lease_until<=NOW()) ORDER BY period_end,id LIMIT 100)`, p.id, today.AddDate(0, 0, -p.value.ReportRetentionDays).Format("2006-01-02"))
+		}
+		if err == nil && p.value.ExecutionRetentionDays > 0 {
+			_, err = tx.ExecContext(ctx, `DELETE FROM desktop_period_report_executions WHERE id IN(SELECT e.id FROM desktop_period_report_executions e LEFT JOIN desktop_period_report_tasks p ON p.id=e.task_id WHERE e.organization_id=$1 AND e.started_at<$2 AND (p.id IS NULL OR (p.status NOT IN ('pending','waiting','running') AND (p.lease_until IS NULL OR p.lease_until<=NOW()))) ORDER BY e.id LIMIT 1000)`, p.id, today.AddDate(0, 0, -p.value.ExecutionRetentionDays))
 		}
 		if err != nil {
 			_ = tx.Rollback()

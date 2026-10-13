@@ -40,11 +40,11 @@ func TestBIConfigLoadsEveryEnvironmentSetting(t *testing.T) {
 	want := BIConfig{Enabled: true, AppID: "wx_test", AppSecret: "test-app-secret",
 		JWTSecret:        base64.StdEncoding.EncodeToString([]byte("01234567890123456789012345678901")),
 		IdentitySecret:   base64.StdEncoding.EncodeToString([]byte("11234567890123456789012345678901")),
-		MinClientVersion: "0.2.0", ReportRetentionMonths: 12}
+		MinClientVersion: "0.2.0"}
 	for key, value := range map[string]string{
 		"BI_ENABLED": "true", "BI_APPID": want.AppID, "BI_APP_SECRET": want.AppSecret,
 		"BI_JWT_SECRET": want.JWTSecret, "BI_IDENTITY_SECRET": want.IdentitySecret,
-		"BI_MIN_CLIENT_VERSION": want.MinClientVersion, "BI_REPORT_RETENTION_MONTHS": "12",
+		"BI_MIN_CLIENT_VERSION": want.MinClientVersion,
 	} {
 		t.Setenv(key, value)
 	}

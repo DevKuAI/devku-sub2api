@@ -8,6 +8,7 @@ import (
 
 type DesktopAnalyticsRangeInput struct {
 	Days     int
+	Timezone string
 	FromDate string
 	ToDate   string
 }
@@ -24,7 +25,15 @@ type DesktopAnalyticsRange struct {
 
 func (input DesktopAnalyticsRangeInput) Resolve(now time.Time) (DesktopAnalyticsRange, error) {
 	location := timezone.Location()
-	today := timezone.StartOfDay(now)
+	if input.Timezone != "" {
+		var err error
+		location, err = time.LoadLocation(input.Timezone)
+		if err != nil {
+			return DesktopAnalyticsRange{}, ErrDesktopValidation
+		}
+	}
+	localNow := now.In(location)
+	today := time.Date(localNow.Year(), localNow.Month(), localNow.Day(), 0, 0, 0, 0, location)
 	var start, last time.Time
 	var days int
 	if input.FromDate != "" || input.ToDate != "" {

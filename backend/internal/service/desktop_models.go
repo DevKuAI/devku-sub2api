@@ -48,6 +48,8 @@ var (
 
 type DesktopOrganization struct {
 	ManagementPolicy             DesktopManagementPolicy
+	WeeklySummaryEnabled         bool
+	MonthlySummaryEnabled        bool
 	ConversationSummaryEnabled   bool
 	AnalysisModel                string
 	SummaryEnabledAt             *time.Time
@@ -198,6 +200,8 @@ type DesktopMemberListFilters struct {
 }
 
 type DesktopCreateOrganizationInput struct {
+	WeeklySummaryEnabled         bool
+	MonthlySummaryEnabled        bool
 	ConversationSummaryEnabled   bool
 	AnalysisModel                string
 	SummaryEnabledAt             *time.Time
@@ -212,6 +216,8 @@ type DesktopCreateOrganizationInput struct {
 
 type DesktopUpdateOrganizationInput struct {
 	ManagementPolicy             *DesktopManagementPolicy
+	WeeklySummaryEnabled         *bool
+	MonthlySummaryEnabled        *bool
 	ConversationSummaryEnabled   *bool
 	AnalysisModel                *string
 	ConversationReportingEnabled *bool
