@@ -7,6 +7,7 @@ import (
 )
 
 type DesktopAnalyticsRangeInput struct {
+	AsOf     time.Time
 	Days     int
 	Timezone string
 	FromDate string
@@ -24,6 +25,12 @@ type DesktopAnalyticsRange struct {
 }
 
 func (input DesktopAnalyticsRangeInput) Resolve(now time.Time) (DesktopAnalyticsRange, error) {
+	if !input.AsOf.IsZero() {
+		if input.AsOf.After(now) || now.Sub(input.AsOf) > 24*time.Hour {
+			return DesktopAnalyticsRange{}, ErrDesktopValidation
+		}
+		now = input.AsOf
+	}
 	location := timezone.Location()
 	if input.Timezone != "" {
 		var err error

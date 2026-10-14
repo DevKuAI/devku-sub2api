@@ -11,13 +11,14 @@ import (
 
 func (h *Handler) CreateInvitation(c *gin.Context) {
 	var in struct {
-		Capabilities []string `json:"capabilities"`
-		Note         string   `json:"note"`
+		Capabilities  []string `json:"capabilities"`
+		Note          string   `json:"note"`
+		RecipientName string   `json:"recipient_name"`
 	}
 	if !decodeRequest(c, &in) {
 		return
 	}
-	v, e := h.service.CreateInvitation(c.Request.Context(), managedOrganization(c), in.Capabilities, in.Note, actor(c), c.GetString("bi.request_id"))
+	v, e := h.service.CreateInvitation(c.Request.Context(), managedOrganization(c), in.Capabilities, in.Note, actor(c), c.GetString("bi.request_id"), in.RecipientName)
 	adminRespond(c, v, e)
 }
 func (h *Handler) ListInvitations(c *gin.Context) {
@@ -90,7 +91,7 @@ func (h *Handler) ListAccess(c *gin.Context) {
 		WriteError(c, err)
 		return
 	}
-	rows, err := h.service.db.QueryContext(ctx, `SELECT u.id,u.display_name,u.status,a.capabilities,a.status,a.revision,a.updated_at,(SELECT MAX(last_seen_at) FROM bi_sessions s WHERE s.bi_user_id=u.id) FROM bi_access a JOIN bi_users u ON u.id=a.bi_user_id JOIN desktop_organizations o ON o.id=a.organization_id WHERE o.public_id=$1 ORDER BY u.display_name,u.id LIMIT $2 OFFSET $3`, org, size, (page-1)*size)
+	rows, err := h.service.db.QueryContext(ctx, `SELECT u.id,u.display_name,u.status,a.capabilities,a.status,a.revision,a.organization_alias,a.updated_at,(SELECT MAX(last_seen_at) FROM bi_sessions s WHERE s.bi_user_id=u.id) FROM bi_access a JOIN bi_users u ON u.id=a.bi_user_id JOIN desktop_organizations o ON o.id=a.organization_id WHERE o.public_id=$1 ORDER BY u.display_name,u.id LIMIT $2 OFFSET $3`, org, size, (page-1)*size)
 	if err != nil {
 		WriteError(c, err)
 		return
@@ -98,12 +99,12 @@ func (h *Handler) ListAccess(c *gin.Context) {
 	defer func() { _ = rows.Close() }()
 	items := []gin.H{}
 	for rows.Next() {
-		var id, name, userStatus, status string
+		var id, name, userStatus, status, alias string
 		var raw []byte
 		var revision int64
 		var updated time.Time
 		var last *time.Time
-		if err = rows.Scan(&id, &name, &userStatus, &raw, &status, &revision, &updated, &last); err != nil {
+		if err = rows.Scan(&id, &name, &userStatus, &raw, &status, &revision, &alias, &updated, &last); err != nil {
 			WriteError(c, err)
 			return
 		}
@@ -112,15 +113,16 @@ func (h *Handler) ListAccess(c *gin.Context) {
 			WriteError(c, err)
 			return
 		}
-		items = append(items, gin.H{"bi_user_id": id, "display_name": name, "user_status": userStatus, "status": status, "scope": "organization", "capabilities": caps, "revision": revision, "updated_at": updated, "last_seen_at": last})
+		items = append(items, gin.H{"bi_user_id": id, "display_name": name, "organization_alias": alias, "user_status": userStatus, "status": status, "scope": "organization", "capabilities": caps, "revision": revision, "updated_at": updated, "last_seen_at": last})
 	}
 	adminRespond(c, pageResult(items, page, size, total), rows.Err())
 }
 func (h *Handler) UpdateAccess(c *gin.Context) {
 	var in struct {
-		Capabilities []string `json:"capabilities"`
-		Status       string   `json:"status"`
-		Revision     *int64   `json:"expected_revision"`
+		Capabilities      []string `json:"capabilities"`
+		Status            string   `json:"status"`
+		Revision          *int64   `json:"expected_revision"`
+		OrganizationAlias *string  `json:"organization_alias"`
 	}
 	if !decodeRequest(c, &in) {
 		return
@@ -129,7 +131,11 @@ func (h *Handler) UpdateAccess(c *gin.Context) {
 		WriteError(c, invalid("expected_revision", "Current revision required"))
 		return
 	}
-	v, e := h.service.UpdateAccess(c.Request.Context(), managedOrganization(c), c.Param("bi_user_id"), in.Capabilities, in.Status, *in.Revision, actor(c), c.GetString("bi.request_id"))
+	aliases := []string{}
+	if in.OrganizationAlias != nil {
+		aliases = append(aliases, *in.OrganizationAlias)
+	}
+	v, e := h.service.UpdateAccess(c.Request.Context(), managedOrganization(c), c.Param("bi_user_id"), in.Capabilities, in.Status, *in.Revision, actor(c), c.GetString("bi.request_id"), aliases...)
 	adminRespond(c, v, e)
 }
 func (h *Handler) SetUserStatus(c *gin.Context) {

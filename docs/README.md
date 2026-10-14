@@ -40,5 +40,5 @@ docs/
 - Desktop 基础 v1 与 v2 会话文档并存。BI 的当前契约和已退役链路由 [BI 索引](mobile-bi/README.md) 分别列出，历史审阅记录不代表当前验收。
 - 新文档放入对应模块，更新模块索引。新增模块时同步更新本页和 `.gitignore` 的白名单。
 - 文档路径调整时，同步修正相对链接、根 README、界面帮助链接，以及读取 OpenAPI 的 route tests。
-- API 契约调整时，运行对应路由与 schema 检查；BI 契约还需要核对后端内嵌 schema。仅移动文件时保持契约内容不变。
+- API 契约调整时，运行对应路由与 schema 检查；当前 BI 契约由路由与跨端联调检查核对。仅移动文件时保持契约内容不变。
 - 部署配置以 `deploy/` 为入口；插件协议以 `backend/pkg/pluginapi/` 为准，避免在 `docs/` 复制另一份实现说明。

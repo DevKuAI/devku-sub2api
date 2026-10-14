@@ -30,6 +30,9 @@ func NewService(db *sql.DB, cfg config.BIConfig, desktop *service.DesktopService
 type LoginOptions struct{ ClientVersion, DisplayName string }
 
 func (s *Service) Login(ctx context.Context, code string, options LoginOptions) (*Session, error) {
+	if err := requireClientVersion(options.ClientVersion, s.config.MinClientVersion); err != nil {
+		return nil, err
+	}
 	if len(code) == 0 || len(code) > 256 || utf8.RuneCountInString(options.ClientVersion) > 32 || utf8.RuneCountInString(options.DisplayName) > 80 {
 		return nil, invalid("code", "Invalid login fields")
 	}

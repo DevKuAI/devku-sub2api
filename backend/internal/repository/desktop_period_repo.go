@@ -76,8 +76,11 @@ func (r *desktopReportRepository) ReadPeriod(ctx context.Context, org int64, id 
 	}
 	return t, e
 }
-func (r *desktopReportRepository) ListPeriods(ctx context.Context, org int64, kind, start string, page, size int) ([]service.DesktopPeriodMetadata, int64, error) {
+func (r *desktopReportRepository) ListPeriods(ctx context.Context, org int64, kind, start string, page, size int, readableOnly ...bool) ([]service.DesktopPeriodMetadata, int64, error) {
 	where := ` WHERE p.organization_id=$1 AND ($2='' OR p.kind=$2) AND ($3='' OR p.period_start::text=$3)`
+	if len(readableOnly) > 0 && readableOnly[0] {
+		where += ` AND p.status IN ('completed','partial') AND p.content IS NOT NULL AND NOT EXISTS(SELECT 1 FROM desktop_period_report_tasks newer WHERE newer.organization_id=p.organization_id AND newer.kind=p.kind AND newer.period_start=p.period_start AND newer.revision>p.revision AND newer.status IN ('completed','partial') AND newer.content IS NOT NULL)`
+	}
 	var total int64
 	e := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM desktop_period_report_tasks p`+where, org, kind, start).Scan(&total)
 	if e != nil {

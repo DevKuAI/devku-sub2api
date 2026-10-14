@@ -10,12 +10,13 @@ type FieldError struct {
 }
 
 type Error struct {
-	Status    int          `json:"-"`
-	Code      string       `json:"code"`
-	Message   string       `json:"message"`
-	RequestID string       `json:"request_id"`
-	Retryable bool         `json:"retryable"`
-	Details   []FieldError `json:"details"`
+	Status           int          `json:"-"`
+	Code             string       `json:"code"`
+	Message          string       `json:"message"`
+	RequestID        string       `json:"request_id"`
+	Retryable        bool         `json:"retryable"`
+	MinClientVersion string       `json:"min_client_version,omitempty"`
+	Details          []FieldError `json:"details"`
 }
 
 func (e *Error) Error() string { return e.Code + ": " + e.Message }

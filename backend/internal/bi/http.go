@@ -137,29 +137,6 @@ func (h *Handler) MobileAuth(c *gin.Context) {
 	c.Next()
 }
 
-var rateLimitScript = redis.NewScript(`local n=redis.call('INCR',KEYS[1]);if n==1 then redis.call('EXPIRE',KEYS[1],60) end;return {n,redis.call('TTL',KEYS[1])}`)
-
-func (h *Handler) RateLimit(clientIP func(*gin.Context) string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		if h.redis == nil {
-			WriteError(c, apiError(503, "DATA_UNAVAILABLE", "Authentication unavailable"))
-			return
-		}
-		v, err := rateLimitScript.Run(c.Request.Context(), h.redis, []string{"bi:auth-limit:" + tokenHash(clientIP(c))}).Int64Slice()
-		if err != nil || len(v) != 2 {
-			WriteError(c, apiError(503, "DATA_UNAVAILABLE", "Authentication unavailable"))
-			return
-		}
-		if v[0] > 30 {
-			c.Header("Retry-After", strconv.FormatInt(max(v[1], 1), 10))
-			e := apiError(429, "RATE_LIMITED", "Too many requests")
-			e.Retryable = true
-			WriteError(c, e)
-			return
-		}
-		c.Next()
-	}
-}
 func (h *Handler) Bootstrap(c *gin.Context) {
 	if h.settings == nil {
 		WriteError(c, apiError(503, "DATA_UNAVAILABLE", "Privacy notice unavailable"))

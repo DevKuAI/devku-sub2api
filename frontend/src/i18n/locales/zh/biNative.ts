@@ -1,5 +1,9 @@
 export default {
   "biNative": {
+    organizationAlias: '企业内称呼（可选）',
+    organizationAliasHint: '用于本企业辨认使用者，不改变微信身份或访问权限。',
+    scanInviteHint: '请使用小程序设置页的「扫码领取」扫描二维码；邀请需由接收者主动确认。',
+    inviteQRCode: '企业邀请码二维码',
     "users": "小程序使用者",
     "createInvite": "创建邀请",
     "identityHint": "使用者采用独立微信身份，不关联原站账号或 Desktop 员工；一个使用者可以按不同权限访问多个企业。",

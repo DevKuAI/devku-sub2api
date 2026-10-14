@@ -52,5 +52,13 @@ func readPeriodSection(c *gin.Context, d *service.DesktopService, org string, pa
 	if e != nil {
 		return nil, e
 	}
-	return gin.H{"report": t.DesktopPeriodMetadata, "content": t.Content}, nil
+	result := gin.H{"report": t.DesktopPeriodMetadata, "content": t.Content}
+	if t.Content != nil {
+		dates := make([]string, 0, len(t.Sources))
+		for _, source := range t.Sources {
+			dates = append(dates, source.Date)
+		}
+		result["summary_outline"] = service.BuildDesktopSummaryOutline(*t.Content, dates)
+	}
+	return result, nil
 }

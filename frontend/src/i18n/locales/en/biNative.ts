@@ -1,5 +1,9 @@
 export default {
   "biNative": {
+    organizationAlias: 'Organization label (optional)',
+    organizationAliasHint: 'Identifies this reader within this organization; it does not change their WeChat identity or permissions.',
+    scanInviteHint: 'Scan with Claim by scanning in mini-program settings. The recipient must confirm the invitation.',
+    inviteQRCode: 'Organization invitation QR code',
     "users": "Mini-program users",
     "createInvite": "Create invitation",
     "identityHint": "Independent WeChat identities, separate from web accounts and Desktop employees. Access is granted per organization.",

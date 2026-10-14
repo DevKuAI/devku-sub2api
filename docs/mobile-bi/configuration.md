@@ -16,3 +16,7 @@ BI 默认关闭。配置模板见 `deploy/config.example.yaml`、`.env.example` 
 公开 settings／页面注入新增 `bi_enabled`，仅用于入口判断，不暴露秘密。服务开关、隐私发布、企业状态和数据准备分别呈现。
 
 本轮新增 migration 257／258，不修改旧 migration checksum。257 清理未发布旧 BI；258 增加周月任务、执行和默认关闭的开关。迁移会永久删除明确列出的旧 BI 开发数据，不影响 Desktop、原站用户和计费。应用到非隔离库前仍需独立部署授权。
+
+新增 migration 259 为邀请预设称呼和企业内称呼增加独立列，不修改历史 migration。称呼不是身份鉴权字段。
+
+Sub2API 的 GitHub Actions 仅验证本仓库，不配置跨仓 BI CI。两端联调使用本地已有的小程序 checkout，命令见 [本地联调与验证](integration-runbook.md)。

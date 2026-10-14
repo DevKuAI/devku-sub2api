@@ -7,7 +7,7 @@ export function desktopPeriods(org: string, selfManaged = false) {
   const base = (selfManaged ? '/desktop/organization' : `/admin/desktop/organizations/${encodeURIComponent(org)}`) + '/period-reports'
   return {
     async list(kind: string, start: string, page = 1) { return (await apiClient.get<BIPage<PeriodReport>>(base, { params: { kind, period_start: start || undefined, page, page_size: 20 } })).data },
-    async detail(id: string) { return (await apiClient.get<{ report: PeriodReport; content: string | null }>(`${base}/${encodeURIComponent(id)}`)).data },
+    async detail(id: string) { return (await apiClient.get<{ report: PeriodReport; content: string | null; summary_outline?: {sections:{kind:string;title:string;start_line:number;end_line:number;source_dates:string[]}[];validated_source_dates:string[];unverified_source_dates:string[]} }>(`${base}/${encodeURIComponent(id)}`)).data },
     async sources(id: string, page = 1) { return (await apiClient.get<BIPage<PeriodSource>>(`${base}/${encodeURIComponent(id)}/sources`, { params: { page, page_size: 20 } })).data },
     async source(id: string, date: string) { return (await apiClient.get<PeriodSource>(`${base}/${encodeURIComponent(id)}/sources/${encodeURIComponent(date)}`)).data },
     async run(kind: string, start: string, mode: string) { return (await apiClient.post<PeriodReport>(`${base}/run`, { kind, period_start: start, mode })).data },

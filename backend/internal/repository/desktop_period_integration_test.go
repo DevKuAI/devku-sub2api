@@ -118,6 +118,12 @@ func TestDesktopPeriodPersistenceSourcesVersionsLeaseAndBilling(t *testing.T) {
 	require.Equal(t, 2, regenerated.Revision)
 	require.NotEqual(t, id, regenerated.ID)
 	require.Empty(t, regenerated.Sources)
+	readable, total, e := repo.ListPeriods(ctx, f.organization.ID, "week", "", 1, 20, true)
+	require.NoError(t, e)
+	require.EqualValues(t, 1, total)
+	require.Equal(t, id, readable[0].ID)
+	// Pending regeneration must not replace the most recent readable version.
+
 	_, e = integrationDB.Exec(`UPDATE desktop_period_report_tasks SET status='running',lease_token='abandoned-token',lease_until=NOW()-INTERVAL '1 minute' WHERE id=$1`, regenerated.InternalID)
 	require.NoError(t, e)
 	recovered, e := repo.ClaimPeriod(ctx)

@@ -67,12 +67,17 @@ func independentFixture(t *testing.T) *biFixture {
 	cfg := &config.Config{BI: config.BIConfig{Enabled: true, AppID: "wx_test", JWTSecret: base64.StdEncoding.EncodeToString([]byte(strings.Repeat("j", 32))), IdentitySecret: base64.StdEncoding.EncodeToString([]byte(strings.Repeat("i", 32)))}, Desktop: config.DesktopConfig{Enabled: true}}
 	client := dbent.NewClient(dbent.Driver(entsql.OpenDB(dialect.Postgres, db)))
 	keys := repository.NewAPIKeyRepository(client, db)
-	desk := service.ProvideDesktopService(repository.NewDesktopRepository(client, keys), repository.NewUsageLogRepository(client, db).(service.DesktopUsageRepository), nil, nil, nil, nil, cfg, nil, repository.NewDesktopConversationRepository(client), nil, repository.NewDesktopReportRepository(db, client))
+	keyService := service.NewAPIKeyService(keys, nil, nil, nil, nil, nil, cfg)
+	t.Cleanup(keyService.StopAuthCacheInvalidationSubscriber)
+	desk := service.ProvideDesktopService(repository.NewDesktopRepository(client, keys), repository.NewUsageLogRepository(client, db).(service.DesktopUsageRepository), nil, nil, nil, keyService, cfg, nil, repository.NewDesktopConversationRepository(client), nil, repository.NewDesktopReportRepository(db, client))
 	s := NewService(db, cfg.BI, desk, identityWX{})
 	r := miniredis.RunT(t)
 	redisClient := redis.NewClient(&redis.Options{Addr: r.Addr()})
 	t.Cleanup(func() { _ = redisClient.Close() })
-	h := &Handler{service: s, desktopEnabled: true, redis: redisClient}
+	settings := service.NewSettingService(repository.NewSettingRepository(client), cfg)
+	_, e = settings.UpdateBIPrivacyNotice(ctx, "Local BI privacy", "v1", "# Local fixture", "https://bi.local.test")
+	require.NoError(t, e)
+	h := &Handler{service: s, desktopEnabled: true, redis: redisClient, settings: settings}
 	return &biFixture{db: db, s: s, h: h, org: "org_native", owner: owner, desktop: desk}
 }
 func (f *biFixture) login(t *testing.T, identity string) *Session {
@@ -176,18 +181,7 @@ func TestIndependentIdentityInvitationsIsolationReplayAndRevocation(t *testing.T
 func nativeRouter(f *biFixture) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	root := r.Group("/api/bi/v1", Boundary)
-	root.POST("/auth/wechat", f.h.Login)
-	root.POST("/auth/refresh", f.h.Refresh)
-	root.POST("/auth/logout", f.h.Logout)
-	mobile := root.Group("", f.h.MobileAuth)
-	mobile.GET("/me", f.h.Me)
-	mobile.GET("/organizations", f.h.Organizations)
-	mobile.POST("/invitations/preview", f.h.PreviewInvitation)
-	mobile.POST("/invitations/accept", f.h.AcceptInvitation)
-	for path, operation := range map[string]string{"": "organization", "/usage": "usage", "/members": "members", "/conversations": "conversations", "/daily-reports/:date/summary": "daily_summary", "/daily-reports/:date/text": "daily_text", "/period-reports": "periods", "/period-reports/:report_id": "period", "/period-reports/:report_id/sources": "sources"} {
-		mobile.GET("/organizations/:organization_id/desktop"+path, f.h.NativeRead(operation))
-	}
+	f.h.RegisterMobileRoutes(r)
 	return r
 }
 func TestNativeHTTPAndActualTypeScriptClient(t *testing.T) {
@@ -196,6 +190,21 @@ func TestNativeHTTPAndActualTypeScriptClient(t *testing.T) {
 	inv, e := f.s.CreateInvitation(ctx, f.org, Capabilities, "TS integration", f.owner, "req")
 	require.NoError(t, e)
 	_, e = f.db.Exec(`INSERT INTO desktop_daily_report_tasks(organization_id,report_date,status,summary) VALUES((SELECT id FROM desktop_organizations WHERE public_id=$1),'2026-10-01','completed','{"status":"completed","content":"企业日总结正文","generated_at":"2026-10-02T00:00:00Z"}')`, f.org)
+	require.NoError(t, e)
+	var org int64
+	_, e = f.db.Exec(`UPDATE users SET api_key_limit=100 WHERE id=$1`, f.owner)
+	require.NoError(t, e)
+	require.NoError(t, f.db.QueryRow(`UPDATE desktop_organizations SET member_limit=100 WHERE public_id=$1 RETURNING id`, f.org).Scan(&org))
+	var account int64
+	require.NoError(t, f.db.QueryRow(`INSERT INTO accounts(name,platform,type,credentials) VALUES('native-http','openai','apikey','{}') RETURNING id`).Scan(&account))
+	for i := 0; i < 25; i++ {
+		member, e := f.desktop.CreateMember(ctx, f.org, fmt.Sprintf("成员%02d", i), fmt.Sprintf("+861380%07d", i), "")
+		require.NoError(t, e)
+		_, e = f.db.Exec(`INSERT INTO usage_logs(user_id,api_key_id,account_id,request_id,model,input_tokens,output_tokens,billing_mode,created_at) VALUES($1,$2,$3,$4,$5,2147483647,20,'token',NOW()-INTERVAL '1 minute')`, f.owner, *member.CurrentAPIKeyID, account, fmt.Sprintf("http-%d", i), fmt.Sprintf("model-%02d", i))
+		require.NoError(t, e)
+	}
+	_, e = f.db.Exec(`INSERT INTO desktop_period_report_tasks(public_id,organization_id,kind,period_start,period_end,revision,status,content,coverage,source_versions,sources,configuration)
+ VALUES('dpr_http_week',$1,'week','2026-09-28','2026-10-05',1,'completed','## 事实进展\n验证完成 [日总结:2026-10-01]','{"available_dates":["2026-10-01"],"missing_dates":[],"partial_dates":[],"no_record_dates":[],"reasons":{}}','[{"date":"2026-10-01","revision":1,"status":"completed","content_hash":"fixture"}]','[{"date":"2026-10-01","revision":1,"status":"completed","content":"冻结日总结正文","content_hash":"fixture"}]','{"captured":true}')`, org)
 	require.NoError(t, e)
 	server := httptest.NewServer(nativeRouter(f))
 	defer server.Close()
@@ -206,12 +215,23 @@ func TestNativeHTTPAndActualTypeScriptClient(t *testing.T) {
 		require.NoError(t, e)
 	}
 	if _, err := os.Stat(filepath.Join(node.Dir, "tests/native-http.ts")); err != nil {
+		if os.Getenv("BI_REQUIRE_MOBILE_HTTP") == "1" {
+			t.Fatal("actual mobile checkout is required for cross-repository CI")
+		}
 		t.Skip("set BI_MOBILE_PROJECT to the mobile checkout for actual TypeScript integration")
 	}
-	node.Env = append(os.Environ(), "BI_TEST_BASE_URL="+server.URL+"/api/bi/v1", "BI_TEST_INVITE="+inv.Token)
+	responses := filepath.Join(t.TempDir(), "synthetic-responses.json")
+	node.Env = append(os.Environ(), "BI_TEST_RESPONSES_PATH="+responses, "BI_TEST_BASE_URL="+server.URL+"/api/bi/v1", "BI_TEST_INVITE="+inv.Token)
 	out, e := node.CombinedOutput()
 	require.NoError(t, e, string(out))
 	require.Contains(t, string(out), "native HTTP flow verified")
+	if os.Getenv("BI_REQUIRE_CONTRACT_VALIDATION") == "1" {
+		check := exec.Command("python3", "../../../tools/check_bi_contracts.py", "--responses", responses)
+		check.Dir = "."
+		validation, err := check.CombinedOutput()
+		require.NoError(t, err, string(validation))
+		t.Log(string(validation))
+	}
 
 }
 func TestOperationsMetadataNeverReturnsBusinessBodies(t *testing.T) {
@@ -234,4 +254,29 @@ func TestOperationsMetadataNeverReturnsBusinessBodies(t *testing.T) {
 	r.ServeHTTP(w, httptest.NewRequest("GET", "/scoped/another/users", nil))
 	require.Equal(t, 200, w.Code, w.Body.String())
 	require.Contains(t, w.Body.String(), `"total":0`)
+}
+
+func TestBIOrganizationAliasIsScopedAndReplayDoesNotReplaceIt(t *testing.T) {
+	f := independentFixture(t)
+	ctx := context.Background()
+	session := f.login(t, "alias-user")
+	p, err := f.s.Authorize(ctx, session.AccessToken)
+	require.NoError(t, err)
+	invitation, err := f.s.CreateInvitation(ctx, f.org, []string{"analytics:read"}, "reader", f.owner, "req", "张经理")
+	require.NoError(t, err)
+	access, err := f.s.AcceptInvitation(ctx, p, invitation.Token, "req")
+	require.NoError(t, err)
+	require.Equal(t, "张经理", access.OrganizationAlias)
+	updated, err := f.s.UpdateAccess(ctx, f.org, p.UserID, access.Capabilities, "active", access.Revision, f.owner, "req", "项目负责人")
+	require.NoError(t, err)
+	replay, err := f.s.AcceptInvitation(ctx, p, invitation.Token, "replay")
+	require.NoError(t, err)
+	require.Equal(t, "项目负责人", replay.OrganizationAlias)
+	require.Equal(t, updated.Revision, replay.Revision)
+	user, err := f.s.Me(ctx, p)
+	require.NoError(t, err)
+	require.Equal(t, "小程序使用者", user.DisplayName)
+	_, err = f.s.UpdateAccess(ctx, f.org, p.UserID, access.Capabilities, "active", access.Revision, f.owner, "stale", "错误覆盖")
+	require.Error(t, err)
+	require.Equal(t, "项目负责人", replay.OrganizationAlias)
 }

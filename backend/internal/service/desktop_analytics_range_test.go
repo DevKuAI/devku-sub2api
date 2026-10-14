@@ -53,3 +53,15 @@ func TestDesktopAnalyticsRangeAcrossDST(t *testing.T) {
 	require.Equal(t, 7, selection.Days)
 	require.Equal(t, 6*24*time.Hour+11*time.Hour, selection.End.Sub(selection.Start))
 }
+
+func TestDesktopAnalyticsRangeUsesBoundedSharedCutoff(t *testing.T) {
+	now := time.Date(2026, 10, 14, 8, 0, 0, 0, time.UTC)
+	cutoff := now.Add(-time.Hour)
+	selected, err := (DesktopAnalyticsRangeInput{Days: 30, Timezone: "Asia/Shanghai", AsOf: cutoff}).Resolve(now)
+	require.NoError(t, err)
+	require.True(t, selected.End.Equal(cutoff))
+	_, err = (DesktopAnalyticsRangeInput{Days: 30, AsOf: now.Add(time.Second)}).Resolve(now)
+	require.Error(t, err)
+	_, err = (DesktopAnalyticsRangeInput{Days: 30, AsOf: now.Add(-25 * time.Hour)}).Resolve(now)
+	require.Error(t, err)
+}

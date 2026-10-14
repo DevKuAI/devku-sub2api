@@ -113,7 +113,7 @@ git diff -- backend/ent backend/cmd/server/wire_gen.go
 
 先解决源文件，再重新生成；不要独立手改生成代码。新增 Go interface 方法时，同时更新相关 stub/mock。Ent 在当前 Go toolchain 下把部分 `json.RawMessage` 字段生成为 `jsontext.Value` 属于已有生成行为，仍需审阅 diff。
 
-Desktop OpenAPI 见 [契约索引](../desktop/README.md#openapi-契约)，由对应 route tests 读取。BI OpenAPI 位于 [mobile-bi/](../mobile-bi/README.md)，相关后端内嵌 schema 需要与契约一致。修改路由、DTO 或契约时，运行对应的现有测试。
+Desktop OpenAPI 见 [契约索引](../desktop/README.md#openapi-契约)，由对应 route tests 读取。BI OpenAPI 位于 [mobile-bi/](../mobile-bi/README.md)，当前 BI 通过路由契约和实际 TypeScript HTTP 联调核对，不沿用已退役的内嵌 schema。修改路由、DTO 或契约时，运行对应的现有测试。
 
 ## Git 与 fork 版本
 

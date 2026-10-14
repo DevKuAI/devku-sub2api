@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "BI 运维与平台企业授权",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "description": "Desktop 原生数据与独立微信身份。未接入的 BI 功能不提供旧接口。"
   },
   "servers": [
@@ -266,6 +266,10 @@
                   },
                   "note": {
                     "type": "string"
+                  },
+                  "recipient_name": {
+                    "type": "string",
+                    "maxLength": 80
                   }
                 },
                 "required": [
@@ -683,6 +687,10 @@
                   "expected_revision": {
                     "type": "integer",
                     "minimum": 1
+                  },
+                  "organization_alias": {
+                    "type": "string",
+                    "maxLength": 80
                   }
                 },
                 "required": [
@@ -2452,6 +2460,11 @@
           },
           "status": {
             "type": "string"
+          },
+          "organization_alias": {
+            "type": "string",
+            "maxLength": 80,
+            "description": "由企业负责人维护的企业内称呼，不改变独立微信身份。"
           }
         },
         "required": [
@@ -2497,6 +2510,10 @@
           "last_seen_at": {
             "type": "string",
             "nullable": true
+          },
+          "organization_alias": {
+            "type": "string",
+            "maxLength": 80
           }
         }
       },
@@ -2637,6 +2654,10 @@
           },
           "request_id": {
             "type": "string"
+          },
+          "min_client_version": {
+            "type": "string",
+            "description": "CLIENT_UPGRADE_REQUIRED 时的最低兼容版本。"
           }
         },
         "required": [
@@ -2791,6 +2812,11 @@
           "claimed_at": {
             "type": "string",
             "nullable": true
+          },
+          "recipient_name": {
+            "type": "string",
+            "maxLength": 80,
+            "description": "管理员填写的企业内称呼，首次领取时保存为企业称呼。"
           }
         },
         "required": [

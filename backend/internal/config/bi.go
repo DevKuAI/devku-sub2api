@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/spf13/viper"
+	"golang.org/x/mod/semver"
 )
 
 // BIConfig keeps mini-program credentials separate from web and Desktop identities.
@@ -24,7 +25,7 @@ func setBIDefaults() {
 	for _, key := range []string{"appid", "app_secret", "jwt_secret", "identity_secret"} {
 		viper.SetDefault("bi."+key, "")
 	}
-	viper.SetDefault("bi.min_client_version", "0.1.0")
+	viper.SetDefault("bi.min_client_version", "0.2.0")
 }
 
 func (c *Config) validateBI() error {
@@ -37,6 +38,9 @@ func (c *Config) validateBI() error {
 		if strings.TrimSpace(value) == "" {
 			return fmt.Errorf("bi.%s is required when BI is enabled", name)
 		}
+	}
+	if !semver.IsValid("v" + c.BI.MinClientVersion) {
+		return fmt.Errorf("bi.min_client_version must be a semantic version")
 	}
 	var secrets [][]byte
 	desktopSecret, _ := base64.StdEncoding.Strict().DecodeString(c.Desktop.JWTSecret)

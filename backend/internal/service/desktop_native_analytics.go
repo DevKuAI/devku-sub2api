@@ -9,7 +9,7 @@ import (
 type DesktopNativeAnalyticsReader interface {
 	NativeUsage(context.Context, int64, DesktopAnalyticsRange) (*DesktopNativeUsage, error)
 	NativeModels(context.Context, int64, DesktopAnalyticsRange, string, int, int) ([]DesktopNativeModel, int64, error)
-	NativeMembers(context.Context, int64, DesktopAnalyticsRange, string, string, int, int, bool) ([]DesktopNativeMember, int64, error)
+	NativeMembers(context.Context, int64, DesktopAnalyticsRange, string, string, int, int, bool, ...bool) ([]DesktopNativeMember, int64, error)
 	NativeMember(context.Context, int64, DesktopAnalyticsRange, string, bool) (*DesktopNativeMember, error)
 }
 type DesktopNativeTokens struct {
@@ -42,7 +42,14 @@ type DesktopNativeUsage struct {
 	ObservedMembers int64                   `json:"observed_members"`
 	Requests        int64                   `json:"requests"`
 	Daily           []DesktopNativeUsageDay `json:"daily"`
+	Readiness       DesktopNativeReadiness  `json:"readiness"`
 }
+type DesktopNativeReadiness struct {
+	UsageWithoutReporting int64    `json:"usage_without_reporting"`
+	ResponseMissing       int64    `json:"response_missing"`
+	PendingSummaryDates   []string `json:"pending_summary_dates"`
+}
+
 type DesktopNativeModel struct {
 	Model    string  `json:"model"`
 	Tokens   *string `json:"total_tokens"`
@@ -58,6 +65,10 @@ type DesktopNativeMember struct {
 }
 
 func (s *DesktopService) NativeAnalytics(ctx context.Context, org string, days int) (DesktopNativeAnalyticsReader, *DesktopOrganization, DesktopAnalyticsRange, error) {
+	return s.NativeAnalyticsAt(ctx, org, days, time.Time{})
+}
+
+func (s *DesktopService) NativeAnalyticsAt(ctx context.Context, org string, days int, asOf time.Time) (DesktopNativeAnalyticsReader, *DesktopOrganization, DesktopAnalyticsRange, error) {
 	o, err := s.GetOrganization(ctx, org)
 	if err != nil {
 		return nil, nil, DesktopAnalyticsRange{}, err
@@ -69,11 +80,14 @@ func (s *DesktopService) NativeAnalytics(ctx context.Context, org string, days i
 	if !ok {
 		return nil, nil, DesktopAnalyticsRange{}, ErrDesktopUsageUnavailable
 	}
-	rangeValue, err := (DesktopAnalyticsRangeInput{Days: days, Timezone: "Asia/Shanghai"}).Resolve(s.now())
+	rangeValue, err := (DesktopAnalyticsRangeInput{Days: days, Timezone: "Asia/Shanghai", AsOf: asOf}).Resolve(s.now())
 	return reader, o, rangeValue, err
 }
 func (s *DesktopService) NativeUsage(ctx context.Context, org string, days int) (*DesktopNativeUsage, error) {
-	reader, o, selected, err := s.NativeAnalytics(ctx, org, days)
+	return s.NativeUsageAt(ctx, org, days, time.Time{})
+}
+func (s *DesktopService) NativeUsageAt(ctx context.Context, org string, days int, asOf time.Time) (*DesktopNativeUsage, error) {
+	reader, o, selected, err := s.NativeAnalyticsAt(ctx, org, days, asOf)
 	if err != nil {
 		return nil, err
 	}

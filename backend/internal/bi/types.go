@@ -32,6 +32,7 @@ type Session struct {
 }
 type Access struct {
 	UserID                 string   `json:"bi_user_id"`
+	OrganizationAlias      string   `json:"organization_alias"`
 	DisplayName            string   `json:"display_name"`
 	OrganizationID         string   `json:"organization_id"`
 	Name                   string   `json:"name"`
@@ -46,6 +47,7 @@ type Invitation struct {
 	OrganizationID   string     `json:"organization_id"`
 	OrganizationName string     `json:"organization_name"`
 	Capabilities     []string   `json:"capabilities"`
+	RecipientName    string     `json:"recipient_name"`
 	Note             string     `json:"note"`
 	Status           string     `json:"status"`
 	ExpiresAt        time.Time  `json:"expires_at"`

@@ -140,7 +140,7 @@ bi:
   identity_secret: ""
   # Publish the privacy notice in Admin Settings > Login agreement.
   # Set its independent HTTPS site URL there; the app appends /legal/bi-privacy.
-  min_client_version: "0.1.0"
+  min_client_version: "0.2.0"
 
 # =============================================================================
 # Desktop Update Artifact Storage (Aliyun OSS through its S3-compatible API)

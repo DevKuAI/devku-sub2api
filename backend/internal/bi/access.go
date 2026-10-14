@@ -47,9 +47,9 @@ func validateCapabilities(caps []string) error {
 func (s *Service) AuthorizeOrganization(ctx context.Context, p Principal, org string, caps ...string) (Access, error) {
 	var a Access
 	var raw []byte
-	err := s.db.QueryRowContext(ctx, `SELECT a.bi_user_id,u.display_name,o.public_id,o.name,a.capabilities,a.status,a.revision,o.id
+	err := s.db.QueryRowContext(ctx, `SELECT a.bi_user_id,u.display_name,o.public_id,o.name,a.capabilities,a.status,a.revision,a.organization_alias,o.id
  FROM bi_access a JOIN bi_users u ON u.id=a.bi_user_id JOIN desktop_organizations o ON o.id=a.organization_id
- WHERE a.bi_user_id=$1 AND o.public_id=$2 AND a.status='active' AND u.status='active' AND o.status='active' AND o.deleted_at IS NULL AND ($3='' OR EXISTS(SELECT 1 FROM bi_sessions sess WHERE sess.id=$3 AND sess.bi_user_id=u.id AND sess.auth_version=u.auth_version AND sess.revoked_at IS NULL AND sess.expires_at>$4))`, p.UserID, org, p.SessionID, s.now()).Scan(&a.UserID, &a.DisplayName, &a.OrganizationID, &a.Name, &raw, &a.Status, &a.Revision, &a.InternalOrganizationID)
+ WHERE a.bi_user_id=$1 AND o.public_id=$2 AND a.status='active' AND u.status='active' AND o.status='active' AND o.deleted_at IS NULL AND ($3='' OR EXISTS(SELECT 1 FROM bi_sessions sess WHERE sess.id=$3 AND sess.bi_user_id=u.id AND sess.auth_version=u.auth_version AND sess.revoked_at IS NULL AND sess.expires_at>$4))`, p.UserID, org, p.SessionID, s.now()).Scan(&a.UserID, &a.DisplayName, &a.OrganizationID, &a.Name, &raw, &a.Status, &a.Revision, &a.OrganizationAlias, &a.InternalOrganizationID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return a, ErrNotFound
 	}
@@ -73,7 +73,7 @@ func (s *Service) Organizations(ctx context.Context, p Principal, page, size int
 	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*)`+where, p.UserID).Scan(&total); err != nil {
 		return Page[Access]{}, err
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT u.id,u.display_name,o.public_id,o.name,a.capabilities,a.status,a.revision`+where+` ORDER BY o.name,o.public_id LIMIT $2 OFFSET $3`, p.UserID, size, (page-1)*size)
+	rows, err := s.db.QueryContext(ctx, `SELECT u.id,u.display_name,o.public_id,o.name,a.capabilities,a.status,a.revision,a.organization_alias`+where+` ORDER BY o.name,o.public_id LIMIT $2 OFFSET $3`, p.UserID, size, (page-1)*size)
 	if err != nil {
 		return Page[Access]{}, err
 	}
@@ -82,7 +82,7 @@ func (s *Service) Organizations(ctx context.Context, p Principal, page, size int
 	for rows.Next() {
 		var a Access
 		var raw []byte
-		if err = rows.Scan(&a.UserID, &a.DisplayName, &a.OrganizationID, &a.Name, &raw, &a.Status, &a.Revision); err != nil {
+		if err = rows.Scan(&a.UserID, &a.DisplayName, &a.OrganizationID, &a.Name, &raw, &a.Status, &a.Revision, &a.OrganizationAlias); err != nil {
 			return Page[Access]{}, err
 		}
 		if err = json.Unmarshal(raw, &a.Capabilities); err != nil {
@@ -93,8 +93,15 @@ func (s *Service) Organizations(ctx context.Context, p Principal, page, size int
 	}
 	return pageResult(items, page, size, total), rows.Err()
 }
-func (s *Service) CreateInvitation(ctx context.Context, org string, caps []string, note string, actor int64, requestID string) (IssuedInvitation, error) {
+func (s *Service) CreateInvitation(ctx context.Context, org string, caps []string, note string, actor int64, requestID string, recipientNames ...string) (IssuedInvitation, error) {
 	result := IssuedInvitation{}
+	recipient := ""
+	if len(recipientNames) > 0 {
+		recipient = strings.TrimSpace(recipientNames[0])
+	}
+	if utf8.RuneCountInString(recipient) > 80 {
+		return result, invalid("recipient_name", "Recipient name exceeds 80 characters")
+	}
 	if err := validateCapabilities(caps); err != nil {
 		return result, err
 	}
@@ -122,7 +129,7 @@ func (s *Service) CreateInvitation(ctx context.Context, org string, caps []strin
 	if err != nil {
 		return result, err
 	}
-	_, err = tx.ExecContext(ctx, `INSERT INTO bi_invitations(id,organization_id,token_hash,capabilities,note,expires_at,created_by) VALUES($1,$2,$3,$4,$5,$6,$7)`, id, internalID, tokenHash(token), string(raw), strings.TrimSpace(note), now.Add(InvitationTTL), actor)
+	_, err = tx.ExecContext(ctx, `INSERT INTO bi_invitations(id,organization_id,token_hash,capabilities,note,expires_at,created_by,recipient_name) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, id, internalID, tokenHash(token), string(raw), strings.TrimSpace(note), now.Add(InvitationTTL), actor, recipient)
 	if err != nil {
 		return result, err
 	}
@@ -132,7 +139,7 @@ func (s *Service) CreateInvitation(ctx context.Context, org string, caps []strin
 	if err = tx.Commit(); err != nil {
 		return result, err
 	}
-	result.Invitation = Invitation{ID: id, OrganizationID: org, OrganizationName: name, Capabilities: caps, Note: note, Status: "pending", ExpiresAt: now.Add(InvitationTTL), CreatedAt: now}
+	result.Invitation = Invitation{ID: id, OrganizationID: org, OrganizationName: name, Capabilities: caps, Note: note, RecipientName: recipient, Status: "pending", ExpiresAt: now.Add(InvitationTTL), CreatedAt: now}
 	result.Token = token
 	result.Path = "/pages/settings/index?invite=" + token
 	return result, nil
@@ -140,7 +147,7 @@ func (s *Service) CreateInvitation(ctx context.Context, org string, caps []strin
 func scanInvitation(row interface{ Scan(...any) error }) (Invitation, error) {
 	var inv Invitation
 	var raw []byte
-	err := row.Scan(&inv.ID, &inv.OrganizationID, &inv.OrganizationName, &raw, &inv.Note, &inv.Status, &inv.ExpiresAt, &inv.CreatedAt, &inv.ClaimedBy, &inv.ClaimedAt)
+	err := row.Scan(&inv.ID, &inv.OrganizationID, &inv.OrganizationName, &raw, &inv.Note, &inv.Status, &inv.ExpiresAt, &inv.CreatedAt, &inv.ClaimedBy, &inv.ClaimedAt, &inv.RecipientName)
 	if err != nil {
 		return inv, err
 	}
@@ -148,7 +155,7 @@ func scanInvitation(row interface{ Scan(...any) error }) (Invitation, error) {
 	return inv, err
 }
 
-const invitationColumns = `i.id,o.public_id,o.name,i.capabilities,i.note,i.status,i.expires_at,i.created_at,i.claimed_by,i.claimed_at`
+const invitationColumns = `i.id,o.public_id,o.name,i.capabilities,i.note,i.status,i.expires_at,i.created_at,i.claimed_by,i.claimed_at,i.recipient_name`
 
 func (s *Service) PreviewInvitation(ctx context.Context, p Principal, token string) (Invitation, error) {
 	if len(token) < 32 || len(token) > 128 {
@@ -192,12 +199,12 @@ func (s *Service) AcceptInvitation(ctx context.Context, p Principal, token, requ
 	var org string
 	var caps []byte
 	var expires time.Time
-	var status, id string
+	var status, id, recipient string
 	var claimed *string
-	err = tx.QueryRowContext(ctx, `SELECT i.id,i.organization_id,o.public_id,i.capabilities,i.expires_at,i.status,i.claimed_by
+	err = tx.QueryRowContext(ctx, `SELECT i.id,i.organization_id,o.public_id,i.capabilities,i.expires_at,i.status,i.claimed_by,i.recipient_name
  FROM bi_invitations i JOIN desktop_organizations o ON o.id=i.organization_id JOIN users issuer ON issuer.id=i.created_by
  WHERE i.token_hash=$1 AND o.status='active' AND o.deleted_at IS NULL AND issuer.status='active' AND issuer.deleted_at IS NULL
- AND (issuer.role='admin' OR o.gateway_user_id=issuer.id) FOR UPDATE OF i FOR SHARE OF o,issuer`, tokenHash(token)).Scan(&id, &orgID, &org, &caps, &expires, &status, &claimed)
+ AND (issuer.role='admin' OR o.gateway_user_id=issuer.id) FOR UPDATE OF i FOR SHARE OF o,issuer`, tokenHash(token)).Scan(&id, &orgID, &org, &caps, &expires, &status, &claimed, &recipient)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Access{}, ErrNotFound
 	}
@@ -230,7 +237,7 @@ func (s *Service) AcceptInvitation(ctx context.Context, p Principal, token, requ
 		_ = tx.Rollback()
 		return s.AuthorizeOrganization(ctx, p, org)
 	}
-	if _, err = tx.ExecContext(ctx, `INSERT INTO bi_access(bi_user_id,organization_id,capabilities) VALUES($1,$2,$3) ON CONFLICT DO NOTHING`, p.UserID, orgID, string(caps)); err != nil {
+	if _, err = tx.ExecContext(ctx, `INSERT INTO bi_access(bi_user_id,organization_id,capabilities,organization_alias) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING`, p.UserID, orgID, string(caps), recipient); err != nil {
 		return Access{}, err
 	}
 	if _, err = tx.ExecContext(ctx, `UPDATE bi_invitations SET status='used',claimed_by=$2,claimed_at=$3 WHERE id=$1`, id, p.UserID, s.now().UTC()); err != nil {
@@ -244,7 +251,15 @@ func (s *Service) AcceptInvitation(ctx context.Context, p Principal, token, requ
 	}
 	return s.AuthorizeOrganization(ctx, p, org)
 }
-func (s *Service) UpdateAccess(ctx context.Context, org, userID string, caps []string, status string, revision, actor int64, requestID string) (Access, error) {
+func (s *Service) UpdateAccess(ctx context.Context, org, userID string, caps []string, status string, revision, actor int64, requestID string, aliases ...string) (Access, error) {
+	var alias any
+	if len(aliases) > 0 {
+		value := strings.TrimSpace(aliases[0])
+		if utf8.RuneCountInString(value) > 80 {
+			return Access{}, invalid("organization_alias", "Organization alias exceeds 80 characters")
+		}
+		alias = value
+	}
 	if status != "active" && status != "revoked" {
 		return Access{}, invalid("status", "Invalid access status")
 	}
@@ -258,8 +273,9 @@ func (s *Service) UpdateAccess(ctx context.Context, org, userID string, caps []s
 	}
 	defer func() { _ = tx.Rollback() }()
 	var internal int64
-	err = tx.QueryRowContext(ctx, `UPDATE bi_access a SET capabilities=$3,status=$4,revision=a.revision+1,updated_at=NOW()
- FROM desktop_organizations o WHERE a.organization_id=o.id AND o.public_id=$1 AND a.bi_user_id=$2 AND a.revision=$5 AND o.deleted_at IS NULL RETURNING o.id`, org, userID, string(raw), status, revision).Scan(&internal)
+	var currentAlias string
+	err = tx.QueryRowContext(ctx, `UPDATE bi_access a SET capabilities=$3,status=$4,revision=a.revision+1,updated_at=NOW(),organization_alias=COALESCE($6,organization_alias)
+ FROM desktop_organizations o WHERE a.organization_id=o.id AND o.public_id=$1 AND a.bi_user_id=$2 AND a.revision=$5 AND o.deleted_at IS NULL RETURNING o.id,a.organization_alias`, org, userID, string(raw), status, revision, alias).Scan(&internal, &currentAlias)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Access{}, apiError(409, "CONFLICT", "Access changed; reload before saving")
 	}
@@ -272,7 +288,7 @@ func (s *Service) UpdateAccess(ctx context.Context, org, userID string, caps []s
 	if err = tx.Commit(); err != nil {
 		return Access{}, err
 	}
-	return Access{UserID: userID, OrganizationID: org, Scope: "organization", Capabilities: caps, Status: status, Revision: revision + 1}, nil
+	return Access{UserID: userID, OrganizationID: org, Scope: "organization", Capabilities: caps, Status: status, Revision: revision + 1, OrganizationAlias: currentAlias}, nil
 }
 func (s *Service) SetUserStatus(ctx context.Context, userID, status string, actor int64, requestID string) error {
 	if status != "active" && status != "disabled" {

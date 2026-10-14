@@ -54,7 +54,7 @@ type DesktopPeriodTask struct {
 type DesktopPeriodRepository interface {
 	EnqueuePeriod(context.Context, int64, string, time.Time, time.Time, string) (*DesktopPeriodTask, error)
 	ReadPeriod(context.Context, int64, string, bool) (*DesktopPeriodTask, error)
-	ListPeriods(context.Context, int64, string, string, int, int) ([]DesktopPeriodMetadata, int64, error)
+	ListPeriods(context.Context, int64, string, string, int, int, ...bool) ([]DesktopPeriodMetadata, int64, error)
 	ListPeriodSources(context.Context, int64, string) ([]DesktopPeriodSource, error)
 	ReadPeriodSource(context.Context, int64, string, string) (DesktopPeriodSource, error)
 	PeriodSources(context.Context, int64, time.Time, time.Time) ([]DesktopPeriodSource, DesktopPeriodCoverage, error)

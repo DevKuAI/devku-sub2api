@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "小程序 BI v2",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "description": "Desktop 原生数据与独立微信身份。未接入的 BI 功能不提供旧接口。"
   },
   "servers": [
@@ -159,6 +159,16 @@
           },
           "503": {
             "description": "服务或数据不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "426": {
+            "description": "客户端低于最低兼容版本；请升级小程序。",
             "content": {
               "application/json": {
                 "schema": {
@@ -981,6 +991,16 @@
               ],
               "default": 30
             }
+          },
+          {
+            "name": "as_of",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "统一统计截止时间，不晚于服务端当前时间且最多回溯 24 小时。"
           }
         ],
         "x-capabilities": [
@@ -1090,6 +1110,16 @@
               ],
               "default": 30
             }
+          },
+          {
+            "name": "as_of",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "统一统计截止时间，不晚于服务端当前时间且最多回溯 24 小时。"
           }
         ],
         "x-capabilities": [
@@ -1219,6 +1249,16 @@
               "maximum": 100,
               "default": 20
             }
+          },
+          {
+            "name": "as_of",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "统一统计截止时间，不晚于服务端当前时间且最多回溯 24 小时。"
           }
         ],
         "x-capabilities": [
@@ -1362,6 +1402,28 @@
               "maximum": 100,
               "default": 20
             }
+          },
+          {
+            "name": "as_of",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "统一统计截止时间，不晚于服务端当前时间且最多回溯 24 小时。"
+          },
+          {
+            "name": "coverage",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "usage_without_reporting"
+              ]
+            },
+            "description": "按真实成员 ID 筛选有用量但无接收期上报的成员；同时要求 analytics:read。"
           }
         ],
         "x-capabilities": [
@@ -1479,6 +1541,16 @@
               ],
               "default": 30
             }
+          },
+          {
+            "name": "as_of",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "统一统计截止时间，不晚于服务端当前时间且最多回溯 24 小时。"
           }
         ],
         "x-capabilities": [
@@ -1616,6 +1688,16 @@
               "maximum": 100,
               "default": 20
             }
+          },
+          {
+            "name": "as_of",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "统一统计截止时间，不晚于服务端当前时间且最多回溯 24 小时。"
           }
         ],
         "x-capabilities": [
@@ -1726,6 +1808,16 @@
               ],
               "default": 30
             }
+          },
+          {
+            "name": "as_of",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "统一统计截止时间，不晚于服务端当前时间且最多回溯 24 小时。"
           }
         ],
         "x-capabilities": [
@@ -1843,6 +1935,16 @@
               ],
               "default": 30
             }
+          },
+          {
+            "name": "as_of",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "统一统计截止时间，不晚于服务端当前时间且最多回溯 24 小时。"
           }
         ],
         "x-capabilities": [
@@ -1973,6 +2075,16 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "as_of",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "统一统计截止时间，不晚于服务端当前时间且最多回溯 24 小时。"
           }
         ],
         "x-capabilities": [
@@ -2130,6 +2242,16 @@
               "maximum": 100,
               "default": 20
             }
+          },
+          {
+            "name": "as_of",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "统一统计截止时间，不晚于服务端当前时间且最多回溯 24 小时。"
           }
         ],
         "x-capabilities": [
@@ -2937,6 +3059,16 @@
               "maximum": 100,
               "default": 20
             }
+          },
+          {
+            "name": "latest_readable",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "description": "每周期只返回最新 completed/partial 且正文仍保留的版本。"
           }
         ],
         "x-capabilities": [
@@ -3439,6 +3571,11 @@
           },
           "status": {
             "type": "string"
+          },
+          "organization_alias": {
+            "type": "string",
+            "maxLength": 80,
+            "description": "由企业负责人维护的企业内称呼，不改变独立微信身份。"
           }
         },
         "required": [
@@ -3716,6 +3853,10 @@
           },
           "request_id": {
             "type": "string"
+          },
+          "min_client_version": {
+            "type": "string",
+            "description": "CLIENT_UPGRADE_REQUIRED 时的最低兼容版本。"
           }
         },
         "required": [
@@ -3789,6 +3930,11 @@
           "claimed_at": {
             "type": "string",
             "nullable": true
+          },
+          "recipient_name": {
+            "type": "string",
+            "maxLength": 80,
+            "description": "管理员填写的企业内称呼，首次领取时保存为企业称呼。"
           }
         },
         "required": [
@@ -4051,6 +4197,57 @@
             "additionalProperties": {
               "type": "string"
             }
+          },
+          "readiness": {
+            "type": "object",
+            "properties": {
+              "usage_without_reporting": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "response_missing": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "pending_summary_dates": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "date"
+                }
+              }
+            },
+            "required": [
+              "usage_without_reporting",
+              "response_missing",
+              "pending_summary_dates"
+            ],
+            "additionalProperties": false
+          },
+          "clients": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "client": {
+                  "type": "string"
+                },
+                "record_count": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "client",
+                "record_count"
+              ]
+            }
+          },
+          "latest_period_summaries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Report"
+            }
           }
         }
       },
@@ -4094,6 +4291,18 @@
             "additionalProperties": {
               "$ref": "#/components/schemas/Feature"
             }
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "organization_alias": {
+            "type": "string",
+            "maxLength": 80
           }
         },
         "required": [
@@ -4188,6 +4397,65 @@
           },
           "can_copy": {
             "type": "boolean"
+          },
+          "validated_source_dates": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          "unverified_source_dates": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          "summary_outline": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "summary",
+                    "progress",
+                    "outcomes",
+                    "issues",
+                    "coordination",
+                    "suggestions"
+                  ]
+                },
+                "title": {
+                  "type": "string"
+                },
+                "start_line": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "end_line": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "source_dates": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "date"
+                  }
+                }
+              },
+              "required": [
+                "kind",
+                "title",
+                "start_line",
+                "end_line",
+                "source_dates"
+              ],
+              "additionalProperties": false
+            }
           }
         },
         "required": [
@@ -4540,6 +4808,32 @@
                 "total_tokens"
               ]
             }
+          },
+          "readiness": {
+            "type": "object",
+            "properties": {
+              "usage_without_reporting": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "response_missing": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "pending_summary_dates": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "date"
+                }
+              }
+            },
+            "required": [
+              "usage_without_reporting",
+              "response_missing",
+              "pending_summary_dates"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
