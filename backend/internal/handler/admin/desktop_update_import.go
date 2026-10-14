@@ -18,7 +18,7 @@ func (h *DesktopUpdateHandler) Import(c *gin.Context) {
 	}
 	err = c.Request.ParseMultipartForm(8 << 20)
 	if c.Request.MultipartForm != nil {
-		defer c.Request.MultipartForm.RemoveAll()
+		defer func() { _ = c.Request.MultipartForm.RemoveAll() }()
 	}
 	if err != nil {
 		if middleware.IsBodyTooLarge(err) {
