@@ -279,6 +279,13 @@ websocat -H="Sec-WebSocket-Protocol: sub2api-admin, jwt.<ADMIN_TOKEN>" ws://loca
 
 ## Provider 与兼容性
 
+### v0.2.16 兼容性更新
+
+- **Gemini 显式上下文缓存**：支持 `/v1beta/cachedContents` 的创建、列表、查询、延长和删除，生成请求通过 `cachedContent` 引用缓存。支持 AI Studio、Agent Platform (Vertex) 和启用显式缓存的自建网关上游；`gateway.gemini_cached_content_max_ttl_seconds` 默认值为 `86400`，存储费在创建或延长时收取。
+- **Gemini 账号**：Agent Platform (Vertex) 支持 API Key 认证和上游模型同步；第三方网关 API Key 与 Vertex 账号不再套用 AI Studio 等级和模拟配额。
+- **模型兼容性**：新增 `claude-haiku-5-5` 支持；GPT-6.1 Sol 的生成上下文默认值调整为 500k，订阅账号不再收取长上下文附加费。已有模型映射和白名单仍需由管理员核对。
+- **分组多语言**：管理端可维护分组名称和描述的译文；用户侧接口按 `Accept-Language` 返回对应文本，未命中时使用原文。
+
 ### 路由、视频与插件兼容性
 
 - **Command Code 与 Cline**：均支持 API Key 账号。Command Code 根据模型能力选择原生 Messages、Responses 或 Chat Completions 端点；Cline 使用 Chat Completions，并转换入站 Messages/Responses。Cline 积分与 ClinePass 限额分别作用于对应模型。

@@ -293,6 +293,13 @@ Simple Mode is designed for individual developers or internal teams who want qui
 
 ## Providers and compatibility
 
+### v0.2.16 compatibility updates
+
+- **Gemini explicit context caching**: create, list, retrieve, extend, and delete caches through `/v1beta/cachedContents`, then reference them with `cachedContent` in generation requests. AI Studio, Agent Platform (Vertex), and self-hosted upstream gateways with explicit caching enabled are supported. `gateway.gemini_cached_content_max_ttl_seconds` defaults to `86400`; storage fees are charged on creation or extension.
+- **Gemini accounts**: Agent Platform (Vertex) supports API Key authentication and upstream model synchronization. Third-party gateway API keys and Vertex accounts no longer use AI Studio tiers or simulated quotas.
+- **Model compatibility**: adds `claude-haiku-5-5`, raises the GPT-6.1 Sol generated context default to 500k, and removes long-context surcharges for subscription accounts. Administrators should review existing model mappings and allowlists.
+- **Group localization**: administrators can maintain translated group names and descriptions. User-facing APIs select text using `Accept-Language`, with the original text as the fallback.
+
 ### Routing, video and plugin compatibility
 
 - **Command Code and Cline:** Both support API-key accounts. Command Code selects native Messages, Responses or Chat Completions endpoints using model capabilities. Cline uses Chat Completions and converts incoming Messages/Responses; Cline credit and ClinePass limits affect their respective models independently.

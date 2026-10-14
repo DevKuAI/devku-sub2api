@@ -31,14 +31,22 @@ func TestAPIKeyFromServiceForOwnerExposesDesktopManagedCredential(t *testing.T) 
 		Name:        "desktop:org_test:mem_test",
 		DisplayName: "Alice",
 		ManagedBy:   "desktop",
+		Group: &service.Group{
+			Name: "原始分组",
+			I18n: service.GroupI18n{"en": {Name: "Desktop group"}},
+		},
 	}
 
-	result := APIKeyFromServiceForOwner(source)
+	result := APIKeyFromServiceForOwner(source).Localized("en")
 
 	require.Equal(t, "sk-desktop-secret", result.Key)
 	require.Equal(t, "desktop:org_test:mem_test", result.Name)
 	require.Equal(t, "Alice", result.DisplayName)
 	require.Equal(t, "desktop", result.ManagedBy)
+	require.Equal(t, "Desktop group", result.Group.Name)
+	require.Nil(t, result.Group.I18n)
+	require.Equal(t, "原始分组", source.Group.Name)
+	require.Contains(t, source.Group.I18n, "en")
 }
 
 func TestUsageLogMappersMaskDesktopManagedCredential(t *testing.T) {
