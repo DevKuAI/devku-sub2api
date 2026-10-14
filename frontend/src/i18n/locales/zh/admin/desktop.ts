@@ -21,6 +21,9 @@ export default {
       retentionZero: '0 表示永久保留',
     },
     detail: {
+      organizationId: '企业标识',
+      createdAt: '创建时间',
+      schemaVersion: '配置格式版本',
       organizationInfo: '企业信息',
       loadingOrganization: '正在加载企业信息…',
       membersHint: '管理成员资料、访问状态与用量；费用和令牌用量分别显示。',

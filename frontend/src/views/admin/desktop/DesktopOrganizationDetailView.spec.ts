@@ -172,11 +172,26 @@ describe('DesktopOrganizationDetailView', () => {
     route.query.tab = 'members'
   })
 
+  it.each([false, true])('shows every organization policy and client parameter with selfManaged=%s', async selfManaged => {
+    const configured = { ...organization, conversation_summary_enabled: true, weekly_summary_enabled: true, monthly_summary_enabled: false, analysis_model: 'analysis-preview', target_config_assigned: true, management_policy: { analysis_limit_1d: 12, conversation_retention_days: 30, report_retention_days: 90, execution_retention_days: 365 }, target_config: { schema_version: 1, targets: { chatgpt_codex: { enabled: true, provider_id: 'provider-preview', display_name: 'Preview model', requested_model: 'client-model-preview', wire_api: 'responses', minimum_app_version: '1.2.3', restart_required: true } } } }
+    ;(selfManaged ? managedDesktopAPI : desktopAPI).getOrganization.mockResolvedValue(configured)
+    route.query.tab = 'overview'
+    const wrapper = selfManaged ? mountManagedView() : mountView(); await flushPromises()
+    const info = wrapper.get('[data-testid="organization-overview"]')
+    for (const value of ['provider-preview', 'Preview model', 'client-model-preview', '/responses', '1.2.3', 'common.yes', 'carrier@example.com', 'ID 42', 'ID 7']) expect(info.text()).toContain(value)
+    for (const field of ['weekly_summary_enabled', 'monthly_summary_enabled', 'conversation_retention_days', 'report_retention_days', 'execution_retention_days']) expect(info.find(`[data-setting="${field}"]`).exists()).toBe(true)
+    expect(info.text()).toContain('admin.desktop.detail.schemaVersion')
+    expect(info.get('[data-testid="organization-analysis-limit"]').text()).toContain('12')
+    wrapper.unmount()
+  })
+
   it('links organization access management to native BI operations', async () => {
     route.query.tab = 'grants'
     const wrapper = mountView()
     await flushPromises()
-    await wrapper.findAll('button').find(button => button.text() === 'nav.biOperations')!.trigger('click')
+    const operations = wrapper.get('.bi-access header').findAll('button').find(button => button.text() === 'nav.biOperations')!
+    expect(operations.exists()).toBe(true)
+    await operations.trigger('click')
     expect(router.push).toHaveBeenCalledWith('/admin/bi')
     wrapper.unmount()
   })
@@ -266,7 +281,7 @@ describe('DesktopOrganizationDetailView', () => {
     expect(overview.get('[data-testid="organization-analysis-limit"]').text()).toBe('admin.desktop.organizationForm.unlimited')
     expect(overview.text()).toContain('admin.desktop.organizationForm.forever')
     const statuses = overview.findAll('status-badge-stub')
-    expect(statuses.map(item => item.attributes('status'))).toEqual(['active', 'disabled'])
+    expect(statuses.map(item => item.attributes('status'))).toEqual(['active', 'active', 'disabled', 'disabled', 'disabled'])
     wrapper.unmount()
   })
 
@@ -309,20 +324,16 @@ describe('DesktopOrganizationDetailView', () => {
     }
   })
 
-  it('places organization info first while opening usage by default for both entry points', async () => {
+  it.each(['', 'unknown'])('opens organization info by default for both entry points with tab=%s', async tab => {
     for (const mountPage of [mountView, mountManagedView]) {
-      route.query.tab = 'unknown'
+      route.query.tab = tab
       const wrapper = mountPage()
       await flushPromises()
-      expect(wrapper.findAll('[role="tab"]').slice(0, 2).map(tab => tab.attributes('id'))).toEqual(['desktop-organization-tab-overview', 'desktop-organization-tab-usage'])
-      expect(wrapper.get('#desktop-organization-tab-usage').attributes('aria-selected')).toBe('true')
-      expect(wrapper.get('#desktop-organization-tab-overview').attributes('aria-selected')).toBe('false')
-      expect(wrapper.find('[data-testid="organization-overview"]').exists()).toBe(false)
-      expect(wrapper.get('#desktop-organization-panel-usage').exists()).toBe(true)
-      expect(wrapper.find('#desktop-organization-panel-members').exists()).toBe(false)
-      expect(wrapper.findComponent({ name: 'DesktopOrganizationUsageStatistics' }).props()).toEqual({
-        organizationId: 'org_one', selfManaged: mountPage === mountManagedView, view: 'insights', range: { days: 30 },
-      })
+      expect(wrapper.findAll('[role="tab"]').slice(0, 2).map(item => item.attributes('id'))).toEqual(['desktop-organization-tab-overview', 'desktop-organization-tab-usage'])
+      expect(wrapper.get('#desktop-organization-tab-overview').attributes('aria-selected')).toBe('true')
+      expect(wrapper.get('#desktop-organization-tab-usage').attributes('aria-selected')).toBe('false')
+      expect(wrapper.find('[data-testid="organization-overview"]').exists()).toBe(true)
+      expect(wrapper.find('#desktop-organization-panel-usage').exists()).toBe(false)
       wrapper.unmount()
     }
   })
@@ -740,8 +751,8 @@ describe('DesktopOrganizationDetailView', () => {
     expect(tab.exists()).toBe(enabled === true)
     expect(wrapper.find('desktop-conversation-records-stub').exists()).toBe(enabled === true)
     if (enabled !== true) {
-      expect(router.replace).toHaveBeenCalledWith({ query: { tab: 'usage' } })
-      expect(wrapper.find('#desktop-organization-panel-usage').exists()).toBe(true)
+      expect(router.replace).toHaveBeenCalledWith({ query: { tab: 'overview' } })
+      expect(wrapper.find('#desktop-organization-panel-overview').exists()).toBe(true)
     }
     wrapper.unmount()
   })
@@ -955,7 +966,7 @@ describe('associated user report visibility', () => {
     await flushPromises()
     expect(wrapper.find('#desktop-organization-tab-reports').exists()).toBe(false)
     expect(wrapper.find('desktop-period-reports-stub').exists()).toBe(false)
-    expect(router.replace).toHaveBeenCalledWith({ query: { tab: 'usage' } })
+    expect(router.replace).toHaveBeenCalledWith({ query: { tab: 'overview' } })
     wrapper.unmount()
   })
 })

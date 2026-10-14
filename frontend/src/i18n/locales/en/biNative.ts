@@ -1,5 +1,21 @@
 export default {
   "biNative": {
+    summaryDisabled: 'Organization summaries are disabled. An administrator can enable them in organization settings.',
+    noSummaryForPeriod: 'No readable summary is available for this period.',
+    reportTextChanged: 'The text has changed. Review the refreshed summary before copying.',
+    readingSource: 'Loading the frozen daily summary source…',
+    frozenSourceHint: 'This is the source snapshot saved for this version. Later changes to daily summaries do not overwrite this text.',
+    latestTask: 'Latest task for this period',
+    latestTaskActions: 'Actions apply to the latest task. Versions with text can only be updated by generating a new version.',
+    taskProgressHint: 'When available, the previous readable summary remains visible while this task runs. Progress refreshes every 5 seconds and can be paused.',
+    historyReading: 'You are reading a historical version with its preserved text and sources.',
+    viewLatestReadable: 'Read latest available summary',
+    generationRules: 'Generation rules and schedule',
+    generationDetails: 'Version and generation details',
+    coverageReasons: 'Date details by reason',
+    noReportContent: 'This version has no summary text. Check its generation status.',
+    invalidWeekStart: 'Choose the Monday of a completed calendar week.',
+    invalidMonthStart: 'Choose the first day of a completed calendar month.',
     availabilityFailed: 'Unable to read BI availability. Retry.',
     accessManagement: 'Organization access and invitations',
     refreshAccess: 'Refresh service status',
@@ -18,6 +34,11 @@ export default {
     selectOrganizationHint: 'Select an organization to manage mini-program users and invitations.',
     selectOrganization: 'Select organization',
     auditLog: 'Audit log',
+    periodReasons: {
+      missing_sources: 'Daily summary sources are incomplete. Missing dates do not imply no work.',
+      period_not_finished: 'This calendar period has not ended. Select a completed period.',
+      report_retention_expired: 'This period is outside the organization report retention window and cannot be regenerated.',
+    },
     config: {
       appid: 'WeChat AppID',
       app_secret_configured: 'WeChat credentials',

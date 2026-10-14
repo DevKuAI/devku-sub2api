@@ -1,5 +1,21 @@
 export default {
   "biNative": {
+    summaryDisabled: '企业未开启日报与归集总结，请管理员在企业信息中启用。',
+    noSummaryForPeriod: '所选周期暂无可读总结。',
+    reportTextChanged: '正文已更新，请查看刷新后的内容再复制。',
+    readingSource: '正在读取冻结的日总结来源…',
+    frozenSourceHint: '这是本总结版本保存的来源快照；日总结后续有变化时，不会改写这里的正文。',
+    latestTask: '本周期最新任务',
+    latestTaskActions: '生成与重试操作针对本周期最新任务；有正文的版本需重生成才能更新。',
+    taskProgressHint: '生成期间如有已生成版本，会继续显示；每 5 秒刷新进度，可暂停。',
+    historyReading: '正在查看历史版本，正文与来源保持该版本快照。',
+    viewLatestReadable: '查看最新可读总结',
+    generationRules: '生成规则与调度时间',
+    generationDetails: '版本与生成信息',
+    coverageReasons: '日期原因明细',
+    noReportContent: '此版本暂无总结正文，请查看生成状态。',
+    invalidWeekStart: '请选择已结束自然周的周一。',
+    invalidMonthStart: '请选择已结束自然月的第一日。',
     availabilityFailed: '服务状态读取失败，请重试。',
     accessManagement: '企业访问与邀请',
     refreshAccess: '刷新服务状态',
@@ -18,6 +34,11 @@ export default {
     selectOrganizationHint: '选择企业后管理小程序使用者与邀请。',
     selectOrganization: '选择企业',
     auditLog: '审计记录',
+    periodReasons: {
+      missing_sources: '日总结来源不完整，缺失日期不代表没有工作。',
+      period_not_finished: '当前自然周期尚未结束，请选择已结束的周期。',
+      report_retention_expired: '该周期已超过企业报告保留期限，不能重新生成。',
+    },
     config: {
       appid: '微信 AppID',
       app_secret_configured: '微信凭证',

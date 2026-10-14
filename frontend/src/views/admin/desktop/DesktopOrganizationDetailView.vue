@@ -1,21 +1,23 @@
 <template>
   <AppLayout>
     <div class="desktop-detail min-w-0 space-y-6">
-      <div class="flex flex-wrap items-start gap-3">
+      <div class="detail-page-header flex flex-wrap items-start gap-3">
         <button v-if="!selfManaged" class="btn btn-secondary btn-icon" type="button" :title="t('common.back')" :aria-label="t('common.back')" @click="router.push('/admin/desktop/organizations')">
           <Icon name="arrowLeft" size="md" />
         </button>
-        <div class="min-w-0 flex-1">
+        <div class="detail-page-title min-w-0 flex-1">
           <div class="flex flex-wrap items-center gap-3">
             <h1 class="break-words text-balance text-xl font-semibold text-gray-900 dark:text-white">{{ organization?.name || t(organizationError ? 'admin.desktop.detailTitle' : 'common.loading') }}</h1>
             <StatusBadge v-if="organization" :status="organization.status" :label="statusLabel(organization.status)" />
           </div>
           <p v-if="organization" class="mt-1 break-all font-mono text-sm text-gray-500 dark:text-dark-400">{{ organization.code }}</p>
         </div>
-        <router-link v-if="organization" class="btn btn-secondary" :to="selfManaged ? '/organization/accounting' : { path: '/admin/accounting', query: { organization_id: organizationID } }">{{ t('accounting.customerTitle') }}</router-link>
+        <div v-if="organization" class="detail-page-actions flex flex-wrap justify-end gap-3">
+        <router-link class="detail-page-accounting btn btn-secondary" :to="selfManaged ? '/organization/accounting' : { path: '/admin/accounting', query: { organization_id: organizationID } }">{{ t('accounting.customerTitle') }}</router-link>
         <button v-if="organization && !selfManaged" class="btn btn-secondary shrink-0" type="button" :title="t('common.edit')" :aria-label="t('common.edit')" @click="openEditOrganization">
           <Icon name="edit" size="sm" /><span>{{ t('common.edit') }}</span>
         </button>
+        </div>
       </div>
       <div v-if="organizationError" class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300" role="alert">
         {{ t('admin.desktop.organizationLoadFailed') }}
@@ -34,23 +36,50 @@
         </nav>
       </div>
 
-      <section v-if="organization && activeTab === 'overview'" :id="panelId('overview')" class="card detail-overview space-y-4" data-testid="organization-overview" tabindex="0" role="tabpanel" :aria-labelledby="tabId('overview')">
-        <dl class="detail-overview-grid">
-          <div class="min-w-0"><dt class="detail-caption">{{ t('admin.desktop.gatewayUser') }}</dt><dd class="mt-1 break-words text-sm font-medium">{{ organization.gateway_user.username || organization.gateway_user.email }}</dd><dd class="break-all text-xs text-gray-500 dark:text-dark-400">{{ organization.gateway_user.email }}</dd></div>
-          <div class="min-w-0"><dt class="detail-caption">{{ t('admin.desktop.group') }}</dt><dd class="mt-1 break-words text-sm font-medium">{{ organization.group.name }}</dd></div>
-          <div class="min-w-0"><dt class="detail-caption">{{ t('admin.desktop.memberCapacity') }}</dt><dd class="mt-1 text-lg font-semibold tabular-nums" data-testid="organization-member-capacity">{{ organization.member_count }} / {{ organization.member_limit }}</dd><dd class="detail-caption mt-1" :class="{ 'text-amber-700 dark:text-amber-300': memberLimitReached }">{{ t('admin.desktop.organizationForm.remainingSlots', { count: Math.max(0, organization.member_limit - organization.member_count) }) }}</dd></div>
-          <div class="min-w-0"><dt class="detail-caption">{{ t('admin.desktop.organizationForm.clientConfiguration') }}</dt><dd class="mt-1"><span class="badge" :class="organization.target_config_assigned ? 'badge-success' : 'badge-warning'">{{ organization.target_config_assigned ? t('admin.desktop.configured') : t('admin.desktop.notConfigured') }}</span></dd></div>
-        </dl>
-        <div class="space-y-4 border-t border-gray-100 pt-4 dark:border-dark-700">
-          <dl class="detail-overview-grid">
-            <div class="min-w-0"><dt class="detail-caption">{{ t('admin.desktop.conversationReporting') }}</dt><dd class="mt-1"><StatusBadge :status="organization.conversation_reporting_enabled ? 'active' : 'disabled'" :label="t(organization.conversation_reporting_enabled ? 'common.enabled' : 'common.disabled')" /></dd></div>
-            <div class="min-w-0"><dt class="detail-caption">{{ t('admin.desktop.reports.title') }}</dt><dd class="mt-1"><StatusBadge :status="organization.conversation_summary_enabled ? 'active' : 'disabled'" :label="t(organization.conversation_summary_enabled ? 'common.enabled' : 'common.disabled')" /></dd></div>
-            <div class="min-w-0"><dt class="detail-caption">{{ t('admin.desktop.reports.model') }}</dt><dd class="mt-1 break-all text-sm font-medium" data-testid="organization-analysis-model"><bdi>{{ organization.analysis_model || t('admin.desktop.notConfigured') }}</bdi></dd></div>
-            <div class="min-w-0"><dt class="detail-caption">{{ t('admin.desktop.managementPolicy.analysisLimit') }}</dt><dd class="mt-1 text-sm font-medium" data-testid="organization-analysis-limit">{{ analysisLimitLabel }}</dd></div>
+      <section v-if="organization && activeTab === 'overview'" :id="panelId('overview')" class="min-w-0 space-y-5" data-testid="organization-overview" tabindex="0" role="tabpanel" :aria-labelledby="tabId('overview')">
+        <div class="card detail-panel space-y-4">
+          <h2 class="detail-section-title">{{ t('admin.desktop.organizationForm.basic') }}</h2>
+          <dl class="detail-overview-grid detail-overview-values">
+            <div><dt>{{ t('admin.desktop.organizationName') }}</dt><dd>{{ organization.name }}</dd></div>
+            <div><dt>{{ t('admin.desktop.organizationCode') }}</dt><dd><bdi>{{ organization.code }}</bdi></dd></div>
+            <div><dt>{{ t('admin.desktop.detail.organizationId') }}</dt><dd class="font-mono text-xs"><bdi>{{ organization.public_id }}</bdi></dd></div>
+            <div><dt>{{ t('common.status') }}</dt><dd><StatusBadge :status="organization.status" :label="statusLabel(organization.status)" /></dd></div>
+            <div><dt>{{ t('admin.desktop.detail.createdAt') }}</dt><dd>{{ biDate(organization.created_at) }}</dd></div>
+            <div><dt>{{ t('admin.desktop.updatedAt') }}</dt><dd>{{ biDate(organization.updated_at) }}</dd></div>
           </dl>
-          <dl v-if="organization.management_policy" class="flex flex-wrap gap-x-6 gap-y-2 text-xs text-gray-500 dark:text-dark-400">
-            <div v-for="field in retentionFields" :key="field" class="flex min-w-0 flex-wrap gap-x-1"><dt>{{ t(`admin.desktop.managementPolicy.${field}`) }}:</dt><dd>{{ retentionLabel(organization.management_policy[field]) }}</dd></div>
+        </div>
+        <div class="card detail-panel space-y-4">
+          <h2 class="detail-section-title">{{ t('admin.desktop.organizationForm.resources') }}</h2>
+          <dl class="detail-overview-grid detail-overview-values">
+            <div><dt>{{ t('admin.desktop.gatewayUser') }}</dt><dd>{{ organization.gateway_user.username || organization.gateway_user.email }}</dd><dd class="detail-caption">{{ organization.gateway_user.email }} · ID {{ organization.gateway_user.id }}</dd></div>
+            <div><dt>{{ t('admin.desktop.group') }}</dt><dd>{{ organization.group.name }}</dd><dd class="detail-caption">ID {{ organization.group.id }}</dd></div>
+            <div><dt>{{ t('admin.desktop.memberCapacity') }}</dt><dd class="detail-capacity-value tabular-nums" data-testid="organization-member-capacity">{{ organization.member_count }} / {{ organization.member_limit }}</dd><dd class="detail-caption" :class="{ 'text-amber-700 dark:text-amber-300': memberLimitReached }">{{ t('admin.desktop.organizationForm.remainingSlots', { count: Math.max(0, organization.member_limit - organization.member_count) }) }}</dd></div>
           </dl>
+        </div>
+        <div class="card detail-panel space-y-4">
+          <h2 class="detail-section-title">{{ t('admin.desktop.organizationForm.reporting') }}</h2>
+          <dl class="detail-overview-grid detail-overview-values">
+            <div v-for="setting in reportingFields" :key="setting.field" :data-setting="setting.field"><dt>{{ t(setting.label) }}</dt><dd><StatusBadge :status="organization[setting.field] ? 'active' : 'disabled'" :label="t(organization[setting.field] ? 'common.enabled' : 'common.disabled')" /></dd></div>
+            <div><dt>{{ t('admin.desktop.reports.model') }}</dt><dd data-testid="organization-analysis-model"><bdi>{{ organization.analysis_model || t('admin.desktop.notConfigured') }}</bdi></dd></div>
+          </dl>
+        </div>
+        <div class="card detail-panel space-y-4">
+          <h2 class="detail-section-title">{{ t('admin.desktop.managementPolicy.title') }}</h2>
+          <dl class="detail-overview-grid detail-overview-values">
+            <div><dt>{{ t('admin.desktop.managementPolicy.analysisLimit') }}</dt><dd data-testid="organization-analysis-limit">{{ analysisLimitLabel }}</dd></div>
+            <div v-for="field in retentionFields" :key="field" :data-setting="field"><dt>{{ t(`admin.desktop.managementPolicy.${field}`) }}</dt><dd>{{ organization.management_policy ? retentionLabel(organization.management_policy[field]) : '—' }}</dd></div>
+          </dl>
+          <p class="detail-caption">{{ t('admin.desktop.managementPolicy.hint') }}</p>
+        </div>
+        <div class="card detail-panel space-y-4">
+          <header class="detail-tab-heading"><div><h2 class="detail-section-title">{{ t('admin.desktop.organizationForm.clientConfiguration') }}</h2><p class="detail-caption mt-2">{{ t('admin.desktop.detail.schemaVersion') }}: {{ organization.target_config?.schema_version ?? '—' }}</p></div><div class="flex flex-wrap items-center gap-3"><span class="badge" :class="organization.target_config_assigned ? 'badge-success' : 'badge-warning'">{{ t(organization.target_config_assigned ? 'admin.desktop.configured' : 'admin.desktop.notConfigured') }}</span><button class="btn btn-secondary" @click="setTab('configuration')">{{ t('admin.desktop.configuration') }}</button></div></header>
+          <div class="detail-target-grid">
+            <section v-for="target in configurationTargets" :key="target.name" class="detail-target-summary space-y-4">
+              <header class="flex flex-wrap items-center justify-between gap-3"><h3 class="detail-section-title">{{ target.name }}</h3><span class="badge" :class="target.config?.enabled ? 'badge-success' : 'badge-warning'">{{ t(target.config ? (target.config.enabled ? 'common.enabled' : 'common.disabled') : 'admin.desktop.notConfigured') }}</span></header>
+              <dl v-if="target.config" class="detail-config-metadata"><div v-for="field in configurationFields(target.config)" :key="field.label"><dt class="detail-caption">{{ t(`admin.desktop.${field.label}`) }}</dt><dd><bdi>{{ field.value }}</bdi></dd></div></dl>
+              <p v-else class="detail-caption">{{ t('admin.desktop.detail.targetNotConfigured') }}</p>
+            </section>
+          </div>
         </div>
       </section>
 
@@ -146,10 +175,9 @@
       </section>
 
       <section v-else-if="organization && activeTab === 'grants'" :id="panelId('grants')" tabindex="0" role="tabpanel" :aria-labelledby="tabId('grants')">
-        <div v-if="!selfManaged" class="mb-4 flex justify-end">
-          <button class="btn btn-secondary" type="button" @click="router.push('/admin/bi')">{{ t('nav.biOperations') }}</button>
-        </div>
-        <BIGrantManagement v-if="organization" :key="organizationID" :organization-id="organizationID" :self-managed="selfManaged" />
+        <BIGrantManagement v-if="organization" :key="organizationID" :organization-id="organizationID" :self-managed="selfManaged">
+          <template v-if="!selfManaged" #actions><button class="btn btn-secondary" type="button" @click="router.push('/admin/bi')">{{ t('nav.biOperations') }}</button></template>
+        </BIGrantManagement>
       </section>
 
       <section v-else-if="organization" :id="panelId('configuration')" class="min-w-0" tabindex="0" role="tabpanel" :aria-labelledby="tabId('configuration')">
@@ -337,6 +365,7 @@ import DesktopMemberImportDialog from '@/components/desktop/DesktopMemberImportD
 import type { DesktopAnalyticsRange } from '@/api/desktopOrganizationUsage'
 import DesktopPeriodReports from '@/components/desktop/DesktopPeriodReports.vue'
 import BIGrantManagement from '@/components/bi/BIGrantManagement.vue'
+import { biDate } from '@/components/bi/display'
 import '@/styles/desktopDetail.css'
 
 type DetailTab = 'overview' | 'usage' | 'members' | 'configuration' | 'conversations' | 'grants' | 'reports'
@@ -372,7 +401,7 @@ const tabs = computed(() => {
   result.push({ value: 'grants', label: t('biNative.users') })
   return result
 })
-const activeTab = computed<DetailTab>(() => tabs.value.find(tab => tab.value === route.query.tab)?.value ?? 'usage')
+const activeTab = computed<DetailTab>(() => tabs.value.find(tab => tab.value === route.query.tab)?.value ?? 'overview')
 const members = ref<DesktopMember[]>([])
 const membersLoading = ref(false)
 const membersExporting = ref(false)
@@ -394,6 +423,12 @@ const showMemberImport = ref(false)
 const editingMember = ref<DesktopMember | null>(null)
 const memberSaving = ref(false)
 const retentionFields = ['conversation_retention_days', 'report_retention_days', 'execution_retention_days'] as const
+const reportingFields = [
+  { field: 'conversation_reporting_enabled', label: 'admin.desktop.conversationReporting' },
+  { field: 'conversation_summary_enabled', label: 'admin.desktop.reports.title' },
+  { field: 'weekly_summary_enabled', label: 'biNative.weeklyAuto' },
+  { field: 'monthly_summary_enabled', label: 'biNative.monthlyAuto' },
+] as const
 const budgetFields = ['quota', 'limit_1d', 'limit_7d'] as const
 const blankBudget = () => ({ quota: 0, limit_1d: 0, limit_7d: 0 })
 const memberForm = reactive({ name: '', phone: '', remark: '', budget: blankBudget() })
@@ -697,7 +732,7 @@ async function saveConfiguration() {
 }
 
 watch([canViewConversations, () => organization.value?.conversation_summary_enabled, () => organization.value?.public_id], () => {
-  if (selfManaged && organization.value && ((route.query.tab === 'reports' && !organization.value.conversation_summary_enabled) || (!canViewConversations.value && route.query.tab === 'conversations'))) setTab('usage')
+  if (selfManaged && organization.value && ((route.query.tab === 'reports' && !organization.value.conversation_summary_enabled) || (!canViewConversations.value && route.query.tab === 'conversations'))) setTab('overview')
 })
 function keepActiveTabVisible() {
   const scroll = tabScroll.value

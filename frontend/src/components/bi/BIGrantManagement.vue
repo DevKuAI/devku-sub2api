@@ -1,8 +1,8 @@
 <template>
   <section class="card bi-panel bi-access space-y-5">
     <header class="bi-toolbar">
-      <div class="min-w-0"><h2 class="bi-heading">{{ t('biNative.accessManagement') }}</h2><p class="bi-caption mt-2">{{ t('biNative.identityHint') }}</p></div>
-      <div class="bi-row-actions"><button class="btn btn-secondary" :disabled="availabilityLoading" @click="checkAvailability">{{ t('biNative.refreshAccess') }}</button><button class="btn btn-primary" :disabled="busy || enabled !== true" @click="openInvite">{{ t('biNative.createInvite') }}</button></div>
+      <div class="min-w-0 flex-1 basis-80"><h2 class="bi-heading">{{ t('biNative.accessManagement') }}</h2><p class="bi-caption mt-2">{{ t('biNative.identityHint') }}</p></div>
+      <div class="bi-row-actions"><slot name="actions" /><button class="btn btn-secondary" :disabled="availabilityLoading" @click="checkAvailability">{{ t('biNative.refreshAccess') }}</button><button class="btn btn-primary" :disabled="busy || enabled !== true" @click="openInvite">{{ t('biNative.createInvite') }}</button></div>
     </header>
     <p v-if="availabilityLoading" role="status" class="bi-caption">{{ t('common.loading') }}</p>
     <p v-else-if="enabled === false" role="status" class="bi-caption">{{ t('biNative.disabled') }}</p>

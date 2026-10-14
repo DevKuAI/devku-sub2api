@@ -29,9 +29,39 @@ beforeEach(() => {
   api.getDesktopSummaryReport.mockResolvedValue({ ...base, summary: { ...report, content: '企业整体进展' } })
   api.runDesktopReports.mockResolvedValue({ status: 'pending' })
 })
-afterEach(() => { vi.useRealTimers() })
+afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals() })
 
 describe('DesktopDailyReports', () => {
+  it('places summary text before model metadata and report coverage', async () => {
+    const wrapper = render(); await flushPromises()
+    const body = wrapper.get('article')
+    for (const selector of ['.report-metadata', '.report-metrics']) {
+      expect(body.element.compareDocumentPosition(wrapper.get(selector).element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    }
+    wrapper.unmount()
+  })
+
+  it('copies the displayed summary only after rechecking current readable text', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
+    const wrapper = render(); await flushPromises()
+    await wrapper.findAll('button').find(button => button.text() === '复制')!.trigger('click'); await flushPromises()
+    expect(writeText).toHaveBeenCalledWith('企业整体进展')
+    wrapper.unmount(); vi.unstubAllGlobals()
+  })
+
+  it('asks the reader to review new text instead of silently copying a changed summary', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
+    const wrapper = render(); await flushPromises()
+    api.getDesktopSummaryReport.mockResolvedValue({ ...base, summary: { ...report, content: '新的总结正文' } })
+    await wrapper.findAll('button').find(button => button.text() === '复制')!.trigger('click'); await flushPromises()
+    expect(writeText).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('正文已更新')
+    expect(wrapper.get('article').text()).toContain('新的总结正文')
+    wrapper.unmount(); vi.unstubAllGlobals()
+  })
+
   it('loads member text only after selecting a report', async () => {
     api.getDesktopMemberReports.mockResolvedValue({ ...base, total_members: 21, members: [{ ...member, content: '', source_ids: [], executions: [] }, empty] })
     const wrapper = render(); await flushPromises()

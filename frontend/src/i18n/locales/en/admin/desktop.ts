@@ -21,6 +21,9 @@ export default {
       retentionZero: '0 means keep indefinitely',
     },
     detail: {
+      organizationId: 'Organization ID',
+      createdAt: 'Created at',
+      schemaVersion: 'Configuration schema version',
       organizationInfo: 'Organization info',
       loadingOrganization: 'Loading organization…',
       membersHint: 'Manage member details, access and usage. Costs and tokens are shown separately.',

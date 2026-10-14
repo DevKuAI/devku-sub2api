@@ -30,32 +30,33 @@
     </div>
     <div v-if="summary?.missing_dates?.length && !selfManaged" class="report-notice report-warning"><p>{{ t(`${key}.missingDates`) }}</p><div class="mt-2 flex flex-wrap gap-2"><button v-for="missing in summary.missing_dates" :key="missing" class="btn btn-secondary analytics-button" type="button" @click="date = missing">{{ missing }}</button></div></div>
     <p class="sr-only" role="status">{{ loading ? t(`${key}.loading`) : state ? statusLabel(state.status) : '' }}</p>
-    <nav class="tabs report-tabs" role="tablist" :aria-label="t(`${key}.title`)">
+    <nav class="tabs report-tabs report-scope-tabs" role="tablist" :aria-label="t(`${key}.title`)">
       <button v-for="(tab, index) in reportTabs" :id="`daily-report-tab-${tab}`" :key="tab" class="tab report-tab" :class="{ 'tab-active': activeTab === tab }" type="button" role="tab" :aria-selected="activeTab === tab" :aria-controls="`daily-report-panel-${tab}`" :tabindex="activeTab === tab ? 0 : -1" @click="activeTab = tab" @keydown="tabKeydown($event, index)">{{ t(`${key}.${tab}`) }}</button>
     </nav>
     <section v-if="activeTab === 'summary'" id="daily-report-panel-summary" role="tabpanel" aria-labelledby="daily-report-tab-summary" class="min-w-0 space-y-5" :aria-busy="loading" tabindex="0">
-      <dl v-if="summary" class="report-metrics">
-        <div class="report-metric"><dt class="analytics-caption">{{ t(`${key}.taskStatus`) }}</dt><dd class="mt-3"><span class="report-badge" :data-tone="statusTone(summary.task?.status || summary.status)">{{ statusLabel(summary.task?.status || summary.status) }}</span></dd></div>
-        <div class="report-metric"><dt class="analytics-caption">{{ t(`${key}.coverageTitle`) }}</dt><dd class="analytics-value">{{ summary.expected_members ? `${summary.completed_members} / ${summary.expected_members}` : '—' }}</dd><dd class="analytics-caption mt-2">{{ t(`${key}.coverageHint`) }}</dd></div>
-        <div class="report-metric"><dt class="analytics-caption">{{ t(`${key}.noConversationMembers`) }}</dt><dd class="analytics-value">{{ summary.no_record_members ?? (members ? noRecordMembers.length : '—') }}</dd><dd class="analytics-caption mt-2">{{ t(`${key}.noRecordsCountHint`) }}</dd></div>
-      </dl>
-      <div v-if="summary?.missing_members.length" class="report-notice report-warning space-y-3">
-        <h3 class="text-sm font-semibold">{{ t(`${key}.missing`) }}</h3>
-        <div class="flex flex-wrap gap-2"><button v-for="id in summary.missing_members" :key="id" class="btn btn-secondary analytics-button" type="button" @click="viewMember(id)"><bdi>{{ memberName(id) }}</bdi></button></div>
-      </div>
       <div v-if="summary?.summary.content" class="card analytics-panel space-y-5">
         <header class="space-y-4">
-          <div class="flex flex-wrap items-center justify-between gap-3"><h3 class="analytics-heading">{{ t(`${key}.summary`) }}</h3><span class="report-badge" :data-tone="statusTone(summary.summary.status)">{{ statusLabel(summary.summary.status) }}</span></div>
-          <dl class="report-metadata"><div><dt class="analytics-caption">{{ t(`${key}.usedModel`) }}</dt><dd><bdi>{{ summary.summary.model || '—' }}</bdi></dd></div><div><dt class="analytics-caption">{{ t(`${key}.generatedAt`) }}</dt><dd>{{ summary.summary.generated_at ? formatDateTime(summary.summary.generated_at) : '—' }}</dd></div></dl>
+          <div class="flex flex-wrap items-center justify-between gap-3"><h3 class="analytics-heading">{{ t(`${key}.summary`) }}</h3><div class="flex flex-wrap items-center gap-3"><span class="report-badge" :data-tone="statusTone(summary.summary.status)">{{ statusLabel(summary.summary.status) }}</span><button class="btn btn-primary analytics-button" :disabled="copyingSummary" @click="copySummary">{{ t('common.copy') }}</button></div></div>
           <p v-if="taskActive" class="analytics-caption">{{ t(`${key}.previousResultHint`) }}</p>
         </header>
-        <article class="report-content" v-html="markdown(summary.summary.content)" />
+        <DesktopReportContent :content="summary.summary.content" />
+        <p v-if="summaryCopyStatus" class="analytics-caption" role="status">{{ summaryCopyStatus }}</p>
+        <dl class="report-metadata"><div><dt class="analytics-caption">{{ t(`${key}.usedModel`) }}</dt><dd><bdi>{{ summary.summary.model || '—' }}</bdi></dd></div><div><dt class="analytics-caption">{{ t(`${key}.generatedAt`) }}</dt><dd>{{ summary.summary.generated_at ? formatDateTime(summary.summary.generated_at) : '—' }}</dd></div></dl>
         <DesktopReportExecutionHistory :executions="summary.summary.executions || []" /><div class="flex gap-3"><button v-if="executionPage > 1" class="btn btn-secondary analytics-button" @click="changeExecutionPage(executionPage - 1)">{{ t(`${key}.previousPage`) }}</button><button v-if="(summary.summary.executions?.length || 0) === 50" class="btn btn-secondary analytics-button" @click="changeExecutionPage(executionPage + 1)">{{ t(`${key}.nextPage`) }}</button></div>
       </div>
       <div v-else class="report-empty">
         <h3 class="analytics-heading">{{ emptyTitle('summary') }}</h3>
         <p class="analytics-caption mt-2">{{ emptyHint('summary') }}</p>
         <DesktopReportExecutionHistory class="mt-5 text-start" :executions="summary?.summary.executions || []" />
+      </div>
+      <dl v-if="summary" class="report-metrics">
+        <div class="card report-metric"><dt class="analytics-caption">{{ t(`${key}.taskStatus`) }}</dt><dd class="report-metric-value"><span class="report-badge" :data-tone="statusTone(summary.task?.status || summary.status)">{{ statusLabel(summary.task?.status || summary.status) }}</span></dd></div>
+        <div class="card report-metric"><dt class="analytics-caption">{{ t(`${key}.coverageTitle`) }}</dt><dd class="report-metric-value">{{ summary.expected_members ? `${summary.completed_members} / ${summary.expected_members}` : '—' }}</dd><dd class="analytics-caption report-metric-hint">{{ t(`${key}.coverageHint`) }}</dd></div>
+        <div class="card report-metric"><dt class="analytics-caption">{{ t(`${key}.noConversationMembers`) }}</dt><dd class="report-metric-value">{{ summary.no_record_members ?? (members ? noRecordMembers.length : '—') }}</dd><dd class="analytics-caption report-metric-hint">{{ t(`${key}.noRecordsCountHint`) }}</dd></div>
+      </dl>
+      <div v-if="summary?.missing_members.length" class="report-notice report-warning space-y-3">
+        <h3 class="text-sm font-semibold">{{ t(`${key}.missing`) }}</h3>
+        <div class="flex flex-wrap gap-2"><button v-for="id in summary.missing_members" :key="id" class="btn btn-secondary analytics-button" type="button" @click="viewMember(id)"><bdi>{{ memberName(id) }}</bdi></button></div>
       </div>
       <div v-if="members?.members.some(member => member.record_count > 0)" class="flex flex-wrap items-center justify-between gap-3">
         <p class="analytics-caption">{{ t(`${key}.memberReportsHint`) }}</p>
@@ -109,12 +110,12 @@
         <section v-if="selected" class="space-y-5">
           <header class="space-y-4">
             <div class="flex flex-wrap items-center justify-between gap-3"><span class="analytics-caption">{{ t(`${key}.memberDetail`) }}</span><span class="report-badge" :data-tone="statusTone(selected.status)">{{ statusLabel(selected.status) }}</span></div>
-            <dl class="report-metadata"><div><dt class="analytics-caption">{{ t(`${key}.usedModel`) }}</dt><dd><bdi>{{ selected.model || '—' }}</bdi></dd></div><div><dt class="analytics-caption">{{ t(`${key}.generatedAt`) }}</dt><dd>{{ selected.generated_at ? formatDateTime(selected.generated_at) : '—' }}</dd></div></dl>
             <p v-if="taskActive && selected.content" class="analytics-caption">{{ t(`${key}.previousResultHint`) }}</p>
           </header>
           <div v-if="selected.error" class="report-notice report-error"><p>{{ reasonLabel(selected.error) }}</p><p class="mt-1">{{ t(selfManaged ? `${key}.contactAdmin` : `${key}.retryHint`) }}</p></div>
-          <article v-if="selected.content" class="report-content" v-html="markdown(selected.content)" />
+          <DesktopReportContent v-if="selected.content" :content="selected.content" />
           <p v-else class="analytics-caption">{{ statusLabel(selected.status) }}</p>
+          <dl class="report-metadata"><div><dt class="analytics-caption">{{ t(`${key}.usedModel`) }}</dt><dd><bdi>{{ selected.model || '—' }}</bdi></dd></div><div><dt class="analytics-caption">{{ t(`${key}.generatedAt`) }}</dt><dd>{{ selected.generated_at ? formatDateTime(selected.generated_at) : '—' }}</dd></div></dl>
           <DesktopReportExecutionHistory :executions="selected.executions || []" /><div class="flex gap-3"><button v-if="memberExecutionPage > 1" class="btn btn-secondary analytics-button" type="button" :disabled="memberDetailLoading" @click="changeMemberExecutionPage(memberExecutionPage - 1)">{{ t(`${key}.previousPage`) }}</button><button v-if="(selected.executions?.length || 0) === 50" class="btn btn-secondary analytics-button" type="button" :disabled="memberDetailLoading" @click="changeMemberExecutionPage(memberExecutionPage + 1)">{{ t(`${key}.nextPage`) }}</button></div>
           <div v-if="selected.source_ids.length" class="space-y-3">
             <h4 class="text-sm font-semibold">{{ t(`${key}.sourcesTitle`) }}</h4>
@@ -135,8 +136,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { marked } from 'marked'
-import DOMPurify from 'dompurify'
+import DesktopReportContent from './DesktopReportContent.vue'
 import { getDesktopMemberReports, getDesktopMemberReport, getDesktopSummaryReport, runDesktopReports } from '@/api/desktopReports'
 import Pagination from '@/components/common/Pagination.vue'
 import type { DesktopMemberReports, DesktopSummaryReport, DesktopReportMode } from '@/api/desktopReports'
@@ -181,15 +181,16 @@ const running = ref(false)
 const autoRefresh = ref(true)
 const error = ref('')
 const failedPanels = ref<string[]>([])
+const copyingSummary = ref(false), summaryCopyStatus = ref('')
 const confirmRegenerate = ref(false)
 const source = ref<DesktopConversation | null>(null)
 const sourceLoading = ref(false)
 const sourceError = ref('')
 let controller: AbortController | undefined
+let summaryCopyController: AbortController | undefined
 let sourceController: AbortController | undefined
 let timer: ReturnType<typeof setTimeout> | undefined
 let disposed = false
-function markdown(text: string) { return DOMPurify.sanitize(marked.parse(text, { async: false }) as string) }
 function statusLabel(status: string) { return te(`${key}.statuses.${status}`) ? t(`${key}.statuses.${status}`) : status }
 function reasonLabel(reason: string) { return te(`${key}.reasons.${reason}`) ? t(`${key}.reasons.${reason}`) : t(`${key}.unknownReason`) }
 function statusTone(status: string) {
@@ -267,7 +268,7 @@ async function changeExecutionPage(next: number) {
 async function viewMembers() { activeTab.value = 'members'; await nextTick(); memberSearch.value?.focus() }
 function clearSearch() { search.value = ''; memberSearch.value?.focus() }
 function toggleRefresh() { autoRefresh.value = !autoRefresh.value; clearTimeout(timer); if (autoRefresh.value) void load() }
-function cancel() { controller?.abort(); sourceController?.abort(); memberDetailController?.abort(); executionController?.abort(); memberDetailLoading.value = false; sourceLoading.value = false; clearTimeout(timer) }
+function cancel() { summaryCopyController?.abort(); copyingSummary.value = false; controller?.abort(); sourceController?.abort(); memberDetailController?.abort(); executionController?.abort(); memberDetailLoading.value = false; sourceLoading.value = false; clearTimeout(timer) }
 async function load() {
   cancel()
   if (disposed || (props.selfManaged && !props.enabled) || !validDate.value) { loading.value = false; return }
@@ -310,12 +311,26 @@ async function openSource(id: string, event: MouseEvent) {
   catch { if (!current.signal.aborted && !disposed) sourceError.value = t(`${key}.sourceFailed`) }
   finally { if (!current.signal.aborted) sourceLoading.value = false }
 }
+async function copySummary() {
+  if (copyingSummary.value || !summary.value?.summary.content) return
+  const currentDate = date.value, org = props.organizationId, managed = props.selfManaged, shown = summary.value.summary.content
+  summaryCopyController?.abort(); const current = new AbortController(); summaryCopyController = current
+  copyingSummary.value = true; summaryCopyStatus.value = ''
+  try {
+    const value = await getDesktopSummaryReport(org, managed, currentDate, current.signal)
+    if (current.signal.aborted || disposed || date.value !== currentDate || props.organizationId !== org || props.selfManaged !== managed || (managed && !props.enabled)) return
+    if (!value.summary.content || value.summary.content !== shown) { summaryCopyStatus.value = t('biNative.reportTextChanged'); void load(); return }
+    await navigator.clipboard.writeText(shown)
+    if (!disposed && date.value === currentDate && props.organizationId === org) summaryCopyStatus.value = t('biNative.copied')
+  } catch { if (!current.signal.aborted && !disposed && date.value === currentDate && props.organizationId === org && props.selfManaged === managed) summaryCopyStatus.value = t('biNative.copyFailed') }
+  finally { if (summaryCopyController === current) copyingSummary.value = false }
+}
 function tabKeydown(event: KeyboardEvent, index: number) {
   if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
   event.preventDefault(); activeTab.value = reportTabs[event.key === 'Home' ? 0 : event.key === 'End' ? 1 : 1 - index]
   void nextTick(() => document.getElementById(`daily-report-tab-${activeTab.value}`)?.focus())
 }
-watch([date, () => props.organizationId], () => { members.value = undefined; summary.value = undefined; memberPage.value = 1; executionPage.value = 1; closeMemberReport(); confirmRegenerate.value = false; void load() }, { immediate: true })
+watch([date, () => props.organizationId], () => { summaryCopyController?.abort(); copyingSummary.value = false; summaryCopyStatus.value = ''; members.value = undefined; summary.value = undefined; memberPage.value = 1; executionPage.value = 1; closeMemberReport(); confirmRegenerate.value = false; void load() }, { immediate: true })
 watch(search, () => { if (memberPage.value !== 1) memberPage.value = 1; else void load() })
 watch(memberPage, () => { void load() })
 watch(activeTab, () => { executionPage.value = 1; executionController?.abort() })
@@ -324,10 +339,10 @@ onBeforeUnmount(() => { disposed = true; cancel() })
 </script>
 <style scoped>
 .report-metrics, .report-metadata { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
-.report-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.report-metric:first-child { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
-.report-metric:first-child dd { margin-top: 0; }
-.report-metric { @apply min-w-0 rounded-xl bg-gray-50 p-4 dark:bg-dark-800; }
+.report-metrics { gap: 16px; }
+.report-metric { @apply min-w-0 p-5; }
+.report-metric-value { @apply mt-3 flex min-h-8 items-center text-2xl font-semibold leading-tight tabular-nums text-gray-900 dark:text-gray-100; overflow-wrap: anywhere; }
+.report-metric-hint { margin-top: 8px; }
 .report-metadata dd { @apply mt-1 text-sm leading-relaxed text-gray-900 dark:text-gray-100; overflow-wrap: anywhere; }
 .report-notice { @apply rounded-xl p-4 text-sm leading-relaxed; overflow-wrap: anywhere; }
 .report-warning { @apply bg-amber-50 text-amber-900 dark:bg-dark-800 dark:text-amber-200; }
@@ -341,30 +356,11 @@ onBeforeUnmount(() => { disposed = true; cancel() })
 .report-badge[data-tone='info'] { @apply bg-primary-50 text-primary-700 dark:bg-dark-800 dark:text-primary-300; }
 .report-empty { @apply rounded-xl bg-gray-50 px-4 py-10 text-center dark:bg-dark-800; }
 .report-member-table, .report-table-hint { display: none; }
-.report-content { @apply text-base text-gray-900 dark:text-gray-100; max-width: 100%; line-height: 1.6; overflow-wrap: anywhere; }
-.report-content :deep(h1), .report-content :deep(h2), .report-content :deep(h3), .report-content :deep(h4) { margin: 1.5em 0 0.75em; font-weight: 600; line-height: 1.4; }
-.report-content :deep(h1) { font-size: 1.375rem; }
-.report-content :deep(h2) { font-size: 1.25rem; }
-.report-content :deep(h3) { font-size: 1.125rem; }
-.report-content :deep(h4) { font-size: 1rem; }
-.report-content :deep(:first-child) { margin-top: 0; }
-.report-content :deep(p), .report-content :deep(ul), .report-content :deep(ol) { margin: 0.75em 0; }
-.report-content :deep(ul) { list-style: disc; padding-inline-start: 1.5rem; }
-.report-content :deep(ol) { list-style: decimal; padding-inline-start: 1.5rem; }
-.report-content :deep(a) { @apply text-primary-700 underline dark:text-primary-300; text-underline-offset: 3px; }
-.report-content :deep(pre), .report-content :deep(table) { max-width: 100%; overflow-x: auto; }
-.report-content :deep(pre) { @apply rounded-lg bg-gray-50 p-3 dark:bg-dark-800; white-space: pre-wrap; }
-.report-content :deep(table) { display: block; }
-.report-content :deep(th), .report-content :deep(td) { @apply border border-gray-300 p-2 dark:border-dark-600; }
-.report-content :deep(blockquote) { @apply border-s-2 border-gray-300 ps-4 text-gray-600 dark:border-dark-500 dark:text-dark-300; }
-.report-content :deep(img) { max-width: 100%; height: auto; }
 [role='tabpanel']:focus-visible { outline: 2px solid theme('colors.primary.600'); outline-offset: 3px; }
 
 :global(html.dark) [role='tabpanel']:focus-visible { outline-color: theme('colors.primary.400'); }
 @container (min-width: 36rem) {
   .report-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .report-metric:first-child { grid-column: auto; display: block; }
-  .report-metric:first-child dd { margin-top: 12px; }
   .report-metadata { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @container (min-width: 48rem) {

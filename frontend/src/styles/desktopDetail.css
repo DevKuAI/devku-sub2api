@@ -2,7 +2,18 @@
 .desktop-detail { container: enterprise-detail / inline-size; width: 100%; min-width: 0; }
 .desktop-detail .detail-panel { @apply min-w-0 p-4 sm:p-6; }
 .desktop-detail .detail-overview { @apply min-w-0 p-4 sm:p-6; }
-.desktop-detail .detail-overview-grid { @apply grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-4; }
+.desktop-detail .detail-overview-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
+.desktop-detail .detail-overview-values dt { @apply text-sm leading-relaxed text-gray-500 dark:text-dark-400; }
+.desktop-detail .detail-overview-values dd { @apply mt-2 text-sm font-medium leading-relaxed text-gray-900 dark:text-gray-100; }
+.desktop-detail .detail-overview-values dd.detail-caption { @apply mt-1 text-xs font-normal text-gray-500 dark:text-dark-400; }
+.desktop-detail .detail-target-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
+.desktop-detail .detail-target-summary { @apply min-w-0 rounded-xl border border-gray-200 p-4 dark:border-dark-700; }
+@container enterprise-detail (min-width: 36rem) {
+  .desktop-detail .detail-overview-grid, .desktop-detail .detail-target-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container enterprise-detail (min-width: 64rem) {
+  .desktop-detail .detail-overview-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
 .desktop-detail .detail-form-section { @apply min-w-0; }
 .desktop-detail .detail-form-toggle { @apply flex cursor-pointer items-start gap-3 rounded-xl border border-gray-200 p-4 dark:border-dark-700; }
 .desktop-detail .detail-caption { @apply text-sm leading-relaxed text-gray-500 dark:text-dark-400; overflow-wrap: anywhere; }
@@ -102,4 +113,16 @@ html.dark .desktop-detail-select .select-option-focused, html.dark .desktop-deta
 @media (forced-colors: active) {
   .desktop-detail :where(button, input, select, textarea, summary, a, [tabindex]):focus-visible, .desktop-detail-select .select-option-focused, .desktop-detail-select .select-search-input:focus-visible { outline-color: Highlight; }
   .desktop-detail .detail-tab[aria-selected='true'] { outline: 2px solid Highlight; outline-offset: -2px; }
+}
+
+.desktop-detail .detail-overview-values dd.detail-capacity-value { @apply text-xl font-semibold; }
+
+.desktop-detail .detail-page-header { display: grid; grid-template-columns: auto minmax(0, 1fr); }
+.desktop-detail .detail-page-title { grid-column: 2; }
+.desktop-detail .detail-page-header:has(> .detail-page-title:first-child) { grid-template-columns: minmax(0, 1fr); }
+.desktop-detail .detail-page-title:first-child, .desktop-detail .detail-page-actions { grid-column: 1 / -1; }
+@container enterprise-detail (min-width: 36rem) {
+  .desktop-detail .detail-page-header { display: flex; }
+  .desktop-detail .detail-page-title { flex-basis: 12rem; }
+  .desktop-detail .detail-page-actions { margin-inline-start: auto; }
 }
