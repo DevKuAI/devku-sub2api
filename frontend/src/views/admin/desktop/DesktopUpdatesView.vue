@@ -56,13 +56,19 @@
           </template>
           <template #cell-actions="{ row }">
             <div class="flex min-w-28 items-center justify-end gap-1">
-              <button v-if="row.status === 'draft'" class="action-button" type="button" :title="t('common.edit')" :aria-label="t('common.edit')" @click="openEdit(row)">
+              <button class="action-button" type="button" :title="t('common.edit')" :aria-label="t('common.edit')" @click="openEdit(row)">
                 <Icon name="edit" size="sm" />
               </button>
               <button v-if="row.status === 'draft'" class="action-button text-primary-600 dark:text-primary-400" type="button" :title="t('admin.desktop.updates.publish')" :aria-label="t('admin.desktop.updates.publish')" @click="openPublish(row)">
                 <Icon name="upload" size="sm" />
               </button>
               <button v-if="row.status === 'published' && row.rollout_mode === 'gray'" class="btn btn-secondary" type="button" @click="openPromote(row)">{{ t('admin.desktop.updates.promote') }}</button>
+              <button class="action-button text-primary-600 dark:text-primary-400" type="button" :title="t('admin.desktop.updates.republish')" :aria-label="t('admin.desktop.updates.republish')" @click="openPublish(row, true)">
+                <Icon name="refresh" size="sm" />
+              </button>
+              <button class="action-button text-red-600 dark:text-red-400" type="button" :title="t('common.delete')" :aria-label="t('common.delete')" @click="openDelete(row)">
+                <Icon name="trash" size="sm" />
+              </button>
               <button v-if="row.status === 'published'" class="action-button text-red-600 dark:text-red-400" type="button" :title="t('admin.desktop.updates.withdraw')" :aria-label="t('admin.desktop.updates.withdraw')" @click="openWithdraw(row)">
                 <Icon name="xCircle" size="sm" />
               </button>
@@ -80,6 +86,7 @@
     </TablePageLayout>
 
     <BaseDialog :show="showDraft" :title="draftTitle" width="extra-wide" @close="closeDraft">
+      <p v-if="selected && selected.status !== 'draft'" class="mb-4 text-sm text-amber-700 dark:text-amber-300">{{ t('admin.desktop.updates.editHint') }}</p>
       <form id="desktop-update-draft-form" class="space-y-6" @submit.prevent="saveDraft">
         <div class="grid grid-cols-1 gap-4 lg:grid-cols-[14rem_minmax(0,1fr)]">
           <Input v-model="form.version" :label="t('admin.desktop.updates.version')" placeholder="0.3.0" required :error="errors.version" />
@@ -146,8 +153,8 @@
       </template>
     </BaseDialog>
 
-    <BaseDialog :show="showPublish" :title="t('admin.desktop.updates.publish')" width="narrow" @close="closePublish">
-      <p class="text-sm leading-6 text-gray-600 dark:text-dark-300">{{ t(promoting ? 'admin.desktop.updates.promoteConfirm' : 'admin.desktop.updates.publishConfirm', { version: selected?.version }) }}</p>
+    <BaseDialog :show="showPublish" :title="t(republishing ? 'admin.desktop.updates.republish' : 'admin.desktop.updates.publish')" width="narrow" @close="closePublish">
+      <p class="text-sm leading-6 text-gray-600 dark:text-dark-300">{{ t(promoting ? 'admin.desktop.updates.promoteConfirm' : republishing ? 'admin.desktop.updates.republishConfirm' : 'admin.desktop.updates.publishConfirm', { version: selected?.version }) }}</p>
       <template v-if="!promoting">
         <label class="mt-4 flex items-center gap-2"><input v-model="grayRelease" type="checkbox" />{{ t('admin.desktop.updates.gray') }}</label>
         <div v-if="grayRelease" class="mt-3 space-y-3">
@@ -172,7 +179,7 @@
       <template #footer>
         <div class="flex justify-end gap-3">
           <button class="btn btn-secondary" type="button" @click="closePublish">{{ t('common.cancel') }}</button>
-          <button class="btn btn-primary" type="button" :disabled="saving || (grayRelease && !promoting && audienceIDs.length === 0)" @click="publishRelease">{{ t(promoting ? 'admin.desktop.updates.promote' : 'admin.desktop.updates.publish') }}</button>
+          <button class="btn btn-primary" type="button" :disabled="saving || (grayRelease && !promoting && audienceIDs.length === 0)" @click="publishRelease">{{ t(promoting ? 'admin.desktop.updates.promote' : republishing ? 'admin.desktop.updates.republish' : 'admin.desktop.updates.publish') }}</button>
         </div>
       </template>
     </BaseDialog>
@@ -188,6 +195,15 @@
         <div class="flex justify-end gap-3">
           <button class="btn btn-secondary" type="button" @click="closeWithdraw">{{ t('common.cancel') }}</button>
           <button class="btn btn-danger" type="button" :disabled="saving" @click="withdrawRelease">{{ t('admin.desktop.updates.withdraw') }}</button>
+        </div>
+      </template>
+    </BaseDialog>
+    <BaseDialog :show="showDelete" :title="t('common.delete')" width="narrow" @close="closeDelete">
+      <p class="text-sm leading-6 text-gray-600 dark:text-dark-300">{{ t('admin.desktop.updates.deleteConfirm', { version: selected?.version }) }}</p>
+      <template #footer>
+        <div class="flex justify-end gap-3">
+          <button class="btn btn-secondary" type="button" :disabled="saving" @click="closeDelete">{{ t('common.cancel') }}</button>
+          <button class="btn btn-danger" type="button" :disabled="saving" @click="deleteRelease">{{ t('common.delete') }}</button>
         </div>
       </template>
     </BaseDialog>
@@ -224,6 +240,8 @@ const pagination = reactive({ page: 1, page_size: getPersistedPageSize(), total:
 const showDraft = ref(false)
 const showPublish = ref(false)
 const promoting = ref(false)
+const republishing = ref(false)
+const showDelete = ref(false)
 const grayRelease = ref(false)
 const audienceSearch = ref('')
 const audienceIDs = ref<number[]>([])
@@ -450,7 +468,7 @@ async function uploadPendingArtifacts(publicID: string) {
 }
 
 async function saveDraft() {
-  if (!validateDraft()) return
+  if (saving.value || !validateDraft()) return
   saving.value = true
   const wasCreate = !selected.value
   try {
@@ -462,12 +480,13 @@ async function saveDraft() {
       }
     } else {
       const versionChanged = form.version.trim() !== selected.value.version
-      if (versionChanged) {
-        selected.value = await adminAPI.desktop.updateUpdateRelease(selected.value.public_id, draftInput(versionTransitionArtifacts()))
+      const preparedDraft = versionChanged || selected.value.status !== 'draft'
+      if (preparedDraft) {
+        selected.value = await adminAPI.desktop.updateUpdateRelease(selected.value.public_id, draftInput(versionChanged ? versionTransitionArtifacts() : form.artifacts))
       }
       const uploaded = hasPendingUploads()
       await uploadPendingArtifacts(selected.value.public_id)
-      if (!versionChanged || uploaded) {
+      if (!preparedDraft || uploaded) {
         selected.value = await adminAPI.desktop.updateUpdateRelease(selected.value.public_id, draftInput())
       }
     }
@@ -485,7 +504,7 @@ function hasCompleteArtifacts(release: DesktopUpdateRelease): boolean {
   })
 }
 
-function openPublish(release: DesktopUpdateRelease) {
+function openPublish(release: DesktopUpdateRelease, resend = false) {
   for (const { key } of platforms) {
     const mismatch = artifactVersionError(release.artifacts[key]?.file_name || '', release.version)
     if (mismatch) {
@@ -498,19 +517,20 @@ function openPublish(release: DesktopUpdateRelease) {
     return
   }
   selected.value = release
-  promoting.value = false; grayRelease.value = false; audienceIDs.value = []; audienceSearch.value = ''; audiencePage.value = 1
+  promoting.value = false; republishing.value = resend; grayRelease.value = release.rollout_mode === 'gray'; audienceIDs.value = [...(release.gateway_user_ids || [])]; audienceSearch.value = ''; audiencePage.value = 1
   showPublish.value = true
 }
-function openPromote(release: DesktopUpdateRelease) { selected.value = release; promoting.value = true; grayRelease.value = false; showPublish.value = true }
+function openPromote(release: DesktopUpdateRelease) { selected.value = release; promoting.value = true; republishing.value = false; grayRelease.value = false; showPublish.value = true }
 function closePublish() { if (!saving.value) showPublish.value = false }
 async function publishRelease() {
-  if (!selected.value || (grayRelease.value && !promoting.value && !audienceIDs.value.length)) return
+  if (saving.value || !selected.value || (grayRelease.value && !promoting.value && !audienceIDs.value.length)) return
   saving.value = true
   try {
     if (promoting.value) {
       await adminAPI.desktop.promoteUpdateRelease(selected.value.public_id)
     } else {
-      await adminAPI.desktop.publishUpdateRelease(selected.value.public_id, {
+      const publish = republishing.value ? adminAPI.desktop.republishUpdateRelease : adminAPI.desktop.publishUpdateRelease
+      await publish(selected.value.public_id, {
         rollout_mode: grayRelease.value ? 'gray' : 'full',
         gateway_user_ids: grayRelease.value ? audienceIDs.value : [],
       })
@@ -523,6 +543,21 @@ async function publishRelease() {
 }
 
 function openWithdraw(release: DesktopUpdateRelease) { selected.value = release; withdrawalReason.value = ''; withdrawalError.value = ''; showWithdraw.value = true }
+
+function openDelete(release: DesktopUpdateRelease) { selected.value = release; showDelete.value = true }
+function closeDelete() { if (!saving.value) showDelete.value = false }
+async function deleteRelease() {
+  if (!selected.value || saving.value) return
+  saving.value = true
+  try {
+    await adminAPI.desktop.deleteUpdateRelease(selected.value.public_id)
+    appStore.showSuccess(t('admin.desktop.updates.deleted'))
+    showDelete.value = false
+    if (releases.value.length === 1 && pagination.page > 1) pagination.page--
+    await loadReleases()
+  } catch (error) { appStore.showError(errorMessage(error)) }
+  finally { saving.value = false }
+}
 function closeWithdraw() { if (!saving.value) showWithdraw.value = false }
 async function withdrawRelease() {
   if (!selected.value) return

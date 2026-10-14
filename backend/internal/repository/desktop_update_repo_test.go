@@ -41,7 +41,12 @@ func newDesktopUpdateRepositoryForTest(t *testing.T) service.DesktopUpdateReposi
 			withdrawn_at DATETIME,
 			withdrawal_reason TEXT,
 			created_at DATETIME NOT NULL,
-			updated_at DATETIME NOT NULL
+			updated_at DATETIME NOT NULL,
+            CHECK (
+                (status = 'draft' AND published_at IS NULL AND withdrawn_at IS NULL AND withdrawal_reason IS NULL)
+                OR (status = 'published' AND published_at IS NOT NULL AND withdrawn_at IS NULL AND withdrawal_reason IS NULL)
+                OR (status = 'withdrawn' AND published_at IS NOT NULL AND withdrawn_at IS NOT NULL AND withdrawal_reason IS NOT NULL)
+            )
 		)
 	`)
 	require.NoError(t, err)

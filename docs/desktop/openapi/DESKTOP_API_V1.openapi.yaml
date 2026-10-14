@@ -749,10 +749,12 @@ paths:
     patch:
       tags: [Desktop Admin - Updates]
       operationId: updateDesktopUpdateDraft
-      summary: 修改 Desktop 更新草稿
-      description: 仅 `draft` 状态可修改。请求体上限为 16 KiB。
+      summary: 编辑 Desktop 更新版本并保存为草稿
+      description: 草稿、已发布、已撤回版本均可编辑，允许沿用当前版本号。成功保存后转为 draft，清除发布及撤回时间，暂停对客户端提供该版本。请求体上限为 16 KiB。
       security:
         - AdminBearer: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
@@ -775,6 +777,38 @@ paths:
         '409':
           $ref: '#/components/responses/AdminError'
         '413':
+          $ref: '#/components/responses/AdminError'
+
+    delete:
+      tags: [Desktop Admin - Updates]
+      operationId: deleteDesktopUpdateRelease
+      summary: 删除更新记录并释放版本号
+      description: 允许删除任意状态的版本，删除后更新检查回退其他适用版本。保留对象存储制品，避免中断已开始的下载。
+      security:
+        - AdminBearer: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: 版本记录已删除
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: {type: integer, enum: [0]}
+                  data:
+                    type: object
+                    properties:
+                      deleted: {type: boolean}
+                      public_id: {type: string}
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '503':
           $ref: '#/components/responses/AdminError'
 
   /api/v1/admin/desktop/updates/{release_id}/artifacts/{platform}:
@@ -832,7 +866,7 @@ paths:
       tags: [Desktop Admin - Updates]
       operationId: publishDesktopUpdateRelease
       summary: 发布 Desktop 更新版本
-      description: 至少一个平台已上传且完整。灰度按所选承载用户当前绑定的企业授权，发布后制品不可编辑。
+      description: 至少一个平台已上传且完整。灰度按所选承载用户当前绑定的企业授权。编辑已发布版本后先转为草稿，需再次发布或重发。
       security:
         - AdminBearer: []
       parameters:
@@ -846,6 +880,45 @@ paths:
       responses:
         '200':
           description: 更新版本已发布
+          headers:
+            X-Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUpdateReleaseResponse'
+        '400':
+          $ref: '#/components/responses/AdminError'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '503':
+          $ref: '#/components/responses/AdminError'
+
+  /api/v1/admin/desktop/updates/{release_id}/republish:
+    parameters:
+      - $ref: '#/components/parameters/ReleaseId'
+    post:
+      tags: [Desktop Admin - Updates]
+      operationId: republishDesktopUpdateRelease
+      summary: 重发已有版本，可重新选择灰度或全量范围
+      description: 任意状态的版本可重发，沿用当前制品并刷新发布时间、清除撤回信息。重发旧版本不会改变更新检查选取最高适用版本的规则，客户端已安装相同版本时仍返回 204。
+      security:
+        - AdminBearer: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DesktopUpdatePublishRequest'
+      responses:
+        '200':
+          description: 已重发
           headers:
             X-Idempotency-Replayed:
               $ref: '#/components/headers/IdempotencyReplayed'

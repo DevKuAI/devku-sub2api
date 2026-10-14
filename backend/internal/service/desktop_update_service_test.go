@@ -405,3 +405,15 @@ func TestDesktopUpdateGrayAudienceAndPlatformFallback(t *testing.T) {
 	_, err = svc.Publish(context.Background(), "unused", 1, DesktopUpdatePublishInput{RolloutMode: "gray"})
 	require.ErrorIs(t, err, ErrDesktopUpdateInvalidFields)
 }
+
+func (r *desktopUpdateRepoStub) Delete(_ context.Context, publicID string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.releases {
+		if r.releases[i].PublicID == publicID {
+			r.releases = append(r.releases[:i], r.releases[i+1:]...)
+			return nil
+		}
+	}
+	return ErrDesktopUpdateNotFound
+}

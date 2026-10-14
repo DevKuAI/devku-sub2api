@@ -10,6 +10,8 @@ const desktopAPI = vi.hoisted(() => ({
   withdrawUpdateRelease: vi.fn(),
   promoteUpdateRelease: vi.fn(),
   listOrganizations: vi.fn(),
+  republishUpdateRelease: vi.fn(),
+  deleteUpdateRelease: vi.fn(),
 }))
 
 const appStore = vi.hoisted(() => ({ showError: vi.fn(), showSuccess: vi.fn() }))
@@ -55,7 +57,7 @@ function mountView() {
       stubs: {
         AppLayout: { template: '<main><slot /></main>' },
         TablePageLayout: { template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>' },
-        DataTable: true,
+        DataTable: { props: ['data'], template: '<div><div v-for="row in data" :key="row.public_id"><slot name="cell-actions" :row="row" /></div></div>' },
         Pagination: true,
         BaseDialog: { template: '<section><slot /><slot name="footer" /></section>' },
         EmptyState: true,
@@ -78,6 +80,8 @@ describe('DesktopUpdatesView', () => {
     desktopAPI.publishUpdateRelease.mockResolvedValue({ ...release, status: 'published' })
     desktopAPI.listOrganizations.mockResolvedValue({ items: [], total: 0 })
     desktopAPI.promoteUpdateRelease.mockResolvedValue({ ...release, status: 'published', rollout_mode: 'full' })
+    desktopAPI.republishUpdateRelease.mockResolvedValue({ ...release, status: 'published', rollout_mode: 'full' })
+    desktopAPI.deleteUpdateRelease.mockResolvedValue(undefined)
     desktopAPI.withdrawUpdateRelease.mockResolvedValue({ ...release, status: 'withdrawn' })
   })
 
@@ -300,6 +304,71 @@ describe('DesktopUpdatesView', () => {
     expect(desktopAPI.promoteUpdateRelease).toHaveBeenCalledWith('upd_one')
     expect(desktopAPI.uploadUpdateArtifact).not.toHaveBeenCalled()
     expect(desktopAPI.updateUpdateRelease).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('renders edit, delete and republish actions for published and withdrawn versions', async () => {
+    desktopAPI.listUpdateReleases.mockResolvedValue({ items: [
+      { ...release, status: 'published' }, { ...release, public_id: 'upd_other', status: 'withdrawn' },
+    ], total: 2 })
+    const wrapper = mountView()
+    await flushPromises()
+    expect(wrapper.findAll('button[aria-label="common.edit"]')).toHaveLength(2)
+    expect(wrapper.findAll('button[aria-label="common.delete"]')).toHaveLength(2)
+    expect(wrapper.findAll('button[aria-label="admin.desktop.updates.republish"]')).toHaveLength(2)
+    await wrapper.find('button[aria-label="common.edit"]').trigger('click')
+    expect(wrapper.text()).toContain('admin.desktop.updates.editHint')
+    wrapper.unmount()
+  })
+
+  it('saves a published release as a draft before replacing its artifacts with the same version', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as any
+    vm.openEdit({ ...release, status: 'published' })
+    vm.form.notes = 'replacement'
+    const file = new File(['new updater'], 'Devku.Desktop_1.2.3_x64-setup.nsis.zip')
+    vm.selectArtifactFile('windows-x86_64', { target: { files: [file], value: file.name } })
+    await vm.saveDraft()
+    expect(desktopAPI.createUpdateRelease).not.toHaveBeenCalled()
+    expect(desktopAPI.updateUpdateRelease).toHaveBeenCalledTimes(2)
+    expect(desktopAPI.updateUpdateRelease.mock.invocationCallOrder[0]).toBeLessThan(desktopAPI.uploadUpdateArtifact.mock.invocationCallOrder[0])
+    expect(desktopAPI.updateUpdateRelease.mock.calls[1][1]).toMatchObject({ version: '1.2.3', notes: 'replacement' })
+    expect(desktopAPI.publishUpdateRelease).not.toHaveBeenCalled()
+    expect(desktopAPI.republishUpdateRelease).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('republishes a withdrawn version with its previous gray audience and no reupload', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as any
+    vm.openPublish({ ...release, status: 'withdrawn', rollout_mode: 'gray', gateway_user_ids: [7, 9] }, true)
+    await vm.publishRelease()
+    expect(desktopAPI.republishUpdateRelease).toHaveBeenCalledWith('upd_one', { rollout_mode: 'gray', gateway_user_ids: [7, 9] })
+    expect(desktopAPI.uploadUpdateArtifact).not.toHaveBeenCalled()
+    expect(desktopAPI.publishUpdateRelease).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('requires confirmation to delete and keeps the dialog open on failure', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as any
+    await wrapper.find('button[aria-label="common.delete"]').trigger('click')
+    expect(vm.showDelete).toBe(true)
+    expect(desktopAPI.deleteUpdateRelease).not.toHaveBeenCalled()
+    vm.closeDelete()
+    expect(desktopAPI.deleteUpdateRelease).not.toHaveBeenCalled()
+    vm.openDelete(release)
+    desktopAPI.deleteUpdateRelease.mockRejectedValueOnce(new Error('failed'))
+    await vm.deleteRelease()
+    expect(vm.showDelete).toBe(true)
+    expect(appStore.showError).toHaveBeenCalledWith('failed')
+    await vm.deleteRelease()
+    expect(desktopAPI.deleteUpdateRelease).toHaveBeenCalledWith('upd_one')
+    expect(vm.showDelete).toBe(false)
+    expect(desktopAPI.listUpdateReleases).toHaveBeenCalledTimes(2)
     wrapper.unmount()
   })
 

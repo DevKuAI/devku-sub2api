@@ -104,13 +104,64 @@ func (h *DesktopUpdateHandler) Update(c *gin.Context) {
 		adminDesktopBindingError(c, err)
 		return
 	}
-	release, err := h.updates.UpdateDraft(c.Request.Context(), c.Param("release_id"), service.DesktopUpdateDraftInput{
-		Version: req.Version, Notes: req.Notes, Artifacts: req.Artifacts, ActorID: adminDesktopUpdateActorID(c),
+	payload := struct {
+		ReleaseID string                    `json:"release_id"`
+		Input     desktopUpdateDraftRequest `json:"input"`
+	}{strings.TrimSpace(c.Param("release_id")), req}
+	result, err := executeAdminStrictIdempotent(c, "admin.desktop.updates.edit", payload, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
+		release, err := h.updates.UpdateDraft(ctx, payload.ReleaseID, service.DesktopUpdateDraftInput{
+			Version: req.Version, Notes: req.Notes, Artifacts: req.Artifacts, ActorID: adminDesktopUpdateActorID(c), ResetPublished: true,
+		})
+		if err != nil {
+			return nil, err
+		}
+		return desktopUpdateFromService(release), nil
 	})
-	if response.ErrorFrom(c, err) {
+	if adminDesktopIdempotencyError(c, err) {
 		return
 	}
-	response.Success(c, desktopUpdateFromService(release))
+	adminDesktopIdempotencyResponse(c, result, false)
+}
+
+func (h *DesktopUpdateHandler) Delete(c *gin.Context) {
+	payload := struct {
+		ReleaseID string `json:"release_id"`
+	}{strings.TrimSpace(c.Param("release_id"))}
+	result, err := executeAdminStrictIdempotent(c, "admin.desktop.updates.delete", payload, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
+		if err := h.updates.Delete(ctx, payload.ReleaseID); err != nil {
+			return nil, err
+		}
+		return gin.H{"deleted": true, "public_id": payload.ReleaseID}, nil
+	})
+	if adminDesktopIdempotencyError(c, err) {
+		return
+	}
+	adminDesktopIdempotencyResponse(c, result, false)
+}
+
+func (h *DesktopUpdateHandler) Republish(c *gin.Context) {
+	var req service.DesktopUpdatePublishInput
+	if c.Request.ContentLength != 0 {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			adminDesktopBindingError(c, err)
+			return
+		}
+	}
+	payload := struct {
+		ReleaseID string                            `json:"release_id"`
+		Input     service.DesktopUpdatePublishInput `json:"input"`
+	}{strings.TrimSpace(c.Param("release_id")), req}
+	result, err := executeAdminStrictIdempotent(c, "admin.desktop.updates.republish", payload, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
+		release, err := h.updates.Republish(ctx, payload.ReleaseID, adminDesktopUpdateActorID(c), req)
+		if err != nil {
+			return nil, err
+		}
+		return desktopUpdateFromService(release), nil
+	})
+	if adminDesktopIdempotencyError(c, err) {
+		return
+	}
+	adminDesktopIdempotencyResponse(c, result, false)
 }
 
 func (h *DesktopUpdateHandler) UploadArtifact(c *gin.Context) {

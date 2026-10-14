@@ -32,6 +32,8 @@ func TestDesktopUpdateRoutesAreIndependentOfDesktopFeatureFlag(t *testing.T) {
 		"GET /api/v1/admin/desktop/updates/:release_id",
 		"POST /api/v1/admin/desktop/updates",
 		"PATCH /api/v1/admin/desktop/updates/:release_id",
+		"DELETE /api/v1/admin/desktop/updates/:release_id",
+		"POST /api/v1/admin/desktop/updates/:release_id/republish",
 		"POST /api/v1/admin/desktop/updates/:release_id/artifacts/:platform",
 		"POST /api/v1/admin/desktop/updates/:release_id/publish",
 		"POST /api/v1/admin/desktop/updates/:release_id/withdraw",

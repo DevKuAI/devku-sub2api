@@ -19,10 +19,14 @@ import (
 )
 
 type adminDesktopUpdateRepoStub struct {
-	mu            sync.Mutex
-	createCalls   int
-	publishCalls  int
-	withdrawCalls int
+	mu               sync.Mutex
+	createCalls      int
+	updateCalls      int
+	publishCalls     int
+	withdrawCalls    int
+	deleteCalls      int
+	lastPublishInput service.DesktopUpdatePublishInput
+	lastDraftInput   service.DesktopUpdateDraftInput
 }
 
 func (r *adminDesktopUpdateRepoStub) Create(_ context.Context, release *service.DesktopUpdateRelease) error {
@@ -84,14 +88,83 @@ func TestDesktopUpdateArtifactUploadAcceptsMultipartBundle(t *testing.T) {
 	require.Error(t, err, "multipart temporary file should be removed after the request")
 }
 
-func (*adminDesktopUpdateRepoStub) UpdateDraft(_ context.Context, publicID string, input service.DesktopUpdateDraftInput) (*service.DesktopUpdateRelease, error) {
+func (r *adminDesktopUpdateRepoStub) UpdateDraft(_ context.Context, publicID string, input service.DesktopUpdateDraftInput) (*service.DesktopUpdateRelease, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.updateCalls++
+	r.lastDraftInput = input
 	return &service.DesktopUpdateRelease{PublicID: publicID, Version: input.Version, Notes: input.Notes, Artifacts: input.Artifacts, Status: service.DesktopUpdateStatusDraft}, nil
+}
+
+func TestDesktopUpdateAdminEditExplicitlyReturnsReleaseToDraft(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	repo := &adminDesktopUpdateRepoStub{}
+	router := gin.New()
+	router.PATCH("/updates/:release_id", NewDesktopUpdateHandler(service.NewDesktopUpdateService(repo)).Update)
+	request := httptest.NewRequest(http.MethodPatch, "/updates/upd_one", bytes.NewBufferString(`{"version":"1.2.3","notes":"replacement","artifacts":{}}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Idempotency-Key", "desktop-edit-to-draft")
+	out := httptest.NewRecorder()
+	router.ServeHTTP(out, request)
+	require.Equal(t, http.StatusOK, out.Code, out.Body.String())
+	require.True(t, repo.lastDraftInput.ResetPublished)
+	require.Contains(t, out.Body.String(), `"status":"draft"`)
+}
+
+func TestDesktopUpdateEditDeleteAndRepublishReplayWithoutRepeatingWrites(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	previous := service.DefaultIdempotencyCoordinator()
+	cfg := service.DefaultIdempotencyConfig()
+	cfg.ObserveOnly = false
+	service.SetDefaultIdempotencyCoordinator(service.NewIdempotencyCoordinator(newMemoryIdempotencyRepoStub(), cfg))
+	t.Cleanup(func() { service.SetDefaultIdempotencyCoordinator(previous) })
+	repo := &adminDesktopUpdateRepoStub{}
+	handler := NewDesktopUpdateHandler(service.NewDesktopUpdateService(repo))
+	router := gin.New()
+	router.DELETE("/updates/:release_id", handler.Delete)
+	router.PATCH("/updates/:release_id", handler.Update)
+	router.POST("/updates/:release_id/republish", handler.Republish)
+	edit := func() {
+		request := httptest.NewRequest(http.MethodPatch, "/updates/upd_one", bytes.NewBufferString(`{"version":"1.2.3","artifacts":{}}`))
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("Idempotency-Key", "desktop-edit-replay")
+		out := httptest.NewRecorder()
+		router.ServeHTTP(out, request)
+		require.Equal(t, http.StatusOK, out.Code, out.Body.String())
+	}
+	edit()
+	for _, method := range []string{http.MethodPost, http.MethodDelete} {
+		url := "/updates/upd_one"
+		if method == http.MethodPost {
+			url += "/republish"
+		}
+		for range 2 {
+			request := httptest.NewRequest(method, url, nil)
+			request.Header.Set("Idempotency-Key", "desktop-edit-test-"+method)
+			out := httptest.NewRecorder()
+			router.ServeHTTP(out, request)
+			require.Equal(t, http.StatusOK, out.Code, out.Body.String())
+		}
+		if method == http.MethodPost {
+			// A delayed retry must not reset the republished release to draft.
+			edit()
+			require.Equal(t, 1, repo.updateCalls)
+		}
+	}
+	require.Equal(t, 1, repo.updateCalls)
+	require.Equal(t, 1, repo.deleteCalls)
+	require.Equal(t, 1, repo.publishCalls)
+	require.True(t, repo.lastPublishInput.Republish)
+	require.False(t, repo.lastPublishInput.Promote)
 }
 
 func (r *adminDesktopUpdateRepoStub) Publish(_ context.Context, publicID string, _ int64, publishedAt time.Time, options ...service.DesktopUpdatePublishInput) (*service.DesktopUpdateRelease, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.publishCalls++
+	if len(options) > 0 {
+		r.lastPublishInput = options[0]
+	}
 	return &service.DesktopUpdateRelease{PublicID: publicID, Version: "1.2.3", Status: service.DesktopUpdateStatusPublished, PublishedAt: &publishedAt}, nil
 }
 
@@ -136,21 +209,32 @@ func TestDesktopUpdateLifecycleWritesRequireIdempotencyKey(t *testing.T) {
 	router.POST("/updates", handler.Create)
 	router.POST("/updates/:release_id/publish", handler.Publish)
 	router.POST("/updates/:release_id/withdraw", handler.Withdraw)
+	router.POST("/updates/:release_id/republish", handler.Republish)
+	router.DELETE("/updates/:release_id", handler.Delete)
+	router.PATCH("/updates/:release_id", handler.Update)
 
 	tests := []struct {
-		name string
-		path string
-		body []byte
+		name   string
+		method string
+		path   string
+		body   []byte
 	}{
 		{name: "create", path: "/updates", body: adminDesktopUpdateDraftBody()},
 		{name: "publish", path: "/updates/upd_one/publish"},
+		{name: "republish", path: "/updates/upd_one/republish"},
+		{name: "delete", method: http.MethodDelete, path: "/updates/upd_one"},
+		{name: "edit", method: http.MethodPatch, path: "/updates/upd_one", body: []byte(`{"version":"1.2.3","artifacts":{}}`)},
 		{name: "withdraw", path: "/updates/upd_one/withdraw", body: []byte(`{"reason":"Rollback"}`)},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			recorder := httptest.NewRecorder()
-			request := httptest.NewRequest(http.MethodPost, test.path, bytes.NewReader(test.body))
+			method := test.method
+			if method == "" {
+				method = http.MethodPost
+			}
+			request := httptest.NewRequest(method, test.path, bytes.NewReader(test.body))
 			request.Header.Set("Content-Type", "application/json")
 			router.ServeHTTP(recorder, request)
 
@@ -159,8 +243,10 @@ func TestDesktopUpdateLifecycleWritesRequireIdempotencyKey(t *testing.T) {
 		})
 	}
 	require.Zero(t, repo.createCalls)
+	require.Zero(t, repo.updateCalls)
 	require.Zero(t, repo.publishCalls)
 	require.Zero(t, repo.withdrawCalls)
+	require.Zero(t, repo.deleteCalls)
 }
 
 func (r *adminDesktopUpdateRepoStub) GetByVersion(ctx context.Context, version string) (*service.DesktopUpdateRelease, error) {
@@ -174,4 +260,11 @@ func (r *adminDesktopUpdateRepoStub) GetByVersion(ctx context.Context, version s
 		}
 	}
 	return nil, service.ErrDesktopUpdateNotFound
+}
+
+func (r *adminDesktopUpdateRepoStub) Delete(context.Context, string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.deleteCalls++
+	return nil
 }

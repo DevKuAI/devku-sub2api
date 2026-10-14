@@ -89,10 +89,11 @@ type DesktopUpdateRelease struct {
 }
 
 type DesktopUpdateDraftInput struct {
-	Version   string
-	Notes     string
-	Artifacts DesktopUpdateArtifacts
-	ActorID   int64
+	Version        string
+	Notes          string
+	Artifacts      DesktopUpdateArtifacts
+	ActorID        int64
+	ResetPublished bool
 }
 
 // GatewayUserIDs select enterprises currently bound to these users.
@@ -100,6 +101,7 @@ type DesktopUpdatePublishInput struct {
 	RolloutMode    string  `json:"rollout_mode"`
 	GatewayUserIDs []int64 `json:"gateway_user_ids"`
 	Promote        bool    `json:"-"`
+	Republish      bool    `json:"-"`
 }
 
 func NormalizeDesktopUpdatePublication(input DesktopUpdatePublishInput) (DesktopUpdatePublishInput, error) {
@@ -149,6 +151,7 @@ type DesktopUpdateRepository interface {
 	Get(ctx context.Context, publicID string) (*DesktopUpdateRelease, error)
 	GetByVersion(ctx context.Context, version string) (*DesktopUpdateRelease, error)
 	UpdateDraft(ctx context.Context, publicID string, input DesktopUpdateDraftInput) (*DesktopUpdateRelease, error)
+	Delete(ctx context.Context, publicID string) error
 	Publish(ctx context.Context, publicID string, actorID int64, publishedAt time.Time, options ...DesktopUpdatePublishInput) (*DesktopUpdateRelease, error)
 	Withdraw(ctx context.Context, publicID string, actorID int64, reason string, withdrawnAt time.Time) (*DesktopUpdateRelease, error)
 	ListPublished(ctx context.Context) ([]DesktopUpdateRelease, error)
@@ -317,6 +320,16 @@ func (s *DesktopUpdateService) Publish(ctx context.Context, publicID string, act
 
 func (s *DesktopUpdateService) Promote(ctx context.Context, publicID string, actorID int64) (*DesktopUpdateRelease, error) {
 	return s.Publish(ctx, publicID, actorID, DesktopUpdatePublishInput{RolloutMode: "full", Promote: true})
+}
+
+func (s *DesktopUpdateService) Republish(ctx context.Context, publicID string, actorID int64, input DesktopUpdatePublishInput) (*DesktopUpdateRelease, error) {
+	input.Promote = false
+	input.Republish = true
+	return s.Publish(ctx, publicID, actorID, input)
+}
+
+func (s *DesktopUpdateService) Delete(ctx context.Context, publicID string) error {
+	return s.repo.Delete(ctx, strings.TrimSpace(publicID))
 }
 
 func (s *DesktopUpdateService) Withdraw(ctx context.Context, publicID string, actorID int64, reason string) (*DesktopUpdateRelease, error) {

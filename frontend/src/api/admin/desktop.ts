@@ -306,7 +306,9 @@ export async function createUpdateRelease(input: DesktopUpdateDraftRequest): Pro
 }
 
 export async function updateUpdateRelease(publicID: string, input: DesktopUpdateDraftRequest): Promise<DesktopUpdateRelease> {
-  const { data } = await apiClient.patch<DesktopUpdateRelease>(`/admin/desktop/updates/${encodeURIComponent(publicID)}`, input)
+  const { data } = await apiClient.patch<DesktopUpdateRelease>(`/admin/desktop/updates/${encodeURIComponent(publicID)}`, input, {
+    headers: idempotencyHeaders('desktop-update-edit'),
+  })
   return data
 }
 
@@ -351,6 +353,20 @@ export async function promoteUpdateRelease(publicID: string): Promise<DesktopUpd
   return data
 }
 
+export async function republishUpdateRelease(publicID: string, input: { rollout_mode: 'full' | 'gray'; gateway_user_ids: number[] }): Promise<DesktopUpdateRelease> {
+  const { data } = await apiClient.post<DesktopUpdateRelease>(
+    `/admin/desktop/updates/${encodeURIComponent(publicID)}/republish`, input,
+    { headers: idempotencyHeaders('desktop-update-republish') },
+  )
+  return data
+}
+
+export async function deleteUpdateRelease(publicID: string): Promise<void> {
+  await apiClient.delete(`/admin/desktop/updates/${encodeURIComponent(publicID)}`, {
+    headers: idempotencyHeaders('desktop-update-delete'),
+  })
+}
+
 export async function withdrawUpdateRelease(publicID: string, reason: string): Promise<DesktopUpdateRelease> {
   const { data } = await apiClient.post<DesktopUpdateRelease>(
     `/admin/desktop/updates/${encodeURIComponent(publicID)}/withdraw`,
@@ -381,5 +397,7 @@ export default {
   uploadUpdateArtifact,
   publishUpdateRelease,
   promoteUpdateRelease,
+  republishUpdateRelease,
+  deleteUpdateRelease,
   withdrawUpdateRelease,
 }

@@ -79,23 +79,32 @@ func (r *desktopUpdateRepository) Get(ctx context.Context, publicID string) (*se
 }
 
 func (r *desktopUpdateRepository) UpdateDraft(ctx context.Context, publicID string, input service.DesktopUpdateDraftInput) (*service.DesktopUpdateRelease, error) {
+	r.publishMu.Lock()
+	defer r.publishMu.Unlock()
 	raw, err := json.Marshal(input.Artifacts)
 	if err != nil {
 		return nil, err
 	}
 	err = r.withTx(ctx, func(txCtx context.Context, client *dbent.Client) error {
+		if err := lockDesktopUpdatePublication(txCtx, client); err != nil {
+			return err
+		}
 		query := client.DesktopUpdateRelease.Query().Where(desktopupdaterelease.PublicIDEQ(publicID))
 		row, queryErr := desktopUpdateForUpdate(client, query).Only(txCtx)
 		if queryErr != nil {
 			return translatePersistenceError(queryErr, service.ErrDesktopUpdateNotFound, nil)
 		}
-		if row.Status != service.DesktopUpdateStatusDraft {
+		if row.Status != service.DesktopUpdateStatusDraft && !input.ResetPublished {
 			return service.ErrDesktopUpdateInvalidState
 		}
 		builder := client.DesktopUpdateRelease.UpdateOne(row).
 			SetVersion(input.Version).
 			SetNotes(input.Notes).
 			SetArtifacts(raw)
+		if input.ResetPublished {
+			builder.SetStatus(service.DesktopUpdateStatusDraft).
+				ClearPublishedAt().ClearPublishedBy().ClearWithdrawnAt().ClearWithdrawnBy().ClearWithdrawalReason()
+		}
 		if input.ActorID > 0 {
 			builder.SetUpdatedBy(input.ActorID)
 		}
@@ -129,7 +138,7 @@ func (r *desktopUpdateRepository) Publish(ctx context.Context, publicID string, 
 		if err != nil {
 			return translatePersistenceError(err, service.ErrDesktopUpdateNotFound, nil)
 		}
-		if (!input.Promote && candidate.Status != service.DesktopUpdateStatusDraft) || (input.Promote && (candidate.Status != service.DesktopUpdateStatusPublished || candidate.RolloutMode != "gray")) {
+		if (!input.Promote && !input.Republish && candidate.Status != service.DesktopUpdateStatusDraft) || (input.Promote && (candidate.Status != service.DesktopUpdateStatusPublished || candidate.RolloutMode != "gray")) {
 			return service.ErrDesktopUpdateInvalidState
 		}
 		candidateModel, err := desktopUpdateEntity(candidate)
@@ -152,7 +161,7 @@ func (r *desktopUpdateRepository) Publish(ctx context.Context, publicID string, 
 			return err
 		}
 		for _, existing := range published {
-			if input.Promote && existing.ID == candidate.ID {
+			if existing.ID == candidate.ID || input.Republish {
 				continue
 			}
 			comparison, compareErr := service.CompareDesktopUpdateVersions(candidate.Version, existing.Version)
@@ -174,7 +183,8 @@ func (r *desktopUpdateRepository) Publish(ctx context.Context, publicID string, 
 		}
 		builder := client.DesktopUpdateRelease.UpdateOne(candidate).
 			SetStatus(service.DesktopUpdateStatusPublished).
-			SetRolloutMode(input.RolloutMode).SetGatewayUserIds(input.GatewayUserIDs)
+			SetRolloutMode(input.RolloutMode).SetGatewayUserIds(input.GatewayUserIDs).
+			ClearWithdrawnAt().ClearWithdrawnBy().ClearWithdrawalReason()
 		if !input.Promote {
 			builder.SetPublishedAt(publishedAt)
 		}
@@ -191,7 +201,12 @@ func (r *desktopUpdateRepository) Publish(ctx context.Context, publicID string, 
 }
 
 func (r *desktopUpdateRepository) Withdraw(ctx context.Context, publicID string, actorID int64, reason string, withdrawnAt time.Time) (*service.DesktopUpdateRelease, error) {
+	r.publishMu.Lock()
+	defer r.publishMu.Unlock()
 	err := r.withTx(ctx, func(txCtx context.Context, client *dbent.Client) error {
+		if err := lockDesktopUpdatePublication(txCtx, client); err != nil {
+			return err
+		}
 		query := client.DesktopUpdateRelease.Query().Where(desktopupdaterelease.PublicIDEQ(publicID))
 		row, err := desktopUpdateForUpdate(client, query).Only(txCtx)
 		if err != nil {
@@ -214,6 +229,25 @@ func (r *desktopUpdateRepository) Withdraw(ctx context.Context, publicID string,
 		return nil, err
 	}
 	return r.Get(ctx, publicID)
+}
+
+// Delete releases the version number, retaining storage objects for in-flight downloads.
+func (r *desktopUpdateRepository) Delete(ctx context.Context, publicID string) error {
+	r.publishMu.Lock()
+	defer r.publishMu.Unlock()
+	return r.withTx(ctx, func(txCtx context.Context, client *dbent.Client) error {
+		if err := lockDesktopUpdatePublication(txCtx, client); err != nil {
+			return err
+		}
+		count, err := client.DesktopUpdateRelease.Delete().Where(desktopupdaterelease.PublicIDEQ(publicID)).Exec(txCtx)
+		if err != nil {
+			return err
+		}
+		if count == 0 {
+			return service.ErrDesktopUpdateNotFound
+		}
+		return nil
+	})
 }
 
 func (r *desktopUpdateRepository) ListPublished(ctx context.Context) ([]service.DesktopUpdateRelease, error) {

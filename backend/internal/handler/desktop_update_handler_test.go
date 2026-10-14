@@ -118,3 +118,5 @@ func (r *desktopUpdateCheckRepoStub) GetByVersion(ctx context.Context, version s
 	}
 	return nil, service.ErrDesktopUpdateNotFound
 }
+
+func (*desktopUpdateCheckRepoStub) Delete(context.Context, string) error { return nil }
