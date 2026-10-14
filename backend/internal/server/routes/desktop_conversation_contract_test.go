@@ -15,7 +15,7 @@ import (
 )
 
 func TestDesktopV2OpenAPIRegisteredOperations(t *testing.T) {
-	raw, err := os.ReadFile("../../../../docs/DESKTOP_SESSION_CONVERSATION_V2.openapi.json")
+	raw, err := os.ReadFile("../../../../docs/desktop/openapi/DESKTOP_SESSION_CONVERSATION_V2.openapi.json")
 	require.NoError(t, err)
 	var contract struct {
 		Paths map[string]map[string]struct {

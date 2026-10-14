@@ -41,7 +41,7 @@ Sub2API 是可自行部署的 AI API 网关，用于管理上游 OAuth 和 API K
 | Gateway | Messages、Responses、Chat Completions、Gemini 及 Provider 专用协议；请求路由、粘性会话、负载均衡和复合分组。协议支持范围取决于所选 Provider。 |
 | 账号与 API Key | OAuth/API Key 上游账号、用户 API Key 创建数量限制、模型 allowlist、账户绑定，以及订阅账号状态和配额的只读查看。 |
 | 用量与限制 | Token 和成本统计、用户级/账号级并发、请求/Token 速率限制、API Key 消费窗口、输出 TPS 和运维看板。输出 TPS 与系统吞吐量分开统计；长上下文计费标签展示实际采用的价格档位。 |
-| 在线支付 | EasyPay 易支付、支付宝、微信支付和 Stripe，支持用户自助充值；见 [支付配置](docs/PAYMENT_CN.md)。 |
+| 在线支付 | EasyPay 易支付、支付宝、微信支付和 Stripe，支持用户自助充值；见 [支付配置](docs/payments/PAYMENT_CN.md)。 |
 | Desktop 企业 | 企业与成员、企业挂载 Web 账户、成员 Model Token、模型配置、用量统计、会话/对话上报和日报。对话上报由企业级开关控制。 |
 | Desktop 资源与更新 | MCP/Skill 包管理与鉴权分发，以及基于 S3 兼容存储的 Desktop 更新发布。私有资源与公开更新文件使用独立 bucket。 |
 | 企业账目 | 到账与税务、VCC 分配/消费/退款、合同、发票、AI Invoice、支出与分次付款、对账、CSV 导出、私有附件和审计。不同币种分别记账。 |
@@ -291,7 +291,7 @@ websocat -H="Sec-WebSocket-Protocol: sub2api-admin, jwt.<ADMIN_TOKEN>" ws://loca
 - **Command Code 与 Cline**：均支持 API Key 账号。Command Code 根据模型能力选择原生 Messages、Responses 或 Chat Completions 端点；Cline 使用 Chat Completions，并转换入站 Messages/Responses。Cline 积分与 ClinePass 限额分别作用于对应模型。
 - **Platform catalog**：账号创建、路由和默认平台配额共用目录。迁移已移除数据库 platform CHECK 约束，由应用校验已注册平台。
 - **模型 allowlist**：同时限制模型列表和请求准入。`groups.models_list_config` 迁移为 `model_allowlist` 时保留数据；升级前核对已有列表，因为启用的列表现在也会限制请求。
-- **Seedance（Ark）**：支持原生任务创建、查询和删除；要求 OpenAI API Key 账号开启 Seedance 能力，分组开启媒体权限。查询首次观察到 `succeeded` 时按 `usage.completion_tokens` 计费，无后台轮询或回调自动结算。应保留 Redis 任务绑定，并在生命周期内查询已完成任务。见 [Seedance 配置与计费](docs/seedance-api.md)。
+- **Seedance（Ark）**：支持原生任务创建、查询和删除；要求 OpenAI API Key 账号开启 Seedance 能力，分组开启媒体权限。查询首次观察到 `succeeded` 时按 `usage.completion_tokens` 计费，无后台轮询或回调自动结算。应保留 Redis 任务绑定，并在生命周期内查询已完成任务。见 [Seedance 配置与计费](docs/media/seedance-api.md)。
 - **插件宿主服务**：Redis KV 按插件身份隔离，账号目录受声明能力限制，`plugin.status` 只读。宿主协商为可选功能，兼容旧插件。见 [Plugin API](backend/pkg/pluginapi/README.md) 和 [UI bridge](backend/pkg/pluginapi/docs/ui-bridge.md)。
 - **Antigravity attribution**：仅在 Anthropic Messages 转 Antigravity 时移除开头的 Claude attribution metadata。原生 Anthropic 转发保持不变，不应全局关闭 attribution。
 
@@ -308,7 +308,7 @@ OAuth / Setup Token 图片请求使用 Responses 主控模型调用 `image_gener
 
 ### 异步图片任务
 
-OpenAI/Grok 长时间运行的图片生成与编辑可提交到 `/v1/images/generations/async` 或 `/v1/images/edits/async`，再通过 `/v1/images/tasks/{task_id}` 轮询，无需持续占用 CDN 连接。请求响应示例见 [异步图片任务](docs/ASYNC_IMAGE_TASKS.md)。
+OpenAI/Grok 长时间运行的图片生成与编辑可提交到 `/v1/images/generations/async` 或 `/v1/images/edits/async`，再通过 `/v1/images/tasks/{task_id}` 轮询，无需持续占用 CDN 连接。请求响应示例见 [异步图片任务](docs/media/ASYNC_IMAGE_TASKS.md)。
 
 ### Grok / xAI
 
@@ -497,7 +497,7 @@ make -C backend build
 git diff --check
 ```
 
-集成测试需要 Docker 和实际启动的测试容器；跳过不能计为通过。`make test-frontend` 执行 lint、typecheck 和选定的关键 Vitest 测试，上面的 `test:run` 执行完整前端测试。`make -C backend build` 仅编译后端；包含 UI 的二进制使用前述显式 `-tags embed` 命令。详见 [开发指南](docs/DEV_GUIDE.md) 和 [CI workflow](.github/workflows/backend-ci.yml)。
+集成测试需要 Docker 和实际启动的测试容器；跳过不能计为通过。`make test-frontend` 执行 lint、typecheck 和选定的关键 Vitest 测试，上面的 `test:run` 执行完整前端测试。`make -C backend build` 仅编译后端；包含 UI 的二进制使用前述显式 `-tags embed` 命令。详见 [开发指南](docs/development/DEV_GUIDE.md) 和 [CI workflow](.github/workflows/backend-ci.yml)。
 
 ## 文档入口
 
@@ -505,13 +505,13 @@ git diff --check
 | --- | --- |
 | 文档索引 | [docs/README.md](docs/README.md) |
 | 部署与安全 | [部署说明](deploy/README.md)、[边缘安全](deploy/EDGE_SECURITY.md)、[Apple container](deploy/APPLE_CONTAINER.md) |
-| 开发 | [开发指南](docs/DEV_GUIDE.md) |
-| Desktop API | [API v1](docs/DESKTOP_API_V1.md)、[OpenAPI](docs/DESKTOP_API_V1.openapi.yaml)、[会话/对话 v2](docs/DESKTOP_SESSION_CONVERSATION_V2.md)、[日报](docs/DESKTOP_DAILY_REPORTS.md) |
-| Desktop 资源 | [MCP/Skill 分发](docs/desktop-resources-v1.md) |
+| 开发 | [开发指南](docs/development/DEV_GUIDE.md) |
+| Desktop API | [API v1](docs/desktop/DESKTOP_API_V1.md)、[OpenAPI](docs/desktop/openapi/DESKTOP_API_V1.openapi.yaml)、[会话/对话 v2](docs/desktop/DESKTOP_SESSION_CONVERSATION_V2.md)、[日报](docs/desktop/DESKTOP_DAILY_REPORTS.md) |
+| Desktop 资源 | [MCP/Skill 分发](docs/desktop/desktop-resources-v1.md) |
 | 账目管理 | [设计、实现/配置与验证](docs/accounting-management/README.md) |
 | BI | [API 契约、配置、联调与验收](docs/mobile-bi/README.md) |
-| 支付与路由 | [支付](docs/PAYMENT_CN.md)、[复合分组](docs/COMPOSITE_GROUPS.md) |
-| 插件 | [开发指南](docs/PLUGIN_DEVELOPMENT.md)、[Plugin API](backend/pkg/pluginapi/README.md) |
+| 支付与路由 | [支付](docs/payments/PAYMENT_CN.md)、[复合分组](docs/gateway/COMPOSITE_GROUPS.md) |
+| 插件 | [开发指南](docs/development/PLUGIN_DEVELOPMENT.md)、[Plugin API](backend/pkg/pluginapi/README.md) |
 
 ```text
 sub2api/

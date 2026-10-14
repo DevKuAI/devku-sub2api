@@ -41,7 +41,7 @@ Use this README to choose a deployment method and configure the service. See the
 | Gateway | Messages, Responses, Chat Completions, Gemini and provider-specific protocols; routing, sticky sessions, load balancing and composite groups. Protocol support depends on the selected provider. |
 | Accounts and API keys | OAuth/API-key upstream accounts, user key creation limits, model allowlists, account bindings and read-only subscription-account status and quota views. |
 | Usage and limits | Token and cost accounting, user/account concurrency limits, request/token rate limits, per-key spending windows, output TPS and operations dashboards. Output TPS is distinct from system throughput; long-context billing labels show the applied pricing tier. |
-| Payments | EasyPay, Alipay, WeChat Pay and Stripe for self-service top-ups; [payment configuration](docs/PAYMENT.md). |
+| Payments | EasyPay, Alipay, WeChat Pay and Stripe for self-service top-ups; [payment configuration](docs/payments/PAYMENT.md). |
 | Desktop enterprises | Organizations and members, enterprise-to-Web-account binding, managed Model Tokens, model configuration, usage statistics, session/conversation reporting and daily reports. Reporting is controlled per enterprise. |
 | Desktop resources and updates | MCP/Skill package management and authenticated distribution, plus Desktop update publishing backed by S3-compatible storage. Private resource storage is separate from public update artifacts. |
 | Enterprise accounting | Transfers and tax calculations, VCC allocations/transactions/refunds, contracts, invoices, AI Invoice, expenses and installments, reconciliation, CSV export, private attachments and audits. Currencies are tracked separately. |
@@ -305,7 +305,7 @@ Simple Mode is designed for individual developers or internal teams who want qui
 - **Command Code and Cline:** Both support API-key accounts. Command Code selects native Messages, Responses or Chat Completions endpoints using model capabilities. Cline uses Chat Completions and converts incoming Messages/Responses; Cline credit and ClinePass limits affect their respective models independently.
 - **Platform catalog:** Account creation, routing and default platform quotas share a catalog. Database platform CHECK constraints were removed by migration; the application validates registered platforms.
 - **Model allowlists:** Group allowlists constrain both listing and request admission. The migration from `groups.models_list_config` to `model_allowlist` preserves data; review previously enabled lists because they now restrict requests too.
-- **Seedance (Ark):** Native task creation, query and deletion require the Seedance capability on an OpenAI API-key account and group media permission. Billing happens when a query first observes `succeeded`, using `usage.completion_tokens`. There is no background polling or callback settlement; preserve Redis bindings and query completed tasks within their lifetime. See [Seedance configuration and billing](docs/seedance-api.md).
+- **Seedance (Ark):** Native task creation, query and deletion require the Seedance capability on an OpenAI API-key account and group media permission. Billing happens when a query first observes `succeeded`, using `usage.completion_tokens`. There is no background polling or callback settlement; preserve Redis bindings and query completed tasks within their lifetime. See [Seedance configuration and billing](docs/media/seedance-api.md).
 - **Plugin host services:** Redis KV is isolated by plugin identity; account-directory access is capability-limited and `plugin.status` is read-only. Optional negotiation remains compatible with older plugins. See the [Plugin API](backend/pkg/pluginapi/README.md) and [UI bridge](backend/pkg/pluginapi/docs/ui-bridge.md).
 - **Antigravity attribution:** Only the Anthropic Messages-to-Antigravity conversion removes leading Claude attribution metadata. Native Anthropic forwarding is unchanged; do not globally disable attribution to address it.
 
@@ -322,7 +322,7 @@ After upgrading, accounts without model restrictions support the new models auto
 
 ### Asynchronous Image Tasks
 
-Long-running OpenAI/Grok image generation and editing can be submitted through `/v1/images/generations/async` or `/v1/images/edits/async`, then polled at `/v1/images/tasks/{task_id}` without holding a CDN connection open. See [Asynchronous Image Tasks](docs/ASYNC_IMAGE_TASKS.md) for request and response examples.
+Long-running OpenAI/Grok image generation and editing can be submitted through `/v1/images/generations/async` or `/v1/images/edits/async`, then polled at `/v1/images/tasks/{task_id}` without holding a CDN connection open. See [Asynchronous Image Tasks](docs/media/ASYNC_IMAGE_TASKS.md) for request and response examples.
 
 ### Grok / xAI Support
 
@@ -512,7 +512,7 @@ make -C backend build
 git diff --check
 ```
 
-Integration tests require Docker and live test containers; skipped integration tests are not a pass. `make test-frontend` runs lint, typecheck and a selected critical Vitest set; `test:run` above runs the full frontend suite. `make -C backend build` is a backend-only build; use the explicit `-tags embed` command for a binary with the UI. See the [development guide](docs/DEV_GUIDE.md) and [CI workflow](.github/workflows/backend-ci.yml).
+Integration tests require Docker and live test containers; skipped integration tests are not a pass. `make test-frontend` runs lint, typecheck and a selected critical Vitest set; `test:run` above runs the full frontend suite. `make -C backend build` is a backend-only build; use the explicit `-tags embed` command for a binary with the UI. See the [development guide](docs/development/DEV_GUIDE.md) and [CI workflow](.github/workflows/backend-ci.yml).
 
 ## Documentation
 
@@ -520,13 +520,13 @@ Integration tests require Docker and live test containers; skipped integration t
 | --- | --- |
 | Documentation index | [docs/README.md](docs/README.md) |
 | Deployment and security | [Deployment](deploy/README.md), [edge security](deploy/EDGE_SECURITY.md), [Apple container](deploy/APPLE_CONTAINER.md) |
-| Development | [Developer guide](docs/DEV_GUIDE.md) |
-| Desktop APIs | [API v1](docs/DESKTOP_API_V1.md), [OpenAPI](docs/DESKTOP_API_V1.openapi.yaml), [sessions/conversations v2](docs/DESKTOP_SESSION_CONVERSATION_V2.md), [daily reports](docs/DESKTOP_DAILY_REPORTS.md) |
-| Desktop resources | [MCP/Skill distribution](docs/desktop-resources-v1.md) |
+| Development | [Developer guide](docs/development/DEV_GUIDE.md) |
+| Desktop APIs | [API v1](docs/desktop/DESKTOP_API_V1.md), [OpenAPI](docs/desktop/openapi/DESKTOP_API_V1.openapi.yaml), [sessions/conversations v2](docs/desktop/DESKTOP_SESSION_CONVERSATION_V2.md), [daily reports](docs/desktop/DESKTOP_DAILY_REPORTS.md) |
+| Desktop resources | [MCP/Skill distribution](docs/desktop/desktop-resources-v1.md) |
 | Accounting | [Design, implementation/configuration and validation](docs/accounting-management/README.md) |
 | BI | [API contracts, configuration, integration and acceptance](docs/mobile-bi/README.md) |
-| Payments and routing | [Payments](docs/PAYMENT.md), [composite groups](docs/COMPOSITE_GROUPS.md) |
-| Plugins | [Development guide](docs/PLUGIN_DEVELOPMENT.md), [Plugin API](backend/pkg/pluginapi/README.md) |
+| Payments and routing | [Payments](docs/payments/PAYMENT.md), [composite groups](docs/gateway/COMPOSITE_GROUPS.md) |
+| Plugins | [Development guide](docs/development/PLUGIN_DEVELOPMENT.md), [Plugin API](backend/pkg/pluginapi/README.md) |
 
 ```text
 sub2api/

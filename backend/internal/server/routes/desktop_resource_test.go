@@ -62,7 +62,7 @@ func TestDesktopResourceRequiresV2InstallationHeader(t *testing.T) {
 }
 
 func TestDesktopResourceOpenAPIRouteParity(t *testing.T) {
-	raw, err := os.ReadFile("../../../../docs/openapi/desktop-resources-v1.json")
+	raw, err := os.ReadFile("../../../../docs/desktop/openapi/desktop-resources-v1.json")
 	require.NoError(t, err)
 	var spec struct {
 		Paths map[string]map[string]struct {

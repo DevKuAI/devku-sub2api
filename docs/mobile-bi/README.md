@@ -22,7 +22,22 @@
 | [配置](configuration.md) | 服务开关、密钥、隐私地址与部署 |
 | [联调说明](integration-runbook.md) | PostgreSQL、Go handlers 与实际 TypeScript client |
 | [验收](acceptance.md) | 业务、权限、数据、迁移与测试清单 |
+| [验收进度](acceptance-progress.md) | 有日期的本地验证证据和设备、生产验收边界 |
+| [实现说明](implementation.md) | 已实现链路、已退役模块和客户端实现边界 |
+| [两端交接](backend-handoff.md) | 后端与移动端共同遵循的协议和联调约束 |
+| [查询边界](query-optimization.md) | 当前数据读取、分页、metadata 投影及容量验证限制 |
 
-[小程序 OpenAPI](openapi.yaml)、[平台运维 OpenAPI](admin.openapi.json)、[企业后台扩展 OpenAPI](desktop.openapi.yaml) 为当前 v2 契约；[独立隐私说明 OpenAPI](privacy-notice.openapi.yaml) 继续有效。原 Desktop 基础接口见 [Desktop API](../DESKTOP_API_V1.openapi.yaml)。
+[小程序 OpenAPI](openapi.yaml)、[平台运维 OpenAPI](admin.openapi.json)、[企业后台扩展 OpenAPI](desktop.openapi.yaml) 为当前 v2 契约；[独立隐私说明 OpenAPI](privacy-notice.openapi.yaml) 继续有效。原 Desktop 基础接口见 [Desktop API](../desktop/openapi/DESKTOP_API_V1.openapi.yaml)。
 
 旧 v1 的绑定、Context、导入、事实、内容和报告分享已经退役，不兼容旧客户端。migration 257 仅清理明确列出的旧 BI 对象；Desktop、原站账号、计费、配置及独立隐私说明保留。
+
+## 迁移与历史记录
+
+| 文档 | 状态与用途 |
+| --- | --- |
+| [旧导入与历史链路](ingestion-and-history.md) | 退役说明；当前使用 Desktop 原始数据和企业报告版本 |
+| [2026-09-23 旧版审阅](review-2026-09-23.md) | 历史记录；不作为当前 v2 契约、性能或验收依据 |
+
+当前契约与实现以本页列出的 v2 文档为准。验收进度保留原验证日期，不因文档整理而更新测试数量或标记生产通过。
+
+[返回文档索引](../README.md)

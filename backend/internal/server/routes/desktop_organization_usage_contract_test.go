@@ -14,7 +14,7 @@ import (
 )
 
 func TestDesktopOrganizationUsageOpenAPIAndFeatureFlag(t *testing.T) {
-	raw, err := os.ReadFile("../../../../docs/DESKTOP_API_V1.openapi.yaml")
+	raw, err := os.ReadFile("../../../../docs/desktop/openapi/DESKTOP_API_V1.openapi.yaml")
 	require.NoError(t, err)
 	var contract struct {
 		Paths map[string]struct {

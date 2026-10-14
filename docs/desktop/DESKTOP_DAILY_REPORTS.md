@@ -32,7 +32,7 @@
 - `GET /{date}/summary`：独立查询企业总结、覆盖情况和缺失成员。
 - 管理员 `POST /{date}/run`：提交 `{"mode":"generate"}`、`{"mode":"retry"}` 或 `{"mode":"regenerate"}`。日期必须早于北京时间今天；有数据返回 `202`，无对话返回 `200` 且不创建任务，条件不满足返回 `422`，任务正在执行返回 `409`。
 
-关联用户身份从当前登录用户解析，不能指定其他企业。报表请求使用 `Cache-Control: no-store`。原始对话查询继续受现有上报开关和企业边界限制。接口完整定义见 [Desktop OpenAPI](DESKTOP_API_V1.openapi.yaml)。
+关联用户身份从当前登录用户解析，不能指定其他企业。报表请求使用 `Cache-Control: no-store`。原始对话查询继续受现有上报开关和企业边界限制。接口完整定义见 [Desktop OpenAPI](openapi/DESKTOP_API_V1.openapi.yaml)。
 
 ## 模型执行记录
 

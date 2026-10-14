@@ -2,7 +2,7 @@
 
 本合同用于 Desktop 后端、桌面客户端和 Hook 联调。接口实现与 Web 管理页面位于当前仓库；桌面端和 Hook 需另行接入。本文不表示已经部署生产环境。
 
-可导入的完整合同：[OpenAPI 3.1](DESKTOP_SESSION_CONVERSATION_V2.openapi.json)。旧客户端合同见 [Desktop API v1](DESKTOP_API_V1.md)。
+可导入的完整合同：[OpenAPI 3.1](openapi/DESKTOP_SESSION_CONVERSATION_V2.openapi.json)。旧客户端合同见 [Desktop API v1](DESKTOP_API_V1.md)。
 
 ## 启用与兼容
 
