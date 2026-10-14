@@ -21,4 +21,8 @@ export function capabilityDependencies(caps: BICapability[]): BICapability[] {
   if (next.has('reports:copy')) next.add('reports:read')
   return biCapabilities.filter(cap => next.has(cap))
 }
-export async function isBIEnabled() { return (await apiClient.get<{ bi_enabled: boolean }>('/settings')).data.bi_enabled === true }
+export async function isBIEnabled() {
+  const { data } = await apiClient.get<{ bi_enabled?: boolean }>('/settings/public')
+  if (typeof data?.bi_enabled !== 'boolean') throw new Error('BI availability missing from public settings')
+  return data.bi_enabled
+}

@@ -21,6 +21,7 @@ export default {
       retentionZero: '0 表示永久保留',
     },
     detail: {
+      organizationInfo: '企业信息',
       loadingOrganization: '正在加载企业信息…',
       membersHint: '管理成员资料、访问状态与用量；费用和令牌用量分别显示。',
       configurationHint: '配置客户端的提供方、请求模型和版本要求。归集总结的分析模型在企业设置中维护。',

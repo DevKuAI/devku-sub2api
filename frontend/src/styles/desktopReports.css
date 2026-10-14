@@ -1,0 +1,24 @@
+.desktop-reports .report-toolbar { display: grid; grid-template-columns: minmax(0, 1fr); align-items: end; gap: 16px; }
+.desktop-reports .report-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.desktop-reports .report-actions .btn { @apply focus:ring-0 focus:ring-offset-0; }
+.desktop-reports .report-actions .btn:focus-visible { outline: 2px solid theme('colors.primary.600'); outline-offset: 3px; }
+html.dark .desktop-reports .report-actions .btn:focus-visible { outline-color: theme('colors.primary.400'); }
+.desktop-reports .report-control-note { @apply rounded-xl bg-gray-50 p-3 text-sm leading-relaxed text-gray-600 dark:bg-dark-800 dark:text-dark-300; overflow-wrap: anywhere; }
+.desktop-reports .report-tabs { display: flex; flex-wrap: wrap; gap: 4px; }
+.desktop-reports .report-tab { flex: 1; transition: none; }
+.desktop-reports .report-kind-tabs { width: 100%; max-width: 28rem; }
+.desktop-reports .report-kind-tabs .report-tab { flex: 1; }
+.desktop-reports .report-kind-tabs .tab-active { @apply font-semibold text-primary-700 dark:text-primary-200; }
+.desktop-reports .report-tab:focus-visible { outline: 2px solid theme('colors.primary.600'); outline-offset: -2px; }
+html.dark .desktop-reports .report-tab:focus-visible { outline-color: theme('colors.primary.400'); }
+@container (min-width: 36rem) {
+  .desktop-reports .report-toolbar { grid-template-columns: minmax(0, 16rem) minmax(0, 1fr); }
+  .desktop-reports .report-actions, .desktop-reports .report-control-note { grid-column: 1 / -1; }
+  .desktop-reports .report-tab { flex: initial; }
+}
+@media (forced-colors: active) {
+  .desktop-reports .report-tab.tab-active { border: 1px solid Highlight; }
+  .desktop-reports .report-tab:focus-visible, html.dark .desktop-reports .report-tab:focus-visible,
+  .desktop-reports .report-actions .btn:focus-visible, html.dark .desktop-reports .report-actions .btn:focus-visible { outline-color: Highlight; }
+}
+.desktop-reports .report-kind-panel { @apply p-2; }

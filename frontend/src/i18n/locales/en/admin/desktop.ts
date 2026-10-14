@@ -21,6 +21,7 @@ export default {
       retentionZero: '0 means keep indefinitely',
     },
     detail: {
+      organizationInfo: 'Organization info',
       loadingOrganization: 'Loading organization…',
       membersHint: 'Manage member details, access and usage. Costs and tokens are shown separately.',
       configurationHint: 'Configure client providers, requested models and version requirements. Maintain the analysis model in organization settings.',

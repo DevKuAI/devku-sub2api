@@ -1,6 +1,6 @@
 <template>
   <div v-if="!selfManaged || enabled" class="desktop-analytics desktop-reports min-w-0 space-y-6">
-    <header class="report-toolbar">
+    <header class="card analytics-panel report-toolbar">
       <label class="min-w-0 space-y-2 text-sm font-medium">
         <span class="block">{{ t(`${key}.date`) }}</span>
         <input v-model="date" class="input analytics-input" name="report-date" type="date" :max="yesterday" required :aria-invalid="!validDate || undefined" :aria-describedby="!validDate ? 'daily-report-date-error' : undefined" />
@@ -16,6 +16,7 @@
           <button v-for="mode in modes" :key="mode" class="btn btn-secondary analytics-button" type="button" :disabled="runDisabled(mode)" @click="requestRun(mode)">{{ t(`${key}.${mode}`) }}</button>
         </template>
       </div>
+      <div v-if="summary?.queue && !selfManaged" class="report-control-note" role="status"><p>{{ t(`${key}.queue`, { pending: summary.queue.pending, running: summary.queue.running }) }}</p><p v-if="summary.queue.oldest_pending_at">{{ t(`${key}.oldestPending`) }}: {{ formatDateTime(summary.queue.oldest_pending_at) }}</p></div>
     </header>
     <p v-if="!validDate" id="daily-report-date-error" class="report-error" role="alert">{{ t(`${key}.invalidDate`) }}</p>
     <div v-if="error" class="report-notice report-error flex flex-wrap items-center justify-between gap-3" role="alert">
@@ -27,7 +28,6 @@
       <p v-if="state.reason === 'no_records'" class="mt-1 text-sm leading-relaxed">{{ t(`${key}.noRecordsHint`) }}</p>
       <p v-else-if="!['model_unavailable', 'configuration_changed', 'retries_exhausted'].includes(state.reason)" class="mt-1 text-sm leading-relaxed">{{ t(selfManaged ? `${key}.contactAdmin` : `${key}.checkConfiguration`) }}</p>
     </div>
-    <div v-if="summary?.queue && !selfManaged" class="report-notice report-neutral"><p>{{ t(`${key}.queue`, { pending: summary.queue.pending, running: summary.queue.running }) }}</p><p v-if="summary.queue.oldest_pending_at">{{ t(`${key}.oldestPending`) }}: {{ formatDateTime(summary.queue.oldest_pending_at) }}</p></div>
     <div v-if="summary?.missing_dates?.length && !selfManaged" class="report-notice report-warning"><p>{{ t(`${key}.missingDates`) }}</p><div class="mt-2 flex flex-wrap gap-2"><button v-for="missing in summary.missing_dates" :key="missing" class="btn btn-secondary analytics-button" type="button" @click="date = missing">{{ missing }}</button></div></div>
     <p class="sr-only" role="status">{{ loading ? t(`${key}.loading`) : state ? statusLabel(state.status) : '' }}</p>
     <nav class="tabs report-tabs" role="tablist" :aria-label="t(`${key}.title`)">
@@ -147,6 +147,7 @@ import DesktopConversationViewer from './DesktopConversationViewer.vue'
 import DesktopReportExecutionHistory from './DesktopReportExecutionHistory.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import '@/styles/desktopAnalytics.css'
+import '@/styles/desktopReports.css'
 
 const props = defineProps<{ organizationId: string; selfManaged: boolean; enabled: boolean; analysisModel: string; initialDate?: string }>()
 const { t, te } = useI18n()
@@ -322,12 +323,6 @@ watch(() => props.enabled, () => { if (props.selfManaged && !props.enabled) { ca
 onBeforeUnmount(() => { disposed = true; cancel() })
 </script>
 <style scoped>
-.report-toolbar { display: grid; grid-template-columns: minmax(0, 1fr); align-items: end; gap: 20px; }
-.report-actions { display: flex; flex-wrap: wrap; gap: 12px; }
-.report-tabs { display: flex; flex-wrap: wrap; gap: 4px; }
-
-.report-tab { flex: 1; transition: none; }
-
 .report-metrics, .report-metadata { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
 .report-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .report-metric:first-child { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
@@ -367,9 +362,6 @@ onBeforeUnmount(() => { disposed = true; cancel() })
 
 :global(html.dark) [role='tabpanel']:focus-visible { outline-color: theme('colors.primary.400'); }
 @container (min-width: 36rem) {
-  .report-toolbar { grid-template-columns: minmax(0, 16rem) minmax(0, 1fr); }
-  .report-actions { grid-column: 1 / -1; }
-  .report-tab { flex: initial; }
   .report-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .report-metric:first-child { grid-column: auto; display: block; }
   .report-metric:first-child dd { margin-top: 12px; }

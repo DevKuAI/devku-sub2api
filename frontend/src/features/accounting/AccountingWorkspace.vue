@@ -152,7 +152,7 @@
         :aria-selected="tab === item"
         :aria-controls="`${uid}-panel`"
         :tabindex="tab === item ? 0 : -1"
-        class="btn shrink-0"
+        class="btn accounting-tab shrink-0"
         :class="tab === item ? 'btn-primary' : 'btn-secondary'"
         @click="selectTab(item)"
         @keydown="tabKey($event, item)"
@@ -1425,3 +1425,28 @@ onUnmounted(() => {
   window.removeEventListener('focus', onFocus)
 })
 </script>
+<style scoped>
+.accounting-tab {
+  transition-property: color, background-color, border-color, box-shadow;
+  transition-duration: 150ms;
+}
+
+.accounting-tab:focus {
+  @apply ring-0 ring-offset-0;
+}
+
+.accounting-tab:focus-visible {
+  outline: 2px solid theme('colors.primary.500');
+  outline-offset: -4px;
+}
+
+.accounting-tab[aria-selected='true']:focus-visible {
+  outline-color: #fff;
+}
+
+@media (forced-colors: active) {
+  .accounting-tab[aria-selected]:focus-visible {
+    outline-color: Highlight;
+  }
+}
+</style>

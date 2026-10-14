@@ -80,10 +80,13 @@ describe('AppSidebar Desktop navigation', () => {
 })
 
 describe('AppSidebar BI navigation', () => {
-  it('shows BI operations whenever BI is available', () => {
+  it('groups BI operations after Desktop updates without opening a new window', () => {
+    const desktopGroup = componentSource.match(/path: '\/admin\/desktop',[\s\S]*?children: \[([\s\S]*?)\n {6}\]/)?.[1]
+
     expect(componentSource).toContain('const flagBI = () => biEnabled.value')
-    expect(componentSource).toMatch(/path: '\/admin\/bi'[^\n]*featureFlag: flagBI[^\n]*openInNewWindow: true/)
-    expect(componentSource).toContain(":target=\"item.openInNewWindow ? '_blank' : undefined\"")
+    expect(desktopGroup).toBeDefined()
+    expect(desktopGroup).toMatch(/path: '\/admin\/desktop\/updates'[\s\S]*path: '\/admin\/bi'[^\n]*featureFlag: flagBI/)
+    expect(desktopGroup).not.toContain('openInNewWindow: true')
   })
 })
 

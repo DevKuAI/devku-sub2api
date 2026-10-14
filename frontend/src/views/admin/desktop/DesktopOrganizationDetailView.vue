@@ -23,7 +23,18 @@
       </div>
 
       <p v-if="organizationLoading && !organization" class="card detail-panel detail-caption" role="status">{{ t('admin.desktop.detail.loadingOrganization') }}</p>
-      <section v-if="organization" class="card detail-overview space-y-4" data-testid="organization-overview" :aria-label="t('admin.desktop.organizationForm.overview')">
+      <div v-if="organization" class="detail-tabs-shell">
+        <nav ref="tabScroll" class="detail-tabs-scroll" role="tablist" :aria-label="t('admin.desktop.detailTabs')">
+          <div class="detail-tabs">
+            <button v-for="(tab, index) in tabs" :id="tabId(tab.value)" :key="tab.value" class="detail-tab" :class="{ 'detail-tab-active': activeTab === tab.value }" type="button" role="tab" :aria-controls="panelId(tab.value)" :aria-selected="activeTab === tab.value" :tabindex="activeTab === tab.value ? 0 : -1" @click="setTab(tab.value)" @keydown="handleTabKeydown($event, index)">
+              <span class="detail-tab-icon" aria-hidden="true"><Icon :name="tabIcons[tab.value]" size="sm" /></span>
+              <span class="detail-tab-label">{{ tab.label }}</span>
+            </button>
+          </div>
+        </nav>
+      </div>
+
+      <section v-if="organization && activeTab === 'overview'" :id="panelId('overview')" class="card detail-overview space-y-4" data-testid="organization-overview" tabindex="0" role="tabpanel" :aria-labelledby="tabId('overview')">
         <dl class="detail-overview-grid">
           <div class="min-w-0"><dt class="detail-caption">{{ t('admin.desktop.gatewayUser') }}</dt><dd class="mt-1 break-words text-sm font-medium">{{ organization.gateway_user.username || organization.gateway_user.email }}</dd><dd class="break-all text-xs text-gray-500 dark:text-dark-400">{{ organization.gateway_user.email }}</dd></div>
           <div class="min-w-0"><dt class="detail-caption">{{ t('admin.desktop.group') }}</dt><dd class="mt-1 break-words text-sm font-medium">{{ organization.group.name }}</dd></div>
@@ -43,18 +54,7 @@
         </div>
       </section>
 
-      <div v-if="organization" class="detail-tabs-shell">
-        <nav ref="tabScroll" class="detail-tabs-scroll" role="tablist" :aria-label="t('admin.desktop.detailTabs')">
-          <div class="detail-tabs">
-            <button v-for="(tab, index) in tabs" :id="tabId(tab.value)" :key="tab.value" class="detail-tab" :class="{ 'detail-tab-active': activeTab === tab.value }" type="button" role="tab" :aria-controls="panelId(tab.value)" :aria-selected="activeTab === tab.value" :tabindex="activeTab === tab.value ? 0 : -1" @click="setTab(tab.value)" @keydown="handleTabKeydown($event, index)">
-              <span class="detail-tab-icon" aria-hidden="true"><Icon :name="tabIcons[tab.value]" size="sm" /></span>
-              <span class="detail-tab-label">{{ tab.label }}</span>
-            </button>
-          </div>
-        </nav>
-      </div>
-
-      <section v-if="organization && activeTab === 'usage'" :id="panelId('usage')" class="min-w-0 space-y-6" tabindex="0" role="tabpanel" :aria-labelledby="tabId('usage')">
+      <section v-else-if="organization && activeTab === 'usage'" :id="panelId('usage')" class="min-w-0 space-y-6" tabindex="0" role="tabpanel" :aria-labelledby="tabId('usage')">
         <DesktopAnalyticsRangePicker v-model="analyticsRange" />
         <DesktopOrganizationUsageStatistics v-if="organization" :organization-id="organizationID" :self-managed="selfManaged" :range="analyticsRange" view="insights" />
         <div v-if="organization?.conversation_reporting_enabled" class="border-t border-gray-200 pt-6 dark:border-dark-700">
@@ -146,8 +146,8 @@
       </section>
 
       <section v-else-if="organization && activeTab === 'grants'" :id="panelId('grants')" tabindex="0" role="tabpanel" :aria-labelledby="tabId('grants')">
-        <div v-if="!selfManaged" class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded border border-gray-200 p-4 dark:border-dark-700">
-          <p class="text-sm text-gray-500">{{ t('biNative.identityHint') }}</p><button class="btn btn-secondary" type="button" @click="router.push('/admin/bi')">{{ t('nav.biOperations') }}</button>
+        <div v-if="!selfManaged" class="mb-4 flex justify-end">
+          <button class="btn btn-secondary" type="button" @click="router.push('/admin/bi')">{{ t('nav.biOperations') }}</button>
         </div>
         <BIGrantManagement v-if="organization" :key="organizationID" :organization-id="organizationID" :self-managed="selfManaged" />
       </section>
@@ -247,7 +247,19 @@
                 <span class="min-w-0"><span class="text-sm font-medium">{{ t('admin.desktop.reports.enabled') }}</span><span id="desktop-edit-summary-hint" class="detail-caption mt-1 block">{{ t('admin.desktop.organizationForm.summaryHint') }}</span><span class="detail-caption mt-1 block">{{ t('admin.desktop.reports.schedule') }}</span></span>
               </label>
             </div>
-            <div v-if="organizationForm.conversation_summary_enabled" class="space-y-3"><label class="flex gap-2"><input v-model="organizationForm.weekly_summary_enabled" type="checkbox" />{{ t('biNative.weeklyAuto') }}</label><label class="flex gap-2"><input v-model="organizationForm.monthly_summary_enabled" type="checkbox" />{{ t('biNative.monthlyAuto') }}</label><p class="detail-caption">{{ t('biNative.automaticHint') }}</p></div>
+            <div v-if="organizationForm.conversation_summary_enabled" class="space-y-3">
+              <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <label class="detail-form-toggle">
+                  <input v-model="organizationForm.weekly_summary_enabled" type="checkbox" class="mt-0.5 h-4 w-4 shrink-0 rounded" aria-describedby="desktop-edit-period-summary-hint" />
+                  <span class="min-w-0 text-sm font-medium">{{ t('biNative.weeklyAuto') }}</span>
+                </label>
+                <label class="detail-form-toggle">
+                  <input v-model="organizationForm.monthly_summary_enabled" type="checkbox" class="mt-0.5 h-4 w-4 shrink-0 rounded" aria-describedby="desktop-edit-period-summary-hint" />
+                  <span class="min-w-0 text-sm font-medium">{{ t('biNative.monthlyAuto') }}</span>
+                </label>
+              </div>
+              <p id="desktop-edit-period-summary-hint" class="detail-caption rounded-lg bg-gray-50 px-3 py-2 dark:bg-dark-800">{{ t('biNative.automaticHint') }}</p>
+            </div>
             <Input v-if="organizationForm.conversation_summary_enabled" v-model="organizationForm.analysis_model" :label="t('admin.desktop.reports.model')" required :hint="t('admin.desktop.reports.modelHint')" maxlength="200" />
           </div>
         </fieldset>
@@ -327,7 +339,7 @@ import DesktopPeriodReports from '@/components/desktop/DesktopPeriodReports.vue'
 import BIGrantManagement from '@/components/bi/BIGrantManagement.vue'
 import '@/styles/desktopDetail.css'
 
-type DetailTab = 'usage' | 'members' | 'configuration' | 'conversations' | 'grants' | 'reports'
+type DetailTab = 'overview' | 'usage' | 'members' | 'configuration' | 'conversations' | 'grants' | 'reports'
 const { selfManaged = false } = defineProps<{ selfManaged?: boolean }>()
 const { t, te } = useI18n()
 const route = useRoute()
@@ -352,9 +364,9 @@ const canViewConversations = computed(() => !selfManaged || organization.value?.
 const unfilteredConversationFilters = {}
 const analyticsRange = ref<DesktopAnalyticsRange>({ days: 30 })
 const tabScroll = ref<HTMLElement>()
-const tabIcons = { usage: 'chartBar', members: 'users', configuration: 'cog', conversations: 'chat', reports: 'document', grants: 'shield' } as const
+const tabIcons = { overview: 'infoCircle', usage: 'chartBar', members: 'users', configuration: 'cog', conversations: 'chat', reports: 'document', grants: 'shield' } as const
 const tabs = computed(() => {
-  const result: { value: DetailTab; label: string }[] = [{ value: 'usage', label: t('admin.desktop.usageStatistics.tab') }, { value: 'members', label: t('admin.desktop.members') }, { value: 'configuration', label: t('admin.desktop.configuration') }]
+  const result: { value: DetailTab; label: string }[] = [{ value: 'overview', label: t('admin.desktop.detail.organizationInfo') }, { value: 'usage', label: t('admin.desktop.usageStatistics.tab') }, { value: 'members', label: t('admin.desktop.members') }, { value: 'configuration', label: t('admin.desktop.configuration') }]
   if (canViewConversations.value) result.push({ value: 'conversations', label: t('admin.desktop.conversations.title') })
   if (!selfManaged || organization.value?.conversation_summary_enabled) result.push({ value: 'reports', label: t('admin.desktop.reports.title') })
   result.push({ value: 'grants', label: t('biNative.users') })

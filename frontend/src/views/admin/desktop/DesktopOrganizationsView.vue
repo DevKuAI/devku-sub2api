@@ -99,7 +99,19 @@
                 <span class="min-w-0"><span class="text-sm font-medium">{{ t('admin.desktop.reports.enabled') }}</span><span id="desktop-create-summary-hint" class="detail-caption mt-1 block">{{ t('admin.desktop.organizationForm.summaryHint') }}</span><span class="detail-caption mt-1 block">{{ t('admin.desktop.reports.schedule') }}</span></span>
               </label>
             </div>
-            <div v-if="form.conversation_summary_enabled" class="space-y-3"><label class="flex gap-2"><input v-model="form.weekly_summary_enabled" type="checkbox" />{{ t('biNative.weeklyAuto') }}</label><label class="flex gap-2"><input v-model="form.monthly_summary_enabled" type="checkbox" />{{ t('biNative.monthlyAuto') }}</label><p class="detail-caption">{{ t('biNative.automaticHint') }}</p></div>
+            <div v-if="form.conversation_summary_enabled" class="space-y-3">
+              <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <label class="detail-form-toggle">
+                  <input v-model="form.weekly_summary_enabled" type="checkbox" class="mt-0.5 h-4 w-4 shrink-0 rounded" aria-describedby="desktop-create-period-summary-hint" />
+                  <span class="min-w-0 text-sm font-medium">{{ t('biNative.weeklyAuto') }}</span>
+                </label>
+                <label class="detail-form-toggle">
+                  <input v-model="form.monthly_summary_enabled" type="checkbox" class="mt-0.5 h-4 w-4 shrink-0 rounded" aria-describedby="desktop-create-period-summary-hint" />
+                  <span class="min-w-0 text-sm font-medium">{{ t('biNative.monthlyAuto') }}</span>
+                </label>
+              </div>
+              <p id="desktop-create-period-summary-hint" class="detail-caption rounded-lg bg-gray-50 px-3 py-2 dark:bg-dark-800">{{ t('biNative.automaticHint') }}</p>
+            </div>
             <Input v-if="form.conversation_summary_enabled" v-model="form.analysis_model" :label="t('admin.desktop.reports.model')" required :hint="t('admin.desktop.reports.modelHint')" maxlength="200" />
             <p class="detail-caption">{{ t('admin.desktop.organizationForm.policyAfterCreate') }}</p>
           </div>

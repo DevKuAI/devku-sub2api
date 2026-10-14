@@ -252,10 +252,15 @@ describe('DesktopOrganizationDetailView', () => {
   })
 
   it.each([false, true])('shows reporting, analysis and capacity in the overview with selfManaged=%s', async selfManaged => {
+    route.query.tab = 'overview'
     const api = selfManaged ? managedDesktopAPI : desktopAPI
     api.getOrganization.mockResolvedValue({ ...organization, member_count: 12, member_limit: 13, conversation_reporting_enabled: true, conversation_summary_enabled: false, analysis_model: 'analysis-model', management_policy: { analysis_limit_1d: 0, conversation_retention_days: 30, report_retention_days: 0, execution_retention_days: 365 } })
     const wrapper = selfManaged ? mountManagedView() : mountView(); await flushPromises()
     const overview = wrapper.get('[data-testid="organization-overview"]')
+    expect(overview.attributes('role')).toBe('tabpanel')
+    expect(overview.attributes('aria-labelledby')).toBe('desktop-organization-tab-overview')
+    expect(wrapper.get('#desktop-organization-tab-overview').attributes('aria-selected')).toBe('true')
+    expect(wrapper.get('[role="tablist"]').element.compareDocumentPosition(overview.element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(overview.get('[data-testid="organization-member-capacity"]').text()).toBe('12 / 13')
     expect(overview.get('[data-testid="organization-analysis-model"]').text()).toBe('analysis-model')
     expect(overview.get('[data-testid="organization-analysis-limit"]').text()).toBe('admin.desktop.organizationForm.unlimited')
@@ -266,6 +271,7 @@ describe('DesktopOrganizationDetailView', () => {
   })
 
   it('does not treat a missing analysis budget as an unlimited budget', async () => {
+    route.query.tab = 'overview'
     const wrapper = mountView(); await flushPromises()
     expect(wrapper.get('[data-testid="organization-analysis-limit"]').text()).toBe('—')
     wrapper.unmount()
@@ -303,13 +309,15 @@ describe('DesktopOrganizationDetailView', () => {
     }
   })
 
-  it('opens the usage tab first for administrators and enterprise users', async () => {
+  it('places organization info first while opening usage by default for both entry points', async () => {
     for (const mountPage of [mountView, mountManagedView]) {
       route.query.tab = 'unknown'
       const wrapper = mountPage()
       await flushPromises()
-      expect(wrapper.findAll('[role="tab"]')[0].attributes('id')).toBe('desktop-organization-tab-usage')
+      expect(wrapper.findAll('[role="tab"]').slice(0, 2).map(tab => tab.attributes('id'))).toEqual(['desktop-organization-tab-overview', 'desktop-organization-tab-usage'])
       expect(wrapper.get('#desktop-organization-tab-usage').attributes('aria-selected')).toBe('true')
+      expect(wrapper.get('#desktop-organization-tab-overview').attributes('aria-selected')).toBe('false')
+      expect(wrapper.find('[data-testid="organization-overview"]').exists()).toBe(false)
       expect(wrapper.get('#desktop-organization-panel-usage').exists()).toBe(true)
       expect(wrapper.find('#desktop-organization-panel-members').exists()).toBe(false)
       expect(wrapper.findComponent({ name: 'DesktopOrganizationUsageStatistics' }).props()).toEqual({
@@ -376,7 +384,7 @@ describe('DesktopOrganizationDetailView', () => {
 
     expect(router.replace).toHaveBeenCalledWith({ query: { tab: 'configuration' } })
     await memberTab.trigger('keydown', { key: 'Home' })
-    expect(router.replace).toHaveBeenLastCalledWith({ query: { tab: 'usage' } })
+    expect(router.replace).toHaveBeenLastCalledWith({ query: { tab: 'overview' } })
     wrapper.unmount()
   })
 
@@ -697,6 +705,7 @@ describe('DesktopOrganizationDetailView', () => {
   })
 
   it('shows the total member capacity in the managed view', async () => {
+    route.query.tab = 'overview'
     const wrapper = mountManagedView()
     await flushPromises()
 
@@ -761,6 +770,7 @@ describe('DesktopOrganizationDetailView', () => {
   })
 
   it('allows administrators to change the member limit', async () => {
+    route.query.tab = 'overview'
     desktopAPI.updateOrganization.mockResolvedValue({ ...organization, member_limit: 25 })
     const wrapper = mountView()
     await flushPromises()
