@@ -44,6 +44,8 @@ type desktopUpdateDTO struct {
 	Notes            string                         `json:"notes"`
 	Artifacts        service.DesktopUpdateArtifacts `json:"artifacts"`
 	Status           string                         `json:"status"`
+	RolloutMode      string                         `json:"rollout_mode"`
+	GatewayUserIDs   []int64                        `json:"gateway_user_ids"`
 	CreatedBy        *int64                         `json:"created_by,omitempty"`
 	UpdatedBy        *int64                         `json:"updated_by,omitempty"`
 	PublishedBy      *int64                         `json:"published_by,omitempty"`
@@ -143,11 +145,19 @@ func (h *DesktopUpdateHandler) UploadArtifact(c *gin.Context) {
 }
 
 func (h *DesktopUpdateHandler) Publish(c *gin.Context) {
+	var req service.DesktopUpdatePublishInput
+	if c.Request.ContentLength != 0 {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			adminDesktopBindingError(c, err)
+			return
+		}
+	}
 	payload := struct {
-		ReleaseID string `json:"release_id"`
-	}{ReleaseID: strings.TrimSpace(c.Param("release_id"))}
+		ReleaseID string                            `json:"release_id"`
+		Input     service.DesktopUpdatePublishInput `json:"input"`
+	}{ReleaseID: strings.TrimSpace(c.Param("release_id")), Input: req}
 	result, err := executeAdminStrictIdempotent(c, desktopUpdatePublishIdempotencyScope, payload, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
-		release, execErr := h.updates.Publish(ctx, payload.ReleaseID, adminDesktopUpdateActorID(c))
+		release, execErr := h.updates.Publish(ctx, payload.ReleaseID, adminDesktopUpdateActorID(c), req)
 		if execErr != nil {
 			return nil, execErr
 		}
@@ -192,9 +202,26 @@ func adminDesktopUpdateActorID(c *gin.Context) int64 {
 func desktopUpdateFromService(value *service.DesktopUpdateRelease) desktopUpdateDTO {
 	return desktopUpdateDTO{
 		PublicID: value.PublicID, Version: value.Version, Notes: value.Notes, Artifacts: value.Artifacts,
-		Status: value.Status, CreatedBy: value.CreatedBy, UpdatedBy: value.UpdatedBy,
+		Status: value.Status, RolloutMode: value.RolloutMode, GatewayUserIDs: value.GatewayUserIDs, CreatedBy: value.CreatedBy, UpdatedBy: value.UpdatedBy,
 		PublishedBy: value.PublishedBy, WithdrawnBy: value.WithdrawnBy,
 		PublishedAt: value.PublishedAt, WithdrawnAt: value.WithdrawnAt,
 		WithdrawalReason: value.WithdrawalReason, CreatedAt: value.CreatedAt, UpdatedAt: value.UpdatedAt,
 	}
+}
+
+func (h *DesktopUpdateHandler) Promote(c *gin.Context) {
+	payload := struct {
+		ReleaseID string `json:"release_id"`
+	}{c.Param("release_id")}
+	result, err := executeAdminStrictIdempotent(c, "admin.desktop.updates.promote", payload, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
+		release, err := h.updates.Promote(ctx, payload.ReleaseID, adminDesktopUpdateActorID(c))
+		if err != nil {
+			return nil, err
+		}
+		return desktopUpdateFromService(release), nil
+	})
+	if adminDesktopIdempotencyError(c, err) {
+		return
+	}
+	adminDesktopIdempotencyResponse(c, result, false)
 }

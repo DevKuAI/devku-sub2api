@@ -63,7 +63,7 @@ func (r *desktopUpdateRepoStub) UpdateDraft(_ context.Context, publicID string, 
 	return nil, ErrDesktopUpdateNotFound
 }
 
-func (r *desktopUpdateRepoStub) Publish(_ context.Context, publicID string, actorID int64, publishedAt time.Time) (*DesktopUpdateRelease, error) {
+func (r *desktopUpdateRepoStub) Publish(_ context.Context, publicID string, actorID int64, publishedAt time.Time, options ...DesktopUpdatePublishInput) (*DesktopUpdateRelease, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for i := range r.releases {
@@ -159,7 +159,7 @@ func TestNormalizeDesktopUpdateVersionUsesStrictTriplets(t *testing.T) {
 	}
 }
 
-func TestNormalizeDesktopUpdateArtifactsRequiresExactPlatformsAndHTTPS(t *testing.T) {
+func TestNormalizeDesktopUpdateArtifactsAllowsAvailablePlatformsAndRequiresHTTPS(t *testing.T) {
 	artifacts := desktopUpdateTestArtifacts("1.2.3")
 	normalized, err := NormalizeDesktopUpdateArtifacts(artifacts)
 	require.NoError(t, err)
@@ -167,7 +167,9 @@ func TestNormalizeDesktopUpdateArtifactsRequiresExactPlatformsAndHTTPS(t *testin
 
 	delete(artifacts, DesktopUpdateWindowsX64)
 	_, err = NormalizeDesktopUpdateArtifacts(artifacts)
-	require.Equal(t, "DESKTOP_UPDATE_FIELDS_INVALID", infraerrors.Reason(err))
+	require.NoError(t, err)
+	_, err = NormalizeDesktopUpdateArtifacts(DesktopUpdateArtifacts{})
+	require.Error(t, err)
 
 	artifacts = desktopUpdateTestArtifacts("1.2.3")
 	invalid := artifacts[DesktopUpdateDarwinARM64]
@@ -219,6 +221,53 @@ func TestDesktopUpdateUploadArtifactRejectsPublishedRelease(t *testing.T) {
 
 	_, err := svc.UploadArtifact(context.Background(), "upd_one", DesktopUpdateDarwinARM64, "DevKu.dmg", "application/x-apple-diskimage", 10, bytes.NewReader(make([]byte, 10)))
 	require.Equal(t, "DESKTOP_UPDATE_STATE_INVALID", infraerrors.Reason(err))
+}
+
+func TestDesktopUpdateUploadRejectsOlderArtifactBeforeReadingBody(t *testing.T) {
+	repo := &desktopUpdateRepoStub{releases: []DesktopUpdateRelease{{
+		PublicID: "upd_one", Version: "0.3.4", Status: DesktopUpdateStatusDraft,
+	}}}
+	svc := NewDesktopUpdateService(repo)
+	payload := bytes.NewReader([]byte("old installer"))
+	_, err := svc.UploadArtifact(context.Background(), "upd_one", DesktopUpdateWindowsX64,
+		"Devku.Desktop_0.3.3_x64-setup.nsis.zip", "application/zip", int64(payload.Len()), payload)
+	require.Equal(t, "DESKTOP_UPDATE_ARTIFACT_VERSION_MISMATCH", infraerrors.Reason(err))
+	require.Equal(t, len("old installer"), payload.Len())
+}
+
+func TestDesktopUpdateDraftAndPublishRejectVersionMismatch(t *testing.T) {
+	artifacts := desktopUpdateTestArtifacts("0.3.4")
+	artifacts[DesktopUpdateWindowsX64] = desktopUpdateTestArtifact("0.3.4", "Devku.Desktop_0.3.3_x64-setup.nsis.zip", "signature")
+	repo := &desktopUpdateRepoStub{releases: []DesktopUpdateRelease{{
+		PublicID: "upd_one", Version: "0.3.4", Status: DesktopUpdateStatusDraft, Artifacts: artifacts,
+	}}}
+	svc := NewDesktopUpdateService(repo)
+	_, err := svc.CreateDraft(context.Background(), DesktopUpdateDraftInput{Version: "0.3.4", Artifacts: artifacts})
+	require.Equal(t, "DESKTOP_UPDATE_ARTIFACT_VERSION_MISMATCH", infraerrors.Reason(err))
+	_, err = svc.UpdateDraft(context.Background(), "upd_one", DesktopUpdateDraftInput{Version: "0.3.4", Artifacts: artifacts})
+	require.Equal(t, "DESKTOP_UPDATE_ARTIFACT_VERSION_MISMATCH", infraerrors.Reason(err))
+	_, err = svc.Publish(context.Background(), "upd_one", 7)
+	require.Equal(t, "DESKTOP_UPDATE_ARTIFACT_VERSION_MISMATCH", infraerrors.Reason(err))
+	require.Equal(t, DesktopUpdateStatusDraft, repo.releases[0].Status)
+}
+
+func TestDesktopUpdateCheckDoesNotAdvertiseMismatchedArtifact(t *testing.T) {
+	artifacts := desktopUpdateTestArtifacts("0.3.4")
+	artifacts[DesktopUpdateWindowsX64] = desktopUpdateTestArtifact("0.3.4", "Devku.Desktop_0.3.3_x64-setup.nsis.zip", "signature")
+	publishedAt := time.Now().UTC()
+	repo := &desktopUpdateRepoStub{releases: []DesktopUpdateRelease{{
+		Version: "0.3.4", Status: DesktopUpdateStatusPublished, PublishedAt: &publishedAt, Artifacts: artifacts,
+	}}}
+	svc := NewDesktopUpdateService(repo)
+	result, available, err := svc.Check(context.Background(), "windows", "x86_64", "0.3.3")
+	require.Equal(t, "DESKTOP_UPDATE_METADATA_INVALID", infraerrors.Reason(err))
+	require.False(t, available)
+	require.Nil(t, result)
+	artifacts[DesktopUpdateWindowsX64] = desktopUpdateTestArtifact("0.3.4", "Devku.Desktop_0.3.4_x64-setup.nsis.zip", "signature")
+	result, available, err = svc.Check(context.Background(), "windows", "x86_64", "0.3.3")
+	require.NoError(t, err)
+	require.True(t, available)
+	require.Equal(t, "0.3.4", result.Version)
 }
 
 func TestDesktopUpdateDraftAllowsIncompleteArtifactsUntilPublish(t *testing.T) {
@@ -313,4 +362,46 @@ func TestDesktopUpdateWithdrawFallsBackToPreviousPublishedVersion(t *testing.T) 
 	require.NoError(t, err)
 	require.True(t, available)
 	require.Equal(t, "1.1.0", result.Version)
+}
+
+func (r *desktopUpdateRepoStub) GetByVersion(ctx context.Context, version string) (*DesktopUpdateRelease, error) {
+	items, _, err := r.List(ctx, pagination.PaginationParams{Page: 1, PageSize: 100}, DesktopUpdateListFilters{})
+	if err != nil {
+		return nil, err
+	}
+	for _, item := range items {
+		if item.Version == version {
+			return r.Get(ctx, item.PublicID)
+		}
+	}
+	return nil, ErrDesktopUpdateNotFound
+}
+
+func TestDesktopUpdateGrayAudienceAndPlatformFallback(t *testing.T) {
+	now := time.Now().UTC()
+	repo := &desktopUpdateRepoStub{releases: []DesktopUpdateRelease{
+		{Version: "1.0.1", Status: DesktopUpdateStatusPublished, RolloutMode: "full", PublishedAt: &now, Artifacts: desktopUpdateTestArtifacts("1.0.1")},
+		{Version: "1.0.2", Status: DesktopUpdateStatusPublished, RolloutMode: "gray", GatewayUserIDs: []int64{7}, PublishedAt: &now, Artifacts: DesktopUpdateArtifacts{DesktopUpdateWindowsX64: desktopUpdateTestArtifacts("1.0.2")[DesktopUpdateWindowsX64]}},
+		{Version: "2.0.0", Status: DesktopUpdateStatusPublished, RolloutMode: "gray", GatewayUserIDs: []int64{7}, PublishedAt: &now, Artifacts: DesktopUpdateArtifacts{DesktopUpdateDarwinARM64: desktopUpdateTestArtifacts("2.0.0")[DesktopUpdateDarwinARM64]}},
+	}}
+	svc := NewDesktopUpdateService(repo)
+	for _, tc := range []struct {
+		target, arch string
+		user         int64
+		want         string
+	}{
+		{"windows", "x86_64", 7, "1.0.2"}, {"windows", "x86_64", 8, "1.0.1"}, {"windows", "x86_64", 0, "1.0.1"},
+		{"darwin", "aarch64", 7, "2.0.0"}, {"darwin", "x86_64", 7, "1.0.1"},
+	} {
+		result, available, err := svc.Check(context.Background(), tc.target, tc.arch, "1.0.0", tc.user)
+		require.NoError(t, err)
+		require.True(t, available)
+		require.Equal(t, tc.want, result.Version)
+		require.NotEmpty(t, result.URL)
+	}
+	_, available, err := svc.Check(context.Background(), "windows", "x86_64", "1.0.2", 7)
+	require.NoError(t, err)
+	require.False(t, available)
+	_, err = svc.Publish(context.Background(), "unused", 1, DesktopUpdatePublishInput{RolloutMode: "gray"})
+	require.ErrorIs(t, err, ErrDesktopUpdateInvalidFields)
 }

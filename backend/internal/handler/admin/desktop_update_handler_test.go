@@ -88,7 +88,7 @@ func (*adminDesktopUpdateRepoStub) UpdateDraft(_ context.Context, publicID strin
 	return &service.DesktopUpdateRelease{PublicID: publicID, Version: input.Version, Notes: input.Notes, Artifacts: input.Artifacts, Status: service.DesktopUpdateStatusDraft}, nil
 }
 
-func (r *adminDesktopUpdateRepoStub) Publish(_ context.Context, publicID string, _ int64, publishedAt time.Time) (*service.DesktopUpdateRelease, error) {
+func (r *adminDesktopUpdateRepoStub) Publish(_ context.Context, publicID string, _ int64, publishedAt time.Time, options ...service.DesktopUpdatePublishInput) (*service.DesktopUpdateRelease, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.publishCalls++
@@ -161,4 +161,17 @@ func TestDesktopUpdateLifecycleWritesRequireIdempotencyKey(t *testing.T) {
 	require.Zero(t, repo.createCalls)
 	require.Zero(t, repo.publishCalls)
 	require.Zero(t, repo.withdrawCalls)
+}
+
+func (r *adminDesktopUpdateRepoStub) GetByVersion(ctx context.Context, version string) (*service.DesktopUpdateRelease, error) {
+	items, _, err := r.List(ctx, pagination.PaginationParams{Page: 1, PageSize: 100}, service.DesktopUpdateListFilters{})
+	if err != nil {
+		return nil, err
+	}
+	for _, item := range items {
+		if item.Version == version {
+			return r.Get(ctx, item.PublicID)
+		}
+	}
+	return nil, service.ErrDesktopUpdateNotFound
 }

@@ -1,0 +1,50 @@
+# Desktop 灰度更新与 Release 自动交付
+
+## 发布流程
+
+1. 推送经过验证的正式版本 tag，现有 GitHub Actions 构建、签名并发布 GitHub Release。
+2. Release job 自动上传原始 `.nsis.zip`、`.app.tar.gz` 及对应签名，后台创建该版本的**草稿**。不会自动灰度或全量发布。
+3. 在「Desktop 软件更新」打开「发布」，勾选「灰度发布」，搜索并选择承载用户。只有所选用户**当前绑定企业的所有成员**能检查到此版本。范围外继续得到本平台上一可用全量版本。
+4. 灰度验证通过后，点击版本行的「全量发布」。开放同一版本和同一批包；文件、签名、SHA-256 和首次发布时间保持不变。
+5. 需要回滚时撤回该版本，检查更新会回退上一适用版本；已安装的新版本不会自动降级。
+
+未勾选灰度时，发布操作直接全量发布。至少上传一个完整平台，每个已上传的平台均需签名；未上传的平台回退此前适用版本。目前 CI 构建 Windows x64 和 macOS arm64，不要求额外上传 macOS Intel。
+
+## 上线顺序与配置
+
+先部署包含 migration `260_desktop_update_rollout.sql` 的后台及管理页，再配置 CI，最后交付支持身份检查的正式客户端。
+
+后台设置独立的 `DESKTOP_UPDATE_UPLOAD_TOKEN`（至少 32 字符，建议随机生成，例如 `openssl rand -hex 32`），并确保既有 OSS 更新存储配置可用。Docker Compose 已增加该环境变量的透传。空值或不足 32 字符时，自动导入接口返回 503。
+
+在 Desktop GitHub 仓库的 **production environment** 中设置 Secret `DESKTOP_RELEASE_UPLOAD_TOKEN`，值与后台上传 Token 一致。可选设置 Variable `DESKTOP_RELEASE_API_ORIGIN`，默认 `https://api.devku.cc`。不要使用管理员登录 Token、Desktop 会话 Token 或 updater 私钥；不要把 Token 写入仓库。
+
+当前已发布的 0.3.5 及更早客户端检查更新时不带身份，只能接收全量版本。必须先全量交付支持身份检查的客户端，后续版本才可定向灰度。测试版仍禁用正式自动更新。登录状态恢复完成及登录/退出后，新客户端会重新检查更新。
+
+匿名、无效会话、停用成员/企业/承载用户，以及安装实例不匹配的请求只获取全量版本。灰度授权由后台验证会话后读取企业绑定关系，客户端提交的企业 ID、用户 ID 无效。`DESKTOP_ENABLED=false` 时只返回全量版本。
+
+## 自动导入接口
+
+`PUT /api/desktop/v1/releases/{MAJOR.MINOR.PATCH}/import`
+
+认证：`Authorization: Bearer <独立上传 Token>`。此 Token 只能访问导入接口，不能发布、转全量、撤回或访问管理员接口。
+
+Multipart 字段：`notes`；一个或多个平台文件 `windows-x86_64`、`darwin-aarch64`、`darwin-x86_64`；各文件对应的 `<platform>.signature`。默认单包上限 200 MiB。Windows 必须是 `.nsis.zip`，macOS 必须是 `.app.tar.gz`，文件名须包含对应版本。
+
+CI 脚本上传前验证正式文件名、版本和 minisign 签名，上传后核对后台的版本、草稿状态、文件名、字节数、签名及 SHA-256。任何一步失败都会令 job 失败，不会悄悄跳过。
+
+同版本草稿可重复导入，保持 `public_id`；已发布或撤回版本拒绝覆盖。导入所有文件成功后才一次保存制品元数据；失败不会把草稿的部分制品设为可发布。失败或重试可能留下未被草稿引用的 OSS 对象，按存储生命周期清理，不影响已发布制品。
+
+如果 GitHub Release 已发布但后台导入失败，修复网络/Token/存储后重跑 release job；不要用其他版本安装包替代。后台版本发布后，CI 重跑导入会明确报 409，需要检查后台已有版本。
+
+## 客户端凭据
+
+Rust 在同源更新元数据请求发送 Desktop 会话和安装实例 ID，不允许元数据重定向。Tauri 会复制检查请求的 headers 到下载对象，客户端在下载前清除认证头；安装包下载不发送会话凭据。下载仍允许正常的文件重定向，updater 签名验证继续生效。
+
+## 验证
+
+- 后台：灰度与匿名/范围外回退、安装实例和停用权限校验、版本排序、转全量保持制品、导入错误 Token/重复导入/已发布及撤回不可覆盖、已有 Desktop 更新用例。
+- 前端：灰度选择显示/隐藏、空选择拦截、选中用户提交、缺平台发布、灰度转全量不重传文件、locale 与类型检查。
+- Desktop：身份切换后重新检查及过期结果丢弃、同源凭据、下载头清除与重定向、自动上传的真实 HTTP Multipart、签名不符/错版本/测试包/无 Token 拦截。
+- 独立临时 PostgreSQL 16：旧发布数据应用新迁移后保留，默认全量，灰度及转全量写入通过。
+
+以上是本地验证；真实生产 Token 配置、GitHub Actions 自动导入、企业灰度及正式安装升级仍需上线联调。

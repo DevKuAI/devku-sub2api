@@ -23,6 +23,8 @@ export interface DesktopUpdateRelease {
   version: string
   notes: string
   artifacts: DesktopUpdateArtifacts
+  rollout_mode?: 'full' | 'gray'
+  gateway_user_ids?: number[]
   status: DesktopUpdateStatus
   created_by?: number
   updated_by?: number
@@ -331,11 +333,20 @@ export async function uploadUpdateArtifact(
   return data
 }
 
-export async function publishUpdateRelease(publicID: string): Promise<DesktopUpdateRelease> {
+export async function publishUpdateRelease(publicID: string, input?: { rollout_mode: 'full' | 'gray'; gateway_user_ids: number[] }): Promise<DesktopUpdateRelease> {
   const { data } = await apiClient.post<DesktopUpdateRelease>(
     `/admin/desktop/updates/${encodeURIComponent(publicID)}/publish`,
-    undefined,
+    input,
     { headers: idempotencyHeaders('desktop-update-publish') },
+  )
+  return data
+}
+
+export async function promoteUpdateRelease(publicID: string): Promise<DesktopUpdateRelease> {
+  const { data } = await apiClient.post<DesktopUpdateRelease>(
+    `/admin/desktop/updates/${encodeURIComponent(publicID)}/promote`,
+    undefined,
+    { headers: idempotencyHeaders('desktop-update-promote') },
   )
   return data
 }
@@ -369,5 +380,6 @@ export default {
   updateUpdateRelease,
   uploadUpdateArtifact,
   publishUpdateRelease,
+  promoteUpdateRelease,
   withdrawUpdateRelease,
 }

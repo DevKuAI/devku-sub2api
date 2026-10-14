@@ -139,6 +139,7 @@ func (r *desktopRepository) ListOrganizations(ctx context.Context, params pagina
 		q = q.Where(desktoporganization.Or(
 			desktoporganization.NameContainsFold(filters.Search),
 			desktoporganization.CodeContainsFold(filters.Search),
+			desktoporganization.HasGatewayUserWith(user.Or(user.EmailContainsFold(filters.Search), user.UsernameContainsFold(filters.Search))),
 		))
 	}
 	if filters.Status != "" {

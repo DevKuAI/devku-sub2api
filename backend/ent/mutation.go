@@ -25867,32 +25867,35 @@ func (m *DesktopOrganizationMutation) ResetEdge(name string) error {
 // DesktopUpdateReleaseMutation represents an operation that mutates the DesktopUpdateRelease nodes in the graph.
 type DesktopUpdateReleaseMutation struct {
 	config
-	op                Op
-	typ               string
-	id                *int64
-	created_at        *time.Time
-	updated_at        *time.Time
-	public_id         *string
-	version           *string
-	notes             *string
-	artifacts         *jsontext.Value
-	appendartifacts   jsontext.Value
-	status            *string
-	created_by        *int64
-	addcreated_by     *int64
-	updated_by        *int64
-	addupdated_by     *int64
-	published_by      *int64
-	addpublished_by   *int64
-	withdrawn_by      *int64
-	addwithdrawn_by   *int64
-	published_at      *time.Time
-	withdrawn_at      *time.Time
-	withdrawal_reason *string
-	clearedFields     map[string]struct{}
-	done              bool
-	oldValue          func(context.Context) (*DesktopUpdateRelease, error)
-	predicates        []predicate.DesktopUpdateRelease
+	op                     Op
+	typ                    string
+	id                     *int64
+	created_at             *time.Time
+	updated_at             *time.Time
+	public_id              *string
+	version                *string
+	notes                  *string
+	artifacts              *jsontext.Value
+	appendartifacts        jsontext.Value
+	status                 *string
+	rollout_mode           *string
+	gateway_user_ids       *[]int64
+	appendgateway_user_ids []int64
+	created_by             *int64
+	addcreated_by          *int64
+	updated_by             *int64
+	addupdated_by          *int64
+	published_by           *int64
+	addpublished_by        *int64
+	withdrawn_by           *int64
+	addwithdrawn_by        *int64
+	published_at           *time.Time
+	withdrawn_at           *time.Time
+	withdrawal_reason      *string
+	clearedFields          map[string]struct{}
+	done                   bool
+	oldValue               func(context.Context) (*DesktopUpdateRelease, error)
+	predicates             []predicate.DesktopUpdateRelease
 }
 
 var _ ent.Mutation = (*DesktopUpdateReleaseMutation)(nil)
@@ -26258,6 +26261,93 @@ func (m *DesktopUpdateReleaseMutation) OldStatus(ctx context.Context) (v string,
 // ResetStatus resets all changes to the "status" field.
 func (m *DesktopUpdateReleaseMutation) ResetStatus() {
 	m.status = nil
+}
+
+// SetRolloutMode sets the "rollout_mode" field.
+func (m *DesktopUpdateReleaseMutation) SetRolloutMode(s string) {
+	m.rollout_mode = &s
+}
+
+// RolloutMode returns the value of the "rollout_mode" field in the mutation.
+func (m *DesktopUpdateReleaseMutation) RolloutMode() (r string, exists bool) {
+	v := m.rollout_mode
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRolloutMode returns the old "rollout_mode" field's value of the DesktopUpdateRelease entity.
+// If the DesktopUpdateRelease object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopUpdateReleaseMutation) OldRolloutMode(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRolloutMode is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRolloutMode requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRolloutMode: %w", err)
+	}
+	return oldValue.RolloutMode, nil
+}
+
+// ResetRolloutMode resets all changes to the "rollout_mode" field.
+func (m *DesktopUpdateReleaseMutation) ResetRolloutMode() {
+	m.rollout_mode = nil
+}
+
+// SetGatewayUserIds sets the "gateway_user_ids" field.
+func (m *DesktopUpdateReleaseMutation) SetGatewayUserIds(i []int64) {
+	m.gateway_user_ids = &i
+	m.appendgateway_user_ids = nil
+}
+
+// GatewayUserIds returns the value of the "gateway_user_ids" field in the mutation.
+func (m *DesktopUpdateReleaseMutation) GatewayUserIds() (r []int64, exists bool) {
+	v := m.gateway_user_ids
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGatewayUserIds returns the old "gateway_user_ids" field's value of the DesktopUpdateRelease entity.
+// If the DesktopUpdateRelease object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopUpdateReleaseMutation) OldGatewayUserIds(ctx context.Context) (v []int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGatewayUserIds is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGatewayUserIds requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGatewayUserIds: %w", err)
+	}
+	return oldValue.GatewayUserIds, nil
+}
+
+// AppendGatewayUserIds adds i to the "gateway_user_ids" field.
+func (m *DesktopUpdateReleaseMutation) AppendGatewayUserIds(i []int64) {
+	m.appendgateway_user_ids = append(m.appendgateway_user_ids, i...)
+}
+
+// AppendedGatewayUserIds returns the list of values that were appended to the "gateway_user_ids" field in this mutation.
+func (m *DesktopUpdateReleaseMutation) AppendedGatewayUserIds() ([]int64, bool) {
+	if len(m.appendgateway_user_ids) == 0 {
+		return nil, false
+	}
+	return m.appendgateway_user_ids, true
+}
+
+// ResetGatewayUserIds resets all changes to the "gateway_user_ids" field.
+func (m *DesktopUpdateReleaseMutation) ResetGatewayUserIds() {
+	m.gateway_user_ids = nil
+	m.appendgateway_user_ids = nil
 }
 
 // SetCreatedBy sets the "created_by" field.
@@ -26721,7 +26811,7 @@ func (m *DesktopUpdateReleaseMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *DesktopUpdateReleaseMutation) Fields() []string {
-	fields := make([]string, 0, 14)
+	fields := make([]string, 0, 16)
 	if m.created_at != nil {
 		fields = append(fields, desktopupdaterelease.FieldCreatedAt)
 	}
@@ -26742,6 +26832,12 @@ func (m *DesktopUpdateReleaseMutation) Fields() []string {
 	}
 	if m.status != nil {
 		fields = append(fields, desktopupdaterelease.FieldStatus)
+	}
+	if m.rollout_mode != nil {
+		fields = append(fields, desktopupdaterelease.FieldRolloutMode)
+	}
+	if m.gateway_user_ids != nil {
+		fields = append(fields, desktopupdaterelease.FieldGatewayUserIds)
 	}
 	if m.created_by != nil {
 		fields = append(fields, desktopupdaterelease.FieldCreatedBy)
@@ -26786,6 +26882,10 @@ func (m *DesktopUpdateReleaseMutation) Field(name string) (ent.Value, bool) {
 		return m.Artifacts()
 	case desktopupdaterelease.FieldStatus:
 		return m.Status()
+	case desktopupdaterelease.FieldRolloutMode:
+		return m.RolloutMode()
+	case desktopupdaterelease.FieldGatewayUserIds:
+		return m.GatewayUserIds()
 	case desktopupdaterelease.FieldCreatedBy:
 		return m.CreatedBy()
 	case desktopupdaterelease.FieldUpdatedBy:
@@ -26823,6 +26923,10 @@ func (m *DesktopUpdateReleaseMutation) OldField(ctx context.Context, name string
 		return m.OldArtifacts(ctx)
 	case desktopupdaterelease.FieldStatus:
 		return m.OldStatus(ctx)
+	case desktopupdaterelease.FieldRolloutMode:
+		return m.OldRolloutMode(ctx)
+	case desktopupdaterelease.FieldGatewayUserIds:
+		return m.OldGatewayUserIds(ctx)
 	case desktopupdaterelease.FieldCreatedBy:
 		return m.OldCreatedBy(ctx)
 	case desktopupdaterelease.FieldUpdatedBy:
@@ -26894,6 +26998,20 @@ func (m *DesktopUpdateReleaseMutation) SetField(name string, value ent.Value) er
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetStatus(v)
+		return nil
+	case desktopupdaterelease.FieldRolloutMode:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRolloutMode(v)
+		return nil
+	case desktopupdaterelease.FieldGatewayUserIds:
+		v, ok := value.([]int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGatewayUserIds(v)
 		return nil
 	case desktopupdaterelease.FieldCreatedBy:
 		v, ok := value.(int64)
@@ -27109,6 +27227,12 @@ func (m *DesktopUpdateReleaseMutation) ResetField(name string) error {
 		return nil
 	case desktopupdaterelease.FieldStatus:
 		m.ResetStatus()
+		return nil
+	case desktopupdaterelease.FieldRolloutMode:
+		m.ResetRolloutMode()
+		return nil
+	case desktopupdaterelease.FieldGatewayUserIds:
+		m.ResetGatewayUserIds()
 		return nil
 	case desktopupdaterelease.FieldCreatedBy:
 		m.ResetCreatedBy()

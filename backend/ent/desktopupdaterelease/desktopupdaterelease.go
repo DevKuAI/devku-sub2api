@@ -27,6 +27,10 @@ const (
 	FieldArtifacts = "artifacts"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
+	// FieldRolloutMode holds the string denoting the rollout_mode field in the database.
+	FieldRolloutMode = "rollout_mode"
+	// FieldGatewayUserIds holds the string denoting the gateway_user_ids field in the database.
+	FieldGatewayUserIds = "gateway_user_ids"
 	// FieldCreatedBy holds the string denoting the created_by field in the database.
 	FieldCreatedBy = "created_by"
 	// FieldUpdatedBy holds the string denoting the updated_by field in the database.
@@ -55,6 +59,8 @@ var Columns = []string{
 	FieldNotes,
 	FieldArtifacts,
 	FieldStatus,
+	FieldRolloutMode,
+	FieldGatewayUserIds,
 	FieldCreatedBy,
 	FieldUpdatedBy,
 	FieldPublishedBy,
@@ -91,6 +97,10 @@ var (
 	DefaultStatus string
 	// StatusValidator is a validator for the "status" field. It is called by the builders before save.
 	StatusValidator func(string) error
+	// DefaultRolloutMode holds the default value on creation for the "rollout_mode" field.
+	DefaultRolloutMode string
+	// DefaultGatewayUserIds holds the default value on creation for the "gateway_user_ids" field.
+	DefaultGatewayUserIds []int64
 )
 
 // OrderOption defines the ordering options for the DesktopUpdateRelease queries.
@@ -129,6 +139,11 @@ func ByNotes(opts ...sql.OrderTermOption) OrderOption {
 // ByStatus orders the results by the status field.
 func ByStatus(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldStatus, opts...).ToFunc()
+}
+
+// ByRolloutMode orders the results by the rollout_mode field.
+func ByRolloutMode(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRolloutMode, opts...).ToFunc()
 }
 
 // ByCreatedBy orders the results by the created_by field.

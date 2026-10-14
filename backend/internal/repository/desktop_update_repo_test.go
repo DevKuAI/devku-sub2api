@@ -30,6 +30,8 @@ func newDesktopUpdateRepositoryForTest(t *testing.T) service.DesktopUpdateReposi
 			version TEXT NOT NULL UNIQUE,
 			notes TEXT NOT NULL DEFAULT '',
 			artifacts BLOB NOT NULL,
+ rollout_mode TEXT NOT NULL DEFAULT 'full',
+ gateway_user_ids BLOB NOT NULL DEFAULT '[]',
 			status TEXT NOT NULL DEFAULT 'draft',
 			created_by INTEGER,
 			updated_by INTEGER,
@@ -42,6 +44,10 @@ func newDesktopUpdateRepositoryForTest(t *testing.T) service.DesktopUpdateReposi
 			updated_at DATETIME NOT NULL
 		)
 	`)
+	require.NoError(t, err)
+	_, err = db.Exec("CREATE TABLE desktop_organizations (id INTEGER PRIMARY KEY, gateway_user_id INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'active', deleted_at DATETIME)")
+	require.NoError(t, err)
+	_, err = db.Exec("INSERT INTO desktop_organizations(id, gateway_user_id) VALUES(1,7), (2,9)")
 	require.NoError(t, err)
 
 	driver := entsql.OpenDB(dialect.SQLite, db)
@@ -102,6 +108,26 @@ func TestDesktopUpdateRepositoryEnforcesLifecycleAndVersionOrdering(t *testing.T
 	require.Equal(t, service.DesktopUpdateStatusWithdrawn, withdrawn.Status)
 	_, err = repo.Withdraw(ctx, "upd_100", 7, "Again", publishedAt.Add(3*time.Minute))
 	require.ErrorIs(t, err, service.ErrDesktopUpdateInvalidState)
+}
+
+func TestDesktopUpdateRepositoryRejectsMismatchedArtifactDuringPublish(t *testing.T) {
+	repo := newDesktopUpdateRepositoryForTest(t)
+	ctx := context.Background()
+	artifacts := repositoryDesktopUpdateArtifacts("0.3.4")
+	artifacts[service.DesktopUpdateWindowsX64] = repositoryDesktopUpdateArtifact("0.3.4", "Devku.Desktop_0.3.3_x64-setup.nsis.zip", "signature")
+	require.NoError(t, repo.Create(ctx, &service.DesktopUpdateRelease{
+		PublicID: "upd_mismatch", Version: "0.3.4", Status: service.DesktopUpdateStatusDraft, Artifacts: artifacts,
+	}))
+	_, err := repo.Publish(ctx, "upd_mismatch", 7, time.Now().UTC())
+	require.ErrorIs(t, err, service.ErrDesktopUpdateArtifactVersionMismatch)
+	release, err := repo.Get(ctx, "upd_mismatch")
+	require.NoError(t, err)
+	require.Equal(t, service.DesktopUpdateStatusDraft, release.Status)
+	artifacts[service.DesktopUpdateWindowsX64] = repositoryDesktopUpdateArtifact("0.3.4", "Devku.Desktop_0.3.4_x64-setup.nsis.zip", "signature")
+	_, err = repo.UpdateDraft(ctx, "upd_mismatch", service.DesktopUpdateDraftInput{Version: "0.3.4", Artifacts: artifacts})
+	require.NoError(t, err)
+	_, err = repo.Publish(ctx, "upd_mismatch", 7, time.Now().UTC())
+	require.NoError(t, err)
 }
 
 func TestDesktopUpdateRepositorySerializesConcurrentPublish(t *testing.T) {

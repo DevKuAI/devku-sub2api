@@ -8,6 +8,8 @@ const desktopAPI = vi.hoisted(() => ({
   uploadUpdateArtifact: vi.fn(),
   publishUpdateRelease: vi.fn(),
   withdrawUpdateRelease: vi.fn(),
+  promoteUpdateRelease: vi.fn(),
+  listOrganizations: vi.fn(),
 }))
 
 const appStore = vi.hoisted(() => ({ showError: vi.fn(), showSuccess: vi.fn() }))
@@ -74,6 +76,8 @@ describe('DesktopUpdatesView', () => {
     desktopAPI.updateUpdateRelease.mockResolvedValue({ ...release })
     desktopAPI.uploadUpdateArtifact.mockResolvedValue(artifact('arm.dmg', ''))
     desktopAPI.publishUpdateRelease.mockResolvedValue({ ...release, status: 'published' })
+    desktopAPI.listOrganizations.mockResolvedValue({ items: [], total: 0 })
+    desktopAPI.promoteUpdateRelease.mockResolvedValue({ ...release, status: 'published', rollout_mode: 'full' })
     desktopAPI.withdrawUpdateRelease.mockResolvedValue({ ...release, status: 'withdrawn' })
   })
 
@@ -120,6 +124,53 @@ describe('DesktopUpdatesView', () => {
         'darwin-aarch64': expect.objectContaining({ file_name: 'arm.dmg', signature: 'arm-signature' }),
       }),
     }))
+    wrapper.unmount()
+  })
+
+  it('blocks an older updater artifact before creating or uploading a release', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as any
+    vm.openCreate()
+    vm.form.version = '0.3.4'
+    const file = new File(['old updater'], 'Devku.Desktop_0.3.3_x64-setup.nsis.zip')
+    vm.selectArtifactFile('windows-x86_64', { target: { files: [file], value: file.name } })
+    expect(vm.errors['windows-x86_64.file']).toBe('admin.desktop.updates.validation.artifactVersionMismatch')
+    await vm.saveDraft()
+    expect(desktopAPI.createUpdateRelease).not.toHaveBeenCalled()
+    expect(desktopAPI.updateUpdateRelease).not.toHaveBeenCalled()
+    expect(desktopAPI.uploadUpdateArtifact).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('rechecks pending artifact versions after editing the release version', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as any
+    vm.openCreate()
+    vm.form.version = '0.3.3'
+    const file = new File(['updater'], 'Devku.Desktop_0.3.3_x64-setup.nsis.zip')
+    vm.selectArtifactFile('windows-x86_64', { target: { files: [file], value: file.name } })
+    expect(vm.errors['windows-x86_64.file']).toBeUndefined()
+    vm.form.version = '0.3.4'
+    await vm.saveDraft()
+    expect(vm.errors['windows-x86_64.file']).toBe('admin.desktop.updates.validation.artifactVersionMismatch')
+    expect(desktopAPI.createUpdateRelease).not.toHaveBeenCalled()
+    expect(desktopAPI.uploadUpdateArtifact).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('blocks publishing an existing draft with an older updater artifact', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as any
+    vm.openPublish({ ...release, version: '0.3.4', artifacts: {
+      ...release.artifacts,
+      'windows-x86_64': artifact('Devku.Desktop_0.3.3_x64-setup.nsis.zip', 'signature'),
+    } })
+    expect(appStore.showError).toHaveBeenCalledWith('admin.desktop.updates.validation.artifactVersionMismatch')
+    expect(vm.showPublish).toBe(false)
+    expect(desktopAPI.publishUpdateRelease).not.toHaveBeenCalled()
     wrapper.unmount()
   })
 
@@ -178,8 +229,8 @@ describe('DesktopUpdatesView', () => {
     expect(vm.errors['darwin-aarch64.file']).toBeUndefined()
     expect(wrapper.findAll('input[type="file"]')).toHaveLength(3)
     expect(wrapper.findAll('input[type="file"]').every((input) => input.attributes('accept') === undefined)).toBe(true)
-    expect(wrapper.text()).toContain('.dmg / .app')
-    expect(wrapper.text()).toContain('.msi / .exe')
+    expect(wrapper.text()).toContain('.app.tar.gz')
+    expect(wrapper.text()).toContain('.nsis.zip')
     wrapper.unmount()
   })
 
@@ -190,7 +241,7 @@ describe('DesktopUpdatesView', () => {
 
     vm.openPublish(release)
     await vm.publishRelease()
-    expect(desktopAPI.publishUpdateRelease).toHaveBeenCalledWith('upd_one')
+    expect(desktopAPI.publishUpdateRelease).toHaveBeenCalledWith('upd_one', { rollout_mode: 'full', gateway_user_ids: [] })
 
     vm.openWithdraw({ ...release, status: 'published' })
     await vm.withdrawRelease()
@@ -201,7 +252,7 @@ describe('DesktopUpdatesView', () => {
     wrapper.unmount()
   })
 
-  it('blocks publish confirmation until all artifacts are complete', async () => {
+  it('blocks publication when an uploaded artifact has no signature', async () => {
     const wrapper = mountView()
     await flushPromises()
     const vm = wrapper.vm as any
@@ -210,7 +261,7 @@ describe('DesktopUpdatesView', () => {
       ...release,
       artifacts: {
         ...release.artifacts,
-        'windows-x86_64': { url: '', signature: '', object_key: '', file_name: '', size: 0, sha256: '' },
+        'windows-x86_64': { ...release.artifacts['windows-x86_64'], signature: '' },
       },
     })
 
@@ -218,4 +269,38 @@ describe('DesktopUpdatesView', () => {
     expect(vm.showPublish).toBe(false)
     wrapper.unmount()
   })
+  it('shows the enterprise audience only for gray release and submits selected users', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as any
+    vm.openPublish(release)
+    await flushPromises()
+    expect(wrapper.find('input[aria-label="admin.desktop.updates.searchAudience"]').exists()).toBe(false)
+    vm.grayRelease = true
+    await flushPromises()
+    expect(wrapper.find('input[aria-label="admin.desktop.updates.searchAudience"]').exists()).toBe(true)
+    await vm.publishRelease()
+    expect(desktopAPI.publishUpdateRelease).not.toHaveBeenCalled()
+    vm.audienceIDs = [7, 9]
+    await vm.publishRelease()
+    expect(desktopAPI.publishUpdateRelease).toHaveBeenCalledWith('upd_one', { rollout_mode: 'gray', gateway_user_ids: [7, 9] })
+    wrapper.unmount()
+  })
+
+  it('publishes uploaded platforms and promotes gray release without uploading again', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as any
+    const partial = { ...release, artifacts: { 'windows-x86_64': release.artifacts['windows-x86_64'] } }
+    vm.openPublish(partial)
+    expect(vm.showPublish).toBe(true)
+    await vm.publishRelease()
+    vm.openPromote({ ...partial, status: 'published', rollout_mode: 'gray' })
+    await vm.publishRelease()
+    expect(desktopAPI.promoteUpdateRelease).toHaveBeenCalledWith('upd_one')
+    expect(desktopAPI.uploadUpdateArtifact).not.toHaveBeenCalled()
+    expect(desktopAPI.updateUpdateRelease).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
 })

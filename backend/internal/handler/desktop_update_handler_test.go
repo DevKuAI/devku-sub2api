@@ -33,7 +33,7 @@ func (*desktopUpdateCheckRepoStub) Get(context.Context, string) (*service.Deskto
 func (*desktopUpdateCheckRepoStub) UpdateDraft(context.Context, string, service.DesktopUpdateDraftInput) (*service.DesktopUpdateRelease, error) {
 	panic("unexpected UpdateDraft call")
 }
-func (*desktopUpdateCheckRepoStub) Publish(context.Context, string, int64, time.Time) (*service.DesktopUpdateRelease, error) {
+func (*desktopUpdateCheckRepoStub) Publish(context.Context, string, int64, time.Time, ...service.DesktopUpdatePublishInput) (*service.DesktopUpdateRelease, error) {
 	panic("unexpected Publish call")
 }
 func (*desktopUpdateCheckRepoStub) Withdraw(context.Context, string, int64, string, time.Time) (*service.DesktopUpdateRelease, error) {
@@ -104,4 +104,17 @@ func TestDesktopUpdateCheckHandlerResponses(t *testing.T) {
 			}
 		})
 	}
+}
+
+func (r *desktopUpdateCheckRepoStub) GetByVersion(ctx context.Context, version string) (*service.DesktopUpdateRelease, error) {
+	items, _, err := r.List(ctx, pagination.PaginationParams{Page: 1, PageSize: 100}, service.DesktopUpdateListFilters{})
+	if err != nil {
+		return nil, err
+	}
+	for _, item := range items {
+		if item.Version == version {
+			return r.Get(ctx, item.PublicID)
+		}
+	}
+	return nil, service.ErrDesktopUpdateNotFound
 }

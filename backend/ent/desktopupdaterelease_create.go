@@ -97,6 +97,26 @@ func (_c *DesktopUpdateReleaseCreate) SetNillableStatus(v *string) *DesktopUpdat
 	return _c
 }
 
+// SetRolloutMode sets the "rollout_mode" field.
+func (_c *DesktopUpdateReleaseCreate) SetRolloutMode(v string) *DesktopUpdateReleaseCreate {
+	_c.mutation.SetRolloutMode(v)
+	return _c
+}
+
+// SetNillableRolloutMode sets the "rollout_mode" field if the given value is not nil.
+func (_c *DesktopUpdateReleaseCreate) SetNillableRolloutMode(v *string) *DesktopUpdateReleaseCreate {
+	if v != nil {
+		_c.SetRolloutMode(*v)
+	}
+	return _c
+}
+
+// SetGatewayUserIds sets the "gateway_user_ids" field.
+func (_c *DesktopUpdateReleaseCreate) SetGatewayUserIds(v []int64) *DesktopUpdateReleaseCreate {
+	_c.mutation.SetGatewayUserIds(v)
+	return _c
+}
+
 // SetCreatedBy sets the "created_by" field.
 func (_c *DesktopUpdateReleaseCreate) SetCreatedBy(v int64) *DesktopUpdateReleaseCreate {
 	_c.mutation.SetCreatedBy(v)
@@ -246,6 +266,14 @@ func (_c *DesktopUpdateReleaseCreate) defaults() {
 		v := desktopupdaterelease.DefaultStatus
 		_c.mutation.SetStatus(v)
 	}
+	if _, ok := _c.mutation.RolloutMode(); !ok {
+		v := desktopupdaterelease.DefaultRolloutMode
+		_c.mutation.SetRolloutMode(v)
+	}
+	if _, ok := _c.mutation.GatewayUserIds(); !ok {
+		v := desktopupdaterelease.DefaultGatewayUserIds
+		_c.mutation.SetGatewayUserIds(v)
+	}
 }
 
 // check runs all checks and user-defined validators on the builder.
@@ -285,6 +313,12 @@ func (_c *DesktopUpdateReleaseCreate) check() error {
 		if err := desktopupdaterelease.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "DesktopUpdateRelease.status": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.RolloutMode(); !ok {
+		return &ValidationError{Name: "rollout_mode", err: errors.New(`ent: missing required field "DesktopUpdateRelease.rollout_mode"`)}
+	}
+	if _, ok := _c.mutation.GatewayUserIds(); !ok {
+		return &ValidationError{Name: "gateway_user_ids", err: errors.New(`ent: missing required field "DesktopUpdateRelease.gateway_user_ids"`)}
 	}
 	return nil
 }
@@ -340,6 +374,14 @@ func (_c *DesktopUpdateReleaseCreate) createSpec() (*DesktopUpdateRelease, *sqlg
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(desktopupdaterelease.FieldStatus, field.TypeString, value)
 		_node.Status = value
+	}
+	if value, ok := _c.mutation.RolloutMode(); ok {
+		_spec.SetField(desktopupdaterelease.FieldRolloutMode, field.TypeString, value)
+		_node.RolloutMode = value
+	}
+	if value, ok := _c.mutation.GatewayUserIds(); ok {
+		_spec.SetField(desktopupdaterelease.FieldGatewayUserIds, field.TypeJSON, value)
+		_node.GatewayUserIds = value
 	}
 	if value, ok := _c.mutation.CreatedBy(); ok {
 		_spec.SetField(desktopupdaterelease.FieldCreatedBy, field.TypeInt64, value)
@@ -478,6 +520,30 @@ func (u *DesktopUpdateReleaseUpsert) SetStatus(v string) *DesktopUpdateReleaseUp
 // UpdateStatus sets the "status" field to the value that was provided on create.
 func (u *DesktopUpdateReleaseUpsert) UpdateStatus() *DesktopUpdateReleaseUpsert {
 	u.SetExcluded(desktopupdaterelease.FieldStatus)
+	return u
+}
+
+// SetRolloutMode sets the "rollout_mode" field.
+func (u *DesktopUpdateReleaseUpsert) SetRolloutMode(v string) *DesktopUpdateReleaseUpsert {
+	u.Set(desktopupdaterelease.FieldRolloutMode, v)
+	return u
+}
+
+// UpdateRolloutMode sets the "rollout_mode" field to the value that was provided on create.
+func (u *DesktopUpdateReleaseUpsert) UpdateRolloutMode() *DesktopUpdateReleaseUpsert {
+	u.SetExcluded(desktopupdaterelease.FieldRolloutMode)
+	return u
+}
+
+// SetGatewayUserIds sets the "gateway_user_ids" field.
+func (u *DesktopUpdateReleaseUpsert) SetGatewayUserIds(v []int64) *DesktopUpdateReleaseUpsert {
+	u.Set(desktopupdaterelease.FieldGatewayUserIds, v)
+	return u
+}
+
+// UpdateGatewayUserIds sets the "gateway_user_ids" field to the value that was provided on create.
+func (u *DesktopUpdateReleaseUpsert) UpdateGatewayUserIds() *DesktopUpdateReleaseUpsert {
+	u.SetExcluded(desktopupdaterelease.FieldGatewayUserIds)
 	return u
 }
 
@@ -746,6 +812,34 @@ func (u *DesktopUpdateReleaseUpsertOne) SetStatus(v string) *DesktopUpdateReleas
 func (u *DesktopUpdateReleaseUpsertOne) UpdateStatus() *DesktopUpdateReleaseUpsertOne {
 	return u.Update(func(s *DesktopUpdateReleaseUpsert) {
 		s.UpdateStatus()
+	})
+}
+
+// SetRolloutMode sets the "rollout_mode" field.
+func (u *DesktopUpdateReleaseUpsertOne) SetRolloutMode(v string) *DesktopUpdateReleaseUpsertOne {
+	return u.Update(func(s *DesktopUpdateReleaseUpsert) {
+		s.SetRolloutMode(v)
+	})
+}
+
+// UpdateRolloutMode sets the "rollout_mode" field to the value that was provided on create.
+func (u *DesktopUpdateReleaseUpsertOne) UpdateRolloutMode() *DesktopUpdateReleaseUpsertOne {
+	return u.Update(func(s *DesktopUpdateReleaseUpsert) {
+		s.UpdateRolloutMode()
+	})
+}
+
+// SetGatewayUserIds sets the "gateway_user_ids" field.
+func (u *DesktopUpdateReleaseUpsertOne) SetGatewayUserIds(v []int64) *DesktopUpdateReleaseUpsertOne {
+	return u.Update(func(s *DesktopUpdateReleaseUpsert) {
+		s.SetGatewayUserIds(v)
+	})
+}
+
+// UpdateGatewayUserIds sets the "gateway_user_ids" field to the value that was provided on create.
+func (u *DesktopUpdateReleaseUpsertOne) UpdateGatewayUserIds() *DesktopUpdateReleaseUpsertOne {
+	return u.Update(func(s *DesktopUpdateReleaseUpsert) {
+		s.UpdateGatewayUserIds()
 	})
 }
 
@@ -1205,6 +1299,34 @@ func (u *DesktopUpdateReleaseUpsertBulk) SetStatus(v string) *DesktopUpdateRelea
 func (u *DesktopUpdateReleaseUpsertBulk) UpdateStatus() *DesktopUpdateReleaseUpsertBulk {
 	return u.Update(func(s *DesktopUpdateReleaseUpsert) {
 		s.UpdateStatus()
+	})
+}
+
+// SetRolloutMode sets the "rollout_mode" field.
+func (u *DesktopUpdateReleaseUpsertBulk) SetRolloutMode(v string) *DesktopUpdateReleaseUpsertBulk {
+	return u.Update(func(s *DesktopUpdateReleaseUpsert) {
+		s.SetRolloutMode(v)
+	})
+}
+
+// UpdateRolloutMode sets the "rollout_mode" field to the value that was provided on create.
+func (u *DesktopUpdateReleaseUpsertBulk) UpdateRolloutMode() *DesktopUpdateReleaseUpsertBulk {
+	return u.Update(func(s *DesktopUpdateReleaseUpsert) {
+		s.UpdateRolloutMode()
+	})
+}
+
+// SetGatewayUserIds sets the "gateway_user_ids" field.
+func (u *DesktopUpdateReleaseUpsertBulk) SetGatewayUserIds(v []int64) *DesktopUpdateReleaseUpsertBulk {
+	return u.Update(func(s *DesktopUpdateReleaseUpsert) {
+		s.SetGatewayUserIds(v)
+	})
+}
+
+// UpdateGatewayUserIds sets the "gateway_user_ids" field to the value that was provided on create.
+func (u *DesktopUpdateReleaseUpsertBulk) UpdateGatewayUserIds() *DesktopUpdateReleaseUpsertBulk {
+	return u.Update(func(s *DesktopUpdateReleaseUpsert) {
+		s.UpdateGatewayUserIds()
 	})
 }
 

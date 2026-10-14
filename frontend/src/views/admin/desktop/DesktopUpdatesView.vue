@@ -26,19 +26,20 @@
           </template>
           <template #cell-status="{ row }">
             <StatusBadge :status="statusVariant(row.status)" :label="statusLabel(row.status)" />
+            <span v-if="row.status === 'published'" class="ml-2 text-xs text-gray-500">{{ t(row.rollout_mode === 'gray' ? 'admin.desktop.updates.gray' : 'admin.desktop.updates.full') }}<template v-if="row.rollout_mode === 'gray'"> · {{ row.gateway_user_ids?.length || 0 }}</template></span>
           </template>
           <template #cell-artifacts="{ row }">
             <div class="space-y-1.5">
               <div v-for="platform in platforms" :key="platform.key" class="flex min-h-6 items-center gap-1.5 text-xs">
                 <span class="w-28 shrink-0 font-medium text-gray-600 dark:text-dark-300">{{ platform.shortLabel }}</span>
                 <a
-                  v-if="row.artifacts[platform.key].url"
-                  :href="row.artifacts[platform.key].url"
+                  v-if="row.artifacts[platform.key]?.url"
+                  :href="row.artifacts[platform.key]?.url"
                   target="_blank"
                   rel="noopener noreferrer"
                   class="flex min-w-0 items-center gap-1 text-primary-600 hover:text-primary-700 dark:text-primary-400"
                 >
-                  <span class="max-w-40 truncate">{{ row.artifacts[platform.key].file_name }}</span>
+                  <span class="max-w-40 truncate">{{ row.artifacts[platform.key]?.file_name }}</span>
                   <Icon name="externalLink" size="xs" class="shrink-0" aria-hidden="true" />
                 </a>
                 <span v-else class="text-gray-400 dark:text-dark-500">{{ t('common.notAvailable') }}</span>
@@ -61,6 +62,7 @@
               <button v-if="row.status === 'draft'" class="action-button text-primary-600 dark:text-primary-400" type="button" :title="t('admin.desktop.updates.publish')" :aria-label="t('admin.desktop.updates.publish')" @click="openPublish(row)">
                 <Icon name="upload" size="sm" />
               </button>
+              <button v-if="row.status === 'published' && row.rollout_mode === 'gray'" class="btn btn-secondary" type="button" @click="openPromote(row)">{{ t('admin.desktop.updates.promote') }}</button>
               <button v-if="row.status === 'published'" class="action-button text-red-600 dark:text-red-400" type="button" :title="t('admin.desktop.updates.withdraw')" :aria-label="t('admin.desktop.updates.withdraw')" @click="openWithdraw(row)">
                 <Icon name="xCircle" size="sm" />
               </button>
@@ -145,12 +147,32 @@
     </BaseDialog>
 
     <BaseDialog :show="showPublish" :title="t('admin.desktop.updates.publish')" width="narrow" @close="closePublish">
-      <p class="text-sm leading-6 text-gray-600 dark:text-dark-300">{{ t('admin.desktop.updates.publishConfirm', { version: selected?.version }) }}</p>
+      <p class="text-sm leading-6 text-gray-600 dark:text-dark-300">{{ t(promoting ? 'admin.desktop.updates.promoteConfirm' : 'admin.desktop.updates.publishConfirm', { version: selected?.version }) }}</p>
+      <template v-if="!promoting">
+        <label class="mt-4 flex items-center gap-2"><input v-model="grayRelease" type="checkbox" />{{ t('admin.desktop.updates.gray') }}</label>
+        <div v-if="grayRelease" class="mt-3 space-y-3">
+          <p class="text-sm text-gray-500">{{ t('admin.desktop.updates.grayHint') }}</p>
+          <input v-model="audienceSearch" class="input w-full" :placeholder="t('admin.desktop.updates.searchAudience')" :aria-label="t('admin.desktop.updates.searchAudience')" />
+          <p class="text-sm">{{ t('admin.desktop.updates.selectedAudience', { count: audienceIDs.length }) }}</p>
+          <p v-if="audienceLoading" class="text-sm">{{ t('common.loading') }}</p>
+          <p v-if="audienceError" role="alert" class="input-error-text">{{ audienceError }}</p>
+          <div class="max-h-56 space-y-2 overflow-y-auto">
+            <label v-for="org in audienceOptions" :key="org.public_id" class="flex items-start gap-2 rounded border border-gray-200 p-2 dark:border-dark-600">
+              <input v-model="audienceIDs" type="checkbox" :value="org.gateway_user.id" class="mt-1" />
+              <span class="text-sm">{{ org.gateway_user.username || org.gateway_user.email }}<span class="block text-xs text-gray-500">{{ org.gateway_user.email }} · {{ org.name }}</span></span>
+            </label>
+          </div>
+          <div class="flex justify-between">
+            <button type="button" class="btn btn-secondary" :disabled="audiencePage <= 1 || audienceLoading" @click="audiencePage--">{{ t('admin.desktop.updates.previousAudience') }}</button>
+            <button type="button" class="btn btn-secondary" :disabled="audiencePage * 30 >= audienceTotal || audienceLoading" @click="audiencePage++">{{ t('admin.desktop.updates.nextAudience') }}</button>
+          </div>
+        </div>
+      </template>
       <p class="mt-3 text-sm font-medium text-amber-700 dark:text-amber-300">{{ t('admin.desktop.updates.immutableHint') }}</p>
       <template #footer>
         <div class="flex justify-end gap-3">
           <button class="btn btn-secondary" type="button" @click="closePublish">{{ t('common.cancel') }}</button>
-          <button class="btn btn-primary" type="button" :disabled="saving" @click="publishRelease">{{ t('admin.desktop.updates.publish') }}</button>
+          <button class="btn btn-primary" type="button" :disabled="saving || (grayRelease && !promoting && audienceIDs.length === 0)" @click="publishRelease">{{ t(promoting ? 'admin.desktop.updates.promote' : 'admin.desktop.updates.publish') }}</button>
         </div>
       </template>
     </BaseDialog>
@@ -173,10 +195,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
-import type { DesktopUpdateArtifact, DesktopUpdateArtifacts, DesktopUpdatePlatform, DesktopUpdateRelease, DesktopUpdateStatus } from '@/api/admin/desktop'
+import type { DesktopOrganization, DesktopUpdateArtifact, DesktopUpdateArtifacts, DesktopUpdatePlatform, DesktopUpdateRelease, DesktopUpdateStatus } from '@/api/admin/desktop'
 import type { Column } from '@/components/common/types'
 import { useAppStore } from '@/stores/app'
 import { formatDateTime } from '@/utils/format'
@@ -201,6 +223,33 @@ const status = ref<DesktopUpdateStatus | ''>('')
 const pagination = reactive({ page: 1, page_size: getPersistedPageSize(), total: 0 })
 const showDraft = ref(false)
 const showPublish = ref(false)
+const promoting = ref(false)
+const grayRelease = ref(false)
+const audienceSearch = ref('')
+const audienceIDs = ref<number[]>([])
+const audienceOptions = ref<DesktopOrganization[]>([])
+const audiencePage = ref(1)
+const audienceTotal = ref(0)
+const audienceLoading = ref(false)
+const audienceError = ref('')
+let audienceController: AbortController | undefined
+let audienceTimer: ReturnType<typeof setTimeout> | undefined
+async function loadAudience() {
+ audienceController?.abort()
+ const controller = new AbortController()
+ audienceController = controller
+ audienceLoading.value = true; audienceError.value = ''
+ try {
+  const result = await adminAPI.desktop.listOrganizations(audiencePage.value, 30, { search: audienceSearch.value, status: 'active' }, controller.signal)
+  if (!controller.signal.aborted) { audienceOptions.value = result.items; audienceTotal.value = result.total }
+ } catch (error) { if (!controller.signal.aborted) audienceError.value = errorMessage(error) }
+ finally { if (!controller.signal.aborted) audienceLoading.value = false }
+}
+watch(audienceSearch, () => { audiencePage.value = 1 })
+watch([grayRelease, audienceSearch, audiencePage, showPublish], () => {
+ clearTimeout(audienceTimer); audienceController?.abort()
+ if (grayRelease.value && showPublish.value && !promoting.value) audienceTimer = setTimeout(loadAudience, 200)
+})
 const showWithdraw = ref(false)
 const selected = ref<DesktopUpdateRelease | null>(null)
 const withdrawalReason = ref('')
@@ -219,9 +268,9 @@ const uploadProgress = reactive<Record<DesktopUpdatePlatform, number | null>>({
 let listController: AbortController | undefined
 
 const platforms: Array<{ key: DesktopUpdatePlatform; label: string; shortLabel: string; bundle: string }> = [
-  { key: 'darwin-aarch64', label: 'macOS Apple Silicon', shortLabel: 'macOS ARM64', bundle: '.dmg / .app' },
-  { key: 'darwin-x86_64', label: 'macOS Intel', shortLabel: 'macOS x64', bundle: '.dmg / .app' },
-  { key: 'windows-x86_64', label: 'Windows x64', shortLabel: 'Windows x64', bundle: '.msi / .exe' },
+  { key: 'darwin-aarch64', label: 'macOS Apple Silicon', shortLabel: 'macOS ARM64', bundle: '.app.tar.gz' },
+  { key: 'darwin-x86_64', label: 'macOS Intel', shortLabel: 'macOS x64', bundle: '.app.tar.gz' },
+  { key: 'windows-x86_64', label: 'Windows x64', shortLabel: 'Windows x64', bundle: '.nsis.zip' },
 ]
 
 function emptyArtifact(signature = ''): DesktopUpdateArtifact {
@@ -238,9 +287,9 @@ function emptyArtifacts(): DesktopUpdateArtifacts {
 
 function cloneArtifacts(artifacts: DesktopUpdateArtifacts): DesktopUpdateArtifacts {
   return {
-    'darwin-aarch64': { ...artifacts['darwin-aarch64'] },
-    'darwin-x86_64': { ...artifacts['darwin-x86_64'] },
-    'windows-x86_64': { ...artifacts['windows-x86_64'] },
+    'darwin-aarch64': { ...(artifacts['darwin-aarch64'] || emptyArtifact()) },
+    'darwin-x86_64': { ...(artifacts['darwin-x86_64'] || emptyArtifact()) },
+    'windows-x86_64': { ...(artifacts['windows-x86_64'] || emptyArtifact()) },
   }
 }
 
@@ -307,6 +356,14 @@ function selectArtifactFile(platform: DesktopUpdatePlatform, event: Event) {
   if (!file) return
   pendingFiles[platform] = file
   uploadProgress[platform] = null
+  const mismatch = artifactVersionError(file.name, form.version.trim())
+  if (mismatch) errors[`${platform}.file`] = mismatch
+}
+
+function artifactVersionError(fileName: string, version: string): string {
+  const match = fileName.match(/(?:^|[_-])(\d+\.\d+\.\d+)(?:[_-]|\.)/)
+  if (!version || !match || match[1] === version) return ''
+  return t('admin.desktop.updates.validation.artifactVersionMismatch', { artifactVersion: match[1], version })
 }
 
 function clearArtifactFile(platform: DesktopUpdatePlatform) {
@@ -336,7 +393,7 @@ function artifactDisplayMeta(platform: DesktopUpdatePlatform): string {
   if (pending) return `${formatFileSize(pending.size)} / ${t('admin.desktop.updates.pendingUpload')}`
   const artifact = form.artifacts[platform]
   if (artifact.url) return `${formatFileSize(artifact.size)} / SHA-256 ${artifact.sha256.slice(0, 12)}`
-  return t('admin.desktop.updates.bundleHint', { type: platform === 'windows-x86_64' ? '.msi / .exe' : '.dmg / .app' })
+  return t('admin.desktop.updates.bundleHint', { type: platform === 'windows-x86_64' ? '.nsis.zip' : '.app.tar.gz' })
 }
 
 function validateDraft(): boolean {
@@ -351,6 +408,8 @@ function validateDraft(): boolean {
     if (versionChanged && artifact.url && !pendingFiles[platform.key]) {
       errors[`${platform.key}.file`] = t('admin.desktop.updates.validation.versionChangedReupload')
     }
+    const mismatch = artifactVersionError(pendingFiles[platform.key]?.name || artifact.file_name, nextVersion)
+    if (mismatch) errors[`${platform.key}.file`] = mismatch
   }
   return Object.keys(errors).length === 0
 }
@@ -419,25 +478,46 @@ async function saveDraft() {
 }
 
 function hasCompleteArtifacts(release: DesktopUpdateRelease): boolean {
-  return platforms.every(({ key }) => {
+  const uploaded = platforms.filter(({ key }) => release.artifacts[key]?.url)
+  return uploaded.length > 0 && uploaded.every(({ key }) => {
     const artifact = release.artifacts[key]
-    return artifact.url.trim() !== '' && artifact.object_key.trim() !== '' && artifact.sha256.trim() !== '' && artifact.size > 0 && artifact.signature.trim() !== ''
+    return artifact.object_key.trim() !== '' && artifact.sha256.trim() !== '' && artifact.size > 0 && artifact.signature.trim() !== ''
   })
 }
 
 function openPublish(release: DesktopUpdateRelease) {
+  for (const { key } of platforms) {
+    const mismatch = artifactVersionError(release.artifacts[key]?.file_name || '', release.version)
+    if (mismatch) {
+      appStore.showError(mismatch)
+      return
+    }
+  }
   if (!hasCompleteArtifacts(release)) {
     appStore.showError(t('admin.desktop.updates.validation.publishArtifacts'))
     return
   }
   selected.value = release
+  promoting.value = false; grayRelease.value = false; audienceIDs.value = []; audienceSearch.value = ''; audiencePage.value = 1
   showPublish.value = true
 }
+function openPromote(release: DesktopUpdateRelease) { selected.value = release; promoting.value = true; grayRelease.value = false; showPublish.value = true }
 function closePublish() { if (!saving.value) showPublish.value = false }
 async function publishRelease() {
-  if (!selected.value) return
+  if (!selected.value || (grayRelease.value && !promoting.value && !audienceIDs.value.length)) return
   saving.value = true
-  try { await adminAPI.desktop.publishUpdateRelease(selected.value.public_id); appStore.showSuccess(t('admin.desktop.updates.published')); showPublish.value = false; await loadReleases() }
+  try {
+    if (promoting.value) {
+      await adminAPI.desktop.promoteUpdateRelease(selected.value.public_id)
+    } else {
+      await adminAPI.desktop.publishUpdateRelease(selected.value.public_id, {
+        rollout_mode: grayRelease.value ? 'gray' : 'full',
+        gateway_user_ids: grayRelease.value ? audienceIDs.value : [],
+      })
+    }
+    appStore.showSuccess(t('admin.desktop.updates.published'))
+    showPublish.value = false
+    await loadReleases() }
   catch (error) { appStore.showError(errorMessage(error)) }
   finally { saving.value = false }
 }
@@ -455,7 +535,7 @@ async function withdrawRelease() {
 }
 
 onMounted(loadReleases)
-onBeforeUnmount(() => listController?.abort())
+onBeforeUnmount(() => { listController?.abort(); audienceController?.abort(); clearTimeout(audienceTimer) })
 </script>
 
 <style scoped>

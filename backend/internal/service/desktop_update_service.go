@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -37,21 +38,23 @@ const (
 )
 
 var (
-	ErrDesktopUpdateNotFound       = infraerrors.NotFound("DESKTOP_UPDATE_NOT_FOUND", "desktop update release not found")
-	ErrDesktopUpdateVersionExists  = infraerrors.Conflict("DESKTOP_UPDATE_VERSION_EXISTS", "desktop update version already exists")
-	ErrDesktopUpdateInvalidVersion = infraerrors.BadRequest("DESKTOP_UPDATE_VERSION_INVALID", "desktop update version must use MAJOR.MINOR.PATCH")
-	ErrDesktopUpdateInvalidFields  = infraerrors.BadRequest("DESKTOP_UPDATE_FIELDS_INVALID", "desktop update fields are invalid")
-	ErrDesktopUpdateInvalidState   = infraerrors.Conflict("DESKTOP_UPDATE_STATE_INVALID", "desktop update release state does not allow this operation")
-	ErrDesktopUpdateNotNewer       = infraerrors.Conflict("DESKTOP_UPDATE_VERSION_NOT_NEWER", "desktop update version must be newer than every published release")
-	ErrDesktopUpdateUnsupported    = infraerrors.BadRequest("DESKTOP_UPDATE_PLATFORM_UNSUPPORTED", "desktop update platform is not supported")
-	ErrDesktopUpdateMetadata       = infraerrors.New(http.StatusInternalServerError, "DESKTOP_UPDATE_METADATA_INVALID", "published desktop update metadata is invalid")
-	ErrDesktopUpdateReasonRequired = infraerrors.BadRequest("DESKTOP_UPDATE_WITHDRAWAL_REASON_REQUIRED", "withdrawal reason is required")
-	ErrDesktopUpdateStorageMissing = infraerrors.New(http.StatusServiceUnavailable, "DESKTOP_UPDATE_STORAGE_NOT_CONFIGURED", "desktop update object storage is not configured")
-	ErrDesktopUpdateUploadFailed   = infraerrors.New(http.StatusBadGateway, "DESKTOP_UPDATE_UPLOAD_FAILED", "desktop update artifact upload failed")
-	ErrDesktopUpdateUploadTooLarge = infraerrors.New(http.StatusRequestEntityTooLarge, "DESKTOP_UPDATE_UPLOAD_TOO_LARGE", "desktop update artifact exceeds the upload limit")
+	ErrDesktopUpdateNotFound                = infraerrors.NotFound("DESKTOP_UPDATE_NOT_FOUND", "desktop update release not found")
+	ErrDesktopUpdateVersionExists           = infraerrors.Conflict("DESKTOP_UPDATE_VERSION_EXISTS", "desktop update version already exists")
+	ErrDesktopUpdateInvalidVersion          = infraerrors.BadRequest("DESKTOP_UPDATE_VERSION_INVALID", "desktop update version must use MAJOR.MINOR.PATCH")
+	ErrDesktopUpdateInvalidFields           = infraerrors.BadRequest("DESKTOP_UPDATE_FIELDS_INVALID", "desktop update fields are invalid")
+	ErrDesktopUpdateInvalidState            = infraerrors.Conflict("DESKTOP_UPDATE_STATE_INVALID", "desktop update release state does not allow this operation")
+	ErrDesktopUpdateNotNewer                = infraerrors.Conflict("DESKTOP_UPDATE_VERSION_NOT_NEWER", "desktop update version must be newer than every published release")
+	ErrDesktopUpdateUnsupported             = infraerrors.BadRequest("DESKTOP_UPDATE_PLATFORM_UNSUPPORTED", "desktop update platform is not supported")
+	ErrDesktopUpdateMetadata                = infraerrors.New(http.StatusInternalServerError, "DESKTOP_UPDATE_METADATA_INVALID", "published desktop update metadata is invalid")
+	ErrDesktopUpdateReasonRequired          = infraerrors.BadRequest("DESKTOP_UPDATE_WITHDRAWAL_REASON_REQUIRED", "withdrawal reason is required")
+	ErrDesktopUpdateStorageMissing          = infraerrors.New(http.StatusServiceUnavailable, "DESKTOP_UPDATE_STORAGE_NOT_CONFIGURED", "desktop update object storage is not configured")
+	ErrDesktopUpdateUploadFailed            = infraerrors.New(http.StatusBadGateway, "DESKTOP_UPDATE_UPLOAD_FAILED", "desktop update artifact upload failed")
+	ErrDesktopUpdateUploadTooLarge          = infraerrors.New(http.StatusRequestEntityTooLarge, "DESKTOP_UPDATE_UPLOAD_TOO_LARGE", "desktop update artifact exceeds the upload limit")
+	ErrDesktopUpdateArtifactVersionMismatch = infraerrors.BadRequest("DESKTOP_UPDATE_ARTIFACT_VERSION_MISMATCH", "desktop update artifact version does not match release version")
 
-	desktopUpdateVersionPattern = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$`)
-	desktopUpdatePlatforms      = []string{DesktopUpdateDarwinARM64, DesktopUpdateDarwinX64, DesktopUpdateWindowsX64}
+	desktopUpdateVersionPattern         = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$`)
+	desktopUpdateArtifactVersionPattern = regexp.MustCompile(`(?:^|[_-])([0-9]+\.[0-9]+\.[0-9]+)(?:[_-]|\.)`)
+	desktopUpdatePlatforms              = []string{DesktopUpdateDarwinARM64, DesktopUpdateDarwinX64, DesktopUpdateWindowsX64}
 )
 
 type DesktopUpdateArtifact struct {
@@ -72,6 +75,8 @@ type DesktopUpdateRelease struct {
 	Notes            string
 	Artifacts        DesktopUpdateArtifacts
 	Status           string
+	RolloutMode      string
+	GatewayUserIDs   []int64
 	CreatedBy        *int64
 	UpdatedBy        *int64
 	PublishedBy      *int64
@@ -90,6 +95,42 @@ type DesktopUpdateDraftInput struct {
 	ActorID   int64
 }
 
+// GatewayUserIDs select enterprises currently bound to these users.
+type DesktopUpdatePublishInput struct {
+	RolloutMode    string  `json:"rollout_mode"`
+	GatewayUserIDs []int64 `json:"gateway_user_ids"`
+	Promote        bool    `json:"-"`
+}
+
+func NormalizeDesktopUpdatePublication(input DesktopUpdatePublishInput) (DesktopUpdatePublishInput, error) {
+	if input.RolloutMode == "" {
+		input.RolloutMode = "full"
+	}
+	if input.RolloutMode != "full" && input.RolloutMode != "gray" {
+		return input, ErrDesktopUpdateInvalidFields
+	}
+	if input.RolloutMode == "full" {
+		input.GatewayUserIDs = []int64{}
+		return input, nil
+	}
+	if len(input.GatewayUserIDs) == 0 || len(input.GatewayUserIDs) > 1000 {
+		return input, ErrDesktopUpdateInvalidFields
+	}
+	seen := make(map[int64]bool)
+	ids := make([]int64, 0, len(input.GatewayUserIDs))
+	for _, id := range input.GatewayUserIDs {
+		if id <= 0 {
+			return input, ErrDesktopUpdateInvalidFields
+		}
+		if !seen[id] {
+			ids = append(ids, id)
+			seen[id] = true
+		}
+	}
+	input.GatewayUserIDs = ids
+	return input, nil
+}
+
 type DesktopUpdateListFilters struct {
 	Status string
 }
@@ -106,8 +147,9 @@ type DesktopUpdateRepository interface {
 	Create(ctx context.Context, release *DesktopUpdateRelease) error
 	List(ctx context.Context, params pagination.PaginationParams, filters DesktopUpdateListFilters) ([]DesktopUpdateRelease, *pagination.PaginationResult, error)
 	Get(ctx context.Context, publicID string) (*DesktopUpdateRelease, error)
+	GetByVersion(ctx context.Context, version string) (*DesktopUpdateRelease, error)
 	UpdateDraft(ctx context.Context, publicID string, input DesktopUpdateDraftInput) (*DesktopUpdateRelease, error)
-	Publish(ctx context.Context, publicID string, actorID int64, publishedAt time.Time) (*DesktopUpdateRelease, error)
+	Publish(ctx context.Context, publicID string, actorID int64, publishedAt time.Time, options ...DesktopUpdatePublishInput) (*DesktopUpdateRelease, error)
 	Withdraw(ctx context.Context, publicID string, actorID int64, reason string, withdrawnAt time.Time) (*DesktopUpdateRelease, error)
 	ListPublished(ctx context.Context) ([]DesktopUpdateRelease, error)
 }
@@ -157,6 +199,9 @@ func (s *DesktopUpdateService) UploadArtifact(
 	}
 	fileName, err = normalizeDesktopUpdateArtifactFileName(fileName)
 	if err != nil {
+		return nil, err
+	}
+	if err := validateDesktopUpdateArtifactVersion(release.Version, fileName); err != nil {
 		return nil, err
 	}
 	if body == nil || size <= 0 {
@@ -251,8 +296,27 @@ func (s *DesktopUpdateService) Get(ctx context.Context, publicID string) (*Deskt
 	return s.repo.Get(ctx, strings.TrimSpace(publicID))
 }
 
-func (s *DesktopUpdateService) Publish(ctx context.Context, publicID string, actorID int64) (*DesktopUpdateRelease, error) {
-	return s.repo.Publish(ctx, strings.TrimSpace(publicID), actorID, s.now().UTC())
+func (s *DesktopUpdateService) Publish(ctx context.Context, publicID string, actorID int64, options ...DesktopUpdatePublishInput) (*DesktopUpdateRelease, error) {
+	input := DesktopUpdatePublishInput{}
+	if len(options) > 0 {
+		input = options[0]
+	}
+	input, err := NormalizeDesktopUpdatePublication(input)
+	if err != nil {
+		return nil, err
+	}
+	release, err := s.Get(ctx, publicID)
+	if err != nil {
+		return nil, err
+	}
+	if err := ValidateDesktopUpdateArtifactVersions(release.Version, release.Artifacts); err != nil {
+		return nil, err
+	}
+	return s.repo.Publish(ctx, strings.TrimSpace(publicID), actorID, s.now().UTC(), input)
+}
+
+func (s *DesktopUpdateService) Promote(ctx context.Context, publicID string, actorID int64) (*DesktopUpdateRelease, error) {
+	return s.Publish(ctx, publicID, actorID, DesktopUpdatePublishInput{RolloutMode: "full", Promote: true})
 }
 
 func (s *DesktopUpdateService) Withdraw(ctx context.Context, publicID string, actorID int64, reason string) (*DesktopUpdateRelease, error) {
@@ -263,7 +327,7 @@ func (s *DesktopUpdateService) Withdraw(ctx context.Context, publicID string, ac
 	return s.repo.Withdraw(ctx, strings.TrimSpace(publicID), actorID, reason, s.now().UTC())
 }
 
-func (s *DesktopUpdateService) Check(ctx context.Context, target, arch, currentVersion string) (*DesktopUpdateCheckResult, bool, error) {
+func (s *DesktopUpdateService) Check(ctx context.Context, target, arch, currentVersion string, gatewayUserIDs ...int64) (*DesktopUpdateCheckResult, bool, error) {
 	version, err := NormalizeDesktopUpdateVersion(currentVersion)
 	if err != nil {
 		return nil, false, err
@@ -282,6 +346,25 @@ func (s *DesktopUpdateService) Check(ctx context.Context, target, arch, currentV
 	var latest *DesktopUpdateRelease
 	for i := range releases {
 		candidate := &releases[i]
+		if candidate.RolloutMode == "gray" {
+			allowed := false
+			if len(gatewayUserIDs) > 0 && gatewayUserIDs[0] > 0 {
+				for _, id := range candidate.GatewayUserIDs {
+					if id == gatewayUserIDs[0] {
+						allowed = true
+						break
+					}
+				}
+			}
+			if !allowed {
+				continue
+			}
+		} else if candidate.RolloutMode != "" && candidate.RolloutMode != "full" {
+			return nil, false, ErrDesktopUpdateMetadata
+		}
+		if candidate.Artifacts[platform].URL == "" {
+			continue
+		}
 		if _, err := NormalizeDesktopUpdateVersion(candidate.Version); err != nil {
 			return nil, false, ErrDesktopUpdateMetadata.WithCause(err)
 		}
@@ -289,6 +372,9 @@ func (s *DesktopUpdateService) Check(ctx context.Context, target, arch, currentV
 			return nil, false, ErrDesktopUpdateMetadata
 		}
 		if _, err := NormalizeDesktopUpdateArtifacts(candidate.Artifacts); err != nil {
+			return nil, false, ErrDesktopUpdateMetadata.WithCause(err)
+		}
+		if err := ValidateDesktopUpdateArtifactVersions(candidate.Version, candidate.Artifacts); err != nil {
 			return nil, false, ErrDesktopUpdateMetadata.WithCause(err)
 		}
 		if latest == nil || semver.Compare("v"+candidate.Version, "v"+latest.Version) > 0 {
@@ -322,20 +408,30 @@ func normalizeDesktopUpdateDraftArtifacts(value DesktopUpdateArtifacts) (Desktop
 }
 
 func normalizeDesktopUpdateArtifacts(value DesktopUpdateArtifacts, requireComplete bool) (DesktopUpdateArtifacts, error) {
-	if len(value) != len(desktopUpdatePlatforms) {
-		return nil, ErrDesktopUpdateInvalidFields.WithMetadata(map[string]string{"field": "artifacts"})
+	if len(value) > len(desktopUpdatePlatforms) {
+		return nil, ErrDesktopUpdateInvalidFields
 	}
-	normalized := make(DesktopUpdateArtifacts, len(desktopUpdatePlatforms))
-	for _, platform := range desktopUpdatePlatforms {
-		artifact, ok := value[platform]
-		if !ok {
-			return nil, ErrDesktopUpdateInvalidFields.WithMetadata(map[string]string{"field": "artifacts." + platform})
+	normalized := make(DesktopUpdateArtifacts)
+	if !requireComplete {
+		for _, platform := range desktopUpdatePlatforms {
+			normalized[platform] = DesktopUpdateArtifact{}
+		}
+	}
+	for platform, artifact := range value {
+		if _, ok := desktopUpdatePlatformFromKey(platform); !ok {
+			return nil, ErrDesktopUpdateUnsupported
+		}
+		if requireComplete && artifact == (DesktopUpdateArtifact{}) {
+			continue
 		}
 		artifact, err := normalizeDesktopUpdateArtifact(platform, artifact, requireComplete)
 		if err != nil {
 			return nil, err
 		}
 		normalized[platform] = artifact
+	}
+	if requireComplete && len(normalized) == 0 {
+		return nil, ErrDesktopUpdateInvalidFields
 	}
 	return normalized, nil
 }
@@ -384,6 +480,26 @@ func normalizeDesktopUpdateArtifactFileName(fileName string) (string, error) {
 		return "", ErrDesktopUpdateInvalidFields.WithMetadata(map[string]string{"field": "file_name"})
 	}
 	return fileName, nil
+}
+
+func validateDesktopUpdateArtifactVersion(version, fileName string) error {
+	match := desktopUpdateArtifactVersionPattern.FindStringSubmatch(fileName)
+	// Legacy/custom filenames without a version keep their existing behavior.
+	if match == nil || match[1] == version {
+		return nil
+	}
+	return ErrDesktopUpdateArtifactVersionMismatch.WithMetadata(map[string]string{
+		"expected_version": version, "artifact_version": match[1],
+	})
+}
+
+func ValidateDesktopUpdateArtifactVersions(version string, artifacts DesktopUpdateArtifacts) error {
+	for _, artifact := range artifacts {
+		if err := validateDesktopUpdateArtifactVersion(version, artifact.FileName); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func buildDesktopUpdateObjectKey(prefix, version, platform, uploadID, fileName string) string {
@@ -481,6 +597,9 @@ func normalizeDesktopUpdateDraft(input DesktopUpdateDraftInput) (DesktopUpdateDr
 	if err != nil {
 		return DesktopUpdateDraftInput{}, err
 	}
+	if err := ValidateDesktopUpdateArtifactVersions(version, artifacts); err != nil {
+		return DesktopUpdateDraftInput{}, err
+	}
 	input.Version, input.Notes, input.Artifacts = version, notes, artifacts
 	return input, nil
 }
@@ -493,4 +612,26 @@ func desktopUpdatePlatform(target, arch string) (string, bool) {
 	default:
 		return "", false
 	}
+}
+
+// ImportDraft is safe to retry, but never replaces a published or withdrawn release.
+func (s *DesktopUpdateService) ImportDraft(ctx context.Context, version string) (*DesktopUpdateRelease, error) {
+	version, err := NormalizeDesktopUpdateVersion(version)
+	if err != nil {
+		return nil, err
+	}
+	release, err := s.repo.GetByVersion(ctx, version)
+	if errors.Is(err, ErrDesktopUpdateNotFound) {
+		release, err = s.CreateDraft(ctx, DesktopUpdateDraftInput{Version: version, Artifacts: DesktopUpdateArtifacts{}})
+		if errors.Is(err, ErrDesktopUpdateVersionExists) {
+			release, err = s.repo.GetByVersion(ctx, version)
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+	if release.Status != DesktopUpdateStatusDraft {
+		return nil, ErrDesktopUpdateInvalidState
+	}
+	return release, nil
 }

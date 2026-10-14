@@ -84,6 +84,11 @@ func Status(v string) predicate.DesktopUpdateRelease {
 	return predicate.DesktopUpdateRelease(sql.FieldEQ(FieldStatus, v))
 }
 
+// RolloutMode applies equality check predicate on the "rollout_mode" field. It's identical to RolloutModeEQ.
+func RolloutMode(v string) predicate.DesktopUpdateRelease {
+	return predicate.DesktopUpdateRelease(sql.FieldEQ(FieldRolloutMode, v))
+}
+
 // CreatedBy applies equality check predicate on the "created_by" field. It's identical to CreatedByEQ.
 func CreatedBy(v int64) predicate.DesktopUpdateRelease {
 	return predicate.DesktopUpdateRelease(sql.FieldEQ(FieldCreatedBy, v))
@@ -457,6 +462,71 @@ func StatusEqualFold(v string) predicate.DesktopUpdateRelease {
 // StatusContainsFold applies the ContainsFold predicate on the "status" field.
 func StatusContainsFold(v string) predicate.DesktopUpdateRelease {
 	return predicate.DesktopUpdateRelease(sql.FieldContainsFold(FieldStatus, v))
+}
+
+// RolloutModeEQ applies the EQ predicate on the "rollout_mode" field.
+func RolloutModeEQ(v string) predicate.DesktopUpdateRelease {
+	return predicate.DesktopUpdateRelease(sql.FieldEQ(FieldRolloutMode, v))
+}
+
+// RolloutModeNEQ applies the NEQ predicate on the "rollout_mode" field.
+func RolloutModeNEQ(v string) predicate.DesktopUpdateRelease {
+	return predicate.DesktopUpdateRelease(sql.FieldNEQ(FieldRolloutMode, v))
+}
+
+// RolloutModeIn applies the In predicate on the "rollout_mode" field.
+func RolloutModeIn(vs ...string) predicate.DesktopUpdateRelease {
+	return predicate.DesktopUpdateRelease(sql.FieldIn(FieldRolloutMode, vs...))
+}
+
+// RolloutModeNotIn applies the NotIn predicate on the "rollout_mode" field.
+func RolloutModeNotIn(vs ...string) predicate.DesktopUpdateRelease {
+	return predicate.DesktopUpdateRelease(sql.FieldNotIn(FieldRolloutMode, vs...))
+}
+
+// RolloutModeGT applies the GT predicate on the "rollout_mode" field.
+func RolloutModeGT(v string) predicate.DesktopUpdateRelease {
+	return predicate.DesktopUpdateRelease(sql.FieldGT(FieldRolloutMode, v))
+}
+
+// RolloutModeGTE applies the GTE predicate on the "rollout_mode" field.
+func RolloutModeGTE(v string) predicate.DesktopUpdateRelease {
+	return predicate.DesktopUpdateRelease(sql.FieldGTE(FieldRolloutMode, v))
+}
+
+// RolloutModeLT applies the LT predicate on the "rollout_mode" field.
+func RolloutModeLT(v string) predicate.DesktopUpdateRelease {
+	return predicate.DesktopUpdateRelease(sql.FieldLT(FieldRolloutMode, v))
+}
+
+// RolloutModeLTE applies the LTE predicate on the "rollout_mode" field.
+func RolloutModeLTE(v string) predicate.DesktopUpdateRelease {
+	return predicate.DesktopUpdateRelease(sql.FieldLTE(FieldRolloutMode, v))
+}
+
+// RolloutModeContains applies the Contains predicate on the "rollout_mode" field.
+func RolloutModeContains(v string) predicate.DesktopUpdateRelease {
+	return predicate.DesktopUpdateRelease(sql.FieldContains(FieldRolloutMode, v))
+}
+
+// RolloutModeHasPrefix applies the HasPrefix predicate on the "rollout_mode" field.
+func RolloutModeHasPrefix(v string) predicate.DesktopUpdateRelease {
+	return predicate.DesktopUpdateRelease(sql.FieldHasPrefix(FieldRolloutMode, v))
+}
+
+// RolloutModeHasSuffix applies the HasSuffix predicate on the "rollout_mode" field.
+func RolloutModeHasSuffix(v string) predicate.DesktopUpdateRelease {
+	return predicate.DesktopUpdateRelease(sql.FieldHasSuffix(FieldRolloutMode, v))
+}
+
+// RolloutModeEqualFold applies the EqualFold predicate on the "rollout_mode" field.
+func RolloutModeEqualFold(v string) predicate.DesktopUpdateRelease {
+	return predicate.DesktopUpdateRelease(sql.FieldEqualFold(FieldRolloutMode, v))
+}
+
+// RolloutModeContainsFold applies the ContainsFold predicate on the "rollout_mode" field.
+func RolloutModeContainsFold(v string) predicate.DesktopUpdateRelease {
+	return predicate.DesktopUpdateRelease(sql.FieldContainsFold(FieldRolloutMode, v))
 }
 
 // CreatedByEQ applies the EQ predicate on the "created_by" field.
