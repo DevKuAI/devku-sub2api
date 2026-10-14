@@ -1118,6 +1118,8 @@ var (
 		{Name: "notes", Type: field.TypeString, Default: "", SchemaType: map[string]string{"postgres": "text"}},
 		{Name: "artifacts", Type: field.TypeJSON, SchemaType: map[string]string{"postgres": "jsonb"}},
 		{Name: "status", Type: field.TypeString, Size: 20, Default: "draft"},
+		{Name: "rollout_mode", Type: field.TypeString, Default: "full"},
+		{Name: "gateway_user_ids", Type: field.TypeJSON},
 		{Name: "created_by", Type: field.TypeInt64, Nullable: true},
 		{Name: "updated_by", Type: field.TypeInt64, Nullable: true},
 		{Name: "published_by", Type: field.TypeInt64, Nullable: true},
@@ -1135,7 +1137,7 @@ var (
 			{
 				Name:    "desktopupdaterelease_status_published_at",
 				Unique:  false,
-				Columns: []*schema.Column{DesktopUpdateReleasesColumns[7], DesktopUpdateReleasesColumns[12]},
+				Columns: []*schema.Column{DesktopUpdateReleasesColumns[7], DesktopUpdateReleasesColumns[14]},
 			},
 			{
 				Name:    "desktopupdaterelease_created_at",

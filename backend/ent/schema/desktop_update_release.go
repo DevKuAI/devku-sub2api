@@ -33,6 +33,8 @@ func (DesktopUpdateRelease) Fields() []ent.Field {
 		field.String("notes").Default("").SchemaType(map[string]string{dialect.Postgres: "text"}),
 		field.JSON("artifacts", json.RawMessage{}).SchemaType(map[string]string{dialect.Postgres: "jsonb"}),
 		field.String("status").MaxLen(20).Default("draft"),
+		field.String("rollout_mode").Default("full"),
+		field.JSON("gateway_user_ids", []int64{}).Default([]int64{}),
 		field.Int64("created_by").Optional().Nillable(),
 		field.Int64("updated_by").Optional().Nillable(),
 		field.Int64("published_by").Optional().Nillable(),

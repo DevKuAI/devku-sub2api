@@ -1297,6 +1297,14 @@ func init() {
 	desktopupdaterelease.DefaultStatus = desktopupdatereleaseDescStatus.Default.(string)
 	// desktopupdaterelease.StatusValidator is a validator for the "status" field. It is called by the builders before save.
 	desktopupdaterelease.StatusValidator = desktopupdatereleaseDescStatus.Validators[0].(func(string) error)
+	// desktopupdatereleaseDescRolloutMode is the schema descriptor for rollout_mode field.
+	desktopupdatereleaseDescRolloutMode := desktopupdatereleaseFields[5].Descriptor()
+	// desktopupdaterelease.DefaultRolloutMode holds the default value on creation for the rollout_mode field.
+	desktopupdaterelease.DefaultRolloutMode = desktopupdatereleaseDescRolloutMode.Default.(string)
+	// desktopupdatereleaseDescGatewayUserIds is the schema descriptor for gateway_user_ids field.
+	desktopupdatereleaseDescGatewayUserIds := desktopupdatereleaseFields[6].Descriptor()
+	// desktopupdaterelease.DefaultGatewayUserIds holds the default value on creation for the gateway_user_ids field.
+	desktopupdaterelease.DefaultGatewayUserIds = desktopupdatereleaseDescGatewayUserIds.Default.([]int64)
 	errorpassthroughruleMixin := schema.ErrorPassthroughRule{}.Mixin()
 	errorpassthroughruleMixinFields0 := errorpassthroughruleMixin[0].Fields()
 	_ = errorpassthroughruleMixinFields0

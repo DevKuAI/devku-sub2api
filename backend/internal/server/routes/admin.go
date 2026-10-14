@@ -154,6 +154,7 @@ func registerDesktopUpdateAdminRoutes(admin *gin.RouterGroup, h *handler.Handler
 	updates.PATCH("/:release_id", middleware.DesktopAdminBodyLimit(), h.Admin.DesktopUpdate.Update)
 	updates.POST("/:release_id/artifacts/:platform", middleware.DesktopUpdateArtifactBodyLimit(cfg), h.Admin.DesktopUpdate.UploadArtifact)
 	updates.POST("/:release_id/publish", middleware.DesktopAdminBodyLimit(), h.Admin.DesktopUpdate.Publish)
+	updates.POST("/:release_id/promote", middleware.DesktopAdminBodyLimit(), h.Admin.DesktopUpdate.Promote)
 	updates.POST("/:release_id/withdraw", middleware.DesktopAdminBodyLimit(), h.Admin.DesktopUpdate.Withdraw)
 }
 

@@ -33,6 +33,10 @@ type DesktopUpdateRelease struct {
 	Artifacts jsontext.Value `json:"artifacts,omitempty"`
 	// Status holds the value of the "status" field.
 	Status string `json:"status,omitempty"`
+	// RolloutMode holds the value of the "rollout_mode" field.
+	RolloutMode string `json:"rollout_mode,omitempty"`
+	// GatewayUserIds holds the value of the "gateway_user_ids" field.
+	GatewayUserIds []int64 `json:"gateway_user_ids,omitempty"`
 	// CreatedBy holds the value of the "created_by" field.
 	CreatedBy *int64 `json:"created_by,omitempty"`
 	// UpdatedBy holds the value of the "updated_by" field.
@@ -55,11 +59,11 @@ func (*DesktopUpdateRelease) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case desktopupdaterelease.FieldArtifacts:
+		case desktopupdaterelease.FieldArtifacts, desktopupdaterelease.FieldGatewayUserIds:
 			values[i] = new([]byte)
 		case desktopupdaterelease.FieldID, desktopupdaterelease.FieldCreatedBy, desktopupdaterelease.FieldUpdatedBy, desktopupdaterelease.FieldPublishedBy, desktopupdaterelease.FieldWithdrawnBy:
 			values[i] = new(sql.NullInt64)
-		case desktopupdaterelease.FieldPublicID, desktopupdaterelease.FieldVersion, desktopupdaterelease.FieldNotes, desktopupdaterelease.FieldStatus, desktopupdaterelease.FieldWithdrawalReason:
+		case desktopupdaterelease.FieldPublicID, desktopupdaterelease.FieldVersion, desktopupdaterelease.FieldNotes, desktopupdaterelease.FieldStatus, desktopupdaterelease.FieldRolloutMode, desktopupdaterelease.FieldWithdrawalReason:
 			values[i] = new(sql.NullString)
 		case desktopupdaterelease.FieldCreatedAt, desktopupdaterelease.FieldUpdatedAt, desktopupdaterelease.FieldPublishedAt, desktopupdaterelease.FieldWithdrawnAt:
 			values[i] = new(sql.NullTime)
@@ -127,6 +131,20 @@ func (_m *DesktopUpdateRelease) assignValues(columns []string, values []any) err
 				return fmt.Errorf("unexpected type %T for field status", values[i])
 			} else if value.Valid {
 				_m.Status = value.String
+			}
+		case desktopupdaterelease.FieldRolloutMode:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field rollout_mode", values[i])
+			} else if value.Valid {
+				_m.RolloutMode = value.String
+			}
+		case desktopupdaterelease.FieldGatewayUserIds:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field gateway_user_ids", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.GatewayUserIds); err != nil {
+					return fmt.Errorf("unmarshal field gateway_user_ids: %w", err)
+				}
 			}
 		case desktopupdaterelease.FieldCreatedBy:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -233,6 +251,12 @@ func (_m *DesktopUpdateRelease) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(_m.Status)
+	builder.WriteString(", ")
+	builder.WriteString("rollout_mode=")
+	builder.WriteString(_m.RolloutMode)
+	builder.WriteString(", ")
+	builder.WriteString("gateway_user_ids=")
+	builder.WriteString(fmt.Sprintf("%v", _m.GatewayUserIds))
 	builder.WriteString(", ")
 	if v := _m.CreatedBy; v != nil {
 		builder.WriteString("created_by=")

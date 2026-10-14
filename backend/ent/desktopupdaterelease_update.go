@@ -90,6 +90,32 @@ func (_u *DesktopUpdateReleaseUpdate) SetNillableStatus(v *string) *DesktopUpdat
 	return _u
 }
 
+// SetRolloutMode sets the "rollout_mode" field.
+func (_u *DesktopUpdateReleaseUpdate) SetRolloutMode(v string) *DesktopUpdateReleaseUpdate {
+	_u.mutation.SetRolloutMode(v)
+	return _u
+}
+
+// SetNillableRolloutMode sets the "rollout_mode" field if the given value is not nil.
+func (_u *DesktopUpdateReleaseUpdate) SetNillableRolloutMode(v *string) *DesktopUpdateReleaseUpdate {
+	if v != nil {
+		_u.SetRolloutMode(*v)
+	}
+	return _u
+}
+
+// SetGatewayUserIds sets the "gateway_user_ids" field.
+func (_u *DesktopUpdateReleaseUpdate) SetGatewayUserIds(v []int64) *DesktopUpdateReleaseUpdate {
+	_u.mutation.SetGatewayUserIds(v)
+	return _u
+}
+
+// AppendGatewayUserIds appends value to the "gateway_user_ids" field.
+func (_u *DesktopUpdateReleaseUpdate) AppendGatewayUserIds(v []int64) *DesktopUpdateReleaseUpdate {
+	_u.mutation.AppendGatewayUserIds(v)
+	return _u
+}
+
 // SetCreatedBy sets the "created_by" field.
 func (_u *DesktopUpdateReleaseUpdate) SetCreatedBy(v int64) *DesktopUpdateReleaseUpdate {
 	_u.mutation.ResetCreatedBy()
@@ -346,6 +372,17 @@ func (_u *DesktopUpdateReleaseUpdate) sqlSave(ctx context.Context) (_node int, e
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(desktopupdaterelease.FieldStatus, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.RolloutMode(); ok {
+		_spec.SetField(desktopupdaterelease.FieldRolloutMode, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.GatewayUserIds(); ok {
+		_spec.SetField(desktopupdaterelease.FieldGatewayUserIds, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedGatewayUserIds(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, desktopupdaterelease.FieldGatewayUserIds, value)
+		})
+	}
 	if value, ok := _u.mutation.CreatedBy(); ok {
 		_spec.SetField(desktopupdaterelease.FieldCreatedBy, field.TypeInt64, value)
 	}
@@ -477,6 +514,32 @@ func (_u *DesktopUpdateReleaseUpdateOne) SetNillableStatus(v *string) *DesktopUp
 	if v != nil {
 		_u.SetStatus(*v)
 	}
+	return _u
+}
+
+// SetRolloutMode sets the "rollout_mode" field.
+func (_u *DesktopUpdateReleaseUpdateOne) SetRolloutMode(v string) *DesktopUpdateReleaseUpdateOne {
+	_u.mutation.SetRolloutMode(v)
+	return _u
+}
+
+// SetNillableRolloutMode sets the "rollout_mode" field if the given value is not nil.
+func (_u *DesktopUpdateReleaseUpdateOne) SetNillableRolloutMode(v *string) *DesktopUpdateReleaseUpdateOne {
+	if v != nil {
+		_u.SetRolloutMode(*v)
+	}
+	return _u
+}
+
+// SetGatewayUserIds sets the "gateway_user_ids" field.
+func (_u *DesktopUpdateReleaseUpdateOne) SetGatewayUserIds(v []int64) *DesktopUpdateReleaseUpdateOne {
+	_u.mutation.SetGatewayUserIds(v)
+	return _u
+}
+
+// AppendGatewayUserIds appends value to the "gateway_user_ids" field.
+func (_u *DesktopUpdateReleaseUpdateOne) AppendGatewayUserIds(v []int64) *DesktopUpdateReleaseUpdateOne {
+	_u.mutation.AppendGatewayUserIds(v)
 	return _u
 }
 
@@ -765,6 +828,17 @@ func (_u *DesktopUpdateReleaseUpdateOne) sqlSave(ctx context.Context) (_node *De
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(desktopupdaterelease.FieldStatus, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.RolloutMode(); ok {
+		_spec.SetField(desktopupdaterelease.FieldRolloutMode, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.GatewayUserIds(); ok {
+		_spec.SetField(desktopupdaterelease.FieldGatewayUserIds, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedGatewayUserIds(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, desktopupdaterelease.FieldGatewayUserIds, value)
+		})
 	}
 	if value, ok := _u.mutation.CreatedBy(); ok {
 		_spec.SetField(desktopupdaterelease.FieldCreatedBy, field.TypeInt64, value)

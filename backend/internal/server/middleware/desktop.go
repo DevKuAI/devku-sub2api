@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"crypto/subtle"
 	"errors"
 	"net/http"
 	"strings"
@@ -102,5 +103,39 @@ func DesktopSessionAuth(desktop *service.DesktopService) gin.HandlerFunc {
 			return
 		}
 		auth(c)
+	}
+}
+
+// Invalid or missing sessions receive only public releases, preserving old clients.
+func DesktopOptionalSessionAuth(desktop *service.DesktopService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token := bearerToken(c.GetHeader("Authorization"))
+		if desktop != nil && service.IsDesktopSessionToken(token) {
+			authorized, err := desktop.AuthorizeRequest(c.Request.Context(), token, c.GetHeader("X-Installation-ID"))
+			if err == nil && authorized != nil {
+				c.Set(desktopAuthorizedMemberContextKey, authorized.Member)
+			}
+		}
+		c.Next()
+	}
+}
+
+// Automation credentials grant no access to administration or publication routes.
+func DesktopUpdateUploadAuth(cfg *config.Config) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		expected := ""
+		if cfg != nil {
+			expected = cfg.DesktopUpdateUploadToken
+		}
+		if len(expected) < 32 {
+			c.AbortWithStatus(http.StatusServiceUnavailable)
+			return
+		}
+		token := bearerToken(c.GetHeader("Authorization"))
+		if subtle.ConstantTimeCompare([]byte(token), []byte(expected)) != 1 {
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+		c.Next()
 	}
 }

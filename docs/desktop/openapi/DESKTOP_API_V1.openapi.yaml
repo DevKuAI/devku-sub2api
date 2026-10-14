@@ -669,7 +669,7 @@ paths:
       summary: 创建 Desktop 更新草稿
       description: |
         此接口不受 `DESKTOP_ENABLED` 影响，请求体上限为 16 KiB。
-        `artifacts` 必须包含三个平台键；创建草稿时各产物元数据可以为空。
+        `artifacts` 可以只提供支持的平台键；返回值补齐三个平台的空占位，草稿元数据可以为空。
       security:
         - AdminBearer: []
       parameters:
@@ -787,6 +787,7 @@ paths:
       summary: 上传 Desktop 更新产物
       description: |
         仅 `draft` 状态可上传。默认文件上限为 200 MiB，可由部署配置覆盖。
+        文件名含版本号（例如 `Devku.Desktop_0.3.3_x64-setup.nsis.zip`）时，必须与草稿版本一致；否则返回 `400 DESKTOP_UPDATE_ARTIFACT_VERSION_MISMATCH`，不会上传。保存草稿和发布时也复核，防止旧更新包被标为新版本。此检查不解析安装包内部版本；不应通过重命名旧文件来发布新版本。
         macOS 文件名必须以 `.app.tar.gz` 结尾，Windows 文件名必须以 `.nsis.zip` 结尾。
         上传响应中的 `signature` 为空；签名后通过修改草稿接口写回完整 `artifacts`。
       security:
@@ -831,11 +832,17 @@ paths:
       tags: [Desktop Admin - Updates]
       operationId: publishDesktopUpdateRelease
       summary: 发布 Desktop 更新版本
-      description: 三个平台产物的 URL、Signature、Object Key、文件信息和 SHA-256 必须完整。
+      description: 至少一个平台已上传且完整。灰度按所选承载用户当前绑定的企业授权，发布后制品不可编辑。
       security:
         - AdminBearer: []
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DesktopUpdatePublishRequest'
       responses:
         '200':
           description: 更新版本已发布
@@ -856,6 +863,71 @@ paths:
           $ref: '#/components/responses/AdminError'
         '503':
           $ref: '#/components/responses/AdminError'
+
+  /api/v1/admin/desktop/updates/{release_id}/promote:
+    parameters:
+      - $ref: '#/components/parameters/ReleaseId'
+    post:
+      tags: [Desktop Admin - Updates]
+      operationId: promoteDesktopUpdateRelease
+      summary: 灰度转全量发布，保持版本、制品、签名及首次发布时间
+      security:
+        - AdminBearer: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: 已全量发布
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUpdateReleaseResponse'
+        '409':
+          $ref: '#/components/responses/AdminError'
+
+  /api/desktop/v1/releases/{version}/import:
+    put:
+      tags: [Desktop Updater]
+      operationId: importDesktopReleaseDraft
+      summary: CI 使用独立 Token 上传签名制品，仅创建或更新同版本草稿
+      security:
+        - DesktopReleaseUploadBearer: []
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/DesktopUpdateVersion'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              description: 至少一个平台文件与对应 .signature 字段。只能上传原始 updater 压缩包。
+              properties:
+                notes: {type: string, maxLength: 20000}
+                windows-x86_64: {type: string, format: binary}
+                windows-x86_64.signature: {type: string, maxLength: 8192}
+                darwin-aarch64: {type: string, format: binary}
+                darwin-aarch64.signature: {type: string, maxLength: 8192}
+                darwin-x86_64: {type: string, format: binary}
+                darwin-x86_64.signature: {type: string, maxLength: 8192}
+      responses:
+        '200':
+          description: 草稿及文件元数据，已发布或撤回版本禁止覆盖
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUpdateReleaseResponse'
+        '401':
+          description: 上传 Token 不正确
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '413':
+          description: 制品超过上传大小限制
+        '503':
+          description: 未配置上传 Token 或存储
 
   /api/v1/admin/desktop/updates/{release_id}/withdraw:
     parameters:
@@ -1234,10 +1306,19 @@ paths:
       operationId: checkDesktopUpdate
       summary: 检查 Desktop 软件更新
       description: |
-        无需认证，不受 `DESKTOP_ENABLED` 影响。返回全局最新 published 版本在目标平台上的更新信息。
+        匿名、旧版或无效会话只返回全量版本，不受 `DESKTOP_ENABLED` 影响。
+        提供有效 Desktop v2 会话及 X-Installation-ID 且 Desktop 已启用时，返回当前企业可见的最新版本。
+        灰度范围外或目标平台没有制品时，回退该平台上一适用版本。
         当前版本已是最新版本或更高版本时返回 `204`。
-      security: []
+      security:
+        - {}
+        - DesktopSessionBearer: []
       parameters:
+        - name: X-Installation-ID
+          in: header
+          required: false
+          schema: {type: string, format: uuid}
+          description: 使用 DesktopSessionBearer 时提供安装实例 ID。
         - name: target
           in: path
           required: true
@@ -1777,6 +1858,14 @@ paths:
 
 components:
   securitySchemes:
+    DesktopSessionBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: Desktop v2 opaque session
+    DesktopReleaseUploadBearer:
+      type: http
+      scheme: bearer
+      description: 独立的 DESKTOP_UPDATE_UPLOAD_TOKEN，仅允许导入草稿，不能发布版本。
     AdminBearer:
       type: http
       scheme: bearer
@@ -2660,9 +2749,9 @@ components:
           description: 64 位小写十六进制 SHA-256；草稿未上传时为空字符串
 
     DesktopUpdateArtifacts:
+      description: 未提供的平台保存为空占位；发布至少一个完整平台，其余平台回退此前版本。
       type: object
       additionalProperties: false
-      required: [darwin-aarch64, darwin-x86_64, windows-x86_64]
       properties:
         darwin-aarch64:
           $ref: '#/components/schemas/DesktopUpdateArtifact'
@@ -2687,6 +2776,14 @@ components:
           $ref: '#/components/schemas/DesktopUpdateArtifacts'
         status:
           $ref: '#/components/schemas/DesktopUpdateStatus'
+        rollout_mode:
+          type: string
+          enum: [full, gray]
+          default: full
+        gateway_user_ids:
+          type: array
+          items: {type: integer, format: int64}
+          description: 灰度范围所选承载用户，企业关系实时判定。
         created_by:
           type: integer
           format: int64
@@ -2714,6 +2811,16 @@ components:
         updated_at:
           type: string
           format: date-time
+
+    DesktopUpdatePublishRequest:
+      type: object
+      properties:
+        rollout_mode: {type: string, enum: [full, gray], default: full}
+        gateway_user_ids:
+          type: array
+          maxItems: 1000
+          items: {type: integer, format: int64, minimum: 1}
+          description: 灰度发布必须选择至少一个绑定有效企业的承载用户。
 
     DesktopUpdateDraftRequest:
       type: object

@@ -111,6 +111,8 @@ type Config struct {
 	Desktop                 DesktopConfig                 `mapstructure:"desktop"`
 	BI                      BIConfig                      `mapstructure:"bi"`
 
+	DesktopUpdateUploadToken string `mapstructure:"desktop_update_upload_token"`
+
 	// Enforce only API-key spending windows in simple mode.
 	SimpleModeKeyRateLimitEnabled bool `mapstructure:"simple_mode_key_rate_limit_enabled" yaml:"simple_mode_key_rate_limit_enabled"`
 }
@@ -2359,6 +2361,7 @@ func setDefaults() {
 	viper.SetDefault("image_storage.public_base_url", "")
 
 	// Desktop update artifacts (S3-compatible object storage, including Aliyun OSS)
+	viper.SetDefault("desktop_update_upload_token", "")
 	viper.SetDefault("desktop_update_storage.endpoint", "")
 	viper.SetDefault("desktop_update_storage.region", "cn-hangzhou")
 	viper.SetDefault("desktop_update_storage.bucket", "")

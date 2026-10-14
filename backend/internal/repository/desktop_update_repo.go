@@ -7,6 +7,7 @@ import (
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/ent/desktoporganization"
 	"github.com/Wei-Shaw/sub2api/ent/desktopupdaterelease"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -107,7 +108,15 @@ func (r *desktopUpdateRepository) UpdateDraft(ctx context.Context, publicID stri
 	return r.Get(ctx, publicID)
 }
 
-func (r *desktopUpdateRepository) Publish(ctx context.Context, publicID string, actorID int64, publishedAt time.Time) (*service.DesktopUpdateRelease, error) {
+func (r *desktopUpdateRepository) Publish(ctx context.Context, publicID string, actorID int64, publishedAt time.Time, options ...service.DesktopUpdatePublishInput) (*service.DesktopUpdateRelease, error) {
+	input := service.DesktopUpdatePublishInput{}
+	if len(options) > 0 {
+		input = options[0]
+	}
+	input, normalizeErr := service.NormalizeDesktopUpdatePublication(input)
+	if normalizeErr != nil {
+		return nil, normalizeErr
+	}
 	r.publishMu.Lock()
 	defer r.publishMu.Unlock()
 
@@ -120,7 +129,7 @@ func (r *desktopUpdateRepository) Publish(ctx context.Context, publicID string, 
 		if err != nil {
 			return translatePersistenceError(err, service.ErrDesktopUpdateNotFound, nil)
 		}
-		if candidate.Status != service.DesktopUpdateStatusDraft {
+		if (!input.Promote && candidate.Status != service.DesktopUpdateStatusDraft) || (input.Promote && (candidate.Status != service.DesktopUpdateStatusPublished || candidate.RolloutMode != "gray")) {
 			return service.ErrDesktopUpdateInvalidState
 		}
 		candidateModel, err := desktopUpdateEntity(candidate)
@@ -133,6 +142,9 @@ func (r *desktopUpdateRepository) Publish(ctx context.Context, publicID string, 
 		if _, err := service.NormalizeDesktopUpdateArtifacts(candidateModel.Artifacts); err != nil {
 			return service.ErrDesktopUpdateMetadata.WithCause(err)
 		}
+		if err := service.ValidateDesktopUpdateArtifactVersions(candidateModel.Version, candidateModel.Artifacts); err != nil {
+			return err
+		}
 		publishedQuery := client.DesktopUpdateRelease.Query().
 			Where(desktopupdaterelease.StatusEQ(service.DesktopUpdateStatusPublished))
 		published, err := desktopUpdateForUpdate(client, publishedQuery).All(txCtx)
@@ -140,6 +152,9 @@ func (r *desktopUpdateRepository) Publish(ctx context.Context, publicID string, 
 			return err
 		}
 		for _, existing := range published {
+			if input.Promote && existing.ID == candidate.ID {
+				continue
+			}
 			comparison, compareErr := service.CompareDesktopUpdateVersions(candidate.Version, existing.Version)
 			if compareErr != nil {
 				return service.ErrDesktopUpdateMetadata.WithCause(compareErr)
@@ -148,9 +163,21 @@ func (r *desktopUpdateRepository) Publish(ctx context.Context, publicID string, 
 				return service.ErrDesktopUpdateNotNewer
 			}
 		}
+		if input.RolloutMode == "gray" {
+			count, err := client.DesktopOrganization.Query().Where(desktoporganization.GatewayUserIDIn(input.GatewayUserIDs...), desktoporganization.StatusEQ("active"), desktoporganization.DeletedAtIsNil()).Count(txCtx)
+			if err != nil {
+				return err
+			}
+			if count != len(input.GatewayUserIDs) {
+				return service.ErrDesktopUpdateInvalidFields
+			}
+		}
 		builder := client.DesktopUpdateRelease.UpdateOne(candidate).
 			SetStatus(service.DesktopUpdateStatusPublished).
-			SetPublishedAt(publishedAt)
+			SetRolloutMode(input.RolloutMode).SetGatewayUserIds(input.GatewayUserIDs)
+		if !input.Promote {
+			builder.SetPublishedAt(publishedAt)
+		}
 		if actorID > 0 {
 			builder.SetPublishedBy(actorID).SetUpdatedBy(actorID)
 		}
@@ -251,7 +278,7 @@ func desktopUpdateEntity(row *dbent.DesktopUpdateRelease) (*service.DesktopUpdat
 	}
 	return &service.DesktopUpdateRelease{
 		ID: row.ID, PublicID: row.PublicID, Version: row.Version, Notes: row.Notes,
-		Artifacts: artifacts, Status: row.Status, CreatedBy: row.CreatedBy, UpdatedBy: row.UpdatedBy,
+		Artifacts: artifacts, Status: row.Status, RolloutMode: row.RolloutMode, GatewayUserIDs: row.GatewayUserIds, CreatedBy: row.CreatedBy, UpdatedBy: row.UpdatedBy,
 		PublishedBy: row.PublishedBy, WithdrawnBy: row.WithdrawnBy,
 		PublishedAt: row.PublishedAt, WithdrawnAt: row.WithdrawnAt, WithdrawalReason: row.WithdrawalReason,
 		CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
@@ -263,8 +290,17 @@ func applyDesktopUpdateEntity(target *service.DesktopUpdateRelease, row *dbent.D
 		return
 	}
 	target.ID, target.PublicID, target.Version, target.Notes = row.ID, row.PublicID, row.Version, row.Notes
+	target.RolloutMode, target.GatewayUserIDs = row.RolloutMode, row.GatewayUserIds
 	target.Status, target.CreatedBy, target.UpdatedBy = row.Status, row.CreatedBy, row.UpdatedBy
 	target.PublishedBy, target.WithdrawnBy = row.PublishedBy, row.WithdrawnBy
 	target.PublishedAt, target.WithdrawnAt, target.WithdrawalReason = row.PublishedAt, row.WithdrawnAt, row.WithdrawalReason
 	target.CreatedAt, target.UpdatedAt = row.CreatedAt, row.UpdatedAt
+}
+
+func (r *desktopUpdateRepository) GetByVersion(ctx context.Context, version string) (*service.DesktopUpdateRelease, error) {
+	row, err := clientFromContext(ctx, r.client).DesktopUpdateRelease.Query().Where(desktopupdaterelease.VersionEQ(version)).Only(ctx)
+	if err != nil {
+		return nil, translatePersistenceError(err, service.ErrDesktopUpdateNotFound, nil)
+	}
+	return desktopUpdateEntity(row)
 }

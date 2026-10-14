@@ -6,6 +6,7 @@ Desktop 文档覆盖企业、成员、客户端认证、模型配置、资源分
 
 | 文档 | 用途与边界 |
 | --- | --- |
+| [灰度更新与 Release 自动交付](desktop-update-rollout.md) | 安装包自动导入草稿、企业灰度及转全量 |
 | [基础 API v1](DESKTOP_API_V1.md) | 企业、成员、模型配置、管理端和更新接口；登录与刷新保留 v1 兼容说明 |
 | [v2 会话与对话](DESKTOP_SESSION_CONVERSATION_V2.md) | 滑动会话、Installation ID、对话上报、权限和后台回看 |
 | [日报与管理总结](DESKTOP_DAILY_REPORTS.md) | 对话归集、生成、执行历史、预算与保留策略 |

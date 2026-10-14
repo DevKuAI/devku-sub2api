@@ -149,6 +149,10 @@ bi:
 # Updater distribution is independent of desktop.enabled; its bucket/public_base_url allow anonymous reads.
 # MCP/Skill packages and accounting proofs share resource_bucket with separate folders.
 # 安装包公开分发与 desktop.enabled 无关；MCP/Skill 与账目附件共用私有 resource_bucket，通过文件夹隔离。
+# Independent CI upload token (at least 32 characters); empty disables automated import.
+# Set via DESKTOP_UPDATE_UPLOAD_TOKEN; never reuse an admin or Desktop session token.
+desktop_update_upload_token: ""
+
 desktop_update_storage:
   endpoint: "https://oss-cn-hangzhou.aliyuncs.com"
   region: "cn-hangzhou"
