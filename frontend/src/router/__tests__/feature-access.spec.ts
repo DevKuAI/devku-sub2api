@@ -14,6 +14,7 @@ const authStore = vi.hoisted(() => ({
   checkAuth: vi.fn(),
   isAuthenticated: true,
   isAdmin: false,
+  isFinance: false,
   isSimpleMode: false,
   hasPendingAuthSession: false,
 }))
@@ -115,10 +116,35 @@ describe('feature route guard', () => {
   beforeEach(() => {
     authStore.isAuthenticated = true
     authStore.isAdmin = false
+    authStore.isFinance = false
     authStore.isSimpleMode = false
     appStore.publicSettingsLoaded = false
     appStore.cachedPublicSettings = null
     appStore.fetchPublicSettings.mockReset()
+  })
+
+  it.each(['/admin/dashboard', '/admin/users', '/admin/settings', '/dashboard', '/keys', '/profile', '/login', '/model-plaza', '/admin/accounting-other'])('redirects finance users from %s to accounting', async (path) => {
+    authStore.isFinance = true
+    const { navigation, next } = runGuard({ requiresAdmin: path.startsWith('/admin'), requiresAuth: path !== '/login' }, path)
+    await navigation
+    expect(next).toHaveBeenCalledWith('/admin/accounting')
+  })
+
+  it.each([false, true])('allows finance accounting access in backend mode %s', async (backendMode) => {
+    authStore.isFinance = true
+    appStore.backendModeEnabled = backendMode
+    const { navigation, next } = runGuard({ requiresAdmin: true }, '/admin/accounting')
+    await navigation
+    expect(next).toHaveBeenCalledWith()
+    appStore.backendModeEnabled = false
+  })
+
+  it('keeps unauthenticated finance state behind login', async () => {
+    authStore.isFinance = true
+    authStore.isAuthenticated = false
+    const { navigation, next } = runGuard({ requiresAdmin: true }, '/admin/accounting')
+    await navigation
+    expect(next).toHaveBeenCalledWith({ path: '/login', query: { redirect: '/admin/accounting' } })
   })
 
   it('waits for the first public-settings request before deciding payment access', async () => {

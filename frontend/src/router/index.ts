@@ -913,6 +913,15 @@ router.beforeEach(async (to, _from, next) => {
   ]
   document.title = resolveRouteDocumentTitle(to, appStore.siteName, customMenuItems)
 
+  if (authStore.isAuthenticated && authStore.isFinance) {
+    if (to.path === '/admin/accounting') {
+      next()
+    } else {
+      next('/admin/accounting')
+    }
+    return
+  }
+
   // Check if route requires authentication
   const requiresAuth = to.meta.requiresAuth !== false // Default to true
   const requiresAdmin = to.meta.requiresAdmin === true

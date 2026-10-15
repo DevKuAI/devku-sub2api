@@ -20,7 +20,7 @@ type Handler struct{ engine *Engine }
 func NewHandler(engine *Engine) *Handler { return &Handler{engine: engine} }
 func (h *Handler) RegisterAdmin(parent *gin.RouterGroup) {
 	g := parent.Group("/accounting")
-	g.Use(requireAdminPermission)
+	g.Use(requireAccountingPermission)
 	g.Use(middleware.StrictBodyLimit(1 << 20))
 	g.GET("/summary", h.summary)
 	g.GET("/trend", h.trend)
@@ -61,7 +61,7 @@ func (h *Handler) RegisterAdmin(parent *gin.RouterGroup) {
 	g.POST("/attachments/upload-intents", h.intent)
 	// Binary uploads have a separate limit instead of the JSON group's limit.
 	upload := parent.Group("/accounting")
-	upload.Use(requireAdminPermission)
+	upload.Use(requireAccountingPermission)
 	upload.PUT("/attachments/:id/content", middleware.StrictBodyLimit(MaxAttachmentBytes), h.upload)
 	g.POST("/attachments/:id/complete", h.complete)
 	g.GET("/attachments/:id/download-url", h.download)

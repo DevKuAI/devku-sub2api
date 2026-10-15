@@ -75,7 +75,7 @@ type CreateUserRequest struct {
 	Password             string   `json:"password" binding:"required,min=6"`
 	Username             string   `json:"username"`
 	Notes                string   `json:"notes"`
-	Role                 string   `json:"role" binding:"omitempty,oneof=admin user"`
+	Role                 string   `json:"role" binding:"omitempty,oneof=admin user finance"`
 	Balance              *float64 `json:"balance"`
 	Concurrency          int      `json:"concurrency"`
 	RPMLimit             int      `json:"rpm_limit"`
@@ -91,7 +91,7 @@ type UpdateUserRequest struct {
 	Password             string   `json:"password" binding:"omitempty,min=6"`
 	Username             *string  `json:"username"`
 	Notes                *string  `json:"notes"`
-	Role                 string   `json:"role" binding:"omitempty,oneof=admin user"`
+	Role                 string   `json:"role" binding:"omitempty,oneof=admin user finance"`
 	Balance              *float64 `json:"balance"`
 	Concurrency          *int     `json:"concurrency"`
 	RPMLimit             *int     `json:"rpm_limit"`
@@ -308,8 +308,8 @@ func (h *UserHandler) Create(c *gin.Context) {
 		return
 	}
 
-	// 创建管理员账号属权限敏感操作：需最近完成 step-up 2FA 验证。
-	if req.Role == service.RoleAdmin {
+	// 创建管理员或财务账号属权限敏感操作：需最近完成 step-up 2FA 验证。
+	if req.Role == service.RoleAdmin || req.Role == service.RoleFinance {
 		if !middleware.EnforceStepUp(c, h.totpService, h.userService, h.settingService) {
 			return
 		}
@@ -352,16 +352,16 @@ func (h *UserHandler) Update(c *gin.Context) {
 		return
 	}
 
-	// 防锁死保护：管理员不能把自己降级为普通用户(单管理员场景下会失去后台访问权)。
+	// 防锁死保护：管理员不能把自己降级为其他角色(单管理员场景下会失去后台访问权)。
 	// 与既有"不能禁用/删除 admin"保护一致。降级其他管理员仍然允许。
-	if req.Role == service.RoleUser && userID == getAdminIDFromContext(c) {
+	if req.Role != "" && req.Role != service.RoleAdmin && userID == getAdminIDFromContext(c) {
 		response.BadRequest(c, "cannot demote yourself from admin")
 		return
 	}
 
 	groupAccessChanged := req.AllowedGroups != nil || req.RestrictPublicGroups != nil
 	var target *service.User
-	if req.Role == service.RoleAdmin || (groupAccessChanged && h.desktopService != nil) {
+	if req.Role == service.RoleAdmin || req.Role == service.RoleFinance || (groupAccessChanged && h.desktopService != nil) {
 		target, err = h.adminService.GetUser(c.Request.Context(), userID)
 		if err != nil {
 			response.ErrorFrom(c, err)
@@ -369,10 +369,10 @@ func (h *UserHandler) Update(c *gin.Context) {
 		}
 	}
 
-	// 把普通用户提升为管理员属权限敏感操作：需最近完成 step-up 2FA 验证。
-	// 目标已是管理员时（前端编辑表单总是携带 role）不触发，避免日常编辑被打断。
-	if req.Role == service.RoleAdmin {
-		if target.Role != service.RoleAdmin {
+	// 授予管理员或财务角色属权限敏感操作：需最近完成 step-up 2FA 验证。
+	// 目标角色未变时（前端编辑表单总是携带 role）不触发，避免日常编辑被打断。
+	if req.Role == service.RoleAdmin || req.Role == service.RoleFinance {
+		if target.Role != req.Role {
 			if !middleware.EnforceStepUp(c, h.totpService, h.userService, h.settingService) {
 				return
 			}

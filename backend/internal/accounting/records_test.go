@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/Wei-Shaw/sub2api/internal/domain"
+	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
@@ -84,4 +86,26 @@ func TestPermissionMappings(t *testing.T) {
 	require.Equal(t, PermissionConfirm, permissionFor("POST", "/transfers/id/confirm"))
 	require.Equal(t, PermissionReconcile, permissionFor("POST", "/reconciliation/match"))
 	require.Equal(t, PermissionManage, permissionFor("POST", "/transfers/id/void"))
+}
+
+func TestAccountingPermissionsAllowFinanceWithoutAdminPrivileges(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, role := range []string{domain.RoleAdmin, domain.RoleFinance, domain.RoleUser, ""} {
+		for _, method := range []string{http.MethodGet, http.MethodPost, http.MethodPatch, http.MethodPut, http.MethodDelete} {
+			router := gin.New()
+			router.Use(func(c *gin.Context) {
+				c.Set(string(middleware.ContextKeyUserRole), role)
+				c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: 7})
+			})
+			router.Use(requireAccountingPermission)
+			router.Handle(method, "/accounting/transfers", func(c *gin.Context) { c.Status(http.StatusNoContent) })
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, httptest.NewRequest(method, "/accounting/transfers", nil))
+			if role == domain.RoleAdmin || role == domain.RoleFinance {
+				require.Equal(t, http.StatusNoContent, w.Code)
+			} else {
+				require.Equal(t, http.StatusForbidden, w.Code)
+			}
+		}
+	}
 }

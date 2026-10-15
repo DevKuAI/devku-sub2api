@@ -42,6 +42,22 @@ func TestUserRepoSuite(t *testing.T) {
 	suite.Run(t, new(UserRepoSuite))
 }
 
+func (s *UserRepoSuite) TestFinanceRolePersistenceAndFiltering() {
+	finance := s.mustCreateUser(&service.User{Email: "finance@example.com", Role: service.RoleFinance})
+	admin := s.mustCreateUser(&service.User{Email: "admin@example.com", Role: service.RoleAdmin})
+	loaded, err := s.repo.GetByID(s.ctx, finance.ID)
+	s.Require().NoError(err)
+	s.Require().Equal(service.RoleFinance, loaded.Role)
+	users, page, err := s.repo.ListWithFilters(s.ctx, pagination.PaginationParams{Page: 1, PageSize: 20}, service.UserListFilters{Role: service.RoleFinance})
+	s.Require().NoError(err)
+	s.Require().EqualValues(1, page.Total)
+	s.Require().Len(users, 1)
+	s.Require().Equal(finance.ID, users[0].ID)
+	firstAdmin, err := s.repo.GetFirstAdmin(s.ctx)
+	s.Require().NoError(err)
+	s.Require().Equal(admin.ID, firstAdmin.ID)
+}
+
 func (s *UserRepoSuite) mustCreateUser(u *service.User) *service.User {
 	s.T().Helper()
 

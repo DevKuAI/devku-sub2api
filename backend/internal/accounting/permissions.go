@@ -1,6 +1,7 @@
 package accounting
 
 import (
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/gin-gonic/gin"
@@ -31,10 +32,10 @@ func permissionFor(method, path string) string {
 	}
 	return PermissionWrite
 }
-func requireAdminPermission(c *gin.Context) {
+func requireAccountingPermission(c *gin.Context) {
 	role, ok := middleware.GetUserRoleFromContext(c)
 	subject, authenticated := middleware.GetAuthSubjectFromContext(c)
-	if !ok || role != "admin" || !authenticated || subject.UserID <= 0 {
+	if !ok || (role != domain.RoleAdmin && role != domain.RoleFinance) || !authenticated || subject.UserID <= 0 {
 		response.Forbidden(c, "Accounting permission required")
 		c.Abort()
 		return

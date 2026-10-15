@@ -97,6 +97,11 @@ func jwtAuth(
 			return
 		}
 
+		if user.Role == service.RoleFinance && !financeSessionAllowed(c.Request.Method, c.FullPath()) {
+			AbortWithError(c, 403, "FORBIDDEN", "Finance access is limited to accounting")
+			return
+		}
+
 		c.Set(string(ContextKeyUser), AuthSubject{
 			UserID:      user.ID,
 			Concurrency: user.Concurrency,

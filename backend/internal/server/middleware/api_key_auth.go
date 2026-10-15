@@ -162,6 +162,10 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 			AbortWithError(c, 401, "USER_INACTIVE", "User account is not active")
 			return
 		}
+		if apiKey.User.Role == service.RoleFinance {
+			AbortWithError(c, 403, "FORBIDDEN", "Finance access is limited to accounting")
+			return
+		}
 		if abortIfAPIKeyGroupUnavailable(c, apiKey) {
 			return
 		}

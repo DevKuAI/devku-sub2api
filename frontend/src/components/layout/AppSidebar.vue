@@ -32,7 +32,7 @@
     <!-- Navigation -->
     <nav ref="sidebarNavRef" class="sidebar-nav scrollbar-hide">
       <!-- Admin View: Admin menu first, then personal menu -->
-      <template v-if="isAdmin">
+      <template v-if="isAdmin || authStore.isFinance">
         <!-- Admin Section -->
         <div class="sidebar-section">
           <template v-for="item in adminNavItems" :key="item.path">
@@ -104,7 +104,7 @@
         </div>
 
         <!-- Personal Section for Admin (hidden in simple mode) -->
-        <div v-if="!authStore.isSimpleMode" class="sidebar-section">
+        <div v-if="isAdmin && !authStore.isSimpleMode" class="sidebar-section">
           <div class="sidebar-section-title" :class="{ 'sidebar-section-title-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">
             <span class="sidebar-section-title-text" :class="{ 'sidebar-section-title-text-collapsed': sidebarCollapsed }">
               {{ t('nav.myAccount') }}
@@ -282,7 +282,7 @@ const sidebarNavRef = ref<HTMLElement | null>(null)
 const isDark = ref(document.documentElement.classList.contains('dark'))
 const biEnabled = ref(false)
 
-const homePath = computed(() => (isAdmin.value ? '/admin/dashboard' : '/dashboard'))
+const homePath = computed(() => authStore.isFinance ? '/admin/accounting' : (isAdmin.value ? '/admin/dashboard' : '/dashboard'))
 
 // Per-group expand/collapse overrides. A group with no entry follows the
 // automatic behavior (expanded while the active route is one of its children);
@@ -813,6 +813,9 @@ const customMenuItemsForAdmin = computed(() => {
 
 // Admin navigation items
 const adminNavItems = computed((): NavItem[] => {
+  if (authStore.isFinance) {
+    return [{ path: '/admin/accounting', label: t('accounting.title'), icon: CreditCardIcon }]
+  }
   const baseItems: NavItem[] = [
     { path: '/admin/dashboard', label: t('nav.dashboard'), icon: DashboardIcon },
     { path: '/admin/ops', label: t('nav.ops'), icon: ChartIcon, featureFlag: flagOpsMonitoring },
@@ -1014,7 +1017,7 @@ watch(
 watch(
   [() => authStore.user?.id, flagDesktop],
   ([userID, desktopEnabled]) => {
-    if (userID && desktopEnabled) {
+    if (userID && desktopEnabled && !authStore.isFinance) {
       void refreshDesktopOrganizationAccess(true)
       return
     }
@@ -1026,7 +1029,7 @@ watch(
 watch(
   () => authStore.user?.id,
   (userID) => {
-    if (userID) {
+    if (userID && !authStore.isFinance) {
       void refreshSubscriptionAccountAccess(true)
       return
     }
@@ -1038,12 +1041,12 @@ watch(
 watch(isAdmin, (admin) => { biEnabled.value = admin }, { immediate: true })
 
 function refreshOrganizationOnFocus() {
-  if (authStore.user?.id && flagDesktop()) void refreshDesktopOrganizationAccess(true)
+  if (authStore.user?.id && !authStore.isFinance && flagDesktop()) void refreshDesktopOrganizationAccess(true)
 }
 
 onMounted(() => {
   window.addEventListener('focus', refreshOrganizationOnFocus)
-  void refreshBatchImageAccess()
+  if (!authStore.isFinance) void refreshBatchImageAccess()
   if (isAdmin.value) {
     adminSettingsStore.fetch()
   }

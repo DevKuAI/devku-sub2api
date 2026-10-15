@@ -87,4 +87,14 @@ describe('UserEditModal concurrency', () => {
     expect(showError).toHaveBeenCalledWith('admin.users.concurrencyNonNegative')
     expect(update).not.toHaveBeenCalled()
   })
+
+  it('offers and saves the finance role', async () => {
+    const wrapper = mountModal(1)
+    const select = wrapper.findComponent({ name: 'Select' })
+    expect(select.props('options')).toContainEqual({ value: 'finance', label: 'admin.users.roles.finance' })
+    select.vm.$emit('update:modelValue', 'finance')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    expect(update).toHaveBeenCalledWith(7, expect.objectContaining({ role: 'finance' }))
+  })
 })

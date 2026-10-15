@@ -35,6 +35,35 @@ func TestAdminService_CreateUser_DefaultsToUserRole(t *testing.T) {
 	require.Equal(t, RoleUser, user.Role)
 }
 
+func TestAdminService_FinanceRole(t *testing.T) {
+	repo := &userRepoStub{nextID: 31}
+	svc := &adminServiceImpl{userRepo: repo}
+	user, err := svc.CreateUser(context.Background(), &CreateUserInput{
+		Email: "finance@example.com", Password: "strong-pass", Role: RoleFinance,
+	})
+	require.NoError(t, err)
+	require.Equal(t, RoleFinance, user.Role)
+	require.False(t, user.IsAdmin())
+
+	base := &userRepoStub{user: &User{ID: 42, Email: "user@example.com", Role: RoleUser}}
+	updates := &rpmUserRepoStub{userRepoStub: base}
+	invalidator := &authCacheInvalidatorStub{}
+	svc = &adminServiceImpl{userRepo: updates, redeemCodeRepo: &redeemRepoStub{}, authCacheInvalidator: invalidator}
+	updated, err := svc.UpdateUser(context.Background(), 42, &UpdateUserInput{Role: RoleFinance})
+	require.NoError(t, err)
+	require.Equal(t, RoleFinance, updated.Role)
+	require.Equal(t, []int64{42}, invalidator.userIDs)
+}
+
+func TestAdminService_LastAdminCannotBecomeFinance(t *testing.T) {
+	base := &userRepoStub{user: &User{ID: 42, Email: "admin@example.com", Role: RoleAdmin}}
+	repo := &roleGuardUserRepoStub{rpmUserRepoStub: &rpmUserRepoStub{userRepoStub: base}, adminTotal: 1}
+	svc := &adminServiceImpl{userRepo: repo, redeemCodeRepo: &redeemRepoStub{}}
+	_, err := svc.UpdateUser(context.Background(), 42, &UpdateUserInput{Role: RoleFinance})
+	require.ErrorContains(t, err, "last admin")
+	require.Nil(t, repo.lastUpdated)
+}
+
 func TestAdminService_CreateUser_InvalidRoleRejected(t *testing.T) {
 	repo := &userRepoStub{nextID: 32}
 	svc := &adminServiceImpl{userRepo: repo}

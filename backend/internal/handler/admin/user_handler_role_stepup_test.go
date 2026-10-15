@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -83,4 +84,27 @@ func TestCreateRegularUserSkipsStepUp(t *testing.T) {
 		"email": "new-user@example.com", "password": "pass123", "role": "user",
 	})
 	require.Equal(t, http.StatusOK, rec.Code)
+}
+
+func TestFinanceRoleRequiresStepUp(t *testing.T) {
+	router, _ := setupRoleStepUpRouter(t)
+	rec := doJSON(t, router, http.MethodPost, "/api/v1/admin/users", map[string]any{
+		"email": "finance@example.com", "password": "pass123", "role": "finance",
+	})
+	require.Equal(t, http.StatusUnauthorized, rec.Code)
+	rec = doJSON(t, router, http.MethodPut, "/api/v1/admin/users/1", map[string]any{"role": "finance"})
+	require.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+func TestAdminCannotDemoteSelfToFinance(t *testing.T) {
+	_, adminSvc := setupRoleStepUpRouter(t)
+	router := gin.New()
+	router.Use(func(c *gin.Context) {
+		c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: 2})
+	})
+	h := NewUserHandler(adminSvc, nil, nil, nil, nil, nil, nil)
+	router.PUT("/api/v1/admin/users/:id", h.Update)
+	rec := doJSON(t, router, http.MethodPut, "/api/v1/admin/users/2", map[string]any{"role": "finance"})
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.Contains(t, rec.Body.String(), "cannot demote yourself")
 }

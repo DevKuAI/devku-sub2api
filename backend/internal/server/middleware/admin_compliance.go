@@ -11,7 +11,8 @@ import (
 
 func AdminComplianceGuard(settingService *service.SettingService) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if settingService == nil || isAdminComplianceBypassPath(c.Request.URL.Path) {
+		role, _ := GetUserRoleFromContext(c)
+		if settingService == nil || role == service.RoleFinance || isAdminComplianceBypassPath(c.Request.URL.Path) {
 			c.Next()
 			return
 		}
