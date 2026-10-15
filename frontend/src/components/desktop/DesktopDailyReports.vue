@@ -63,32 +63,31 @@
         <button class="btn btn-secondary analytics-button" type="button" @click="viewMembers">{{ t(`${key}.viewMembers`) }}</button>
       </div>
     </section>
-    <section v-else id="daily-report-panel-members" role="tabpanel" aria-labelledby="daily-report-tab-members" class="min-w-0 space-y-5" :aria-busy="loading" tabindex="0">
-      <div class="flex flex-wrap items-end justify-between gap-4">
-        <label class="block w-full max-w-sm space-y-2 text-sm font-medium"><span>{{ t(`${key}.memberFilter`) }}</span><input ref="memberSearch" v-model="search" class="input analytics-input" name="report-member" type="search" :placeholder="t(`${key}.memberSearch`)" /></label>
-        <p v-if="members" class="analytics-caption tabular-nums" role="status">{{ t(`${key}.memberCount`, { shown: filteredMembers.length, total: members.total_members ?? members.members.length }) }}</p>
+    <section v-else id="daily-report-panel-members" role="tabpanel" aria-labelledby="daily-report-tab-members" class="card analytics-panel report-member-panel space-y-5" :aria-busy="loading" tabindex="0">
+      <div class="report-member-toolbar">
+        <label class="report-member-filter space-y-2 text-sm font-medium"><span>{{ t(`${key}.memberFilter`) }}</span><input ref="memberSearch" v-model="search" class="input analytics-input" name="report-member" type="search" :placeholder="t(`${key}.memberSearch`)" /></label>
+        <p v-if="members" class="report-member-count analytics-caption tabular-nums" role="status">{{ t(`${key}.memberCount`, { shown: filteredMembers.length, total: members.total_members ?? members.members.length }) }}</p>
       </div>
-      <p class="analytics-caption">{{ t(`${key}.noRecordsHint`) }}</p>
       <Pagination v-if="(members?.total_members || 0) > 20" v-model:page="memberPage" :page-size="20" :total="members?.total_members || 0" :show-page-size-selector="false" />
       <template v-if="filteredMembers.length">
-        <p class="analytics-caption report-table-hint">{{ t(`${key}.tableScrollHint`) }}</p>
         <div class="report-member-table analytics-data" tabindex="0" :aria-label="t(`${key}.members`)">
           <table>
+            <colgroup><col class="report-member-name-column" /><col class="report-member-status-column" /><col /><col class="report-member-date-column" /><col class="report-member-action-column" /></colgroup>
             <thead><tr><th scope="col">{{ t('admin.desktop.member') }}</th><th scope="col">{{ t('common.status') }}</th><th scope="col">{{ t(`${key}.usedModel`) }}</th><th scope="col">{{ t(`${key}.generatedAt`) }}</th><th scope="col">{{ t('common.actions') }}</th></tr></thead>
             <tbody>
               <tr v-for="member in filteredMembers" :key="member.member_id">
-                <th scope="row"><bdi>{{ member.name }}</bdi><span v-if="member.deleted" class="mt-1 block text-xs">{{ t('admin.desktop.conversations.deletedMember') }}</span></th>
+                <th scope="row"><bdi class="report-member-name">{{ member.name }}</bdi><span v-if="member.deleted" class="mt-1 block text-xs">{{ t('admin.desktop.conversations.deletedMember') }}</span></th>
                 <td><span class="report-badge" :data-tone="statusTone(member.status)">{{ statusLabel(member.status) }}</span></td>
-                <td><bdi>{{ member.model || '—' }}</bdi></td>
-                <td>{{ member.generated_at ? formatDateTime(member.generated_at) : '—' }}</td>
+                <td class="report-member-model"><bdi>{{ member.model || '—' }}</bdi></td>
+                <td><time v-if="member.generated_at" :datetime="member.generated_at">{{ formatDateTime(member.generated_at) }}</time><span v-else>—</span></td>
                 <td><button v-if="member.record_count > 0" class="btn btn-secondary analytics-button" type="button" :aria-label="t(`${key}.viewMemberReport`, { name: member.name })" @click="viewMember(member.member_id)">{{ t(`${key}.viewReport`) }}</button><span v-else>—</span></td>
               </tr>
             </tbody>
           </table>
         </div>
         <ul class="report-member-cards space-y-3">
-          <li v-for="member in filteredMembers" :key="member.member_id" class="card analytics-panel space-y-4">
-            <div class="space-y-2"><h3 class="analytics-heading"><bdi>{{ member.name }}</bdi><span v-if="member.deleted" class="analytics-caption ms-2">{{ t('admin.desktop.conversations.deletedMember') }}</span></h3><span class="report-badge" :data-tone="statusTone(member.status)">{{ statusLabel(member.status) }}</span></div>
+          <li v-for="member in filteredMembers" :key="member.member_id" class="report-member-card space-y-4">
+            <div class="report-member-card-heading"><h3 class="analytics-heading"><bdi>{{ member.name }}</bdi><span v-if="member.deleted" class="analytics-caption ms-2">{{ t('admin.desktop.conversations.deletedMember') }}</span></h3><span class="report-badge" :data-tone="statusTone(member.status)">{{ statusLabel(member.status) }}</span></div>
             <dl class="report-metadata"><div><dt class="analytics-caption">{{ t(`${key}.usedModel`) }}</dt><dd><bdi>{{ member.model || '—' }}</bdi></dd></div><div><dt class="analytics-caption">{{ t(`${key}.generatedAt`) }}</dt><dd>{{ member.generated_at ? formatDateTime(member.generated_at) : '—' }}</dd></div></dl>
             <button v-if="member.record_count > 0" class="btn btn-secondary analytics-button w-full" type="button" :aria-label="t(`${key}.viewMemberReport`, { name: member.name })" @click="viewMember(member.member_id)">{{ t(`${key}.viewReport`) }}</button>
           </li>
@@ -99,6 +98,7 @@
         <p class="analytics-caption mt-2">{{ search && members ? t(`${key}.filterEmptyHint`) : emptyHint('members') }}</p>
         <button v-if="search && members" class="btn btn-secondary analytics-button mt-4" type="button" @click="clearSearch">{{ t(`${key}.clearFilter`) }}</button>
       </div>
+      <p class="report-member-note analytics-caption">{{ t(`${key}.noRecordsHint`) }}</p>
     </section>
     <BaseDialog content-class="desktop-detail" width="wide" :close-label="t('common.close')" :show="Boolean(selectedMember)" :title="`${selected?.name || memberName(selectedMember)} · ${t(`${key}.memberDetail`)}`" @close="closeMemberReport">
       <div class="desktop-analytics min-w-0 space-y-5" :aria-busy="memberDetailLoading">
@@ -355,18 +355,38 @@ onBeforeUnmount(() => { disposed = true; cancel() })
 .report-badge[data-tone='danger'] { @apply bg-red-50 text-red-700 dark:bg-dark-800 dark:text-red-300; }
 .report-badge[data-tone='info'] { @apply bg-primary-50 text-primary-700 dark:bg-dark-800 dark:text-primary-300; }
 .report-empty { @apply rounded-xl bg-gray-50 px-4 py-10 text-center dark:bg-dark-800; }
-.report-member-table, .report-table-hint { display: none; }
+.report-member-toolbar { display: grid; grid-template-columns: minmax(0, 1fr); align-items: end; gap: 12px; }
+.report-member-filter { display: block; min-width: 0; }
+.report-member-filter > span { display: block; }
+.report-member-count { @apply rounded-lg bg-gray-50 px-3 py-2 dark:bg-dark-800; justify-self: start; }
+.report-member-table { @apply rounded-xl border border-gray-200 dark:border-dark-700; display: none; }
+.report-member-table table { table-layout: fixed; }
+.report-member-name-column { width: 22%; }
+.report-member-status-column { width: 7rem; }
+.report-member-action-column { width: 9rem; }
+.report-member-date-column { width: 12rem; }
+.report-member-table th, .report-member-table td { text-align: start; white-space: normal; overflow-wrap: anywhere; vertical-align: middle; }
+.report-member-table thead { @apply bg-gray-50 dark:bg-dark-800; }
+.report-member-table th:last-child, .report-member-table td:last-child { text-align: end; }
+.report-member-table tbody tr:last-child > * { border-bottom-width: 0; }
+.report-member-name { @apply font-medium text-gray-900 dark:text-gray-100; }
+.report-member-model { @apply text-gray-600 dark:text-dark-300; }
+.report-member-card { @apply min-w-0 rounded-xl border border-gray-200 p-4 dark:border-dark-700; overflow-wrap: anywhere; }
+.report-member-card-heading { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: 12px; }
+.report-member-card-heading h3 { flex: 1; min-width: 0; }
+.report-member-note { @apply border-t border-gray-100 pt-4 dark:border-dark-700; }
 [role='tabpanel']:focus-visible { outline: 2px solid theme('colors.primary.600'); outline-offset: 3px; }
 
 :global(html.dark) [role='tabpanel']:focus-visible { outline-color: theme('colors.primary.400'); }
 @container (min-width: 36rem) {
   .report-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .report-metadata { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .report-member-toolbar { grid-template-columns: minmax(0, 24rem) minmax(0, 1fr); }
+  .report-member-count { justify-self: end; }
 }
 @container (min-width: 48rem) {
   .report-member-cards { display: none; }
-  .report-member-table, .report-table-hint { display: block; }
-  .report-member-table th, .report-member-table td { text-align: start; white-space: normal; overflow-wrap: anywhere; min-width: 7rem; max-width: 18rem; }
+  .report-member-table { display: block; }
 }
 @media (prefers-reduced-motion: reduce) {
   :global(html:has(.desktop-reports)) { scroll-behavior: auto; }

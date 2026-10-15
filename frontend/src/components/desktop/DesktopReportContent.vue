@@ -36,7 +36,7 @@ function onReference(event: MouseEvent) {
 .report-content :deep(h3) { font-size: 1.125rem; }
 .report-content :deep(h4) { font-size: 1rem; }
 .report-content :deep(> :first-child) { margin-top: 0; }
-.report-content :deep(p), .report-content :deep(ul), .report-content :deep(ol), .report-content :deep(blockquote) { margin: 0.85em 0; max-width: 80ch; }
+.report-content :deep(p), .report-content :deep(ul), .report-content :deep(ol), .report-content :deep(blockquote) { margin: 0.85em 0; }
 .report-content :deep(li) { margin-block: 0.3em; }
 .report-content :deep(ul) { list-style: disc; padding-inline-start: 1.5rem; }
 .report-content :deep(ol) { list-style: decimal; padding-inline-start: 1.5rem; }
