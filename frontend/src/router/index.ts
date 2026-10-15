@@ -315,6 +315,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, requiresAdmin: true, title: 'Accounting', titleKey: 'accounting.title' }
   },
   {
+    path: '/admin/accounting/organizations/:organizationId',
+    name: 'AdminOrganizationAccounting',
+    component: () => import('@/features/accounting/AccountingView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Organization accounting', titleKey: 'accounting.organizationWorkspace' }
+  },
+  {
     path: '/desktop/organization',
     name: 'DesktopOrganization',
     component: () => import('@/views/admin/desktop/DesktopOrganizationDetailView.vue'),
@@ -914,7 +920,7 @@ router.beforeEach(async (to, _from, next) => {
   document.title = resolveRouteDocumentTitle(to, appStore.siteName, customMenuItems)
 
   if (authStore.isAuthenticated && authStore.isFinance) {
-    if (to.path === '/admin/accounting') {
+    if (to.path === '/admin/accounting' || /^\/admin\/accounting\/organizations\/[^/]+$/.test(to.path)) {
       next()
     } else {
       next('/admin/accounting')

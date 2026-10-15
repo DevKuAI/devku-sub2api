@@ -123,7 +123,7 @@ describe('feature route guard', () => {
     appStore.fetchPublicSettings.mockReset()
   })
 
-  it.each(['/admin/dashboard', '/admin/users', '/admin/settings', '/dashboard', '/keys', '/profile', '/login', '/model-plaza', '/admin/accounting-other'])('redirects finance users from %s to accounting', async (path) => {
+  it.each(['/admin/dashboard', '/admin/users', '/admin/settings', '/dashboard', '/keys', '/profile', '/login', '/model-plaza', '/admin/accounting-other', '/admin/accounting/organizations/org_one/settings', '/admin/accounting/other'])('redirects finance users from %s to accounting', async (path) => {
     authStore.isFinance = true
     const { navigation, next } = runGuard({ requiresAdmin: path.startsWith('/admin'), requiresAuth: path !== '/login' }, path)
     await navigation
@@ -137,6 +137,28 @@ describe('feature route guard', () => {
     await navigation
     expect(next).toHaveBeenCalledWith()
     appStore.backendModeEnabled = false
+  })
+
+  it.each(['/admin/accounting/organizations/org_one', '/admin/accounting/organizations/org_two'])('allows finance users into scoped accounting %s', async path => {
+    authStore.isFinance = true
+    const { navigation, next } = runGuard({ requiresAdmin: true }, path)
+    await navigation
+    expect(next).toHaveBeenCalledWith()
+  })
+
+  it('blocks an ordinary user from the enterprise accounting workspace', async () => {
+    const { navigation, next } = runGuard({ requiresAdmin: true }, '/admin/accounting/organizations/org_one')
+    await navigation
+    expect(next).toHaveBeenCalledWith('/dashboard')
+  })
+
+  it('requires login before opening finance enterprise accounting', async () => {
+    authStore.isFinance = true
+    authStore.isAuthenticated = false
+    const path = '/admin/accounting/organizations/org_one'
+    const { navigation, next } = runGuard({ requiresAdmin: true }, path)
+    await navigation
+    expect(next).toHaveBeenCalledWith({ path: '/login', query: { redirect: path } })
   })
 
   it('keeps unauthenticated finance state behind login', async () => {

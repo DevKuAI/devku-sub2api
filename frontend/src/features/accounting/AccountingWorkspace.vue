@@ -1,19 +1,45 @@
 <template>
   <div
-    class="mx-auto min-w-0 max-w-[1600px] space-y-5"
+    class="accounting-workspace min-w-0 w-full space-y-5"
     data-testid="accounting-workspace"
   >
-    <header class="flex flex-wrap items-start justify-between gap-3">
-      <div class="min-w-0">
-        <h1 class="text-2xl font-semibold text-gray-950 dark:text-white">
-          {{ t(customer ? 'accounting.customerTitle' : 'accounting.title') }}
+    <nav
+      v-if="!customer && organizationId"
+      class="flex flex-wrap items-center gap-2 text-sm"
+      :aria-label="t('accounting.organizations')"
+    >
+      <router-link
+        to="/admin/accounting"
+        class="font-medium text-primary-600 hover:underline"
+        >{{ t('accounting.organizations') }}</router-link
+      ><span aria-hidden="true">/</span
+      ><span class="break-words text-gray-600 dark:text-dark-300">{{
+        organizationName
+      }}</span>
+    </nav>
+    <header class="flex min-w-0 flex-wrap items-start justify-between gap-4">
+      <div class="min-w-0 flex-1">
+        <h1
+          class="break-words text-2xl font-semibold text-gray-950 dark:text-white"
+        >
+          {{
+            customer
+              ? t('accounting.customerTitle')
+              : directory
+                ? t('accounting.organizations')
+                : organizationName
+          }}
         </h1>
-        <p class="mt-2 text-sm text-gray-500 dark:text-dark-300">
+        <p
+          class="mt-2 text-sm leading-relaxed text-gray-500 dark:text-dark-300"
+        >
           {{
             t(
               customer
                 ? 'accounting.customerDescription'
-                : 'accounting.description',
+                : directory
+                  ? 'accounting.directoryDescription'
+                  : 'accounting.organizationDescription',
             )
           }}
         </p>
@@ -28,41 +54,117 @@
           :disabled="loading"
           @click="load"
         >
-          {{ t('accounting.refresh') }}</button
-        ><button
-          v-if="!customer"
-          type="button"
-          class="btn btn-primary"
-          @click="openCreate('transfers')"
-        >
-          {{ t('accounting.kinds.transfers') }} +</button
-        ><button
-          v-if="!customer"
-          type="button"
-          class="btn btn-secondary"
-          @click="openCreate('expenses')"
-        >
-          {{ t('accounting.kinds.expenses') }} +
+          {{ t('accounting.refresh') }}
         </button>
+        <template
+          v-if="
+            !customer && !directory && currentOrganization && tab === 'overview'
+          "
+        >
+          <button
+            type="button"
+            class="btn btn-primary"
+            @click="openCreate('transfers')"
+          >
+            {{
+              t('accounting.createRecord', {
+                kind: t('accounting.kinds.transfers'),
+              })
+            }}
+          </button>
+          <button
+            type="button"
+            class="btn btn-secondary"
+            @click="openCreate('expenses')"
+          >
+            {{
+              t('accounting.createRecord', {
+                kind: t('accounting.kinds.expenses'),
+              })
+            }}
+          </button>
+        </template>
       </div>
     </header>
-    <form
-      class="card flex flex-wrap items-end gap-3 p-4"
-      @submit.prevent="applyFilters"
+    <div
+      v-if="!customer && organizationId"
+      class="accounting-context"
+      data-testid="accounting-context"
     >
-      <label v-if="!customer && !organizationId" class="min-w-0"
-        ><span class="input-label">{{ t('accounting.organization') }}</span
-        ><select
-          v-model="selectedOrg"
-          class="input max-w-64"
-          @change="applyFilters"
-        >
-          <option value="">{{ t('accounting.allOrganizations') }}</option>
-          <option v-for="org in orgs" :key="org.id" :value="org.id">
-            {{ org.name }}
-          </option>
-        </select></label
+      <span class="font-medium"
+        >{{ t('accounting.currentOrganization') }} ·
+        {{ organizationName }}</span
+      ><span class="text-sm text-gray-500 dark:text-dark-300">{{
+        t('accounting.organizationScope')
+      }}</span>
+    </div>
+    <label
+      v-if="!directory && (customer || currentOrganization)"
+      class="card accounting-mobile-navigation"
+    >
+      <span class="input-label">{{ t('accounting.recordSection') }}</span>
+      <select
+        class="input w-full"
+        :value="tab"
+        @change="selectTab(($event.target as HTMLSelectElement).value as Tab)"
       >
+        <optgroup
+          v-for="group in visibleNavigation"
+          :key="group.key"
+          :label="t(`accounting.navigation.${group.key}`)"
+        >
+          <option v-for="item in group.tabs" :key="item" :value="item">
+            {{
+              t(
+                item === 'overview'
+                  ? 'accounting.overview'
+                  : `accounting.kinds.${item}`,
+              )
+            }}
+          </option>
+        </optgroup>
+      </select>
+    </label>
+    <nav
+      v-if="!directory && (customer || currentOrganization)"
+      role="tablist"
+      :aria-label="t('accounting.organizationWorkspace')"
+      class="card accounting-navigation"
+    >
+      <div
+        v-for="group in visibleNavigation"
+        :key="group.key"
+        class="accounting-nav-group"
+      >
+        <p class="accounting-nav-label">
+          {{ t(`accounting.navigation.${group.key}`) }}
+        </p>
+        <div class="flex flex-wrap gap-1">
+          <button
+            v-for="item in group.tabs"
+            :id="`${uid}-${item}`"
+            :key="item"
+            type="button"
+            role="tab"
+            :aria-selected="tab === item"
+            :aria-controls="`${uid}-panel`"
+            :tabindex="tab === item ? 0 : -1"
+            class="accounting-tab"
+            @click="selectTab(item)"
+            @keydown="tabKey($event, item)"
+          >
+            {{
+              t(
+                item === 'overview'
+                  ? 'accounting.overview'
+                  : `accounting.kinds.${item}`,
+              )
+            }}
+          </button>
+        </div>
+      </div>
+    </nav>
+    <form class="card accounting-filters" @submit.prevent="applyFilters">
       <label
         ><span class="input-label">{{ t('accounting.currency') }}</span
         ><input
@@ -88,10 +190,19 @@
         </select></label
       >
       <label v-if="!customer" class="min-w-0 flex-1"
-        ><span class="input-label">{{ t('accounting.search') }}</span
+        ><span class="input-label">{{
+          t(directory ? 'accounting.search' : 'accounting.searchRecords')
+        }}</span
         ><input v-model="query.search" class="input w-full" /></label
       ><button type="submit" class="btn btn-secondary">
-        {{ t('accounting.refresh') }}
+        {{ t('accounting.applyFilters') }}</button
+      ><button
+        v-if="hasFilters"
+        type="button"
+        class="btn btn-secondary"
+        @click="clearFilters"
+      >
+        {{ t('accounting.clearFilters') }}
       </button>
     </form>
     <div
@@ -105,8 +216,9 @@
       {{ t('accounting.loading') }}
     </div>
     <p class="text-xs text-gray-500">{{ t('accounting.balanceScope') }}</p>
+    <p class="text-xs text-gray-500">{{ t('accounting.tableHint') }}</p>
     <section
-      v-for="currency in summaries"
+      v-for="currency in tab === 'overview' ? summaries : []"
       :key="currency.currency"
       :aria-label="currency.currency"
       class="space-y-2"
@@ -121,7 +233,9 @@
               )
             }}
           </div>
-          <div class="mt-2 overflow-x-auto whitespace-nowrap text-base font-semibold tabular-nums sm:text-xl">
+          <div
+            class="mt-2 break-all text-base font-semibold tabular-nums sm:text-xl"
+          >
             {{
               metric === 'unmatched'
                 ? currency.unmatched
@@ -138,47 +252,23 @@
         {{ t('accounting.overdraft') }}
       </p>
     </section>
-    <nav
-      role="tablist"
-      :aria-label="t('accounting.title')"
-      class="flex max-w-full gap-2 overflow-x-auto border-b border-gray-200 pb-2 dark:border-dark-600"
-    >
-      <button
-        v-for="item in tabs"
-        :id="`${uid}-${item}`"
-        :key="item"
-        type="button"
-        role="tab"
-        :aria-selected="tab === item"
-        :aria-controls="`${uid}-panel`"
-        :tabindex="tab === item ? 0 : -1"
-        class="btn accounting-tab shrink-0"
-        :class="tab === item ? 'btn-primary' : 'btn-secondary'"
-        @click="selectTab(item)"
-        @keydown="tabKey($event, item)"
-      >
-        {{
-          t(
-            item === 'overview'
-              ? 'accounting.overview'
-              : `accounting.kinds.${item}`,
-          )
-        }}
-      </button>
-    </nav>
     <section
+      v-if="directory || customer || currentOrganization"
       :id="`${uid}-panel`"
-      role="tabpanel"
-      :aria-labelledby="`${uid}-${tab}`"
+      :role="directory ? undefined : 'tabpanel'"
+      :aria-labelledby="directory ? undefined : `${uid}-${tab}`"
       class="min-w-0 space-y-4"
     >
       <template v-if="tab === 'overview'">
         <div class="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
           <div
-            v-if="!customer && !organizationId"
+            v-if="directory"
             class="card min-w-0 overflow-x-auto"
+            role="region"
+            tabindex="0"
+            :aria-label="t('accounting.organizations')"
           >
-            <table class="w-full text-left text-sm">
+            <table class="w-full text-start text-sm">
               <thead>
                 <tr class="border-b border-gray-200 dark:border-dark-600">
                   <th class="p-4">{{ t('accounting.organizations') }}</th>
@@ -193,13 +283,11 @@
                   class="border-b border-gray-100 dark:border-dark-700"
                 >
                   <td class="p-4">
-                    <button
-                      type="button"
-                      class="text-primary-600 hover:underline"
-                      @click="detailOrg = org"
+                    <router-link
+                      :to="organizationLink(org.id)"
+                      class="font-medium text-primary-600 hover:underline"
+                      >{{ org.name }}</router-link
                     >
-                      {{ org.name }}
-                    </button>
                     <p class="mt-1 text-xs text-gray-500">{{ org.id }}</p>
                   </td>
                   <td class="p-4">
@@ -239,16 +327,24 @@
           <aside class="space-y-4">
             <div v-if="!customer" class="card p-4">
               <h2 class="font-semibold">{{ t('accounting.todo') }}</h2>
-              <button
+              <p v-if="directory" class="mt-2 text-xs text-gray-500">
+                {{ t('accounting.enterForReconciliation') }}
+              </p>
+              <component
+                :is="directory ? 'p' : 'button'"
                 v-for="entry in summaries"
                 :key="entry.currency"
                 type="button"
-                class="mt-3 block text-sm text-primary-600"
-                @click="selectTab('reconciliation')"
+                :class="
+                  directory
+                    ? 'mt-3 block text-sm'
+                    : 'mt-3 block text-sm text-primary-600'
+                "
+                @click="!directory && selectTab('reconciliation')"
               >
                 {{ entry.currency }} · {{ entry.unmatched }} ·
                 {{ formatMoney(entry.unmatched_amount || '0', entry.currency) }}
-              </button>
+              </component>
             </div>
             <div class="card p-4">
               <h2 class="font-semibold">{{ t('accounting.trend') }}</h2>
@@ -268,7 +364,7 @@
                 />
               </div>
               <p v-else class="mt-4 text-sm text-gray-500">
-                {{ t('accounting.empty') }}
+                {{ t('accounting.emptyTrend') }}
               </p>
               <p v-if="trend.length" class="mt-2 text-xs text-gray-500">
                 {{ trend[0]?.date }} — {{ trend[trend.length - 1]?.date }}
@@ -278,24 +374,47 @@
         </div>
       </template>
       <template v-else-if="isRecordTab(tab)">
-        <div v-if="!customer" class="flex flex-wrap gap-2">
-          <button
-            v-if="tab !== 'expense-payments'"
-            type="button"
-            class="btn btn-primary"
-            @click="openCreate(tab)"
-          >
-            {{ t('accounting.create') }}</button
-          ><button
-            type="button"
-            class="btn btn-secondary"
-            @click="exportRecords"
-          >
-            {{ t('accounting.export') }}
-          </button>
-        </div>
+        <header class="accounting-record-heading">
+          <div>
+            <h2 class="text-base font-semibold">
+              {{ t(`accounting.kinds.${tab}`) }}
+            </h2>
+            <p class="mt-2 text-sm text-gray-500 dark:text-dark-300">
+              {{
+                t(
+                  customer
+                    ? 'accounting.customerDescription'
+                    : `accounting.workflows.${tab}`,
+                )
+              }}
+            </p>
+          </div>
+          <div v-if="!customer" class="flex flex-wrap gap-2">
+            <button
+              v-if="tab !== 'expense-payments'"
+              type="button"
+              class="btn btn-primary"
+              @click="openCreate(tab)"
+            >
+              {{
+                t('accounting.createRecord', {
+                  kind: t(`accounting.kinds.${tab}`),
+                })
+              }}</button
+            ><button
+              type="button"
+              class="btn btn-secondary"
+              @click="exportRecords"
+            >
+              {{ t('accounting.export') }}
+            </button>
+          </div>
+        </header>
         <DataTable
-          class="card"
+          class="card accounting-record-table"
+          role="region"
+          tabindex="0"
+          :aria-label="t(`accounting.kinds.${tab}`)"
           :columns="recordColumns"
           :data="records"
           :loading="loading"
@@ -369,7 +488,7 @@
         </div>
       </div>
       <div v-else class="card overflow-x-auto">
-        <table class="w-full text-left text-sm">
+        <table class="w-full text-start text-sm">
           <thead>
             <tr>
               <th class="p-3">{{ t('accounting.createdAt') }}</th>
@@ -388,10 +507,22 @@
           </tbody>
         </table>
       </div>
-      <div v-if="!loading && empty" class="card p-8 text-center">
-        <p class="font-medium">{{ t('accounting.empty') }}</p>
+      <div v-if="!loading && !error && empty" class="card p-8 text-center">
+        <p class="font-medium">
+          {{
+            t(directory ? 'accounting.emptyOrganizations' : 'accounting.empty')
+          }}
+        </p>
         <p class="mt-2 text-sm text-gray-500">
-          {{ t('accounting.emptyHint') }}
+          {{
+            t(
+              directory
+                ? 'accounting.emptyOrganizationsHint'
+                : customer
+                  ? 'accounting.emptyHint'
+                  : 'accounting.emptyRecordHint',
+            )
+          }}
         </p>
       </div>
       <div
@@ -418,19 +549,16 @@
     </section>
 
     <BaseDialog
-      :show="!!detailOrg"
-      :title="detailOrg?.name || ''"
-      width="wide"
-      @close="detailOrg = null"
-      ><AccountingWorkspace v-if="detailOrg" :organization-id="detailOrg.id"
-    /></BaseDialog>
-    <BaseDialog
       :show="!!detailRecord"
       :title="t('accounting.details')"
+      :close-label="t('common.close')"
       width="wide"
       @close="detailRecord = null"
     >
       <div v-if="detailRecord" class="space-y-5">
+        <p v-if="!customer" class="accounting-context">
+          {{ organizationName }} · {{ t(`accounting.kinds.${detailKind}`) }}
+        </p>
         <p
           v-if="error"
           role="alert"
@@ -653,10 +781,27 @@
     <BaseDialog
       :show="!!action"
       :title="actionTitle"
+      :close-label="t('common.close')"
+      :close-on-escape="!busy"
+      :show-close-button="!busy"
+      content-class="accounting-action-dialog"
       width="wide"
       @close="!busy && (action = '')"
     >
-      <form class="space-y-4" @submit.prevent="saveAction">
+      <form
+        :id="`${uid}-action-form`"
+        class="accounting-form"
+        @submit.prevent="saveAction"
+      >
+        <div class="accounting-context">
+          <span class="font-medium">{{ organizationName }}</span
+          ><span v-if="actionRecord" class="text-sm"
+            >{{ recordLabel(actionRecord.details, actionRecord.id) }} ·
+            {{ formatMoney(actionRecord.amount, actionRecord.currency) }}</span
+          ><span v-else class="text-sm">{{
+            t('accounting.organizationScope')
+          }}</span>
+        </div>
         <div
           v-if="dialogError"
           role="alert"
@@ -667,123 +812,156 @@
         <template
           v-if="action === 'create' || action === 'edit' || action === 'pay'"
         >
-          <div class="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
-            <label v-if="action === 'create' && !organizationId"
-              ><span class="input-label">{{
-                t('accounting.organization')
-              }}</span
-              ><select
-                v-model="form.organization_id"
-                class="input w-full"
-                required
-                @change="loadReferences"
+          <fieldset :disabled="busy" class="accounting-fieldset">
+            <legend>{{ t('accounting.formGroups.basic') }}</legend>
+            <div class="accounting-form-grid">
+              <label
+                ><span class="input-label">{{ t('accounting.currency') }}</span
+                ><input
+                  v-model="form.currency"
+                  class="input w-full"
+                  maxlength="3"
+                  required /></label
+              ><label
+                ><span class="input-label">{{
+                  formKind === 'transfers'
+                    ? t('accounting.fields.received_amount')
+                    : t('accounting.amount')
+                }}</span
+                ><input
+                  v-model="form.amount"
+                  class="input w-full"
+                  inputmode="decimal"
+                  required /></label
+              ><label
+                ><span class="input-label">{{
+                  t('accounting.occurredAt')
+                }}</span
+                ><input
+                  v-model="formDate"
+                  type="datetime-local"
+                  class="input w-full"
+                  required /></label
+              ><label v-if="formKind === 'vcc-transactions'"
+                ><span class="input-label">{{
+                  t('accounting.kinds.vcc-cards')
+                }}</span
+                ><select v-model="form.parent_id" class="input w-full" required>
+                  <option value="">{{ t('accounting.select') }}</option>
+                  <option
+                    v-for="r in references['vcc-cards'] || []"
+                    :key="r.id"
+                    :value="r.id"
+                  >
+                    {{ recordLabel(r.details, r.id) }} · {{ r.currency }}
+                  </option>
+                </select></label
               >
-                <option value="">{{ t('accounting.select') }}</option>
-                <option v-for="org in orgs" :key="org.id" :value="org.id">
-                  {{ org.name }}
-                </option>
-              </select></label
-            ><label
-              ><span class="input-label">{{ t('accounting.currency') }}</span
-              ><input
-                v-model="form.currency"
-                class="input w-full"
-                maxlength="3"
-                required /></label
-            ><label
-              ><span class="input-label">{{
-                formKind === 'transfers'
-                  ? t('accounting.fields.received_amount')
-                  : t('accounting.amount')
-              }}</span
-              ><input
-                v-model="form.amount"
-                class="input w-full"
-                inputmode="decimal"
-                required /></label
-            ><label
-              ><span class="input-label">{{ t('accounting.occurredAt') }}</span
-              ><input
-                v-model="formDate"
-                type="datetime-local"
-                class="input w-full"
-                required /></label
-            ><label v-if="formKind === 'vcc-transactions'"
-              ><span class="input-label">{{
-                t('accounting.kinds.vcc-cards')
-              }}</span
-              ><select v-model="form.parent_id" class="input w-full" required>
-                <option value="">{{ t('accounting.select') }}</option>
-                <option
-                  v-for="r in references['vcc-cards'] || []"
-                  :key="r.id"
-                  :value="r.id"
-                >
-                  {{ recordLabel(r.details, r.id) }} · {{ r.currency }}
-                </option>
-              </select></label
+            </div>
+          </fieldset>
+          <fieldset
+            v-for="group in groupedFormFields"
+            :key="group.key"
+            :disabled="busy"
+            class="accounting-fieldset"
+            :data-field-group="group.key"
+          >
+            <legend>{{ t(`accounting.formGroups.${group.key}`) }}</legend>
+            <p
+              v-if="group.key === 'sales' || group.key === 'tax'"
+              class="accounting-form-hint"
             >
-            <label v-for="field in formFields" :key="field.key" class="min-w-0"
-              ><span class="input-label">{{
-                t(`accounting.fields.${field.key}`)
-              }}</span
-              ><input
-                v-if="field.type === 'boolean'"
-                v-model="form.details[field.key]"
-                type="checkbox"
-                class="mt-2 h-4 w-4" /><select
-                v-else-if="field.type === 'select'"
-                v-model="form.details[field.key]"
-                class="input w-full"
-              >
-                <option v-for="opt in field.options" :key="opt" :value="opt">
-                  {{ t(`accounting.statuses.${opt}`) }}
-                </option></select
-              ><select
-                v-else-if="field.type === 'attachment'"
-                v-model="form.details[field.key]"
-                class="input w-full"
-                required
-              >
-                <option value="">{{ t('accounting.select') }}</option>
-                <option
-                  v-for="file in paymentFiles"
-                  :key="file.id"
-                  :value="file.id"
+              {{ t('accounting.taxHint') }}
+            </p>
+            <p v-if="group.key === 'secrets'" class="accounting-form-hint">
+              {{ t('accounting.secretHint') }}
+            </p>
+            <div class="accounting-form-grid">
+              <label
+                v-for="field in group.fields"
+                :key="field.key"
+                :data-field="field.key"
+                class="min-w-0"
+                :class="{
+                  'accounting-field-wide': [
+                    'remark',
+                    'difference_reason',
+                    'reason',
+                  ].includes(field.key),
+                  'accounting-boolean': field.type === 'boolean',
+                }"
+                ><span class="input-label">{{
+                  t(`accounting.fields.${field.key}`)
+                }}</span
+                ><input
+                  v-if="field.type === 'boolean'"
+                  v-model="form.details[field.key]"
+                  type="checkbox"
+                  class="mt-2 h-4 w-4" /><select
+                  v-else-if="field.type === 'select'"
+                  v-model="form.details[field.key]"
+                  class="input w-full"
                 >
-                  {{ file.filename }}
-                </option></select
-              ><select
-                v-else-if="field.type === 'reference'"
-                v-model="form.details[field.key]"
-                class="input w-full"
-              >
-                <option value="">{{ t('accounting.select') }}</option>
-                <option
-                  v-for="r in references[field.reference!] || []"
-                  :key="r.id"
-                  :value="r.id"
+                  <option v-for="opt in field.options" :key="opt" :value="opt">
+                    {{ t(`accounting.statuses.${opt}`) }}
+                  </option></select
+                ><select
+                  v-else-if="field.type === 'attachment'"
+                  v-model="form.details[field.key]"
+                  class="input w-full"
+                  required
                 >
-                  {{ recordLabel(r.details, r.id) }} · {{ r.currency }}
-                </option></select
-              ><input
-                v-else
-                v-model="form.details[field.key]"
-                :type="
-                  field.type === 'date'
-                    ? 'date'
-                    : field.type === 'secret'
-                      ? 'password'
-                      : 'text'
-                "
-                :autocomplete="field.type === 'secret' ? 'new-password' : 'off'"
-                class="input w-full"
-            /></label>
-          </div>
-          <p v-if="formKind === 'transfers'" class="text-xs text-gray-500">
-            {{ t('accounting.taxHint') }}
-          </p>
-          <label v-if="action !== 'pay'" class="block"
+                  <option value="">{{ t('accounting.select') }}</option>
+                  <option
+                    v-for="file in paymentFiles"
+                    :key="file.id"
+                    :value="file.id"
+                  >
+                    {{ file.filename }}
+                  </option></select
+                ><select
+                  v-else-if="field.type === 'reference'"
+                  v-model="form.details[field.key]"
+                  class="input w-full"
+                >
+                  <option value="">{{ t('accounting.select') }}</option>
+                  <option
+                    v-for="r in references[field.reference!] || []"
+                    :key="r.id"
+                    :value="r.id"
+                  >
+                    {{ recordLabel(r.details, r.id) }} · {{ r.currency }}
+                  </option></select
+                ><textarea
+                  v-else-if="
+                    ['remark', 'difference_reason', 'reason'].includes(
+                      field.key,
+                    )
+                  "
+                  :value="String(form.details[field.key] ?? '')"
+                  @input="
+                    form.details[field.key] = (
+                      $event.target as HTMLTextAreaElement
+                    ).value
+                  "
+                  class="input min-h-20 w-full" /><input
+                  v-else
+                  v-model="form.details[field.key]"
+                  :type="
+                    field.type === 'date'
+                      ? 'date'
+                      : field.type === 'secret'
+                        ? 'password'
+                        : 'text'
+                  "
+                  :autocomplete="
+                    field.type === 'secret' ? 'new-password' : 'off'
+                  "
+                  class="input w-full"
+              /></label>
+            </div>
+          </fieldset>
+          <label v-if="action !== 'pay'" class="accounting-upload block"
             ><span class="input-label">{{ t('accounting.upload') }}</span
             ><input
               type="file"
@@ -859,32 +1037,50 @@
         >
           {{ t('accounting.uploadFirst') }}
         </p>
-        <div class="flex justify-end gap-2">
+      </form>
+      <template #footer
+        ><div class="flex flex-wrap justify-end gap-2">
           <button
             type="button"
             class="btn btn-secondary"
             :disabled="busy"
             @click="action = ''"
           >
-            {{ t('accounting.cancel') }}</button
-          ><button type="submit" class="btn btn-primary" :disabled="busy">
+            {{ t('accounting.cancel') }}
+          </button>
+          <button
+            type="submit"
+            :form="`${uid}-action-form`"
+            class="btn btn-primary"
+            :disabled="busy"
+          >
             {{ t('accounting.save') }}
           </button>
-        </div>
-      </form>
+        </div></template
+      >
     </BaseDialog>
   </div>
 </template>
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref, useId } from 'vue'
+import {
+  computed,
+  onMounted,
+  onUnmounted,
+  reactive,
+  ref,
+  useId,
+  watch,
+} from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { saveAs } from 'file-saver'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import DataTable from '@/components/common/DataTable.vue'
 import { useDesktopOrganizationAccess } from '@/composables/useDesktopOrganizationAccess'
 import * as api from './api'
 import { formatMoney } from './format'
+import { fieldGroups, navigationGroups } from './presentation'
+import '@/styles/accounting.css'
 import {
   adminKinds,
   customerKinds,
@@ -910,24 +1106,38 @@ const props = withDefaults(
   { customer: false, organizationId: '' },
 )
 const { t } = useI18n()
-const route = useRoute()
+const route = useRoute(),
+  router = useRouter()
 const uid = useId()
 type Tab = AccountingKind | 'overview' | 'reconciliation' | 'audit'
+const directory = computed(() => !props.customer && !props.organizationId)
 const tab = ref<Tab>('overview')
 const tabs = computed<Tab[]>(() => [
   'overview',
   ...(props.customer ? customerKinds : adminKinds),
   ...(!props.customer ? (['reconciliation', 'audit'] as Tab[]) : []),
 ])
-const selectedOrg = ref(
-  props.organizationId || String(route.query.organization_id || ''),
+const visibleNavigation = computed(() =>
+  navigationGroups
+    .map((group) => ({
+      ...group,
+      tabs: group.tabs.filter((item): item is Tab =>
+        tabs.value.includes(item as Tab),
+      ),
+    }))
+    .filter((group) => group.tabs.length),
 )
+if (!directory.value && tabs.value.includes(route.query.tab as Tab))
+  tab.value = route.query.tab as Tab
+const selectedOrg = computed(() => props.organizationId)
+const queryString = (key: string) =>
+  typeof route.query[key] === 'string' ? (route.query[key] as string) : ''
 const query = reactive({
-  currency: '',
+  currency: queryString('currency'),
   status: '',
   search: '',
-  from: '',
-  to: '',
+  from: queryString('from'),
+  to: queryString('to'),
 })
 const page = ref(1),
   total = ref(0),
@@ -977,8 +1187,26 @@ const filteredOrgs = computed(() =>
     ? orgs.value.filter((o) => o.id === selectedOrg.value)
     : orgs.value,
 )
-const detailOrg = ref<AccountingOrganization | null>(null),
-  detailRecord = ref<AccountingRecord | null>(null),
+const currentOrganization = computed(() =>
+  orgs.value.find((org) => org.id === selectedOrg.value),
+)
+const organizationName = computed(
+  () => currentOrganization.value?.name || props.organizationId,
+)
+const hasFilters = computed(() => Object.values(query).some(Boolean))
+function organizationLink(id: string) {
+  return {
+    path: `/admin/accounting/organizations/${encodeURIComponent(id)}`,
+    query: Object.fromEntries(
+      Object.entries({
+        currency: query.currency,
+        from: query.from,
+        to: query.to,
+      }).filter(([, value]) => value),
+    ),
+  }
+}
+const detailRecord = ref<AccountingRecord | null>(null),
   detailKind = ref<AccountingKind>('transfers'),
   recordFiles = ref<AccountingAttachment[]>([])
 const allocationRows = ref<Awaited<ReturnType<typeof api.allocationHistory>>>(
@@ -1012,6 +1240,7 @@ let abort: AbortController | null = null
 let generation = 0
 const access = useDesktopOrganizationAccess()
 const formFields = computed(() => fields[formKind.value])
+const groupedFormFields = computed(() => fieldGroups[formKind.value])
 const shareableFile = computed(
   () =>
     detailKind.value === 'transfers' ||
@@ -1033,22 +1262,26 @@ const visibleDetails = computed(() =>
   ),
 )
 const actionTitle = computed(() =>
-  action.value
-    ? t(
-        action.value === 'create'
-          ? `accounting.kinds.${formKind.value}`
-          : `accounting.${action.value === 'close' ? 'closeCard' : action.value}`,
-      )
-    : '',
+  !action.value
+    ? ''
+    : action.value === 'create'
+      ? t('accounting.createRecord', {
+          kind: t(`accounting.kinds.${formKind.value}`),
+        })
+      : t(
+          `accounting.${action.value === 'close' ? 'closeCard' : action.value}`,
+        ),
 )
 const empty = computed(() =>
-  tab.value === 'overview'
-    ? summaries.value.length === 0
-    : tab.value === 'audit'
-      ? auditRows.value.length === 0
-      : tab.value === 'reconciliation'
-        ? reconciliationRows.value.length === 0
-        : records.value.length === 0,
+  directory.value
+    ? orgs.value.length === 0
+    : tab.value === 'overview'
+      ? summaries.value.length === 0
+      : tab.value === 'audit'
+        ? auditRows.value.length === 0
+        : tab.value === 'reconciliation'
+          ? reconciliationRows.value.length === 0
+          : records.value.length === 0,
 )
 function isRecordTab(value: Tab): value is AccountingKind {
   return adminKinds.includes(value as AccountingKind)
@@ -1117,9 +1350,23 @@ async function load() {
     const f = filters()
     const [summaryResult, orgResult] = await Promise.all([
       api.summary(props.customer, f, abort.signal),
-      props.customer ? Promise.resolve([]) : api.organizations(f, abort.signal),
+      props.customer
+        ? Promise.resolve([])
+        : api.organizations(
+            props.organizationId ? { search: props.organizationId } : f,
+            abort.signal,
+          ),
     ])
     if (current !== generation) return
+    if (
+      props.organizationId &&
+      !orgResult.some((org) => org.id === props.organizationId)
+    ) {
+      orgs.value = []
+      summaries.value = []
+      records.value = []
+      throw new Error(t('accounting.organizationUnavailable'))
+    }
     summaries.value = summaryResult
     if (!props.customer) orgs.value = orgResult
     if (isRecordTab(tab.value)) {
@@ -1157,6 +1404,16 @@ async function load() {
     if (current === generation) loading.value = false
   }
 }
+function clearFilters() {
+  Object.assign(query, {
+    currency: '',
+    status: '',
+    search: '',
+    from: '',
+    to: '',
+  })
+  applyFilters()
+}
 function applyFilters() {
   page.value = 1
   void load()
@@ -1169,8 +1426,10 @@ function nextPage() {
   page.value++
   void load()
 }
-function selectTab(value: Tab) {
+function selectTab(value: Tab, updateUrl = true) {
+  if (directory.value || !tabs.value.includes(value)) return
   tab.value = value
+  if (updateUrl) void router.replace({ query: { ...route.query, tab: value } })
   query.status = ''
   page.value = 1
   void load()
@@ -1178,9 +1437,11 @@ function selectTab(value: Tab) {
 function tabKey(event: KeyboardEvent, value: Tab) {
   const index = tabs.value.indexOf(value)
   let target = index
-  if (event.key === 'ArrowRight') target = (index + 1) % tabs.value.length
+  const direction = document.documentElement.dir === 'rtl' ? -1 : 1
+  if (event.key === 'ArrowRight')
+    target = (index + direction + tabs.value.length) % tabs.value.length
   else if (event.key === 'ArrowLeft')
-    target = (index - 1 + tabs.value.length) % tabs.value.length
+    target = (index - direction + tabs.value.length) % tabs.value.length
   else if (event.key === 'Home') target = 0
   else if (event.key === 'End') target = tabs.value.length - 1
   else return
@@ -1206,7 +1467,9 @@ async function loadReferences() {
         organization_id: form.organization_id,
         page_size: 100,
       })
-    ).items.filter((r) => r.status !== 'VOID')
+    ).items.filter(
+      (r) => r.status !== 'VOID' && r.organization_id === form.organization_id,
+    )
 }
 function setupForm(kind: AccountingKind, record?: AccountingRecord) {
   formKind.value = kind
@@ -1238,6 +1501,7 @@ function setupForm(kind: AccountingKind, record?: AccountingRecord) {
   })
 }
 function openCreate(kind: AccountingKind) {
+  if (props.customer || directory.value || !currentOrganization.value) return
   action.value = 'create'
   actionRecord.value = null
   setupForm(kind)
@@ -1292,6 +1556,11 @@ function chooseFile(event: Event) {
   selectedFile.value = (event.target as HTMLInputElement).files?.[0] || null
 }
 async function saveAction() {
+  if (busy.value || props.customer || directory.value) return
+  if (form.organization_id !== props.organizationId) {
+    dialogError.value = t('accounting.organizationUnavailable')
+    return
+  }
   busy.value = true
   dialogError.value = ''
   try {
@@ -1412,6 +1681,13 @@ async function exportRecords() {
     saveAs(await api.exportCSV(kind, filters()), `accounting-${kind}.csv`)
   })
 }
+watch(
+  () => route.query.tab,
+  (value) => {
+    const next = tabs.value.includes(value as Tab) ? (value as Tab) : 'overview'
+    if (!directory.value && next !== tab.value) selectTab(next, false)
+  },
+)
 function onFocus() {
   if (props.customer) void load()
 }
@@ -1425,28 +1701,3 @@ onUnmounted(() => {
   window.removeEventListener('focus', onFocus)
 })
 </script>
-<style scoped>
-.accounting-tab {
-  transition-property: color, background-color, border-color, box-shadow;
-  transition-duration: 150ms;
-}
-
-.accounting-tab:focus {
-  @apply ring-0 ring-offset-0;
-}
-
-.accounting-tab:focus-visible {
-  outline: 2px solid theme('colors.primary.500');
-  outline-offset: -4px;
-}
-
-.accounting-tab[aria-selected='true']:focus-visible {
-  outline-color: #fff;
-}
-
-@media (forced-colors: active) {
-  .accounting-tab[aria-selected]:focus-visible {
-    outline-color: Highlight;
-  }
-}
-</style>

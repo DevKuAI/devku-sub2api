@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { createI18n } from 'vue-i18n'
 import zh from '@/i18n/locales/zh'
+import { adminKinds, fields } from '../fields'
 import type { AccountingRecord } from '../types'
 const api = vi.hoisted(() => ({
   summary: vi.fn(),
@@ -14,6 +15,8 @@ const api = vi.hoisted(() => ({
   stableRequest: () => Object.assign(() => 'stable-key', { reset: vi.fn() }),
   reconciliation: vi.fn(),
   auditLogs: vi.fn(),
+  exportCSV: vi.fn(),
+  upload: vi.fn(),
 }))
 const access = vi.hoisted(() => ({
   refreshDesktopOrganizationAccess: vi.fn(),
@@ -22,7 +25,12 @@ vi.mock('../api', () => api)
 vi.mock('@/composables/useDesktopOrganizationAccess', () => ({
   useDesktopOrganizationAccess: () => access,
 }))
-vi.mock('vue-router', () => ({ useRoute: () => ({ query: {} }) }))
+const route = { query: {} as Record<string, string> }
+const router = { replace: vi.fn() }
+vi.mock('vue-router', () => ({
+  useRoute: () => route,
+  useRouter: () => router,
+}))
 vi.mock('file-saver', () => ({ saveAs: vi.fn() }))
 import Workspace from '../AccountingWorkspace.vue'
 enableAutoUnmount(afterEach)
@@ -38,23 +46,27 @@ const record: AccountingRecord = {
   version: 1,
   created_at: '2026-10-12T00:00:00Z',
 }
-function render(customer = false) {
+function render(customer = false, organizationId = customer ? '' : 'org_one') {
   return mount(Workspace, {
-    props: { customer },
+    props: { customer, organizationId },
     global: {
       plugins: [
         createI18n({
           legacy: false,
           locale: 'zh',
           messages: { zh },
-          messageCompiler: (message) => () => String(message),
+          messageCompiler: (message) => (context) =>
+            String(message).replace(/\{(\w+)\}/g, (_match, key: string) =>
+              String(context.named(key)),
+            ),
         }),
       ],
       stubs: {
+        RouterLink: { props: ['to'], template: '<a><slot /></a>' },
         BaseDialog: {
           props: ['show', 'title'],
           template:
-            '<section v-if="show" class="dialog"><h2>{{ title }}</h2><slot /></section>',
+            '<section v-if="show" class="dialog"><h2>{{ title }}</h2><slot /><slot name="footer" /></section>',
         },
       },
     },
@@ -63,6 +75,7 @@ function render(customer = false) {
 describe('accounting workspace', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    route.query = {}
     access.refreshDesktopOrganizationAccess.mockResolvedValue({
       public_id: 'org_one',
     })
@@ -86,7 +99,7 @@ describe('accounting workspace', () => {
     expect(wrapper.text()).toContain('企业已挂载')
     expect(api.organizations).not.toHaveBeenCalled()
     expect(wrapper.text()).not.toContain('我方支出')
-    expect(wrapper.findAll('select')).toHaveLength(1)
+    expect(wrapper.findAll('form select')).toHaveLength(1)
     wrapper.unmount()
   })
   it('renders all customer summary labels without unresolved translation keys', async () => {
@@ -203,6 +216,221 @@ describe('accounting workspace', () => {
     const wrapper = render()
     await flushPromises()
     expect(wrapper.find('[role="alert"]').text()).toContain('存储')
+    wrapper.unmount()
+  })
+  it('starts at an enterprise directory without global record tabs or create actions', async () => {
+    const wrapper = render(false, '')
+    await flushPromises()
+    expect(wrapper.findAll('[role="tab"]')).toHaveLength(0)
+    expect(
+      wrapper
+        .findAll('button')
+        .some((button) => button.text().startsWith('新增')),
+    ).toBe(false)
+    expect(
+      wrapper.findAllComponents({ name: 'AccountingWorkspace' }),
+    ).toHaveLength(0)
+    expect(wrapper.find('.dialog').exists()).toBe(false)
+    expect(api.listRecords).not.toHaveBeenCalled()
+    expect(wrapper.text()).not.toContain('暂无账目记录')
+    expect(wrapper.get('a').text()).toBe('客户公司')
+    wrapper.unmount()
+  })
+
+  it.each(adminKinds.filter((kind) => kind !== 'expense-payments'))(
+    'preserves every %s input within the current enterprise',
+    async (kind) => {
+      const wrapper = render()
+      await flushPromises()
+      const label = zh.accounting.kinds[kind]
+      await wrapper
+        .findAll('[role="tab"]')
+        .find((button) => button.text() === label)!
+        .trigger('click')
+      await flushPromises()
+      await wrapper
+        .findAll('button')
+        .find((button) => button.text().startsWith('新增'))!
+        .trigger('click')
+      await flushPromises()
+      const dialog = wrapper.findAll('.dialog').at(-1)!
+      expect(dialog.text()).toContain('客户公司')
+      const rendered = dialog
+        .findAll('[data-field]')
+        .map((field) => field.attributes('data-field'))
+        .sort()
+      expect(rendered).toEqual(fields[kind].map((field) => field.key).sort())
+      expect(new Set(rendered).size).toBe(rendered.length)
+      expect(
+        dialog.findAll('option').some((option) => option.text() === '客户公司'),
+      ).toBe(false)
+      if (kind === 'vcc-cards') {
+        expect(dialog.findAll('[type="password"]')).toHaveLength(4)
+        expect(dialog.get('[data-field-group="secrets"]').text()).toContain(
+          '卡片敏感信息',
+        )
+      }
+      wrapper.unmount()
+    },
+  )
+
+  it('saves a card under the current enterprise without asking for it again', async () => {
+    const wrapper = render()
+    await flushPromises()
+    await wrapper
+      .findAll('[role="tab"]')
+      .find((button) => button.text() === 'VCC 卡片')!
+      .trigger('click')
+    await flushPromises()
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === '新增VCC 卡片')!
+      .trigger('click')
+    await flushPromises()
+    const dialog = wrapper.findAll('.dialog').at(-1)!
+    await dialog.get('[data-field="alias"] input').setValue('专用卡')
+    await dialog
+      .get('[data-field="remark"] textarea')
+      .setValue('第一行\n第二行')
+    await dialog.get('form').trigger('submit')
+    await flushPromises()
+    expect(api.mutate).toHaveBeenCalledWith(
+      'vcc-cards',
+      expect.objectContaining({
+        organization_id: 'org_one',
+        currency: 'CNY',
+        amount: '0',
+        details: expect.objectContaining({
+          alias: '专用卡',
+          remark: '第一行\n第二行',
+        }),
+      }),
+      'stable-key',
+      'post',
+    )
+    wrapper.unmount()
+  })
+
+  it('keeps lookups, filters, reconciliation, audit and export inside the enterprise', async () => {
+    api.listRecords.mockResolvedValue({
+      items: [
+        record,
+        {
+          ...record,
+          id: 'other',
+          organization_id: 'org_other',
+          details: { name: 'OTHER_COMPANY_RECORD' },
+        },
+      ],
+      total: 2,
+    })
+    const wrapper = render()
+    await flushPromises()
+    for (const label of ['对账', '审计日志', '我方支出']) {
+      await wrapper
+        .findAll('[role="tab"]')
+        .find((button) => button.text() === label)!
+        .trigger('click')
+      await flushPromises()
+    }
+    expect(api.reconciliation).toHaveBeenCalledWith(
+      expect.objectContaining({ organization_id: 'org_one' }),
+    )
+    expect(api.auditLogs).toHaveBeenCalledWith(
+      expect.objectContaining({ organization_id: 'org_one' }),
+    )
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === '导出 CSV')!
+      .trigger('click')
+    await flushPromises()
+    expect(api.exportCSV).toHaveBeenCalledWith(
+      'expenses',
+      expect.objectContaining({ organization_id: 'org_one' }),
+    )
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === '新增我方支出')!
+      .trigger('click')
+    await flushPromises()
+    expect(wrapper.findAll('.dialog').at(-1)!.text()).not.toContain(
+      'OTHER_COMPANY_RECORD',
+    )
+    expect(
+      api.listRecords.mock.calls.every(
+        (call) => call[2].organization_id === 'org_one',
+      ),
+    ).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('does not fall back to another enterprise when a direct URL is unavailable', async () => {
+    const wrapper = render(false, 'org_missing')
+    await flushPromises()
+    expect(wrapper.get('[role="alert"]').text()).toContain('未找到当前企业')
+    expect(api.summary).toHaveBeenCalledWith(
+      false,
+      expect.objectContaining({ organization_id: 'org_missing' }),
+      expect.anything(),
+    )
+    expect(api.listRecords).not.toHaveBeenCalled()
+    expect(api.mutate).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+  it('keeps the payment fields and initiates payments from the selected enterprise expense', async () => {
+    api.listRecords.mockResolvedValue({
+      items: [
+        { ...record, status: 'PENDING', details: { supplier: '示例供应商' } },
+      ],
+      total: 1,
+    })
+    const wrapper = render()
+    await flushPromises()
+    await wrapper
+      .findAll('[role="tab"]')
+      .find((button) => button.text() === '我方支出')!
+      .trigger('click')
+    await flushPromises()
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === '记录详情')!
+      .trigger('click')
+    await flushPromises()
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === '记录付款')!
+      .trigger('click')
+    await flushPromises()
+    const dialog = wrapper.findAll('.dialog').at(-1)!
+    expect(
+      dialog
+        .findAll('[data-field]')
+        .map((field) => field.attributes('data-field'))
+        .sort(),
+    ).toEqual(fields['expense-payments'].map((field) => field.key).sort())
+    expect(api.attachments).toHaveBeenCalledWith(
+      'expenses',
+      'receipt-one',
+      false,
+    )
+    expect(dialog.text()).toContain('客户公司')
+    wrapper.unmount()
+  })
+
+  it('lets the compact navigation open the same scoped records and persist the section', async () => {
+    const wrapper = render()
+    await flushPromises()
+    await wrapper
+      .get('.accounting-mobile-navigation select')
+      .setValue('invoices')
+    await flushPromises()
+    expect(api.listRecords).toHaveBeenLastCalledWith(
+      'invoices',
+      false,
+      expect.objectContaining({ organization_id: 'org_one' }),
+      expect.anything(),
+    )
+    expect(router.replace).toHaveBeenCalledWith({ query: { tab: 'invoices' } })
     wrapper.unmount()
   })
 })

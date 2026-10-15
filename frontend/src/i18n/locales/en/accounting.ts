@@ -1,5 +1,77 @@
 export default {
   accounting: {
+    tableHint: 'Wide tables can be scrolled horizontally to view all content.',
+    recordSection: 'Accounting section',
+    emptyTrend: 'No receipts in the selected period.',
+    organizationWorkspace: 'Organization accounting',
+    directoryDescription:
+      'Open an organization to manage receipts, cards, documents, expenses and reconciliation.',
+    organizationDescription:
+      'Manage this organization’s funds, supporting documents and reconciliation. New records belong to this organization automatically.',
+    currentOrganization: 'Current organization',
+    organizationScope:
+      'Records and related options are scoped to this organization. No need to select it again when creating a record.',
+    organizationUnavailable:
+      'This organization was not found or is unavailable. Return to the organization list and open it again.',
+    createRecord: 'Add {kind}',
+    searchRecords:
+      'Search contacts or transaction references in this organization',
+    applyFilters: 'Apply filters',
+    clearFilters: 'Clear filters',
+    emptyOrganizations: 'No matching organizations',
+    emptyOrganizationsHint:
+      'Try different filters, or check that the organization exists in organization management.',
+    emptyRecordHint:
+      'No records match these filters for this organization. Adjust the filters or add a record.',
+    enterForReconciliation:
+      'Open the relevant organization to reconcile its records.',
+    secretHint:
+      'Sensitive fields remain encrypted. Saved sensitive values are not displayed in record details.',
+    formGroups: {
+      basic: 'Amount and business time',
+      receipt: 'Receipt information',
+      contacts: 'Contact information',
+      sales: 'Sales and tax',
+      notes: 'Notes',
+      card: 'Card information',
+      validity: 'Dates and validity',
+      secrets: 'Sensitive card information',
+      transaction: 'Transaction information',
+      related: 'Related records',
+      contract: 'Contract information',
+      tax: 'Tax information',
+      invoice: 'Invoice information',
+      parties: 'Issuer and recipient',
+      invoiceAmounts: 'Invoice amounts',
+      vendorBill: 'AI vendor bill',
+      expense: 'Expense information',
+      payment: 'Payment and evidence',
+      overpayment: 'Overpayment authorization',
+    },
+    navigation: {
+      overview: 'Overview',
+      funds: 'Receipts and cards',
+      documents: 'Contracts and invoices',
+      settlement: 'Expenses and reconciliation',
+    },
+    workflows: {
+      transfers:
+        'Record received funds, upload evidence and confirm before allocating available funds to this organization’s VCC.',
+      'vcc-cards':
+        'Manage this organization’s cards, allocation history and available balances.',
+      'vcc-transactions':
+        'Record consumption, refunds, fees and adjustments for this organization’s cards.',
+      contracts:
+        'Manage this organization’s contracts, signing dates and evidence, and share them with the customer as needed.',
+      invoices:
+        'Maintain customer and internal expense invoices, verify them and share them under existing rules.',
+      'vendor-invoices':
+        'Record AI vendor billing periods and link this organization’s transactions or expenses.',
+      expenses:
+        'Record internal expenses for this organization, link contracts and invoices, and record payments.',
+      'expense-payments':
+        'Review this organization’s payments. Add a payment from the related expense details.',
+    },
     balanceScope:
       'Receipts, allocations and spending follow the selected period. Available balances show the current position.',
     expire: 'Mark contract expired',

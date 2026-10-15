@@ -1,0 +1,137 @@
+.accounting-workspace {
+  container: accounting / inline-size;
+}
+.accounting-filters {
+  @apply flex min-w-0 flex-wrap items-end gap-3 p-4;
+}
+.accounting-filters > label {
+  min-width: 0;
+  flex: 1 1 10rem;
+}
+.accounting-filters .input {
+  width: 100%;
+}
+.accounting-context {
+  @apply flex min-w-0 flex-col gap-1 rounded-xl bg-gray-50 p-4 text-sm text-gray-700 dark:bg-dark-800 dark:text-dark-200;
+  overflow-wrap: anywhere;
+}
+.accounting-mobile-navigation {
+  display: block;
+  padding: 16px;
+}
+.accounting-navigation {
+  display: none;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  padding: 16px;
+}
+.accounting-nav-label {
+  @apply mb-2 text-xs font-medium text-gray-500 dark:text-dark-300;
+}
+.accounting-tab {
+  @apply min-w-0 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 dark:text-dark-300;
+  min-height: 40px;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+.accounting-tab[aria-selected='true'] {
+  @apply bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-200;
+}
+.accounting-record-heading {
+  @apply flex min-w-0 flex-wrap items-start justify-between gap-4;
+}
+.accounting-record-table {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.accounting-record-table table {
+  min-width: 40rem;
+}
+.accounting-workspace
+  :where(button, a, input, select, textarea, [tabindex]):focus-visible,
+.accounting-action-dialog
+  :where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid theme('colors.primary.600');
+  outline-offset: 2px;
+}
+.accounting-form {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  min-width: 0;
+}
+.accounting-action-dialog .modal-body {
+  container: accounting-form / inline-size;
+  min-width: 0;
+}
+.accounting-form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+.accounting-fieldset {
+  min-width: 0;
+}
+.accounting-fieldset legend {
+  @apply mb-4 text-base font-semibold text-gray-900 dark:text-gray-100;
+}
+.accounting-form-hint {
+  @apply mb-4 text-sm leading-relaxed text-gray-500 dark:text-dark-300;
+}
+.accounting-boolean {
+  @apply flex items-center justify-between gap-4 rounded-lg bg-gray-50 p-3 dark:bg-dark-800;
+}
+.accounting-boolean .input-label {
+  margin: 0;
+}
+.accounting-boolean input {
+  margin: 0;
+  flex-shrink: 0;
+}
+.accounting-upload {
+  @apply rounded-xl border border-dashed border-gray-300 p-4 dark:border-dark-600;
+}
+.accounting-upload input {
+  max-width: 100%;
+}
+@container accounting (min-width: 40rem) {
+  .accounting-mobile-navigation {
+    display: none;
+  }
+  .accounting-navigation {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@container accounting (min-width: 64rem) {
+  .accounting-navigation {
+    grid-template-columns: minmax(0, 0.65fr) repeat(3, minmax(0, 1fr));
+  }
+}
+@container accounting-form (min-width: 32rem) {
+  .accounting-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .accounting-field-wide {
+    grid-column: 1 / -1;
+  }
+}
+@media (forced-colors: active) {
+  .accounting-tab[aria-selected='true'] {
+    border: 1px solid Highlight;
+  }
+}
+
+.accounting-action-dialog .input {
+  min-width: 0;
+  max-width: 100%;
+}
+.accounting-fieldset legend {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+@container accounting-form (max-width: 31.99rem) {
+  .accounting-form .input {
+    font-size: 16px;
+  }
+}
