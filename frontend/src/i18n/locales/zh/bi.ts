@@ -8,7 +8,7 @@ export default {
       siteURLInvalid: "请输入有效的 HTTPS 站点地址，不含路径、查询参数、fragment 或用户凭证。",
       siteURLHint: "填写承载隐私说明页面的 HTTPS 站点地址，仅域名和可选端口。程序自动追加 /legal/bi-privacy；该地址需能访问本站页面。仅修改地址时无需更换版本号。",
       siteURL: "隐私说明站点地址",
-      heading: "BI 小程序隐私说明",
+      heading: "小程序隐私说明",
       description: "维护公开隐私说明。填写后单独保存并发布，立即对小程序生效。",
       title: "文档标题",
       version: "版本号",

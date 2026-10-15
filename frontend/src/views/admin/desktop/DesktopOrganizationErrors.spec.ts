@@ -90,8 +90,8 @@ describe.each(['create', 'edit'] as const)('Desktop organization %s errors', (op
     await submitOrganization(operation, locale, { reason: 'GROUP_NOT_ALLOWED', message: 'user is not allowed to bind this group' })
 
     expect(appStore.showError).toHaveBeenCalledWith(locale === 'zh'
-      ? '承载用户无法使用所选分组，请检查分组状态、访问权限和有效订阅。'
-      : 'The gateway user cannot use this group. Check the group status, access permissions, and active subscription.')
+      ? '计费用户无法使用所选模型分组，请检查分组状态、访问权限和有效订阅。'
+      : 'The billing user cannot use this model group. Check its status, access permissions and active subscription.')
   })
 
   it('uses the server message for an untranslated error reason', async () => {

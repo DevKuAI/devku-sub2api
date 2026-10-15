@@ -85,7 +85,7 @@
       </template>
     </TablePageLayout>
 
-    <BaseDialog :show="showDraft" :title="draftTitle" width="extra-wide" @close="closeDraft">
+    <BaseDialog :close-label="t('common.close')" :show="showDraft" :title="draftTitle" width="extra-wide" @close="closeDraft">
       <p v-if="selected && selected.status !== 'draft'" class="mb-4 text-sm text-amber-700 dark:text-amber-300">{{ t('admin.desktop.updates.editHint') }}</p>
       <form id="desktop-update-draft-form" class="space-y-6" @submit.prevent="saveDraft">
         <div class="grid grid-cols-1 gap-4 lg:grid-cols-[14rem_minmax(0,1fr)]">
@@ -153,7 +153,7 @@
       </template>
     </BaseDialog>
 
-    <BaseDialog :show="showPublish" :title="t(republishing ? 'admin.desktop.updates.republish' : 'admin.desktop.updates.publish')" width="narrow" @close="closePublish">
+    <BaseDialog :close-label="t('common.close')" :show="showPublish" :title="t(republishing ? 'admin.desktop.updates.republish' : 'admin.desktop.updates.publish')" width="narrow" @close="closePublish">
       <p class="text-sm leading-6 text-gray-600 dark:text-dark-300">{{ t(promoting ? 'admin.desktop.updates.promoteConfirm' : republishing ? 'admin.desktop.updates.republishConfirm' : 'admin.desktop.updates.publishConfirm', { version: selected?.version }) }}</p>
       <template v-if="!promoting">
         <label class="mt-4 flex items-center gap-2"><input v-model="grayRelease" type="checkbox" />{{ t('admin.desktop.updates.gray') }}</label>
@@ -184,7 +184,7 @@
       </template>
     </BaseDialog>
 
-    <BaseDialog :show="showWithdraw" :title="t('admin.desktop.updates.withdraw')" width="narrow" @close="closeWithdraw">
+    <BaseDialog :close-label="t('common.close')" :show="showWithdraw" :title="t('admin.desktop.updates.withdraw')" width="narrow" @close="closeWithdraw">
       <p class="text-sm leading-6 text-gray-600 dark:text-dark-300">{{ t('admin.desktop.updates.withdrawConfirm', { version: selected?.version }) }}</p>
       <div class="mt-4">
         <label class="input-label mb-1.5 block" for="desktop-update-withdraw-reason">{{ t('admin.desktop.updates.withdrawalReason') }} <span class="text-red-500">*</span></label>
@@ -198,7 +198,7 @@
         </div>
       </template>
     </BaseDialog>
-    <BaseDialog :show="showDelete" :title="t('common.delete')" width="narrow" @close="closeDelete">
+    <BaseDialog :close-label="t('common.close')" :show="showDelete" :title="t('common.delete')" width="narrow" @close="closeDelete">
       <p class="text-sm leading-6 text-gray-600 dark:text-dark-300">{{ t('admin.desktop.updates.deleteConfirm', { version: selected?.version }) }}</p>
       <template #footer>
         <div class="flex justify-end gap-3">

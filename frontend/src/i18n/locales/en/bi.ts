@@ -8,7 +8,7 @@ export default {
       siteURLInvalid: "Enter a valid HTTPS origin without a path, query, fragment, or credentials.",
       siteURLHint: "Enter the HTTPS origin hosting this privacy page (domain and optional port only). The application appends /legal/bi-privacy; the address must serve this application. Changing only the address does not require a new document version.",
       siteURL: "Privacy notice site URL",
-      heading: "BI mini-program privacy notice",
+      heading: "Mini-program privacy notice",
       description: "Maintain the public privacy notice. Save and publish it separately to apply changes immediately.",
       title: "Document title",
       version: "Version",

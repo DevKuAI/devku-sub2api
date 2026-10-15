@@ -32,7 +32,7 @@
       <template #pagination><Pagination v-if="total > 0" :page="page" :page-size="pageSize" :total="total" @update:page="changePage" @update:page-size="changePageSize" /></template>
     </TablePageLayout>
 
-    <BaseDialog :show="showUpload" :title="t('admin.desktop.resources.upload')" width="wide" @close="closeUpload">
+    <BaseDialog :close-label="t('common.close')" :show="showUpload" :title="t('admin.desktop.resources.upload')" width="wide" @close="closeUpload">
       <div class="space-y-5">
         <p class="text-sm leading-6 text-gray-500 dark:text-dark-400">{{ t('admin.desktop.resources.uploadHint') }}</p>
         <input ref="fileInput" class="hidden" type="file" accept=".zip,application/zip" :disabled="busy" :aria-label="t('admin.desktop.resources.selectZIP')" @change="selectFile" />
@@ -95,7 +95,7 @@
       </template>
     </BaseDialog>
 
-    <BaseDialog :show="showDetail" :title="t('admin.desktop.resources.detail')" width="extra-wide" @close="showDetail = false">
+    <BaseDialog :close-label="t('common.close')" :show="showDetail" :title="t('admin.desktop.resources.detail')" width="extra-wide" @close="showDetail = false">
       <div v-if="detail" class="space-y-5">
         <div class="space-y-1">
           <h3 class="font-semibold">{{ detail.name }} · {{ detail.version }}</h3>
@@ -122,7 +122,7 @@
       </div>
     </BaseDialog>
 
-    <BaseDialog :show="!!statusTarget" :title="t(`admin.desktop.resources.${statusTarget?.status === 'active' ? 'disable' : 'restore'}`)" width="narrow" @close="closeStatus">
+    <BaseDialog :close-label="t('common.close')" :show="!!statusTarget" :title="t(`admin.desktop.resources.${statusTarget?.status === 'active' ? 'disable' : 'restore'}`)" width="narrow" @close="closeStatus">
       <div class="space-y-4">
         <p class="font-medium">{{ statusTarget?.name }}</p>
         <p class="text-sm text-gray-500">{{ t('admin.desktop.resources.statusHint') }}</p>

@@ -15,6 +15,7 @@ describe('Desktop locale copy', () => {
 
     expect(copy).not.toMatch(/\b(?:User|Group|Key|active)\b|Provider ID|Wire API/)
     const managementCopy = collectStrings({ ...zh.admin.desktop, usageStatistics: {} }).join('\n')
-    expect(managementCopy).not.toMatch(/\bToken\b/)
+    // Usage units also appear in member tables, CSV exports and analysis history.
+    expect(managementCopy.replace(/\bToken 用量/g, '用量')).not.toMatch(/\bToken\b/)
   })
 })

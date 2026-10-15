@@ -472,7 +472,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       requiresAuth: true,
       requiresAdmin: true,
-      title: 'BI Operations',
+      title: 'Mini-program operations',
       titleKey: 'admin.bi.title',
       descriptionKey: 'admin.bi.description'
     }
@@ -521,7 +521,7 @@ const routes: RouteRecordRaw[] = [
       requiresAuth: true,
       requiresAdmin: true,
       requiresDesktop: true,
-      title: 'Desktop Management',
+      title: 'Organizations',
       titleKey: 'admin.desktop.title',
       descriptionKey: 'admin.desktop.description'
     }
@@ -534,7 +534,7 @@ const routes: RouteRecordRaw[] = [
       requiresAuth: true,
       requiresAdmin: true,
       requiresDesktop: true,
-      title: 'Desktop Organization',
+      title: 'Organization details',
       titleKey: 'admin.desktop.detailTitle'
     }
   },
@@ -546,7 +546,7 @@ const routes: RouteRecordRaw[] = [
       requiresAuth: true,
       requiresAdmin: true,
       requiresDesktop: true,
-      title: 'Desktop Resources',
+      title: 'Tool resources',
       titleKey: 'admin.desktop.resources.title',
       descriptionKey: 'admin.desktop.resources.description'
     }
@@ -558,7 +558,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       requiresAuth: true,
       requiresAdmin: true,
-      title: 'Desktop Updates',
+      title: 'Client updates',
       titleKey: 'admin.desktop.updates.title',
       descriptionKey: 'admin.desktop.updates.description'
     }

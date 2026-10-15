@@ -1,5 +1,5 @@
 export default {
-    bi: { title: 'BI 运维', description: 'BI 服务、数据同步和审计运维' },
+    bi: { title: "小程序运维", description: "管理企业小程序访问、使用者、总结任务与审计记录。" },
     // Dashboard
     dashboard: {
       title: '管理控制台',
