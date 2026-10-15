@@ -14,13 +14,16 @@ describe('BI operations metadata table', () => {
     wrapper.unmount()
   })
 
-  it('retains secondary metadata in an expandable detail without showing business text', () => {
+  it('opens metadata outside table cells without stretching the row or showing business text', async () => {
     const wrapper = mount(OperationsTable, { props: {
       rows: [{ id: 'task', status: 'failed', error: 'Upstream failure', attempt: 0, model: '', content: 'PRIVATE_BODY' }],
       columns: ['status'], details: ['error', 'attempt', 'model'], loading: false, error: '',
-    } })
-    expect(wrapper.get('details summary').text()).toBe('biNative.recordDetails')
-    expect(wrapper.findAll('details dd').map(cell => cell.text())).toEqual(['Upstream failure', '0', '-'])
+    }, global: { stubs: { teleport: true } } })
+    await wrapper.get('button[aria-haspopup="dialog"]').trigger('click')
+    expect(wrapper.findAll('tbody tr')).toHaveLength(1)
+    expect(wrapper.find('td dl').exists()).toBe(false)
+    expect(wrapper.get('[role="dialog"]').text()).toContain('Upstream failure')
+    expect(wrapper.findAll('[role="dialog"] dd').map(cell => cell.text())).toEqual(['admin.desktop.reports.statuses.failed', 'Upstream failure', '0', '-'])
     expect(wrapper.text()).not.toContain('PRIVATE_BODY')
     wrapper.unmount()
   })

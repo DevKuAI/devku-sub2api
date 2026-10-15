@@ -1,6 +1,12 @@
 export default {
   "biNative": {
     verificationDigit: '验证码第 {digit} 位',
+    organizationRecordDetails: '{name} · 记录详情',
+    reportStatistics: '生成任务与模型用量',
+    statisticsScope: '按当前周期筛选统计全部保留任务和执行记录，包含历史版本与重试，不受列表分页影响。',
+    modelStatistics: '按模型统计',
+    missingUsage: '其中 {count} 条执行记录未记录该项数据',
+    statistics: { tasks: '生成任务数', organizations: '涉及企业数', models: '使用模型数', executions: '模型执行记录数', tokens: '已记录 Token 用量', cost: '已记录费用（USD）', taskStatuses: '任务状态', executionStatuses: '执行状态' },
     recordDetails: '详情',
     organizationAccessTitle: "{name} · 小程序访问与邀请",
     clearSearch: "清除搜索",
@@ -156,6 +162,11 @@ export default {
     "presetReports": "查看成员与总结",
     "presetAll": "全部阅读与复制权限",
     "fields": {
+      task_id: '任务 ID',
+      finished_at: '结束时间',
+      execution_count: '执行记录数',
+      missing_token_count: '未记录 Token 的记录',
+      missing_cost_count: '未记录费用的记录',
       features: "功能开关",
       "name": "企业名称",
       "status": "状态",

@@ -2414,6 +2414,131 @@
         },
         "x-step-up-required": true
       }
+    },
+    "/api/v1/admin/bi/report-statistics": {
+      "get": {
+        "operationId": "getBIReportStatistics",
+        "summary": "获取总结生成任务及模型调用汇总",
+        "security": [
+          {
+            "WebBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ReportStatistics"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "登录失效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "无功能权限或企业功能未启用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "不可用，不泄露对象信息",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "版本冲突",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务或数据不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "",
+                "day",
+                "week",
+                "month"
+              ],
+              "default": ""
+            },
+            "description": "省略或空字符串表示全部周期类型。"
+          },
+          {
+            "name": "organization_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "description": "按 kind 与 organization_id 筛选全部保留任务和模型执行记录，包含历史版本、重试及任务移除后的保留调用，不受分页影响。仅返回元数据；Token 与费用为精确字符串，缺失值与零值分开统计。"
+      }
     }
   },
   "components": {
@@ -2732,6 +2857,9 @@
           "actual_cost": {
             "type": "number",
             "nullable": true
+          },
+          "organization_name": {
+            "type": "string"
           }
         }
       },
@@ -3248,6 +3376,111 @@
           "page_size",
           "total",
           "has_more"
+        ]
+      },
+      "ReportModelStatistics": {
+        "type": "object",
+        "properties": {
+          "execution_count": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "missing_token_count": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "missing_cost_count": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "model": {
+            "type": "string"
+          },
+          "total_tokens": {
+            "type": "string",
+            "nullable": true,
+            "description": "精确十进制字符串；未记录为 null，零值保留。"
+          },
+          "actual_cost": {
+            "type": "string",
+            "nullable": true,
+            "description": "精确十进制字符串；未记录为 null，零值保留。"
+          }
+        },
+        "required": [
+          "execution_count",
+          "missing_token_count",
+          "missing_cost_count",
+          "model",
+          "total_tokens",
+          "actual_cost"
+        ]
+      },
+      "ReportStatistics": {
+        "type": "object",
+        "properties": {
+          "task_count": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "organization_count": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "execution_count": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "missing_token_count": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "missing_cost_count": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "total_tokens": {
+            "type": "string",
+            "nullable": true,
+            "description": "精确十进制字符串；未记录为 null，零值保留。"
+          },
+          "actual_cost": {
+            "type": "string",
+            "nullable": true,
+            "description": "精确十进制字符串；未记录为 null，零值保留。"
+          },
+          "task_statuses": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          },
+          "execution_statuses": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReportModelStatistics"
+            }
+          }
+        },
+        "required": [
+          "task_count",
+          "organization_count",
+          "execution_count",
+          "missing_token_count",
+          "missing_cost_count",
+          "total_tokens",
+          "actual_cost",
+          "task_statuses",
+          "execution_statuses",
+          "models"
         ]
       }
     }

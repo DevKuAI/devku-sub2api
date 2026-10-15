@@ -47,9 +47,9 @@
         </div>
       </section>
       <section v-else-if="tab === 'tasks'" id="bi-panel-tasks" role="tabpanel" tabindex="0" aria-labelledby="bi-tab-tasks" class="space-y-5">
-        <div class="card bi-panel"><label class="block w-full sm:max-w-xs"><span class="input-label">{{ t('biNative.period') }}</span><select v-model="kind" class="input"><option value="">{{ t('common.all') }}</option><option v-for="k in ['day','week','month']" :key="k" :value="k">{{ t(`biNative.${k}`) }}</option></select></label></div>
-        <div v-for="region in taskRegions" :key="region.path" class="card bi-panel">
-          <header class="bi-toolbar"><h2 class="bi-heading">{{ t(`biNative.${region.title}`) }}</h2><button class="btn btn-secondary" :disabled="regions[region.path].loading" @click="load(region.path)">{{ t('common.refresh') }}</button></header>
+        <ReportTaskStatistics :statistics="statistics" :loading="statisticsLoading" :error="statisticsError" @refresh="refreshReports"><template #filters><label><span class="input-label">{{ t('biNative.period') }}</span><select v-model="kind" class="input"><option value="">{{ t('common.all') }}</option><option v-for="k in ['day','week','month']" :key="k" :value="k">{{ t(`biNative.${k}`) }}</option></select></label></template></ReportTaskStatistics>
+        <div v-for="region in taskRegions" :key="region.path" class="card bi-panel" :data-testid="`bi-${region.path}`">
+          <header class="bi-toolbar"><h2 class="bi-heading">{{ t(`biNative.${region.title}`) }}</h2><button class="btn btn-secondary" :disabled="regions[region.path].loading" @click="refreshReportRegion(region.path)">{{ t('common.refresh') }}</button></header>
           <OperationsTable :rows="regions[region.path].rows" :columns="region.columns" :details="region.details" :loading="regions[region.path].loading" :error="regions[region.path].error" @retry="load(region.path)"><template v-if="region.path === 'report-tasks'" #actions="{ row }"><router-link class="btn btn-secondary" :to="reportLink(row)">{{ t('biNative.openOrganization') }}</router-link></template></OperationsTable><More :path="region.path" />
         </div>
       </section>
@@ -80,9 +80,10 @@ import BIStepUpDialog from '@/components/bi/BIStepUpDialog.vue'
 import { useStepUp, isStepUpCancelled } from '@/composables/useStepUp'
 import BIGrantManagement from '@/components/bi/BIGrantManagement.vue'
 import OperationsTable from '@/components/bi/OperationsTable.vue'
+import ReportTaskStatistics from '@/components/bi/ReportTaskStatistics.vue'
 import { biNumber, biText } from '@/components/bi/display'
 import '@/styles/biOperations.css'
-import api, { type BIOverview, type BIOperationRow, type BIRetentionPolicy } from '@/api/admin/bi'
+import api, { type BIOverview, type BIOperationRow, type BIRetentionPolicy, type BIReportStatistics } from '@/api/admin/bi'
 const { t } = useI18n(), tabs = ['overview','onboarding','identities','tasks','audit'] as const
 const countKeys = ['access', 'users', 'sessions', 'invitations', 'daily_running', 'period_running'] as const
 const configKeys = ['appid', 'app_secret_configured', 'jwt_secret_configured', 'identity_secret_configured', 'min_client_version'] as const
@@ -93,8 +94,8 @@ const identityRegions = [
   { path: 'identities/sessions', title: 'sessions', columns: ['bi_user_id','status','client_version','last_seen_at','expires_at'] },
 ]
 const taskRegions = [
-  { path: 'report-tasks', title: 'tasks', columns: ['organization_name','kind','period_start','period_end','status','model','total_tokens','actual_cost'], details: ['revision','available_sources','missing_sources','reason'] },
-  { path: 'report-executions', title: 'executions', columns: ['organization_id','kind','period_start','status','total_tokens','actual_cost','started_at'], details: ['revision','model','round','chunk','attempt','error'] },
+  { path: 'report-tasks', title: 'tasks', columns: ['organization_name','kind','period_start','period_end','status','model','total_tokens','actual_cost'], details: ['organization_id','revision','available_sources','missing_sources','reason'] },
+  { path: 'report-executions', title: 'executions', columns: ['organization_name','kind','period_start','model','status','total_tokens','actual_cost','started_at'], details: ['organization_id','task_id','period_end','revision','round','chunk','attempt','request_id','finished_at','error'] },
 ]
 function tabKey(event: KeyboardEvent, index: number) {
   let next = index
@@ -116,12 +117,23 @@ function openAccess(row: BIOperationRow) { selectedOrganization.value = String(r
 function closeAccess() { if (!accessBusy.value) accessDialogOpen.value = false }
 const paths = ['organizations','identities/users','identities/sessions','report-tasks','report-executions','audit']
 const regions = reactive<Record<string, { rows: BIOperationRow[]; page: number; more: boolean; loading: boolean; error: string; generation: number }>>(Object.fromEntries(paths.map(path => [path, { rows: [], page: 1, more: false, loading: false, error: '', generation: 0 }])))
+const statistics = ref<BIReportStatistics>(), statisticsLoading = ref(false), statisticsError = ref('')
+let statisticsGeneration = 0
 let alive = true, searchTimer: ReturnType<typeof setTimeout> | undefined
 const causeMessage = (cause: unknown) => t((cause as { status?: number }).status === 423 ? 'biNative.stepUp' : 'biNative.failed')
 const organizationLink = (id: string, target = 'grants') => ({ path: `/admin/desktop/organizations/${encodeURIComponent(id)}`, query: { tab: target } })
 const reportLink = (row: BIOperationRow) => ({path:`/admin/desktop/organizations/${encodeURIComponent(String(row.organization_id))}`,query:{tab:'reports',report_kind:String(row.kind),period_start:String(row.period_start),report_id:String(row.report_id??''),report_date:String(row.period_start)}})
 let overviewGeneration = 0, retentionGeneration = 0
 async function loadOverview() { const g = ++overviewGeneration; overviewLoading.value = true; overviewError.value = ''; try { const value = await api.getOverview(); if (alive && g === overviewGeneration) overview.value = value } catch (cause) { if (alive && g === overviewGeneration) overviewError.value = causeMessage(cause) } finally { if (alive && g === overviewGeneration) overviewLoading.value = false } }
+async function loadStatistics() {
+  const g = ++statisticsGeneration
+  statistics.value = undefined; statisticsLoading.value = true; statisticsError.value = ''
+  try { const value = await api.reportStatistics({ kind: kind.value }); if (alive && g === statisticsGeneration) statistics.value = value }
+  catch (cause) { if (alive && g === statisticsGeneration) statisticsError.value = causeMessage(cause) }
+  finally { if (alive && g === statisticsGeneration) statisticsLoading.value = false }
+}
+function refreshReports() { void loadStatistics(); void load('report-tasks'); void load('report-executions') }
+function refreshReportRegion(path: string) { void load(path); if (path.startsWith('report-')) void loadStatistics() }
 async function load(path: string, page = 1) { const region = regions[path], g = ++region.generation; region.loading = true; region.error = ''; const params: Record<string,string> = {}; if (path === 'organizations') params.search = search.value; if (path.startsWith('report-')) params.kind = kind.value; try { const value = await api.list(path,page,params); if (!alive || g !== region.generation) return; region.rows = page === 1 ? value.items : [...region.rows,...value.items]; region.page = page; region.more = value.has_more } catch (cause) { if (alive && g === region.generation) region.error = causeMessage(cause) } finally { if (alive && g === region.generation) region.loading = false } }
 const More = defineComponent({ props: { path: { type: String, required: true } }, setup(props) { return () => regions[props.path].more ? h('div', { class: 'bi-footer' }, [h('button', { class: 'btn btn-secondary', disabled: regions[props.path].loading, onClick: () => load(props.path, regions[props.path].page + 1) }, t('bi.loadMore'))]) : null } })
 async function setStatus(id: string, status: string) { if (busy.value) return; if (!window.confirm(t(status === 'disabled' ? 'biNative.disableUser' : 'biNative.enableUser'))) return; busy.value = true; actionError.value = ''; try { await stepUp.run(() => api.userStatus(id,status)); void load('identities/users'); void load('identities/sessions'); void loadOverview() } catch (cause) { if (!isStepUpCancelled(cause)) actionError.value = causeMessage(cause) } finally { busy.value = false } }
@@ -147,8 +159,8 @@ async function cleanup() {
   catch (cause) { if (!isStepUpCancelled(cause)) retentionError.value = causeMessage(cause) }
   finally { busy.value = false }
 }
-watch(tab, value => { actionError.value = ''; retentionMessage.value = '';  if (value === 'overview') void loadOverview(); if (['onboarding','identities'].includes(value)) void load('organizations'); if (value === 'identities') { void load('identities/users'); void load('identities/sessions') } if (value === 'tasks') { void load('report-tasks'); void load('report-executions') } if (value === 'audit') { void load('audit'); void loadRetention() } }, { immediate: true })
+watch(tab, value => { actionError.value = ''; retentionMessage.value = '';  if (value === 'overview') void loadOverview(); if (['onboarding','identities'].includes(value)) void load('organizations'); if (value === 'identities') { void load('identities/users'); void load('identities/sessions') } if (value === 'tasks') refreshReports(); if (value === 'audit') { void load('audit'); void loadRetention() } }, { immediate: true })
 watch(search, () => { clearTimeout(searchTimer); regions.organizations.generation++; regions.organizations.rows = []; regions.organizations.more = false; regions.organizations.loading = true; selectedOrganization.value = ''; accessDialogOpen.value = false; searchTimer = setTimeout(() => { void load('organizations') },300) })
-watch(kind, () => { for (const path of ['report-tasks','report-executions']) { regions[path].generation++; regions[path].rows = []; void load(path) } })
+watch(kind, () => { void loadStatistics(); for (const path of ['report-tasks','report-executions']) { regions[path].generation++; regions[path].rows = []; regions[path].more = false; void load(path) } })
 onBeforeUnmount(() => { alive = false; stepUp.onCancel(); clearTimeout(searchTimer) })
 </script>

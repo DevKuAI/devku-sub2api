@@ -28,13 +28,12 @@
 .bi-error { @apply rounded-xl bg-red-50 p-4 text-sm leading-relaxed text-red-700 dark:bg-red-900/20 dark:text-red-200; }
 .bi-empty { @apply rounded-xl bg-gray-50 p-6 text-center text-sm text-gray-600 dark:bg-dark-800 dark:text-dark-300; }
 .bi-table-scroll { max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; }
-.bi-table { width: 100%; min-width: 100%; border-spacing: 0; border-collapse: separate; }
+.bi-table { width: max-content; min-width: 100%; border-spacing: 0; border-collapse: separate; }
 .bi-table th { @apply border-b border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-600 dark:border-dark-700 dark:bg-dark-800 dark:text-dark-300; text-align: start; white-space: nowrap; }
-.bi-table td { @apply border-b border-gray-100 px-4 py-4 text-sm text-gray-900 dark:border-dark-700 dark:text-gray-100; vertical-align: middle; }
+.bi-table td { @apply border-b border-gray-100 px-4 py-4 text-sm text-gray-900 dark:border-dark-700 dark:text-gray-100; vertical-align: middle; white-space: nowrap; }
 .bi-table tr:last-child td { border-bottom: 0; }
-.bi-table .bi-cell-name { min-width: 12rem; max-width: 20rem; overflow-wrap: anywhere; }
-.bi-table .bi-cell-text { max-width: 24rem; overflow-wrap: anywhere; }
-.bi-table .bi-cell-id { max-width: 18rem; overflow-wrap: anywhere; @apply font-mono text-xs text-gray-600 dark:text-dark-300; }
+.bi-table .bi-cell-name { min-width: 12rem; }
+.bi-table .bi-cell-id { @apply font-mono text-xs text-gray-600 dark:text-dark-300; }
 .bi-table .bi-cell-date, .bi-table .bi-cell-number { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .bi-row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .bi-row-actions .btn { @apply px-3 py-2 text-xs; min-height: 36px; }
@@ -75,11 +74,29 @@
 .bi-feature { @apply flex items-center justify-between gap-2 text-xs text-gray-600 dark:text-dark-300; white-space: nowrap; }
 .bi-feature[data-enabled='true'] > :last-child { @apply font-medium text-emerald-800 dark:text-emerald-200; }
 .bi-cell-number { text-align: end; }
-.bi-row-details { min-width: 5rem; }
-.bi-row-details summary { @apply cursor-pointer rounded-md text-sm font-medium text-primary-700 dark:text-primary-200; padding: 6px 0; }
-.bi-row-details dl { @apply mt-2 space-y-3 rounded-lg bg-gray-50 p-3 dark:bg-dark-800; width: 16rem; max-width: 100%; }
-.bi-row-details dt { @apply text-xs text-gray-600 dark:text-dark-300; }
-.bi-row-details dd { @apply mt-1 text-sm text-gray-900 dark:text-gray-100; overflow-wrap: anywhere; white-space: pre-wrap; }
+.bi-cell-details .btn { @apply px-3 py-2 text-xs; min-height: 36px; }
+.bi-record-details { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.bi-record-details > div { @apply min-w-0 rounded-xl bg-gray-50 p-4 dark:bg-dark-800; }
+.bi-record-details dt { @apply text-sm text-gray-600 dark:text-dark-300; }
+.bi-record-details dd { @apply mt-2 text-sm text-gray-900 dark:text-gray-100; overflow-wrap: anywhere; white-space: pre-wrap; }
+.bi-record-dialog .modal-body { container: bi-record-dialog / inline-size; }
+.bi-record-details-wide { grid-column: 1 / -1; }
+@container bi-record-dialog (min-width: 36rem) {
+  .bi-record-details { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.bi-statistics-heading { flex: 1 1 24rem; min-width: 0; }
+.bi-statistics-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; width: 100%; min-width: 0; }
+.bi-statistics-controls label { flex: 1; min-width: 8rem; }
+.bi-report-metrics .bi-metric-note { @apply mt-2 text-sm font-normal text-gray-600 dark:text-dark-300; }
+.bi-report-statuses { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; margin-block: 20px; }
+.bi-status-list { display: flex; flex-wrap: wrap; gap: 8px; margin-block-start: 8px; }
+.bi-status-list .bi-badge { white-space: normal; overflow-wrap: anywhere; }
+.bi-model-statistics summary { @apply cursor-pointer rounded-lg text-sm font-medium text-gray-900 dark:text-gray-100; min-height: 40px; padding-block: 10px; }
+@container bi-operations (min-width: 40rem) {
+  .bi-statistics-controls { width: auto; }
+  .bi-statistics-controls label { width: 12rem; flex: initial; }
+  .bi-report-statuses { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 .bi-access-dialog .bi-access { @apply border-0 p-0 shadow-none; }
 .bi-access-dialog .modal-body { min-width: 0; overscroll-behavior: contain; }
 .bi-access-dialog .input, .bi-operations .input, .bi-access .input { @apply text-base sm:text-sm; }

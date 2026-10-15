@@ -21,8 +21,8 @@ const operationsTaskUnion = `
  (SELECT SUM(e.total_tokens)::text FROM desktop_period_report_executions e WHERE e.task_id=p.id AND e.revision=p.revision),
  (SELECT SUM(e.actual_cost)::float8 FROM desktop_period_report_executions e WHERE e.task_id=p.id AND e.revision=p.revision)
  FROM desktop_period_report_tasks p JOIN desktop_organizations o ON o.id=p.organization_id WHERE o.deleted_at IS NULL`
-const executionUnion = `SELECT e.id,e.task_id,o.public_id AS organization_id,'day'::text AS kind,e.report_date AS period_start,e.report_date AS period_end,e.revision,e.model,e.round,e.chunk,e.attempt,e.request_id,e.status,e.error,e.started_at,e.finished_at,e.total_tokens::text,e.actual_cost::float8 FROM desktop_daily_report_executions e JOIN desktop_organizations o ON o.id=e.organization_id WHERE o.deleted_at IS NULL
- UNION ALL SELECT e.id,e.task_id,o.public_id,e.kind,e.period_start,e.period_end-1,e.revision,e.model,e.round,e.chunk,e.attempt,e.request_id,e.status,e.error,e.started_at,e.finished_at,e.total_tokens::text,e.actual_cost::float8 FROM desktop_period_report_executions e JOIN desktop_organizations o ON o.id=e.organization_id WHERE o.deleted_at IS NULL`
+const executionUnion = `SELECT e.id,e.task_id,o.public_id AS organization_id,o.name AS organization_name,'day'::text AS kind,e.report_date AS period_start,e.report_date AS period_end,e.revision,e.model,e.round,e.chunk,e.attempt,e.request_id,e.status,e.error,e.started_at,e.finished_at,e.total_tokens::text,e.actual_cost FROM desktop_daily_report_executions e JOIN desktop_organizations o ON o.id=e.organization_id WHERE o.deleted_at IS NULL
+ UNION ALL SELECT e.id,e.task_id,o.public_id,o.name,e.kind,e.period_start,e.period_end-1,e.revision,e.model,e.round,e.chunk,e.attempt,e.request_id,e.status,e.error,e.started_at,e.finished_at,e.total_tokens::text,e.actual_cost FROM desktop_period_report_executions e JOIN desktop_organizations o ON o.id=e.organization_id WHERE o.deleted_at IS NULL`
 
 func (h *Handler) taskRows(c *gin.Context, single bool) {
 	page, size, ok := queryPage(c)
@@ -118,7 +118,7 @@ func (h *Handler) executionRows(c *gin.Context, task bool) {
 		return
 	}
 	args = append(args, size, (page-1)*size)
-	rows, e := h.service.db.QueryContext(c.Request.Context(), `WITH executions AS (`+executionUnion+`) SELECT id,task_id,organization_id,kind,period_start::text,period_end::text,revision,model,round,chunk,attempt,request_id,status,error,started_at,finished_at,total_tokens,actual_cost FROM executions`+filter+` ORDER BY started_at DESC,id DESC LIMIT $5 OFFSET $6`, args...)
+	rows, e := h.service.db.QueryContext(c.Request.Context(), `WITH executions AS (`+executionUnion+`) SELECT id,task_id,organization_id,organization_name,kind,period_start::text,period_end::text,revision,model,round,chunk,attempt,request_id,status,error,started_at,finished_at,total_tokens,actual_cost FROM executions`+filter+` ORDER BY started_at DESC,id DESC LIMIT $5 OFFSET $6`, args...)
 	if e != nil {
 		WriteError(c, e)
 		return
@@ -128,17 +128,17 @@ func (h *Handler) executionRows(c *gin.Context, task bool) {
 	for rows.Next() {
 		var id int64
 		var taskID *int64
-		var org, kind, start, end, model, request, status, reason string
+		var org, name, kind, start, end, model, request, status, reason string
 		var revision, round, chunk, attempt int
 		var began time.Time
 		var finished *time.Time
 		var tokens *string
 		var cost *float64
-		if e = rows.Scan(&id, &taskID, &org, &kind, &start, &end, &revision, &model, &round, &chunk, &attempt, &request, &status, &reason, &began, &finished, &tokens, &cost); e != nil {
+		if e = rows.Scan(&id, &taskID, &org, &name, &kind, &start, &end, &revision, &model, &round, &chunk, &attempt, &request, &status, &reason, &began, &finished, &tokens, &cost); e != nil {
 			WriteError(c, e)
 			return
 		}
-		items = append(items, gin.H{"id": id, "task_id": taskID, "organization_id": org, "kind": kind, "period_start": start, "period_end": end, "revision": revision, "model": model, "round": round, "chunk": chunk, "attempt": attempt, "request_id": request, "status": status, "error": reason, "started_at": began, "finished_at": finished, "total_tokens": tokens, "actual_cost": cost})
+		items = append(items, gin.H{"id": id, "task_id": taskID, "organization_id": org, "organization_name": name, "kind": kind, "period_start": start, "period_end": end, "revision": revision, "model": model, "round": round, "chunk": chunk, "attempt": attempt, "request_id": request, "status": status, "error": reason, "started_at": began, "finished_at": finished, "total_tokens": tokens, "actual_cost": cost})
 	}
 	adminRespond(c, pageResult(items, page, size, total), rows.Err())
 }

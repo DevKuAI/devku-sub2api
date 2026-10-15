@@ -48,6 +48,7 @@ func registerBIAdminRoutes(admin *gin.RouterGroup, h *handler.Handlers, cfg *con
 	root.GET("/report-tasks/:kind/:task_id", h.BI.OperationsTask)
 	root.GET("/report-tasks/:kind/:task_id/executions", h.BI.OperationsTaskExecutions)
 	root.GET("/report-executions", h.BI.OperationsExecutions)
+	root.GET("/report-statistics", h.BI.OperationsReportStatistics)
 	root.GET("/audit", h.BI.OperationsAudit)
 	root.GET("/retention", h.BI.GetRetention)
 	root.PUT("/retention", gin.HandlerFunc(stepUp), h.BI.SaveRetention)

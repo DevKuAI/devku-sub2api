@@ -6,6 +6,7 @@ const statuses: Record<string, string> = {
   pending: 'admin.desktop.reports.statuses.pending', waiting: 'admin.desktop.reports.statuses.waiting',
   running: 'admin.desktop.reports.statuses.running', completed: 'admin.desktop.reports.statuses.completed',
   partial: 'admin.desktop.reports.statuses.partial', failed: 'admin.desktop.reports.statuses.failed',
+  blocked: 'admin.desktop.reports.executions.statuses.blocked',
   no_records: 'admin.desktop.reports.statuses.no_records', skipped: 'admin.desktop.reports.statuses.skipped',
 }
 export function biStatusKey(value: string): string | undefined { return statuses[value] }
@@ -18,7 +19,7 @@ export function biText(value: unknown): string {
 export function biStatusTone(value: string | boolean): BITone {
   if (value === true || ['active', 'completed', 'used'].includes(String(value))) return 'success'
   if (['disabled', 'failed', 'revoked'].includes(String(value))) return 'danger'
-  if (['partial', 'expired'].includes(String(value))) return 'warning'
+  if (['partial', 'expired', 'blocked'].includes(String(value))) return 'warning'
   if (['pending', 'waiting', 'running'].includes(String(value))) return 'progress'
   return 'neutral'
 }

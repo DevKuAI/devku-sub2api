@@ -1,6 +1,12 @@
 export default {
   "biNative": {
     verificationDigit: 'Verification code digit {digit}',
+    organizationRecordDetails: '{name} · Record details',
+    reportStatistics: 'Report tasks and model usage',
+    statisticsScope: 'All retained tasks and execution records for the selected period type, including historical revisions and retries. List pagination does not affect these totals.',
+    modelStatistics: 'Usage by model',
+    missingUsage: 'This value was not recorded for {count} executions',
+    statistics: { tasks: 'Report tasks', organizations: 'Organizations', models: 'Models used', executions: 'Model execution records', tokens: 'Recorded tokens', cost: 'Recorded cost (USD)', taskStatuses: 'Task statuses', executionStatuses: 'Execution statuses' },
     recordDetails: 'Details',
     organizationAccessTitle: "{name} · Mini-program access and invitations",
     clearSearch: "Clear search",
@@ -156,6 +162,11 @@ export default {
     "presetReports": "Members and summaries",
     "presetAll": "Read all content and copy summaries",
     "fields": {
+      task_id: 'Task ID',
+      finished_at: 'Finished at',
+      execution_count: 'Execution records',
+      missing_token_count: 'Records without recorded tokens',
+      missing_cost_count: 'Records without recorded cost',
       features: "Features",
       "name": "Organization name",
       "status": "Status",
