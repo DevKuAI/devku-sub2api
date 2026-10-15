@@ -185,14 +185,14 @@ describe('DesktopOrganizationDetailView', () => {
     wrapper.unmount()
   })
 
-  it('links organization access management to native BI operations', async () => {
+  it('links organization access management to the service operations access tab', async () => {
     route.query.tab = 'grants'
     const wrapper = mountView()
     await flushPromises()
-    const operations = wrapper.get('.bi-access header').findAll('button').find(button => button.text() === 'nav.biOperations')!
+    const operations = wrapper.get('.bi-access header').findAll('button').find(button => button.text() === 'nav.serviceOperations')!
     expect(operations.exists()).toBe(true)
     await operations.trigger('click')
-    expect(router.push).toHaveBeenCalledWith('/admin/bi')
+    expect(router.push).toHaveBeenCalledWith({ path: '/admin/desktop/operations', query: { tab: 'identities' } })
     wrapper.unmount()
   })
 

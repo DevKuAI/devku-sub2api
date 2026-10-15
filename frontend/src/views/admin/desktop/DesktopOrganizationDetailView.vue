@@ -176,7 +176,7 @@
 
       <section v-else-if="organization && activeTab === 'grants'" :id="panelId('grants')" tabindex="0" role="tabpanel" :aria-labelledby="tabId('grants')">
         <BIGrantManagement v-if="organization" :key="organizationID" :organization-id="organizationID" :self-managed="selfManaged">
-          <template v-if="!selfManaged" #actions><button class="btn btn-secondary" type="button" @click="router.push('/admin/bi')">{{ t('nav.biOperations') }}</button></template>
+          <template v-if="!selfManaged" #actions><button class="btn btn-secondary" type="button" @click="router.push({ path: '/admin/desktop/operations', query: { tab: 'identities' } })">{{ t('nav.serviceOperations') }}</button></template>
         </BIGrantManagement>
       </section>
 

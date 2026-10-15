@@ -48,7 +48,7 @@ const selectedRow = ref<BIOperationRow | null>(null)
 const detailFields = computed(() => [...new Set([...props.columns, ...props.details])])
 watch(() => props.rows, () => { selectedRow.value = null })
 const isDate = (column: string) => column.endsWith('_at')
-const isNumber = (column: string) => ['total_tokens', 'actual_cost', 'execution_count', 'missing_token_count', 'missing_cost_count', 'revision', 'users', 'authorization_version', 'available_sources', 'missing_sources', 'round', 'chunk', 'attempt'].includes(column)
+const isNumber = (column: string) => ['total_tokens', 'actual_cost', 'execution_count', 'missing_token_count', 'missing_cost_count', 'revision', 'members', 'users', 'authorization_version', 'available_sources', 'missing_sources', 'round', 'chunk', 'attempt'].includes(column)
 function detailValue(field: string, value: BIOperationRow[string]) {
   if (biEmpty(value)) return '-'
   if (typeof value === 'boolean') return t(value ? 'common.enabled' : 'biNative.notEnabled')

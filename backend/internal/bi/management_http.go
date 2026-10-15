@@ -150,7 +150,16 @@ func (h *Handler) SetUserStatus(c *gin.Context) {
 }
 func (h *Handler) OperationsOverview(c *gin.Context) {
 	counts := gin.H{}
-	for name, query := range map[string]string{"users": `SELECT COUNT(*) FROM bi_users WHERE status='active'`, "invitations": `SELECT COUNT(*) FROM bi_invitations WHERE status='pending' AND expires_at>NOW()`, "sessions": `SELECT COUNT(*) FROM bi_sessions s JOIN bi_users u ON u.id=s.bi_user_id WHERE s.revoked_at IS NULL AND s.expires_at>NOW() AND u.status='active' AND u.auth_version=s.auth_version`, "access": `SELECT COUNT(*) FROM bi_access WHERE status='active'`, "daily_running": `SELECT COUNT(*) FROM desktop_daily_report_tasks WHERE status IN ('pending','waiting','running')`, "period_running": `SELECT COUNT(*) FROM desktop_period_report_tasks WHERE status IN ('pending','waiting','running')`} {
+	for name, query := range map[string]string{
+		"organizations":  `SELECT COUNT(*) FROM desktop_organizations WHERE deleted_at IS NULL`,
+		"members":        `SELECT COUNT(*) FROM desktop_members m JOIN desktop_organizations o ON o.id=m.organization_id WHERE m.deleted_at IS NULL AND o.deleted_at IS NULL`,
+		"users":          `SELECT COUNT(*) FROM bi_users WHERE status='active'`,
+		"invitations":    `SELECT COUNT(*) FROM bi_invitations WHERE status='pending' AND expires_at>NOW()`,
+		"sessions":       `SELECT COUNT(*) FROM bi_sessions s JOIN bi_users u ON u.id=s.bi_user_id WHERE s.revoked_at IS NULL AND s.expires_at>NOW() AND u.status='active' AND u.auth_version=s.auth_version`,
+		"access":         `SELECT COUNT(*) FROM bi_access WHERE status='active'`,
+		"daily_running":  `SELECT COUNT(*) FROM desktop_daily_report_tasks WHERE status IN ('pending','waiting','running')`,
+		"period_running": `SELECT COUNT(*) FROM desktop_period_report_tasks WHERE status IN ('pending','waiting','running')`,
+	} {
 		var n int64
 		if h.service.db != nil {
 			if e := h.service.db.QueryRowContext(c.Request.Context(), query).Scan(&n); e != nil {
@@ -179,7 +188,7 @@ func (h *Handler) OperationsOrganizations(c *gin.Context) {
 		WriteError(c, e)
 		return
 	}
-	rows, e := h.service.db.QueryContext(ctx, `SELECT o.public_id,o.name,o.status,o.conversation_reporting_enabled,o.conversation_summary_enabled,o.analysis_model,o.weekly_summary_enabled,o.monthly_summary_enabled,(SELECT COUNT(*) FROM bi_access a WHERE a.organization_id=o.id AND a.status='active'),(SELECT MAX(c.received_at) FROM desktop_conversation_records c WHERE c.organization_id=o.id) FROM desktop_organizations o WHERE o.deleted_at IS NULL AND ($1='' OR strpos(lower(o.name),lower($1))>0) ORDER BY o.name,o.id LIMIT $2 OFFSET $3`, c.Query("search"), size, (page-1)*size)
+	rows, e := h.service.db.QueryContext(ctx, `SELECT o.public_id,o.name,o.status,o.conversation_reporting_enabled,o.conversation_summary_enabled,o.analysis_model,o.weekly_summary_enabled,o.monthly_summary_enabled,(SELECT COUNT(*) FROM desktop_members m WHERE m.organization_id=o.id AND m.deleted_at IS NULL),(SELECT COUNT(*) FROM bi_access a WHERE a.organization_id=o.id AND a.status='active'),(SELECT MAX(c.received_at) FROM desktop_conversation_records c WHERE c.organization_id=o.id) FROM desktop_organizations o WHERE o.deleted_at IS NULL AND ($1='' OR strpos(lower(o.name),lower($1))>0) ORDER BY o.name,o.id LIMIT $2 OFFSET $3`, c.Query("search"), size, (page-1)*size)
 	if e != nil {
 		WriteError(c, e)
 		return
@@ -189,13 +198,13 @@ func (h *Handler) OperationsOrganizations(c *gin.Context) {
 	for rows.Next() {
 		var id, name, status, model string
 		var reporting, summary, week, month bool
-		var users int64
+		var members, users int64
 		var last *time.Time
-		if e = rows.Scan(&id, &name, &status, &reporting, &summary, &model, &week, &month, &users, &last); e != nil {
+		if e = rows.Scan(&id, &name, &status, &reporting, &summary, &model, &week, &month, &members, &users, &last); e != nil {
 			WriteError(c, e)
 			return
 		}
-		items = append(items, gin.H{"id": id, "name": name, "status": status, "reporting_enabled": reporting, "summary_enabled": summary, "weekly_summary_enabled": week, "monthly_summary_enabled": month, "analysis_model": model, "users": users, "last_received_at": last})
+		items = append(items, gin.H{"id": id, "name": name, "status": status, "reporting_enabled": reporting, "summary_enabled": summary, "weekly_summary_enabled": week, "monthly_summary_enabled": month, "analysis_model": model, "members": members, "users": users, "last_received_at": last})
 	}
 	adminRespond(c, pageResult(items, page, size, total), rows.Err())
 }

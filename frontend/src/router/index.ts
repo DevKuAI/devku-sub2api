@@ -466,15 +466,15 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
-    path: '/admin/bi',
-    name: 'AdminBI',
+    path: '/admin/desktop/operations',
+    name: 'AdminServiceOperations',
     component: () => import('@/views/admin/BIOperationsView.vue'),
     meta: {
       requiresAuth: true,
       requiresAdmin: true,
-      title: 'Mini-program operations',
-      titleKey: 'admin.bi.title',
-      descriptionKey: 'admin.bi.description'
+      title: 'Service operations',
+      titleKey: 'admin.serviceOperations.title',
+      descriptionKey: 'admin.serviceOperations.description'
     }
   },
   {

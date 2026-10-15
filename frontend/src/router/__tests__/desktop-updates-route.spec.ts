@@ -21,3 +21,14 @@ describe('Desktop software update route', () => {
     expect(routerSource).not.toMatch(/restrictedPaths = \[[\s\S]*?'\/admin\/desktop',[\s\S]*?\]/)
   })
 })
+
+
+describe('Enterprise service operations route', () => {
+  it('requires admin access independently of feature switches and retires the old page', () => {
+    const route = routerSource.match(/\{\s*path: '\/admin\/desktop\/operations',[\s\S]*?\n\s{2}\},/)
+    expect(route?.[0]).toContain('requiresAdmin: true')
+    expect(route?.[0]).toContain("titleKey: 'admin.serviceOperations.title'")
+    expect(route?.[0]).not.toContain('requiresDesktop')
+    expect(routerSource).not.toContain("path: '/admin/bi'")
+  })
+})

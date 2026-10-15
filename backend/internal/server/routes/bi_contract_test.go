@@ -83,11 +83,9 @@ func TestBIAdminRoutesMatchSupplementalOpenAPI(t *testing.T) {
 		admin := r.Group("/api/v1/admin", func(c *gin.Context) { middleware.AbortWithError(c, 401, "UNAUTHORIZED", "Authentication required") })
 		h := &handler.Handlers{BI: bi.NewHandler(nil, nil, &config.Config{}, nil, nil)}
 		registerBIAdminRoutes(admin, h, &config.Config{BI: config.BIConfig{Enabled: enabled}}, middleware.StepUpAuthMiddleware(func(c *gin.Context) { c.Next() }))
-		if !enabled {
-			require.Len(t, r.Routes(), 1)
-			require.Equal(t, "/api/v1/admin/bi/overview", r.Routes()[0].Path)
-			continue
-		}
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, httptest.NewRequest("GET", "/api/v1/admin/bi/overview", nil))
+		require.Equal(t, 404, w.Code)
 		seen := map[string]bool{}
 		for _, route := range r.Routes() {
 			path := parameter.ReplaceAllString(route.Path, "{$1}")
@@ -101,6 +99,18 @@ func TestBIAdminRoutesMatchSupplementalOpenAPI(t *testing.T) {
 			w := httptest.NewRecorder()
 			r.ServeHTTP(w, httptest.NewRequest(route.Method, parameter.ReplaceAllString(route.Path, "test-id"), strings.NewReader(`{}`)))
 			require.Equal(t, 401, w.Code)
+		}
+		if !enabled {
+			require.Len(t, seen, 7)
+			for _, path := range []string{"/overview", "/organizations", "/report-tasks", "/report-tasks/{kind}/{task_id}", "/report-tasks/{kind}/{task_id}/executions", "/report-executions", "/report-statistics"} {
+				var op struct{ OperationID string }
+				require.NoError(t, json.Unmarshal(spec.Paths["/api/v1/admin/desktop/operations"+path]["get"], &op))
+				require.True(t, seen[op.OperationID], path)
+			}
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, httptest.NewRequest("GET", "/api/v1/admin/desktop/operations/identities/users", nil))
+			require.Equal(t, 404, w.Code)
+			continue
 		}
 		for _, methods := range spec.Paths {
 			for method, rawOperation := range methods {
@@ -124,7 +134,7 @@ func TestBIAdminInvitationMutationsRequireStepUp(t *testing.T) {
 	admin := r.Group("/api/v1/admin", func(c *gin.Context) { c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: 1}) })
 	h := &handler.Handlers{BI: bi.NewHandler(nil, nil, &config.Config{}, nil, nil)}
 	registerBIAdminRoutes(admin, h, &config.Config{BI: config.BIConfig{Enabled: true}}, middleware.StepUpAuthMiddleware(func(c *gin.Context) { c.AbortWithStatus(423) }))
-	for _, target := range []struct{ method, path string }{{"POST", "/api/v1/admin/bi/organizations/org/invitations"}, {"POST", "/api/v1/admin/bi/organizations/org/invitations/inv/revoke"}, {"PUT", "/api/v1/admin/bi/organizations/org/users/biu/access"}, {"PUT", "/api/v1/admin/bi/identities/users/biu/status"}, {"PUT", "/api/v1/admin/bi/retention"}} {
+	for _, target := range []struct{ method, path string }{{"POST", "/api/v1/admin/desktop/operations/organizations/org/invitations"}, {"POST", "/api/v1/admin/desktop/operations/organizations/org/invitations/inv/revoke"}, {"PUT", "/api/v1/admin/desktop/operations/organizations/org/users/biu/access"}, {"PUT", "/api/v1/admin/desktop/operations/identities/users/biu/status"}, {"PUT", "/api/v1/admin/desktop/operations/retention"}, {"POST", "/api/v1/admin/desktop/operations/cleanup/run"}} {
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, httptest.NewRequest(target.method, target.path, strings.NewReader(`{}`)))
 		require.Equal(t, 423, w.Code, target.path)

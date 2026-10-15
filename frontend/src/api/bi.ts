@@ -6,7 +6,7 @@ export interface BIUserAccess { bi_user_id: string; display_name: string; organi
 export interface BIInvitation { id: string; organization_id: string; organization_name: string; capabilities: BICapability[]; note: string; recipient_name?: string; status: string; expires_at: string; created_at: string; claimed_by: string | null; claimed_at: string | null }
 export interface BIIssuedInvitation extends BIInvitation { token: string; path: string }
 export function biManagement(organization: string, selfManaged = false) {
-  const base = selfManaged ? '/desktop/organization/bi' : `/admin/bi/organizations/${encodeURIComponent(organization)}`
+  const base = selfManaged ? '/desktop/organization/bi' : `/admin/desktop/operations/organizations/${encodeURIComponent(organization)}`
   return {
     async users(page = 1) { return (await apiClient.get<BIPage<BIUserAccess>>(`${base}/users`, { params: { page, page_size: 20 } })).data },
     async invitations(page = 1) { return (await apiClient.get<BIPage<BIInvitation>>(`${base}/invitations`, { params: { page, page_size: 20 } })).data },

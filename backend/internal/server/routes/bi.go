@@ -34,21 +34,21 @@ func registerBIAdminRoutes(admin *gin.RouterGroup, h *handler.Handlers, cfg *con
 	if cfg == nil || h.BI == nil {
 		return
 	}
-	root := admin.Group("/bi", bi.Boundary, func(c *gin.Context) { c.Set("bi.admin", true); c.Next() }, h.BI.ManagerScope)
+	root := admin.Group("/desktop/operations", bi.Boundary, func(c *gin.Context) { c.Set("bi.admin", true); c.Next() }, h.BI.ManagerScope)
 	root.GET("/overview", h.BI.OperationsOverview)
-	if !cfg.BI.Enabled {
-		return
-	}
-	registerBIManagement(root.Group("/organizations/:organization_id"), h.BI, stepUp)
 	root.GET("/organizations", h.BI.OperationsOrganizations)
-	root.GET("/identities/users", h.BI.OperationsUsers)
-	root.GET("/identities/sessions", h.BI.OperationsSessions)
-	root.PUT("/identities/users/:bi_user_id/status", gin.HandlerFunc(stepUp), h.BI.SetUserStatus)
 	root.GET("/report-tasks", h.BI.OperationsTasks)
 	root.GET("/report-tasks/:kind/:task_id", h.BI.OperationsTask)
 	root.GET("/report-tasks/:kind/:task_id/executions", h.BI.OperationsTaskExecutions)
 	root.GET("/report-executions", h.BI.OperationsExecutions)
 	root.GET("/report-statistics", h.BI.OperationsReportStatistics)
+	if !cfg.BI.Enabled {
+		return
+	}
+	registerBIManagement(root.Group("/organizations/:organization_id"), h.BI, stepUp)
+	root.GET("/identities/users", h.BI.OperationsUsers)
+	root.GET("/identities/sessions", h.BI.OperationsSessions)
+	root.PUT("/identities/users/:bi_user_id/status", gin.HandlerFunc(stepUp), h.BI.SetUserStatus)
 	root.GET("/audit", h.BI.OperationsAudit)
 	root.GET("/retention", h.BI.GetRetention)
 	root.PUT("/retention", gin.HandlerFunc(stepUp), h.BI.SaveRetention)

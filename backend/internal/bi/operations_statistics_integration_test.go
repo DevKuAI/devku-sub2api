@@ -67,3 +67,42 @@ func TestOperationsStatisticsIncludeRetainedRevisionsAndUnknownUsage(t *testing.
 	require.NoError(t, err)
 	require.Equal(t, "0", read("/stats")["execution_count"])
 }
+
+func TestServiceOperationsOverviewSeparatesEnterpriseMembersFromMiniProgramUsers(t *testing.T) {
+	f := independentFixture(t)
+	f.s.config.Enabled = false
+	_, err := f.db.Exec(`INSERT INTO desktop_members(public_id,organization_id,name,name_normalized,phone,deleted_at)
+ SELECT 'member_active',id,'Active member','active member','+8613800000001',NULL FROM desktop_organizations WHERE public_id=$1
+ UNION ALL SELECT 'member_deleted',id,'Deleted member','deleted member','+8613800000002',NOW() FROM desktop_organizations WHERE public_id=$1`, f.org)
+	require.NoError(t, err)
+	router := gin.New()
+	router.GET("/overview", Boundary, f.h.OperationsOverview)
+	router.GET("/organizations", Boundary, f.h.OperationsOrganizations)
+	read := func(path string) map[string]any {
+		t.Helper()
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
+		require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+		var envelope struct {
+			Data map[string]any `json:"data"`
+		}
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &envelope))
+		return envelope.Data
+	}
+	overview := read("/overview")
+	require.Equal(t, false, overview["bi_enabled"])
+	require.Equal(t, true, overview["desktop_enabled"])
+	counts := overview["counts"].(map[string]any)
+	require.Equal(t, float64(1), counts["organizations"])
+	require.Equal(t, float64(1), counts["members"])
+	require.Equal(t, float64(0), counts["users"])
+	organization := read("/organizations")["items"].([]any)[0].(map[string]any)
+	require.Equal(t, float64(1), organization["members"])
+	require.Equal(t, float64(0), organization["users"])
+	_, err = f.db.Exec(`UPDATE desktop_organizations SET deleted_at=NOW() WHERE public_id=$1`, f.org)
+	require.NoError(t, err)
+	counts = read("/overview")["counts"].(map[string]any)
+	require.Equal(t, float64(0), counts["organizations"])
+	require.Equal(t, float64(0), counts["members"])
+	require.Empty(t, read("/organizations")["items"])
+}

@@ -1,5 +1,5 @@
 export default {
-    bi: { title: "Mini-program operations", description: "Manage organization mini-program access, users, summary tasks and audit records." },
+    serviceOperations: { title: "Service operations", description: "Enterprise services, summaries and access." },
     // Dashboard
     dashboard: {
       title: 'Admin Dashboard',

@@ -66,10 +66,10 @@ describe('Ops request latency details', () => {
     const props = { platform: '', groupId: null, timeRange: '1h', queryMode: 'auto', loading: false, lastUpdated: null }
     const wrapper = shallowMount(OpsDashboardHeader, { props, global: { stubs: { RouterLink: routerLinkStub } } })
     await flushPromises()
-    expect(wrapper.find('a[href="/admin/bi"]').exists()).toBe(false)
+    expect(wrapper.find('a[href="/admin/desktop/operations"]').exists()).toBe(false)
     expect(getBIOverview).not.toHaveBeenCalled()
     await wrapper.setProps({ fullscreen: true })
-    expect(wrapper.find('a[href="/admin/bi"]').exists()).toBe(false)
+    expect(wrapper.find('a[href="/admin/desktop/operations"]').exists()).toBe(false)
     wrapper.unmount()
   })
 

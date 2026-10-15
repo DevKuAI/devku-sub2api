@@ -1,5 +1,5 @@
 export default {
-    bi: { title: "小程序运维", description: "管理企业小程序访问、使用者、总结任务与审计记录。" },
+    serviceOperations: { title: "服务运维", description: "企业服务、总结与用量、小程序访问管理。" },
     // Dashboard
     dashboard: {
       title: '管理控制台',

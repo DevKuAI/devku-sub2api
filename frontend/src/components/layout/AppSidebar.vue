@@ -280,7 +280,6 @@ const mobileOpen = computed(() => appStore.mobileOpen)
 const isAdmin = computed(() => authStore.isAdmin)
 const sidebarNavRef = ref<HTMLElement | null>(null)
 const isDark = ref(document.documentElement.classList.contains('dark'))
-const biEnabled = ref(false)
 
 const homePath = computed(() => authStore.isFinance ? '/admin/accounting' : (isAdmin.value ? '/admin/dashboard' : '/dashboard'))
 
@@ -740,7 +739,6 @@ const flagRiskControl = makeSidebarFlag(FeatureFlags.riskControl)
 const flagPluginManagement = makeSidebarFlag(FeatureFlags.pluginManagement)
 const flagDesktop = makeSidebarFlag(FeatureFlags.desktop)
 const flagOpsMonitoring = () => adminSettingsStore.opsMonitoringEnabled
-const flagBI = () => biEnabled.value
 const flagAdminPayment = () => adminSettingsStore.paymentEnabled
 const flagBatchImageAccess = () => canUseBatchImage.value
 
@@ -837,7 +835,7 @@ const adminNavItems = computed((): NavItem[] => {
         },
         { path: '/admin/desktop/resources', label: t('nav.desktopResources'), icon: FolderIcon, featureFlag: flagDesktop },
         { path: '/admin/desktop/updates', label: t('nav.desktopUpdates'), icon: SignalIcon },
-        { path: '/admin/bi', label: t('nav.biOperations'), icon: ChartIcon, featureFlag: flagBI },
+        { path: '/admin/desktop/operations', label: t('nav.serviceOperations'), icon: ChartIcon },
       ],
     },
     {
@@ -1037,8 +1035,6 @@ watch(
   },
   { immediate: true }
 )
-
-watch(isAdmin, (admin) => { biEnabled.value = admin }, { immediate: true })
 
 function refreshOrganizationOnFocus() {
   if (authStore.user?.id && !authStore.isFinance && flagDesktop()) void refreshDesktopOrganizationAccess(true)

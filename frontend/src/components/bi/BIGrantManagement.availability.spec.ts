@@ -57,7 +57,7 @@ describe('BI availability', () => {
     const invite = wrapper.findAll('button').find(button => button.text() === 'biNative.createInvite')!
     expect(invite.attributes('disabled')).toBeUndefined()
     expect(wrapper.text()).not.toContain('biNative.disabled')
-    const base = selfManaged ? '/desktop/organization/bi' : '/admin/bi/organizations/org'
+    const base = selfManaged ? '/desktop/organization/bi' : '/admin/desktop/operations/organizations/org'
     expect(client.get).toHaveBeenCalledWith(`${base}/users`, expect.any(Object))
     expect(client.get).toHaveBeenCalledWith(`${base}/invitations`, expect.any(Object))
     wrapper.unmount()

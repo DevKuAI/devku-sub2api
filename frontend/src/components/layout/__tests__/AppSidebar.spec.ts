@@ -79,13 +79,13 @@ describe('AppSidebar Desktop navigation', () => {
   })
 })
 
-describe('AppSidebar BI navigation', () => {
-  it('groups BI operations after Desktop updates without opening a new window', () => {
+describe('AppSidebar service operations navigation', () => {
+  it('groups service operations after Desktop updates without opening a new window', () => {
     const desktopGroup = componentSource.match(/path: '\/admin\/desktop',[\s\S]*?children: \[([\s\S]*?)\n {6}\]/)?.[1]
 
-    expect(componentSource).toContain('const flagBI = () => biEnabled.value')
+    expect(componentSource).not.toContain('const flagBI')
     expect(desktopGroup).toBeDefined()
-    expect(desktopGroup).toMatch(/path: '\/admin\/desktop\/updates'[\s\S]*path: '\/admin\/bi'[^\n]*featureFlag: flagBI/)
+    expect(desktopGroup).toMatch(/path: '\/admin\/desktop\/updates'[\s\S]*path: '\/admin\/desktop\/operations'[^\n]*nav.serviceOperations/)
     expect(desktopGroup).not.toContain('openInNewWindow: true')
   })
 })

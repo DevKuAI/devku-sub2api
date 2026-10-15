@@ -1,9 +1,9 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "BI 运维与平台企业授权",
+    "title": "企业 AI 服务运维与小程序访问管理",
     "version": "2.1.0",
-    "description": "Desktop 原生数据与独立微信身份。未接入的 BI 功能不提供旧接口。"
+    "description": "统一管理企业服务、总结任务与模型用量。企业与报告运维不依赖小程序开关；小程序身份、访问授权、审计和临时数据保留接口仅在 BI 服务启用时注册。全部接口要求平台 admin，敏感写操作还需 step-up。"
   },
   "servers": [
     {
@@ -12,7 +12,7 @@
     }
   ],
   "paths": {
-    "/api/v1/admin/bi/organizations/{organization_id}/invitations": {
+    "/api/v1/admin/desktop/operations/organizations/{organization_id}/invitations": {
       "get": {
         "operationId": "adminListInvitations",
         "summary": "adminListInvitations",
@@ -282,7 +282,7 @@
         "x-step-up-required": true
       }
     },
-    "/api/v1/admin/bi/organizations/{organization_id}/invitations/{invitation_id}/revoke": {
+    "/api/v1/admin/desktop/operations/organizations/{organization_id}/invitations/{invitation_id}/revoke": {
       "post": {
         "operationId": "adminRevokeInvitation",
         "summary": "adminRevokeInvitation",
@@ -415,7 +415,7 @@
         "x-step-up-required": true
       }
     },
-    "/api/v1/admin/bi/organizations/{organization_id}/users": {
+    "/api/v1/admin/desktop/operations/organizations/{organization_id}/users": {
       "get": {
         "operationId": "adminListAccess",
         "summary": "adminListAccess",
@@ -545,7 +545,7 @@
         ]
       }
     },
-    "/api/v1/admin/bi/organizations/{organization_id}/users/{bi_user_id}/access": {
+    "/api/v1/admin/desktop/operations/organizations/{organization_id}/users/{bi_user_id}/access": {
       "put": {
         "operationId": "adminUpdateAccess",
         "summary": "adminUpdateAccess",
@@ -705,7 +705,7 @@
         "x-step-up-required": true
       }
     },
-    "/api/v1/admin/bi/overview": {
+    "/api/v1/admin/desktop/operations/overview": {
       "get": {
         "operationId": "getBIOperationsOverview",
         "summary": "getBIOperationsOverview",
@@ -805,7 +805,7 @@
         }
       }
     },
-    "/api/v1/admin/bi/organizations": {
+    "/api/v1/admin/desktop/operations/organizations": {
       "get": {
         "operationId": "listBIOperationsOrganizations",
         "summary": "listBIOperationsOrganizations",
@@ -934,7 +934,7 @@
         ]
       }
     },
-    "/api/v1/admin/bi/identities/users": {
+    "/api/v1/admin/desktop/operations/identities/users": {
       "get": {
         "operationId": "listBIUsers",
         "summary": "listBIUsers",
@@ -1056,7 +1056,7 @@
         ]
       }
     },
-    "/api/v1/admin/bi/identities/sessions": {
+    "/api/v1/admin/desktop/operations/identities/sessions": {
       "get": {
         "operationId": "listBISessions",
         "summary": "listBISessions",
@@ -1178,7 +1178,7 @@
         ]
       }
     },
-    "/api/v1/admin/bi/report-tasks": {
+    "/api/v1/admin/desktop/operations/report-tasks": {
       "get": {
         "operationId": "listBISummaryTasks",
         "summary": "listBISummaryTasks",
@@ -1326,7 +1326,7 @@
         ]
       }
     },
-    "/api/v1/admin/bi/report-tasks/{kind}/{task_id}": {
+    "/api/v1/admin/desktop/operations/report-tasks/{kind}/{task_id}": {
       "get": {
         "operationId": "getBISummaryTask",
         "summary": "getBISummaryTask",
@@ -1444,7 +1444,7 @@
         ]
       }
     },
-    "/api/v1/admin/bi/report-tasks/{kind}/{task_id}/executions": {
+    "/api/v1/admin/desktop/operations/report-tasks/{kind}/{task_id}/executions": {
       "get": {
         "operationId": "listBITaskExecutions",
         "summary": "listBITaskExecutions",
@@ -1582,7 +1582,7 @@
         ]
       }
     },
-    "/api/v1/admin/bi/report-executions": {
+    "/api/v1/admin/desktop/operations/report-executions": {
       "get": {
         "operationId": "listBISummaryExecutions",
         "summary": "listBISummaryExecutions",
@@ -1723,7 +1723,7 @@
         ]
       }
     },
-    "/api/v1/admin/bi/audit": {
+    "/api/v1/admin/desktop/operations/audit": {
       "get": {
         "operationId": "listBIAudit",
         "summary": "listBIAudit",
@@ -1852,7 +1852,7 @@
         ]
       }
     },
-    "/api/v1/admin/bi/retention": {
+    "/api/v1/admin/desktop/operations/retention": {
       "get": {
         "operationId": "getBIRetention",
         "summary": "getBIRetention",
@@ -2064,7 +2064,7 @@
         "x-step-up-required": true
       }
     },
-    "/api/v1/admin/bi/cleanup": {
+    "/api/v1/admin/desktop/operations/cleanup": {
       "get": {
         "operationId": "getBICleanup",
         "summary": "getBICleanup",
@@ -2164,7 +2164,7 @@
         }
       }
     },
-    "/api/v1/admin/bi/identities/users/{bi_user_id}/status": {
+    "/api/v1/admin/desktop/operations/identities/users/{bi_user_id}/status": {
       "put": {
         "operationId": "setBIUserStatus",
         "summary": "setBIUserStatus",
@@ -2300,7 +2300,7 @@
         "x-step-up-required": true
       }
     },
-    "/api/v1/admin/bi/cleanup/run": {
+    "/api/v1/admin/desktop/operations/cleanup/run": {
       "post": {
         "operationId": "runBICleanup",
         "summary": "runBICleanup",
@@ -2415,7 +2415,7 @@
         "x-step-up-required": true
       }
     },
-    "/api/v1/admin/bi/report-statistics": {
+    "/api/v1/admin/desktop/operations/report-statistics": {
       "get": {
         "operationId": "getBIReportStatistics",
         "summary": "获取总结生成任务及模型调用汇总",
@@ -3119,6 +3119,11 @@
           "last_received_at": {
             "type": "string",
             "nullable": true
+          },
+          "members": {
+            "type": "integer",
+            "format": "int64",
+            "description": "未删除的企业成员数，与小程序授权使用者分别统计。"
           }
         }
       },
@@ -3181,7 +3186,8 @@
             "additionalProperties": {
               "type": "integer",
               "format": "int64"
-            }
+            },
+            "description": "organizations、members 为未删除企业与成员数；daily_running、period_running 为待处理、等待或运行中的总结任务数；users、sessions、access、invitations 为小程序访问数据。"
           },
           "config": {
             "type": "object",
