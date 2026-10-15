@@ -1,5 +1,16 @@
 export default {
   "biNative": {
+    verificationDigit: '验证码第 {digit} 位',
+    recordDetails: '详情',
+    organizationAccessTitle: "{name} · 企业访问与邀请",
+    clearSearch: "清除搜索",
+    noOrganizationsMatch: "未找到匹配的企业，请更换名称或清除搜索。",
+    loadedRecords: "已加载 {count} 条记录",
+    retentionSaved: "保留策略已保存。",
+    cleanupCompleted: "身份清理已执行，请查看审计记录。",
+    confirmCleanup: "将按已保存的保留策略清理过期身份临时状态和 BI 审计记录，清理后无法恢复。是否执行？",
+    confirmRevoke: "撤销后，此邀请将无法领取；已经开通的企业访问不受影响。是否撤销？",
+    featureLabels: {"reporting_enabled": "上报", "summary_enabled": "日总结", "weekly_summary_enabled": "周总结", "monthly_summary_enabled": "月总结"},
     summaryDisabled: '企业未开启日报与归集总结，请管理员在企业信息中启用。',
     noSummaryForPeriod: '所选周期暂无可读总结。',
     reportTextChanged: '正文已更新，请查看刷新后的内容再复制。',
@@ -145,6 +156,7 @@ export default {
     "presetReports": "总结阅读",
     "presetAll": "完整阅读与复制",
     "fields": {
+      features: "功能开关",
       "name": "企业名称",
       "status": "状态",
       "reporting_enabled": "会话上报",

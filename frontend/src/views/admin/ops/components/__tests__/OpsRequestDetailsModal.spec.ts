@@ -62,25 +62,15 @@ describe('Ops request latency details', () => {
     })
   })
 
-  it('shows the BI Operations link only when BI is available', async () => {
+  it('omits the BI Operations shortcut and availability request', async () => {
     const props = { platform: '', groupId: null, timeRange: '1h', queryMode: 'auto', loading: false, lastUpdated: null }
     const wrapper = shallowMount(OpsDashboardHeader, { props, global: { stubs: { RouterLink: routerLinkStub } } })
     await flushPromises()
-    const link = wrapper.find('a[href="/admin/bi"]')
-    expect(link.exists()).toBe(true)
-    expect(link.element.previousElementSibling).toBe(wrapper.find('h1').element)
-    expect(link.find('svg').exists()).toBe(false)
-    expect(link.attributes('target')).toBe('_blank')
-    expect(link.attributes('rel')).toBe('noopener noreferrer')
+    expect(wrapper.find('a[href="/admin/bi"]').exists()).toBe(false)
+    expect(getBIOverview).not.toHaveBeenCalled()
     await wrapper.setProps({ fullscreen: true })
     expect(wrapper.find('a[href="/admin/bi"]').exists()).toBe(false)
     wrapper.unmount()
-
-    getBIOverview.mockRejectedValueOnce(new Error('BI unavailable'))
-    const unavailable = shallowMount(OpsDashboardHeader, { props, global: { stubs: { RouterLink: routerLinkStub } } })
-    await flushPromises()
-    expect(unavailable.find('a[href="/admin/bi"]').exists()).toBe(false)
-    unavailable.unmount()
   })
 
   it('opens the TTFT card with first-token sorting and successful requests', async () => {

@@ -28,11 +28,11 @@
 .bi-error { @apply rounded-xl bg-red-50 p-4 text-sm leading-relaxed text-red-700 dark:bg-red-900/20 dark:text-red-200; }
 .bi-empty { @apply rounded-xl bg-gray-50 p-6 text-center text-sm text-gray-600 dark:bg-dark-800 dark:text-dark-300; }
 .bi-table-scroll { max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; }
-.bi-table { width: max-content; min-width: 100%; border-spacing: 0; border-collapse: separate; }
+.bi-table { width: 100%; min-width: 100%; border-spacing: 0; border-collapse: separate; }
 .bi-table th { @apply border-b border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-600 dark:border-dark-700 dark:bg-dark-800 dark:text-dark-300; text-align: start; white-space: nowrap; }
 .bi-table td { @apply border-b border-gray-100 px-4 py-4 text-sm text-gray-900 dark:border-dark-700 dark:text-gray-100; vertical-align: middle; }
 .bi-table tr:last-child td { border-bottom: 0; }
-.bi-table .bi-cell-name { min-width: 14rem; max-width: 22rem; overflow-wrap: anywhere; }
+.bi-table .bi-cell-name { min-width: 12rem; max-width: 20rem; overflow-wrap: anywhere; }
 .bi-table .bi-cell-text { max-width: 24rem; overflow-wrap: anywhere; }
 .bi-table .bi-cell-id { max-width: 18rem; overflow-wrap: anywhere; @apply font-mono text-xs text-gray-600 dark:text-dark-300; }
 .bi-table .bi-cell-date, .bi-table .bi-cell-number { white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -67,3 +67,21 @@
   .bi-operations :where(button, a, input, select, [tabindex]):focus-visible,
   .bi-access :where(button, a, input, select, [tabindex]):focus-visible { outline-color: Highlight; }
 }
+
+.bi-filter-bar { @apply mb-4 flex flex-wrap items-end gap-3; }
+.bi-table-meta { @apply flex flex-wrap items-center justify-between gap-2; }
+.bi-placeholder { @apply text-gray-500 dark:text-dark-400; }
+.bi-feature-grid { display: grid; grid-template-columns: repeat(2, max-content); justify-content: space-between; gap: 6px 12px; min-width: 14rem; }
+.bi-feature { @apply flex items-center justify-between gap-2 text-xs text-gray-600 dark:text-dark-300; white-space: nowrap; }
+.bi-feature[data-enabled='true'] > :last-child { @apply font-medium text-emerald-800 dark:text-emerald-200; }
+.bi-cell-number { text-align: end; }
+.bi-row-details { min-width: 5rem; }
+.bi-row-details summary { @apply cursor-pointer rounded-md text-sm font-medium text-primary-700 dark:text-primary-200; padding: 6px 0; }
+.bi-row-details dl { @apply mt-2 space-y-3 rounded-lg bg-gray-50 p-3 dark:bg-dark-800; width: 16rem; max-width: 100%; }
+.bi-row-details dt { @apply text-xs text-gray-600 dark:text-dark-300; }
+.bi-row-details dd { @apply mt-1 text-sm text-gray-900 dark:text-gray-100; overflow-wrap: anywhere; white-space: pre-wrap; }
+.bi-access-dialog .bi-access { @apply border-0 p-0 shadow-none; }
+.bi-access-dialog .modal-body { min-width: 0; overscroll-behavior: contain; }
+.bi-access-dialog .input, .bi-operations .input, .bi-access .input { @apply text-base sm:text-sm; }
+.bi-access-dialog :where(button, a, input, select, summary, [tabindex]):focus-visible,
+.bi-operations summary:focus-visible { outline: 2px solid theme('colors.primary.600'); outline-offset: 2px; }

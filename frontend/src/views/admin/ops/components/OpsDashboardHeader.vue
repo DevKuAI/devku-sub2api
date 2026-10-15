@@ -51,7 +51,6 @@ const emit = defineEmits<Emits>()
 
 const { t } = useI18n()
 const adminSettingsStore = useAdminSettingsStore()
-const biEnabled = ref(false)
 
 const realtimeWindow = ref<RealtimeWindow>('1min')
 
@@ -151,7 +150,6 @@ watch(
 )
 
 onMounted(async () => {
-  void adminAPI.bi.getOverview().then(() => { biEnabled.value = true }).catch(() => { biEnabled.value = false })
   try {
     const list = await adminAPI.groups.getAll()
     groups.value = list.map((g) => ({ id: g.id, name: g.name, platform: g.platform }))
@@ -877,15 +875,6 @@ function handleToolbarRefresh() {
             </svg>
             {{ t('admin.ops.title') }}
           </h1>
-          <router-link
-            v-if="!props.fullscreen && biEnabled"
-            to="/admin/bi"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="flex h-8 items-center rounded-lg bg-gray-100 px-3 text-xs font-bold text-gray-700 transition-colors hover:bg-gray-200 dark:bg-dark-700 dark:text-gray-300 dark:hover:bg-dark-600"
-          >
-            {{ t('nav.biOperations') }}
-          </router-link>
         </div>
 
         <div v-if="!props.fullscreen" class="mt-1 flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">

@@ -1,5 +1,16 @@
 export default {
   "biNative": {
+    verificationDigit: 'Verification code digit {digit}',
+    recordDetails: 'Details',
+    organizationAccessTitle: "{name} · Access and invitations",
+    clearSearch: "Clear search",
+    noOrganizationsMatch: "No organizations match. Try another name or clear the search.",
+    loadedRecords: "{count} records loaded",
+    retentionSaved: "Retention policy saved.",
+    cleanupCompleted: "Identity cleanup completed. Review the audit log.",
+    confirmCleanup: "Delete expired identity state and BI audit records using the saved retention policy? Deleted records cannot be recovered.",
+    confirmRevoke: "Revoke this invitation? It can no longer be claimed. Existing organization access is unaffected.",
+    featureLabels: {"reporting_enabled": "Uploads", "summary_enabled": "Daily", "weekly_summary_enabled": "Weekly", "monthly_summary_enabled": "Monthly"},
     summaryDisabled: 'Organization summaries are disabled. An administrator can enable them in organization settings.',
     noSummaryForPeriod: 'No readable summary is available for this period.',
     reportTextChanged: 'The text has changed. Review the refreshed summary before copying.',
@@ -145,6 +156,7 @@ export default {
     "presetReports": "Read summaries",
     "presetAll": "Read all content and copy",
     "fields": {
+      features: "Features",
       "name": "Organization name",
       "status": "Status",
       "reporting_enabled": "Conversation uploads",

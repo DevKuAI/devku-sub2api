@@ -6,7 +6,7 @@ vi.mock('@/api/bi', async original => ({ ...await original<typeof import('@/api/
 vi.mock('vue-i18n', async original => ({ ...await original<typeof import('vue-i18n')>(), useI18n: () => ({ t: (key: string) => key }) }))
 import BIGrantManagement from './BIGrantManagement.vue'
 import { capabilityDependencies } from '@/api/bi'
-const global = { stubs: { TotpStepUpDialog: { props: ['controller'], template: '<button v-if="controller.visible.value" data-verify @click="controller.onVerified()">verify</button>' }, BaseDialog: { props: ['show'], template: '<div v-if="show"><slot/><slot name="footer"/></div>' } } }
+const global = { stubs: { TotpStepUpDialog: { props: ['controller'], template: '<div v-if="controller.visible.value"><button data-verify @click="controller.onVerified()">verify</button><button data-cancel @click="controller.onCancel()">cancel</button></div>' }, BaseDialog: { props: ['show'], template: '<div v-if="show"><slot/><slot name="footer"/></div>' } } }
 const page = (items: unknown[] = []) => ({ items, page: 1, page_size: 20, total: items.length, has_more: false })
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>(r => { resolve = r }); return { promise, resolve } }
 beforeEach(() => { vi.clearAllMocks(); api.users.mockResolvedValue(page()); api.invitations.mockResolvedValue(page()); api.create.mockResolvedValue({ token: 'invitation-secret', path: '/pages/settings/index?invite=invitation-secret' }) })
@@ -22,6 +22,35 @@ describe('Independent mini-program access', () => {
     const wrapper = mount(BIGrantManagement,{props:{organizationId:'org'},global});await flushPromises();expect(wrapper.text()).toContain('INVITE_VISIBLE');expect(wrapper.text()).toContain('biNative.failed');wrapper.unmount()
   })
   it('verifies step-up and retries the same invitation once', async () => { api.create.mockRejectedValueOnce({ status:403, code:'STEP_UP_REQUIRED' }); const w=mount(BIGrantManagement,{props:{organizationId:'org'},global});await flushPromises();await w.findAll('button').find(b=>b.text()==='biNative.createInvite')!.trigger('click');await w.get('#bi-access-form').trigger('submit');await flushPromises();expect(api.create).toHaveBeenCalledTimes(1);await w.get('[data-verify]').trigger('click');await flushPromises();expect(api.create).toHaveBeenCalledTimes(2);expect(api.create.mock.calls[0]).toEqual(api.create.mock.calls[1]);w.unmount() })
+  it('retains the invitation draft and restores form focus after verification is cancelled', async () => {
+    api.create.mockRejectedValueOnce({ status: 403, code: 'STEP_UP_REQUIRED' })
+    const wrapper = mount(BIGrantManagement, { attachTo: document.body, props: { organizationId: 'org' }, global })
+    await flushPromises()
+    await wrapper.findAll('button').find(button => button.text() === 'biNative.createInvite')!.trigger('click')
+    await wrapper.get('input[maxlength="100"]').setValue('Keep this draft')
+    await wrapper.get('#bi-access-form').trigger('submit')
+    await flushPromises()
+    await wrapper.get('[data-cancel]').trigger('click')
+    await flushPromises()
+    expect(api.create).toHaveBeenCalledTimes(1)
+    const note = wrapper.get('input[maxlength="100"]')
+    expect((note.element as HTMLInputElement).value).toBe('Keep this draft')
+    expect(document.activeElement).toBe(note.element)
+    wrapper.unmount()
+  })
+  it('requires confirmation before revoking an invitation', async () => {
+    api.invitations.mockResolvedValue(page([{ id: 'invite-one', note: 'Recipient', status: 'pending', expires_at: '', capabilities: ['analytics:read'] }]))
+    const wrapper = mount(BIGrantManagement, { props: { organizationId: 'org' }, global })
+    await flushPromises()
+    await wrapper.findAll('button').find(button => button.text() === 'biNative.revokeInvite')!.trigger('click')
+    expect(api.revoke).not.toHaveBeenCalled()
+    const confirm = wrapper.findComponent({ name: 'ConfirmDialog' })
+    expect(confirm.props('show')).toBe(true)
+    confirm.vm.$emit('confirm')
+    await flushPromises()
+    expect(api.revoke).toHaveBeenCalledWith('invite-one')
+    wrapper.unmount()
+  })
   it('keeps the organization label draft on revision conflicts', async () => {
     const user = {bi_user_id:'biu_reader',display_name:'小程序使用者',organization_alias:'项目负责人',user_status:'active',status:'active',capabilities:['analytics:read'],revision:3}
     api.users.mockResolvedValue(page([user])); api.access.mockRejectedValue({status:409})

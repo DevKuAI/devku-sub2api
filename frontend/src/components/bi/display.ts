@@ -9,6 +9,12 @@ const statuses: Record<string, string> = {
   no_records: 'admin.desktop.reports.statuses.no_records', skipped: 'admin.desktop.reports.statuses.skipped',
 }
 export function biStatusKey(value: string): string | undefined { return statuses[value] }
+export function biEmpty(value: unknown): boolean {
+  return value == null || (typeof value === 'string' && value.trim() === '')
+}
+export function biText(value: unknown): string {
+  return biEmpty(value) ? '-' : String(value)
+}
 export function biStatusTone(value: string | boolean): BITone {
   if (value === true || ['active', 'completed', 'used'].includes(String(value))) return 'success'
   if (['disabled', 'failed', 'revoked'].includes(String(value))) return 'danger'
@@ -18,7 +24,7 @@ export function biStatusTone(value: string | boolean): BITone {
 }
 
 export function biDate(value: unknown): string {
-  if (!value) return '—'
+  if (biEmpty(value)) return '-'
   const date = new Date(String(value))
   if (Number.isNaN(date.getTime())) return String(value)
   return new Intl.DateTimeFormat('sv-SE', {

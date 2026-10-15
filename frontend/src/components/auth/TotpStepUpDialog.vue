@@ -1,16 +1,16 @@
 <template>
-  <div v-if="controller.visible.value" class="fixed inset-0 z-[60] overflow-y-auto">
-    <div class="flex min-h-full items-center justify-center p-4">
-      <div class="fixed inset-0 bg-black/50 transition-opacity" @click="handleCancel"></div>
+  <div v-if="controller.visible.value" :class="inline ? 'relative' : 'fixed inset-0 z-[60] overflow-y-auto'">
+    <div :class="inline ? '' : 'flex min-h-full items-center justify-center p-4'">
+      <div v-if="!inline" class="fixed inset-0 bg-black/50 transition-opacity" @click="handleCancel"></div>
 
-      <div class="relative w-full max-w-md transform rounded-xl bg-white p-6 shadow-xl transition-all dark:bg-dark-800">
+      <div :class="inline ? 'relative w-full' : 'relative w-full max-w-md transform rounded-xl bg-white p-6 shadow-xl transition-all dark:bg-dark-800'">
         <div class="mb-6 text-center">
           <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary-100 dark:bg-primary-900/30">
             <svg class="h-6 w-6 text-primary-600 dark:text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
               <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
             </svg>
           </div>
-          <h3 class="mt-4 text-xl font-semibold text-gray-900 dark:text-white">
+          <h3 v-if="!inline" class="mt-4 text-xl font-semibold text-gray-900 dark:text-white">
             {{ t('stepUp.title') }}
           </h3>
           <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
@@ -20,6 +20,7 @@
 
         <div class="mb-6">
           <input
+            v-if="!inline"
             ref="hiddenOtpInputRef"
             type="text"
             inputmode="numeric"
@@ -30,17 +31,18 @@
             tabindex="-1"
             @input="handleHiddenOtpInput"
           />
-          <div class="flex justify-center gap-2">
+          <div :class="inline ? 'grid grid-cols-6 gap-2' : 'flex justify-center gap-2'">
             <input
               v-for="(_, index) in 6"
               :key="index"
               :ref="(el) => setInputRef(el, index)"
               type="text"
+              :aria-label="digitLabel ? digitLabel(index + 1) : undefined"
               maxlength="1"
               inputmode="numeric"
               pattern="[0-9]"
-              autocomplete="off"
-              class="h-12 w-10 rounded-lg border border-gray-300 text-center text-lg font-semibold focus:border-primary-500 focus:ring-primary-500 dark:border-dark-600 dark:bg-dark-700"
+              :autocomplete="inline && index === 0 ? 'one-time-code' : 'off'"
+              :class="[inline ? 'min-w-0 w-full' : 'w-10', 'h-12 rounded-lg border border-gray-300 text-center text-lg font-semibold focus:border-primary-500 focus:ring-primary-500 dark:border-dark-600 dark:bg-dark-700']"
               :disabled="verifying"
               @input="handleCodeInput($event, index)"
               @keydown="handleKeydown($event, index)"
@@ -75,6 +77,8 @@ import type { StepUpController } from '@/composables/useStepUp'
 
 const props = defineProps<{
   controller: StepUpController
+  inline?: boolean
+  digitLabel?: (digit: number) => string
 }>()
 
 const { t } = useI18n()
