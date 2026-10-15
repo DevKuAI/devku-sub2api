@@ -135,3 +135,22 @@
     font-size: 16px;
   }
 }
+
+.accounting-error {
+  @apply rounded-xl bg-red-50 p-4 text-sm leading-relaxed text-red-800 dark:bg-red-950 dark:text-red-200;
+}
+.accounting-table-region {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.accounting-table-region table {
+  min-width: 36rem;
+}
+.accounting-table-region th,
+.accounting-table-region td {
+  @apply border-b border-gray-200 p-3 dark:border-dark-600;
+}
+.accounting-workspace [aria-invalid='true'],
+.accounting-action-dialog [aria-invalid='true'] {
+  @apply border-red-500;
+}

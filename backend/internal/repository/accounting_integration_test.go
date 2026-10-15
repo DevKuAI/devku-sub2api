@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -79,6 +80,9 @@ func newAccountingFixture(t *testing.T) *accountingFixture {
 		if c.GetHeader("Authorization") == "Bearer accounting-qa-user" {
 			role = "user"
 		}
+		if c.GetHeader("Authorization") == "Bearer accounting-qa-finance" {
+			role = "finance"
+		}
 		if role == "" {
 			role = "admin"
 		}
@@ -91,6 +95,15 @@ func newAccountingFixture(t *testing.T) *accountingFixture {
 		ctx := context.Background()
 		for _, query := range []string{
 			"DELETE FROM accounting_operation_results WHERE actor_id=$1",
+			"DELETE FROM accounting_statements WHERE organization_id=$1",
+			"DELETE FROM accounting_periods WHERE organization_id=$1",
+			"DELETE FROM accounting_external_actions WHERE organization_id=$1",
+			"DELETE FROM accounting_receipt_settlements WHERE organization_id=$1",
+			"DELETE FROM accounting_cost_allocations WHERE organization_id=$1",
+			"DELETE FROM accounting_fx_exchanges WHERE organization_id=$1",
+			"DELETE FROM accounting_receivables WHERE organization_id=$1",
+			"DELETE FROM accounting_position_events WHERE organization_id=$1",
+			"DELETE FROM accounting_position_baselines WHERE organization_id=$1",
 			"DELETE FROM accounting_funding WHERE transaction_id IN (SELECT id FROM accounting_vcc_transactions WHERE organization_id=$1)",
 			"DELETE FROM accounting_allocations WHERE organization_id=$1",
 			"DELETE FROM accounting_reconciliation WHERE organization_id=$1",
@@ -394,6 +407,9 @@ func TestAccountingBrowserFixture(t *testing.T) {
 		if c.GetHeader("Authorization") == "Bearer accounting-qa-user" {
 			role = "user"
 		}
+		if c.GetHeader("Authorization") == "Bearer accounting-qa-finance" {
+			role = "finance"
+		}
 		response.Success(c, map[string]any{"id": f.desktop.user.ID, "role": role, "email": "accounting-qa@example.test", "username": "Accounting QA", "status": "active", "balance": 0, "concurrency": 1, "run_mode": "standard"})
 	})
 	f.router.GET("/setup/status", func(c *gin.Context) { c.JSON(200, map[string]any{"needs_setup": false}) })
@@ -416,7 +432,11 @@ func TestAccountingBrowserFixture(t *testing.T) {
 	defer server.Close()
 	state, err := json.Marshal(map[string]any{"url": server.URL, "user_id": f.desktop.user.ID, "organization_id": f.desktop.organization.PublicID})
 	require.NoError(t, err)
-	require.NoError(t, os.WriteFile("/tmp/sub2api-accounting-qa.json", state, 0600))
+	qaDir := os.Getenv("SUB2API_ACCOUNTING_QA_DIR")
+	if qaDir == "" {
+		qaDir = "/tmp"
+	}
+	require.NoError(t, os.WriteFile(filepath.Join(qaDir, "sub2api-accounting-qa.json"), state, 0600))
 	t.Logf("Accounting browser fixture ready: %s", server.URL)
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
@@ -424,7 +444,7 @@ func TestAccountingBrowserFixture(t *testing.T) {
 	for {
 		select {
 		case <-ticker.C:
-			if _, err := os.Stat("/tmp/sub2api-accounting-qa-complete"); err == nil {
+			if _, err := os.Stat(filepath.Join(qaDir, "sub2api-accounting-qa-complete")); err == nil {
 				return
 			}
 		case <-deadline:

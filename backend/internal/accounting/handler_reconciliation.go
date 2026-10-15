@@ -27,7 +27,7 @@ func (h *Handler) reconciliationRecord(c *gin.Context) (*Record, reconciliationI
 		response.ErrorFrom(c, ErrInvalid)
 		return nil, in
 	}
-	if in.Kind != "transfers" && in.Kind != "vcc-transactions" && in.Kind != "expenses" {
+	if in.Kind != "transfers" && in.Kind != "vcc-transactions" && in.Kind != "expenses" && in.Kind != "receivables" {
 		response.ErrorFrom(c, ErrInvalid)
 		return nil, in
 	}
@@ -121,7 +121,7 @@ func (h *Handler) reconciliation(c *gin.Context) {
 	cte := `WITH objects(id,organization_id,parent_id,status,currency,amount,occurred_at,details,customer_visible,shared_at,shared_by,created_at,version,org,kind) AS (` + strings.Join(queries, " UNION ALL ") + `), results AS (
  SELECT objects.*,COALESCE(c.status,'UNMATCHED') AS reconciliation_status,COALESCE(c.reason,'') AS reason,COALESCE(c.reference,'') AS reference
  FROM objects LEFT JOIN LATERAL(SELECT status,reason,reference FROM accounting_reconciliation WHERE object_kind=objects.kind AND object_id=objects.id::uuid ORDER BY created_at DESC,id DESC LIMIT 1)c ON true
- WHERE (kind='transfers' AND objects.status='RECEIVED') OR (kind='vcc-transactions' AND objects.status='CONFIRMED') OR (kind='expenses' AND objects.status IN ('PENDING','PAID'))) `
+ WHERE (kind='transfers' AND objects.status='RECEIVED') OR (kind='vcc-transactions' AND objects.status='CONFIRMED') OR (kind='expenses' AND objects.status IN ('UNPAID','PENDING','PAID'))) `
 	condition := "true"
 	if state != "" {
 		args = append(args, state)
@@ -206,7 +206,7 @@ func (h *Handler) trend(c *gin.Context) {
 	if response.ErrorFrom(c, err) {
 		return
 	}
-	rows, err := h.engine.db.QueryContext(c.Request.Context(), "SELECT to_char(r.occurred_at AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD'),r.currency,SUM(r.amount)::text FROM accounting_transfers r JOIN desktop_organizations o ON o.id=r.organization_id WHERE "+where+" GROUP BY 1,2 ORDER BY 1,2", args...)
+	rows, err := h.engine.db.QueryContext(c.Request.Context(), "SELECT to_char(r.occurred_at AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD'),r.currency,SUM(r.amount+COALESCE((SELECT SUM(a.amount) FROM accounting_adjustments a WHERE a.object_kind='transfers' AND a.object_id=r.id),0))::text FROM accounting_transfers r JOIN desktop_organizations o ON o.id=r.organization_id WHERE "+where+" AND COALESCE(r.details->>'funding_type','')<>'FX' GROUP BY 1,2 ORDER BY 1,2", args...)
 	if response.ErrorFrom(c, err) {
 		return
 	}

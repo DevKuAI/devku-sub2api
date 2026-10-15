@@ -1,4 +1,6 @@
 export type AccountingKind =
+  | 'receivables'
+  | 'fx-exchanges'
   | 'transfers'
   | 'vcc-cards'
   | 'vcc-transactions'
@@ -92,4 +94,38 @@ export interface Field {
   options?: string[]
   reference?: AccountingKind
   required?: boolean
+}
+
+export interface WorkflowRow {
+  [key: string]: unknown
+  id: string
+}
+export interface WorkflowTodo {
+  kind: AccountingKind | 'external-actions'
+  id: string
+  name: string
+  reason: string
+  amount: string
+  currency: string
+  status: string
+}
+export interface BookPosition {
+  cash: string
+  card: string
+}
+export interface Workbench {
+  items: WorkflowTodo[]
+  total: number
+  matched_total?: number
+  counts: Record<string, number>
+  positions: Record<string, BookPosition>
+  pending_consumption: { currency: string; amount: string }[]
+}
+export interface Statement {
+  month: string
+  covered_from: string
+  opening: Record<string, BookPosition> | null
+  movement: Record<string, BookPosition>
+  closing: Record<string, BookPosition>
+  records: { kind: AccountingKind; record: AccountingRecord }[]
 }

@@ -6,6 +6,18 @@ const ref = (key: string, reference: AccountingKind): Field => ({
   reference,
 })
 export const fields: Record<AccountingKind, Field[]> = {
+  receivables: [
+    ...plain('name reference'),
+    { key: 'due_date', type: 'date' },
+    ref('contract_id', 'contracts'),
+    ref('invoice_id', 'invoices'),
+    { key: 'remark' },
+  ],
+  'fx-exchanges': [
+    ...plain(
+      'target_currency target_amount exchange_rate fee_amount reference remark',
+    ),
+  ],
   transfers: [
     ...plain(
       'payer_name contact_name contact_phone contact_email contact_wechat receiving_account sales_amount',
@@ -70,6 +82,7 @@ export const fields: Record<AccountingKind, Field[]> = {
     { key: 'ai_vendor', type: 'boolean' },
     ref('vendor_invoice_id', 'vendor-invoices'),
     ref('invoice_id', 'invoices'),
+    ref('transaction_id', 'vcc-transactions'),
     { key: 'remark' },
   ],
   'expense-payments': [
@@ -99,6 +112,7 @@ export function recordLabel(
       details.vendor ||
       details.supplier ||
       details.invoice_number ||
+      details.reference ||
       fallback,
   )
 }
@@ -112,6 +126,8 @@ export const publicFields: Record<string, string[]> = {
     'net_sales_amount',
     'receivable_amount',
     'received_amount',
+    'original_amount',
+    'adjustment_amount',
   ],
   'vcc-cards': ['alias', 'last_four', 'allocated_amount', 'available_balance'],
   'vcc-transactions': [

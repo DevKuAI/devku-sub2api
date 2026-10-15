@@ -35,11 +35,22 @@ func (e *Engine) requireVendorInvoice(ctx context.Context, tx dbQuery, r *Record
 	}
 	return e.requireProof(ctx, tx, "vendor-invoices", invoice)
 }
-func (e *Engine) Confirm(ctx context.Context, tx *sql.Tx, kind string, r *Record) error {
+func (e *Engine) Confirm(ctx context.Context, tx *sql.Tx, kind string, r *Record, actors ...int64) error {
+	actor := int64(0)
+	if len(actors) > 0 {
+		actor = actors[0]
+	}
 	if r.Status != "DRAFT" {
 		return ErrState
 	}
 	switch kind {
+	case "receivables", "fx-exchanges":
+		return e.confirmWorkflow(ctx, tx, kind, r, actor)
+	case "expenses":
+		if detail(r, "transaction_id") != "" {
+			return updateExpenseStatus(ctx, tx, r)
+		}
+		r.Status = "UNPAID"
 	case "transfers":
 		if err := e.requireProof(ctx, tx, kind, r); err != nil {
 			return err
@@ -71,6 +82,9 @@ func (e *Engine) Confirm(ctx context.Context, tx *sql.Tx, kind string, r *Record
 			return err
 		}
 		if isCredit(r) {
+			if err := checkCreditCost(ctx, tx, r); err != nil {
+				return err
+			}
 			if err := credit(ctx, tx, r); err != nil {
 				return err
 			}
@@ -102,9 +116,14 @@ func (e *Engine) Void(ctx context.Context, tx *sql.Tx, kind string, r *Record, r
 		return ErrState
 	}
 	if r.Status != "DRAFT" {
+		if err := workflowDependencies(ctx, tx, kind, r); err != nil {
+			return err
+		}
+	}
+	if r.Status != "DRAFT" {
 		switch kind {
 		case "transfers":
-			used, err := sum(ctx, tx, "SELECT COALESCE(SUM(amount-released_amount),0)::text FROM accounting_allocations WHERE transfer_id=$1", r.ID)
+			used, err := transferCommitted(ctx, tx, r.ID)
 			if err != nil {
 				return err
 			}
@@ -116,7 +135,7 @@ func (e *Engine) Void(ctx context.Context, tx *sql.Tx, kind string, r *Record, r
 				return err
 			}
 		case "expenses":
-			paid, err := paidAmount(ctx, tx, r.ID)
+			paid, err := sum(ctx, tx, "SELECT COALESCE(SUM(amount),0)::text FROM accounting_expense_payments WHERE parent_id=$1 AND status='PAID'", r.ID)
 			if err != nil {
 				return err
 			}
@@ -166,6 +185,13 @@ func (e *Engine) Void(ctx context.Context, tx *sql.Tx, kind string, r *Record, r
 	return nil
 }
 func paidAmount(ctx context.Context, q dbQuery, id string) (decimal.Decimal, error) {
+	var linked string
+	if err := q.QueryRowContext(ctx, "SELECT COALESCE(details->>'transaction_id','') FROM accounting_expenses WHERE id=$1", id).Scan(&linked); err != nil {
+		return decimal.Zero, err
+	}
+	if linked != "" {
+		return linkedCardPaid(ctx, q, linked)
+	}
 	return sum(ctx, q, "SELECT COALESCE(SUM(amount),0)::text FROM accounting_expense_payments WHERE parent_id=$1 AND status='PAID'", id)
 }
 func updateExpenseStatus(ctx context.Context, tx dbQuery, r *Record) error {
@@ -177,7 +203,7 @@ func updateExpenseStatus(ctx context.Context, tx dbQuery, r *Record) error {
 	if err != nil {
 		return err
 	}
-	r.Status = "DRAFT"
+	r.Status = "UNPAID"
 	if paid.IsPositive() {
 		r.Status = "PENDING"
 	}
@@ -187,7 +213,7 @@ func updateExpenseStatus(ctx context.Context, tx dbQuery, r *Record) error {
 	return save(ctx, tx, "expenses", r)
 }
 func (e *Engine) Pay(ctx context.Context, tx *sql.Tx, expense *Record, in Input, actor int64) (*Record, error) {
-	if expense.Status == "VOID" {
+	if expense.Status == "VOID" || detail(expense, "transaction_id") != "" {
 		return nil, ErrState
 	}
 	if err := e.requireVendorInvoice(ctx, tx, expense); err != nil {
@@ -245,7 +271,10 @@ func (e *Engine) Adjust(ctx context.Context, tx *sql.Tx, kind string, r *Record,
 	if err != nil || delta.IsZero() {
 		return nil, invalid("amount")
 	}
-	if kind != "transfers" && kind != "expenses" {
+	if kind == "expenses" && detail(r, "transaction_id") != "" {
+		return nil, ErrState.WithMetadata(map[string]string{"field": "use_source_transaction_adjustment"})
+	}
+	if kind != "transfers" && kind != "expenses" && kind != "receivables" {
 		return nil, invalid("object_kind")
 	}
 	total, err := effective(ctx, tx, kind, r)
@@ -257,13 +286,34 @@ func (e *Engine) Adjust(ctx context.Context, tx *sql.Tx, kind string, r *Record,
 		return nil, ErrAmount
 	}
 	var used decimal.Decimal
-	if kind == "transfers" {
-		used, err = sum(ctx, tx, "SELECT COALESCE(SUM(amount-released_amount),0)::text FROM accounting_allocations WHERE transfer_id=$1", r.ID)
-	} else {
+	switch kind {
+	case "transfers":
+		if detail(r, "funding_type") == "FX" {
+			return nil, ErrState
+		}
+		used, err = transferCommitted(ctx, tx, r.ID)
+	case "receivables":
+		used, err = sum(ctx, tx, "SELECT COALESCE(SUM(amount),0)::text FROM accounting_receipt_settlements WHERE receivable_id=$1 AND status='ACTIVE'", r.ID)
+	default:
 		used, err = paidAmount(ctx, tx, r.ID)
 	}
 	if err != nil {
 		return nil, err
+	}
+
+	if kind == "transfers" {
+		settled, settlementErr := sum(ctx, tx, "SELECT COALESCE(SUM(amount),0)::text FROM accounting_receipt_settlements WHERE transfer_id=$1 AND status='ACTIVE'", r.ID)
+		if settlementErr != nil {
+			return nil, settlementErr
+		}
+		used = decimal.Max(used, settled)
+	}
+	if kind == "expenses" {
+		cost, costErr := sum(ctx, tx, "SELECT COALESCE(SUM(source_amount),0)::text FROM accounting_cost_allocations WHERE source_kind='expenses' AND source_id=$1 AND status='ACTIVE'", r.ID)
+		if costErr != nil {
+			return nil, costErr
+		}
+		used = decimal.Max(used, cost)
 	}
 	if next.LessThan(used) {
 		return nil, ErrAmount

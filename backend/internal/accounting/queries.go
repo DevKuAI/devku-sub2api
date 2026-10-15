@@ -69,6 +69,9 @@ func (e *Engine) List(ctx context.Context, kind string, f Filter) ([]*Record, in
 		return nil, 0, err
 	}
 	if f.Customer {
+		if kind == "transfers" {
+			where += " AND COALESCE(r.details->>'funding_type','')<>'FX'"
+		}
 		if kind == "contracts" || kind == "invoices" {
 			where += " AND r.customer_visible"
 		}
@@ -108,32 +111,8 @@ func (e *Engine) List(ctx context.Context, kind string, f Filter) ([]*Record, in
 		return nil, 0, err
 	}
 	for i, r := range out {
-		if kind == "vcc-cards" {
-			balance, err := cardBalance(ctx, e.db, r.ID)
-			if err != nil {
-				return nil, 0, err
-			}
-			allocated, err := sum(ctx, e.db, "SELECT COALESCE(SUM(amount-released_amount),0)::text FROM accounting_allocations WHERE card_id=$1", r.ID)
-			if err != nil {
-				return nil, 0, err
-			}
-			r.Details["available_balance"] = balance.String()
-			r.Details["allocated_amount"] = allocated.String()
-			r.Details["has_difference"] = balance.IsNegative()
-		}
-		if kind == "transfers" || kind == "expenses" {
-			v, err := effective(ctx, e.db, kind, r)
-			if err != nil {
-				return nil, 0, err
-			}
-			r.Details["effective_amount"] = v.String()
-			if kind == "expenses" {
-				paid, err := paidAmount(ctx, e.db, r.ID)
-				if err != nil {
-					return nil, 0, err
-				}
-				r.Details["paid_amount"] = paid.String()
-			}
+		if err := e.enrich(ctx, kind, r); err != nil {
+			return nil, 0, err
 		}
 		if f.Customer {
 			out[i] = r.Public(kind)
@@ -177,15 +156,15 @@ func (e *Engine) Summary(ctx context.Context, f Filter) ([]CurrencySummary, erro
 		if kind != "vcc-transactions" {
 			value = "r.amount+COALESCE((SELECT SUM(a.amount) FROM accounting_adjustments a WHERE a.object_kind='" + kind + "' AND a.object_id=r.id),0)"
 		}
-		queries = append(queries, "SELECT '"+kind+"'::text AS kind,r.id,r.status,r.currency,"+value+" AS amount,r.details->>'transaction_type' AS transaction_type,r.details->>'direction' AS direction FROM "+specs[kind].table+" r JOIN desktop_organizations o ON o.id=r.organization_id WHERE "+kindWhere)
+		queries = append(queries, "SELECT '"+kind+"'::text AS kind,r.id,r.status,r.currency,"+value+" AS amount,r.details->>'transaction_type' AS transaction_type,r.details->>'direction' AS direction,COALESCE(r.details->>'funding_type','') AS funding_type FROM "+specs[kind].table+" r JOIN desktop_organizations o ON o.id=r.organization_id WHERE "+kindWhere)
 	}
 	query := `WITH records AS (` + strings.Join(queries, " UNION ALL ") + `) SELECT r.currency,
- COALESCE(SUM(r.amount) FILTER(WHERE kind='transfers' AND r.status='RECEIVED'),0)::text,
+ COALESCE(SUM(r.amount) FILTER(WHERE kind='transfers' AND r.status='RECEIVED' AND funding_type<>'FX'),0)::text,
  COALESCE(SUM(r.amount) FILTER(WHERE kind='vcc-transactions' AND r.status='CONFIRMED' AND transaction_type NOT IN ('REFUND') AND NOT(transaction_type='ADJUSTMENT' AND direction='CREDIT')),0)::text,
  COALESCE(SUM(r.amount) FILTER(WHERE kind='vcc-transactions' AND r.status='CONFIRMED' AND (transaction_type='REFUND' OR (transaction_type='ADJUSTMENT' AND direction='CREDIT'))),0)::text,
  COALESCE(SUM(r.amount) FILTER(WHERE kind='expenses' AND r.status<>'VOID'),0)::text,
- COUNT(*) FILTER(WHERE ((kind='transfers' AND r.status='RECEIVED') OR (kind='vcc-transactions' AND r.status='CONFIRMED') OR (kind='expenses' AND r.status<>'VOID')) AND COALESCE((SELECT status FROM accounting_reconciliation c WHERE c.object_kind=r.kind AND c.object_id=r.id ORDER BY c.created_at DESC,c.id DESC LIMIT 1),'UNMATCHED') IN ('UNMATCHED','DIFFERENCE')),
- COALESCE(SUM(r.amount) FILTER(WHERE ((kind='transfers' AND r.status='RECEIVED') OR (kind='vcc-transactions' AND r.status='CONFIRMED') OR (kind='expenses' AND r.status<>'VOID')) AND COALESCE((SELECT status FROM accounting_reconciliation c WHERE c.object_kind=r.kind AND c.object_id=r.id ORDER BY c.created_at DESC,c.id DESC LIMIT 1),'UNMATCHED') IN ('UNMATCHED','DIFFERENCE')),0)::text
+ COUNT(*) FILTER(WHERE ((kind='transfers' AND r.status='RECEIVED') OR (kind='vcc-transactions' AND r.status='CONFIRMED') OR (kind='expenses' AND r.status IN ('UNPAID','PENDING','PAID'))) AND COALESCE((SELECT status FROM accounting_reconciliation c WHERE c.object_kind=r.kind AND c.object_id=r.id ORDER BY c.created_at DESC,c.id DESC LIMIT 1),'UNMATCHED') IN ('UNMATCHED','DIFFERENCE')),
+ COALESCE(SUM(r.amount) FILTER(WHERE ((kind='transfers' AND r.status='RECEIVED') OR (kind='vcc-transactions' AND r.status='CONFIRMED') OR (kind='expenses' AND r.status IN ('UNPAID','PENDING','PAID'))) AND COALESCE((SELECT status FROM accounting_reconciliation c WHERE c.object_kind=r.kind AND c.object_id=r.id ORDER BY c.created_at DESC,c.id DESC LIMIT 1),'UNMATCHED') IN ('UNMATCHED','DIFFERENCE')),0)::text
  FROM records r GROUP BY r.currency`
 	if f.Customer {
 		query = strings.Replace(query, "transaction_type NOT IN ('REFUND') AND NOT(transaction_type='ADJUSTMENT' AND direction='CREDIT')", "transaction_type='CONSUME'", 1)
@@ -266,7 +245,7 @@ func (e *Engine) Summary(ctx context.Context, f Filter) ([]CurrencySummary, erro
 	if err != nil {
 		return nil, err
 	}
-	unallocatedQuery := `SELECT r.currency,SUM(r.amount+COALESCE((SELECT SUM(a.amount) FROM accounting_adjustments a WHERE a.object_kind='transfers' AND a.object_id=r.id),0)-COALESCE((SELECT SUM(a.amount-a.released_amount) FROM accounting_allocations a WHERE a.transfer_id=r.id),0))::text FROM accounting_transfers r JOIN desktop_organizations o ON o.id=r.organization_id WHERE r.status='RECEIVED' AND ` + currentWhere + ` GROUP BY r.currency`
+	unallocatedQuery := `SELECT r.currency,SUM(r.amount+COALESCE((SELECT SUM(a.amount) FROM accounting_adjustments a WHERE a.object_kind='transfers' AND a.object_id=r.id),0)-COALESCE((SELECT SUM(a.amount-a.released_amount) FROM accounting_allocations a WHERE a.transfer_id=r.id),0)-COALESCE((SELECT SUM(x.amount+COALESCE(NULLIF(x.details->>'fee_amount','')::numeric,0)) FROM accounting_fx_exchanges x WHERE x.parent_id=r.id AND x.status='CONFIRMED'),0))::text FROM accounting_transfers r JOIN desktop_organizations o ON o.id=r.organization_id WHERE r.status='RECEIVED' AND ` + currentWhere + ` GROUP BY r.currency`
 	rows, err = e.db.QueryContext(ctx, unallocatedQuery, currentArgs...)
 	if err != nil {
 		return nil, err
@@ -351,4 +330,83 @@ func customerColumns(kind string) string {
 
 func isReconciliationStatus(status string) bool {
 	return status == "UNMATCHED" || status == "MATCHED" || status == "DIFFERENCE" || status == "EXCLUDED"
+}
+
+func (e *Engine) enrich(ctx context.Context, kind string, r *Record) error {
+	if kind == "vcc-cards" {
+		balance, err := cardBalance(ctx, e.db, r.ID)
+		if err != nil {
+			return err
+		}
+		allocated, err := sum(ctx, e.db, "SELECT COALESCE(SUM(amount-released_amount),0)::text FROM accounting_allocations WHERE card_id=$1", r.ID)
+		if err != nil {
+			return err
+		}
+		r.Details["available_balance"] = balance.String()
+		r.Details["allocated_amount"] = allocated.String()
+		r.Details["has_difference"] = balance.IsNegative()
+	}
+	if kind == "receivables" {
+		settled, err := sum(ctx, e.db, "SELECT COALESCE(SUM(amount),0)::text FROM accounting_receipt_settlements WHERE receivable_id=$1 AND status='ACTIVE'", r.ID)
+		if err != nil {
+			return err
+		}
+		r.Details["settled_amount"] = settled.String()
+		total, totalErr := effective(ctx, e.db, kind, r)
+		if totalErr != nil {
+			return totalErr
+		}
+		r.Details["effective_amount"] = total.String()
+		r.Details["outstanding_amount"] = total.Sub(settled).String()
+	}
+	if kind == "fx-exchanges" && r.Status == "CONFIRMED" {
+		target, err := get(ctx, e.db, "transfers", detail(r, "target_transfer_id"), r.Org, false)
+		if err != nil {
+			return err
+		}
+		available, err := availableTransfer(ctx, e.db, target)
+		if err != nil {
+			return err
+		}
+		r.Details["target_available"] = available.String()
+	}
+
+	if kind == "vendor-invoices" {
+		allocated, err := sum(ctx, e.db, "SELECT COALESCE(SUM(amount),0)::text FROM accounting_cost_allocations WHERE invoice_id=$1 AND status='ACTIVE'", r.ID)
+		if err != nil {
+			return err
+		}
+		r.Details["allocated_cost"] = allocated.String()
+		r.Details["unallocated_cost"] = amount(r).Sub(allocated).String()
+	}
+	if kind == "transfers" || kind == "expenses" {
+		v, err := effective(ctx, e.db, kind, r)
+		if err != nil {
+			return err
+		}
+		r.Details["effective_amount"] = v.String()
+		r.Details["original_amount"] = r.Amount
+		r.Details["adjustment_amount"] = v.Sub(amount(r)).String()
+		if kind == "transfers" {
+			r.Details["received_amount"] = v.String()
+		}
+		if kind == "transfers" {
+			available, err := availableTransfer(ctx, e.db, r)
+			if err != nil {
+				return err
+			}
+			r.Details["unallocated_amount"] = available.String()
+		}
+
+		if kind == "expenses" {
+			paid, err := paidAmount(ctx, e.db, r.ID)
+			if err != nil {
+				return err
+			}
+			r.Details["paid_amount"] = paid.String()
+			r.Details["unpaid_amount"] = decimal.Max(v.Sub(paid), decimal.Zero).String()
+			r.Details["overpaid_amount"] = decimal.Max(paid.Sub(v), decimal.Zero).String()
+		}
+	}
+	return nil
 }

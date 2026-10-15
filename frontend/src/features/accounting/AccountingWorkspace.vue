@@ -87,7 +87,7 @@
       </div>
     </header>
     <div
-      v-if="!customer && organizationId"
+      v-if="customer || organizationId"
       class="accounting-context"
       data-testid="accounting-context"
     >
@@ -95,7 +95,7 @@
         >{{ t('accounting.currentOrganization') }} ·
         {{ organizationName }}</span
       ><span class="text-sm text-gray-500 dark:text-dark-300">{{
-        t('accounting.organizationScope')
+        t(customer ? 'accounting.fromAccount' : 'accounting.organizationScope')
       }}</span>
     </div>
     <label
@@ -164,7 +164,15 @@
         </div>
       </div>
     </nav>
-    <form class="card accounting-filters" @submit.prevent="applyFilters">
+    <form
+      v-if="
+        directory ||
+        isRecordTab(tab) ||
+        ['overview', 'reconciliation', 'audit'].includes(tab)
+      "
+      class="card accounting-filters"
+      @submit.prevent="applyFilters"
+    >
       <label
         ><span class="input-label">{{ t('accounting.currency') }}</span
         ><input
@@ -215,7 +223,12 @@
     <div v-if="loading" role="status" class="text-sm text-gray-500">
       {{ t('accounting.loading') }}
     </div>
-    <p class="text-xs text-gray-500">{{ t('accounting.balanceScope') }}</p>
+    <p
+      v-if="!['workbench', 'costs', 'external', 'periods'].includes(tab)"
+      class="text-xs text-gray-500"
+    >
+      {{ t('accounting.balanceScope') }}
+    </p>
     <p class="text-xs text-gray-500">{{ t('accounting.tableHint') }}</p>
     <section
       v-for="currency in tab === 'overview' ? summaries : []"
@@ -373,6 +386,17 @@
           </aside>
         </div>
       </template>
+      <AccountingOperations
+        v-else-if="['workbench', 'costs', 'external', 'periods'].includes(tab)"
+        :key="`${tab}-${managedOrganizationKey}`"
+        :organization-id="organizationId"
+        :organization-name="organizationName"
+        :section="tab"
+        :customer="customer"
+        :administrator="administrator"
+        @open-record="openRelated"
+        @updated="workflowUpdated"
+      />
       <template v-else-if="isRecordTab(tab)">
         <header class="accounting-record-heading">
           <div>
@@ -436,7 +460,15 @@
               formatMoney(
                 tab === 'vcc-cards'
                   ? String(row.details.available_balance || '0')
-                  : row.amount,
+                  : String(row.details.effective_amount || row.amount),
+                row.currency,
+              )
+            }}</span></template
+          >
+          <template #cell-remaining="{ row }"
+            ><span class="tabular-nums">{{
+              formatMoney(
+                String(row.details[remainingField] ?? '0'),
                 row.currency,
               )
             }}</span></template
@@ -464,7 +496,14 @@
           <div class="min-w-0">
             <p>
               {{ recordLabel(row.record.details, row.record.id) }} ·
-              {{ formatMoney(row.record.amount, row.record.currency) }}
+              {{
+                formatMoney(
+                  String(
+                    row.record.details.effective_amount || row.record.amount,
+                  ),
+                  row.record.currency,
+                )
+              }}
             </p>
             <p class="mt-1 text-sm text-gray-500">
               {{ t(`accounting.statuses.${row.status}`) }} {{ row.reason }}
@@ -500,14 +539,25 @@
           <tbody>
             <tr v-for="row in auditRows" :key="row.id">
               <td class="p-3">{{ date(row.created_at) }}</td>
-              <td class="p-3">{{ row.object_kind }} · {{ row.action }}</td>
+              <td class="p-3">
+                {{ t(`accounting.kinds.${row.object_kind}`) }} ·
+                {{ t(`accounting.ops.actions.${row.action}`) }}
+              </td>
               <td class="p-3">{{ row.actor_id }}</td>
               <td class="break-all p-3">{{ row.request_id }}</td>
             </tr>
           </tbody>
         </table>
       </div>
-      <div v-if="!loading && !error && empty" class="card p-8 text-center">
+      <div
+        v-if="
+          !loading &&
+          !error &&
+          !['workbench', 'costs', 'external', 'periods'].includes(tab) &&
+          empty
+        "
+        class="card p-8 text-center"
+      >
         <p class="font-medium">
           {{
             t(directory ? 'accounting.emptyOrganizations' : 'accounting.empty')
@@ -570,7 +620,17 @@
           <div>
             <p class="text-xs text-gray-500">{{ t('accounting.amount') }}</p>
             <p class="mt-1 font-semibold">
-              {{ formatMoney(detailRecord.amount, detailRecord.currency) }}
+              {{
+                formatMoney(
+                  detailKind === 'vcc-cards'
+                    ? String(detailRecord.details.available_balance || '0')
+                    : String(
+                        detailRecord.details.effective_amount ||
+                          detailRecord.amount,
+                      ),
+                  detailRecord.currency,
+                )
+              }}
             </p>
           </div>
           <div>
@@ -585,7 +645,21 @@
             <p class="text-xs text-gray-500">
               {{ t(`accounting.fields.${field}`) }}
             </p>
-            <p class="mt-1 break-words text-sm">
+            <button
+              v-if="field === 'original_transaction_id'"
+              class="mt-1 text-sm text-primary-600 hover:underline"
+              @click="openRelated('vcc-transactions', String(value))"
+            >
+              {{ t('accounting.ops.viewOriginal') }}
+            </button>
+            <button
+              v-else-if="field === 'proof_attachment_id'"
+              class="mt-1 text-sm text-primary-600 hover:underline"
+              @click="downloadProof(String(value))"
+            >
+              {{ t('accounting.download') }}
+            </button>
+            <p v-else class="mt-1 break-words text-sm">
               {{
                 typeof value === 'boolean'
                   ? t(value ? 'common.yes' : 'common.no')
@@ -608,7 +682,7 @@
           ><button
             v-if="
               detailRecord.status === 'DRAFT' &&
-              !['expenses', 'expense-payments'].includes(detailKind)
+              detailKind !== 'expense-payments'
             "
             type="button"
             class="btn btn-primary"
@@ -616,7 +690,11 @@
           >
             {{ t('accounting.confirm') }}</button
           ><button
-            v-if="detailRecord.status !== 'VOID' && detailKind !== 'vcc-cards'"
+            v-if="
+              detailRecord.status !== 'VOID' &&
+              detailKind !== 'vcc-cards' &&
+              detailRecord.details.funding_type !== 'FX'
+            "
             type="button"
             class="btn btn-secondary"
             @click="openAction('void', detailRecord, detailKind)"
@@ -624,7 +702,11 @@
             {{ t('accounting.void') }}</button
           ><button
             v-if="
-              detailKind === 'transfers' && detailRecord.status === 'RECEIVED'
+              detailKind === 'transfers' &&
+              detailRecord.status === 'RECEIVED' &&
+              positiveMoney(
+                detailRecord.details.unallocated_amount || detailRecord.amount,
+              )
             "
             type="button"
             class="btn btn-secondary"
@@ -641,7 +723,21 @@
           >
             {{ t('accounting.closeCard') }}</button
           ><button
-            v-if="detailKind === 'expenses' && detailRecord.status !== 'VOID'"
+            v-if="
+              detailKind === 'expenses' &&
+              detailRecord.status !== 'VOID' &&
+              (administrator ||
+                positiveMoney(
+                  detailRecord.details.unpaid_amount ||
+                    subtractMoney(
+                      String(
+                        detailRecord.details.effective_amount ||
+                          detailRecord.amount,
+                      ),
+                      String(detailRecord.details.paid_amount || '0'),
+                    ),
+                ))
+            "
             type="button"
             class="btn btn-secondary"
             @click="openAction('pay', detailRecord, detailKind)"
@@ -649,8 +745,12 @@
             {{ t('accounting.pay') }}</button
           ><button
             v-if="
-              ['transfers', 'expenses'].includes(detailKind) &&
-              !['DRAFT', 'VOID'].includes(detailRecord.status)
+              ['transfers', 'expenses', 'receivables'].includes(detailKind) &&
+              !['DRAFT', 'VOID'].includes(detailRecord.status) &&
+              detailRecord.details.funding_type !== 'FX' &&
+              !(
+                detailKind === 'expenses' && detailRecord.details.transaction_id
+              )
             "
             type="button"
             class="btn btn-secondary"
@@ -695,9 +795,21 @@
             :key="row.id"
             class="rounded-lg border border-gray-200 p-3 text-sm dark:border-dark-600"
           >
-            <p class="break-all">
-              {{ detailKind === 'transfers' ? row.card_id : row.transfer_id }}
-            </p>
+            <button
+              class="text-primary-600 hover:underline"
+              @click="
+                openRelated(
+                  detailKind === 'transfers' ? 'vcc-cards' : 'transfers',
+                  detailKind === 'transfers' ? row.card_id : row.transfer_id,
+                )
+              "
+            >
+              {{
+                row.card_name ||
+                row.transfer_name ||
+                (detailKind === 'transfers' ? row.card_id : row.transfer_id)
+              }}
+            </button>
             <p class="mt-2">
               {{ t('accounting.amount') }}:
               {{ formatMoney(row.amount, detailRecord.currency) }} ·
@@ -708,6 +820,17 @@
             </p>
           </div>
         </section>
+        <AccountingOperations
+          v-if="!customer"
+          :key="`${detailKind}-${detailRecord.id}`"
+          :organization-id="organizationId"
+          :organization-name="organizationName"
+          :record="detailRecord"
+          :kind="detailKind"
+          :administrator="administrator"
+          @open-record="openRelated"
+          @updated="workflowUpdated"
+        />
         <section>
           <h2 class="font-semibold">{{ t('accounting.files') }}</h2>
           <div
@@ -759,7 +882,17 @@
               >
             </div>
           </div>
-          <p v-if="!recordFiles.length" class="mt-3 text-sm text-gray-500">
+          <p
+            v-if="detailLoading"
+            role="status"
+            class="mt-3 text-sm text-gray-500"
+          >
+            {{ t('accounting.loading') }}
+          </p>
+          <p
+            v-if="!detailLoading && !recordFiles.length"
+            class="mt-3 text-sm text-gray-500"
+          >
             {{ t('accounting.noFiles') }}
           </p>
           <label
@@ -786,7 +919,7 @@
       :show-close-button="!busy"
       content-class="accounting-action-dialog"
       width="wide"
-      @close="!busy && (action = '')"
+      @close="!busy && cancelAction()"
     >
       <form
         :id="`${uid}-action-form`"
@@ -812,7 +945,10 @@
         <template
           v-if="action === 'create' || action === 'edit' || action === 'pay'"
         >
-          <fieldset :disabled="busy" class="accounting-fieldset">
+          <fieldset
+            :disabled="busy || !!proofRetry"
+            class="accounting-fieldset"
+          >
             <legend>{{ t('accounting.formGroups.basic') }}</legend>
             <div class="accounting-form-grid">
               <label
@@ -842,18 +978,21 @@
                   type="datetime-local"
                   class="input w-full"
                   required /></label
-              ><label v-if="formKind === 'vcc-transactions'"
+              ><label
+                v-if="
+                  formKind === 'vcc-transactions' || formKind === 'fx-exchanges'
+                "
                 ><span class="input-label">{{
-                  t('accounting.kinds.vcc-cards')
+                  t(
+                    formKind === 'fx-exchanges'
+                      ? 'accounting.kinds.transfers'
+                      : 'accounting.kinds.vcc-cards',
+                  )
                 }}</span
                 ><select v-model="form.parent_id" class="input w-full" required>
                   <option value="">{{ t('accounting.select') }}</option>
-                  <option
-                    v-for="r in references['vcc-cards'] || []"
-                    :key="r.id"
-                    :value="r.id"
-                  >
-                    {{ recordLabel(r.details, r.id) }} · {{ r.currency }}
+                  <option v-for="r in parentOptions" :key="r.id" :value="r.id">
+                    {{ optionLabel(r) }}
                   </option>
                 </select></label
               >
@@ -862,7 +1001,7 @@
           <fieldset
             v-for="group in groupedFormFields"
             :key="group.key"
-            :disabled="busy"
+            :disabled="busy || !!proofRetry"
             class="accounting-fieldset"
             :data-field-group="group.key"
           >
@@ -897,10 +1036,15 @@
                   v-if="field.type === 'boolean'"
                   v-model="form.details[field.key]"
                   type="checkbox"
-                  class="mt-2 h-4 w-4" /><select
+                  class="mt-2 h-4 w-4"
+                  :disabled="
+                    field.key === 'override' && !administrator
+                  " /><select
                   v-else-if="field.type === 'select'"
                   v-model="form.details[field.key]"
                   class="input w-full"
+                  :required="fieldRequired(field.key)"
+                  :aria-invalid="fieldError === field.key || undefined"
                 >
                   <option v-for="opt in field.options" :key="opt" :value="opt">
                     {{ t(`accounting.statuses.${opt}`) }}
@@ -909,7 +1053,8 @@
                   v-else-if="field.type === 'attachment'"
                   v-model="form.details[field.key]"
                   class="input w-full"
-                  required
+                  :required="fieldRequired(field.key)"
+                  :aria-invalid="fieldError === field.key || undefined"
                 >
                   <option value="">{{ t('accounting.select') }}</option>
                   <option
@@ -923,14 +1068,16 @@
                   v-else-if="field.type === 'reference'"
                   v-model="form.details[field.key]"
                   class="input w-full"
+                  :required="fieldRequired(field.key)"
+                  :aria-invalid="fieldError === field.key || undefined"
                 >
                   <option value="">{{ t('accounting.select') }}</option>
                   <option
-                    v-for="r in references[field.reference!] || []"
+                    v-for="r in referenceOptions(field)"
                     :key="r.id"
                     :value="r.id"
                   >
-                    {{ recordLabel(r.details, r.id) }} · {{ r.currency }}
+                    {{ optionLabel(r) }}
                   </option></select
                 ><textarea
                   v-else-if="
@@ -958,9 +1105,34 @@
                     field.type === 'secret' ? 'new-password' : 'off'
                   "
                   class="input w-full"
+                  :required="fieldRequired(field.key)"
+                  :aria-invalid="fieldError === field.key || undefined"
               /></label>
             </div>
           </fieldset>
+          <div
+            v-if="taxInfo && formKind === 'transfers'"
+            class="accounting-context"
+          >
+            <p>
+              {{ t('accounting.fields.tax_amount') }}:
+              {{ formatMoney(taxInfo.tax, form.currency) }}
+            </p>
+            <p>
+              {{ t('accounting.fields.receivable_amount') }}:
+              {{ formatMoney(taxInfo.receivable, form.currency) }}
+            </p>
+            <p>
+              {{ t('accounting.fields.difference_reason') }}:
+              {{ formatMoney(taxInfo.difference, form.currency) }}
+            </p>
+          </div>
+          <p
+            v-if="formKind === 'expenses' && form.details.transaction_id"
+            class="accounting-context"
+          >
+            {{ t('accounting.ops.cardExpenseMapping') }}
+          </p>
           <label v-if="action !== 'pay'" class="accounting-upload block"
             ><span class="input-label">{{ t('accounting.upload') }}</span
             ><input
@@ -984,7 +1156,7 @@
                 :key="r.id"
                 :value="r.id"
               >
-                {{ recordLabel(r.details, r.id) }} · {{ r.currency }}
+                {{ optionLabel(r) }}
               </option>
             </select></label
           ><label class="block"
@@ -1044,7 +1216,7 @@
             type="button"
             class="btn btn-secondary"
             :disabled="busy"
-            @click="action = ''"
+            @click="cancelAction"
           >
             {{ t('accounting.cancel') }}
           </button>
@@ -1075,6 +1247,13 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { saveAs } from 'file-saver'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import AccountingOperations from './AccountingOperations.vue'
+import {
+  positiveMoney,
+  subtractMoney,
+  taxPreview,
+  requiredFields,
+} from './money'
 import DataTable from '@/components/common/DataTable.vue'
 import { useDesktopOrganizationAccess } from '@/composables/useDesktopOrganizationAccess'
 import * as api from './api'
@@ -1098,24 +1277,46 @@ import type {
   AccountingFilter,
   AuditRow,
   ReconciliationRow,
+  Field,
 } from './types'
 
 defineOptions({ name: 'AccountingWorkspace' })
 const props = withDefaults(
-  defineProps<{ customer?: boolean; organizationId?: string }>(),
-  { customer: false, organizationId: '' },
+  defineProps<{
+    customer?: boolean
+    organizationId?: string
+    administrator?: boolean
+  }>(),
+  { customer: false, organizationId: '', administrator: false },
 )
-const { t } = useI18n()
+const { t, te } = useI18n()
 const route = useRoute(),
   router = useRouter()
 const uid = useId()
-type Tab = AccountingKind | 'overview' | 'reconciliation' | 'audit'
+type Tab =
+  | AccountingKind
+  | 'overview'
+  | 'reconciliation'
+  | 'audit'
+  | 'workbench'
+  | 'costs'
+  | 'external'
+  | 'periods'
 const directory = computed(() => !props.customer && !props.organizationId)
 const tab = ref<Tab>('overview')
 const tabs = computed<Tab[]>(() => [
   'overview',
   ...(props.customer ? customerKinds : adminKinds),
-  ...(!props.customer ? (['reconciliation', 'audit'] as Tab[]) : []),
+  ...(!props.customer
+    ? ([
+        'workbench',
+        'costs',
+        'external',
+        'periods',
+        'reconciliation',
+        'audit',
+      ] as Tab[])
+    : (['periods'] as Tab[])),
 ])
 const visibleNavigation = computed(() =>
   navigationGroups
@@ -1159,10 +1360,31 @@ const metrics = computed(() =>
     ? (['received', 'allocated', 'consumed', 'balance'] as const)
     : (['received', 'allocated', 'consumed', 'unmatched'] as const),
 )
+const remainingField = computed(
+  () =>
+    (
+      ({
+        transfers: 'unallocated_amount',
+        expenses: 'unpaid_amount',
+        receivables: 'outstanding_amount',
+        'vendor-invoices': 'unallocated_cost',
+      }) as Record<string, string>
+    )[tab.value],
+)
 const recordColumns = computed(() =>
-  ['record', 'occurred_at', 'amount', 'status', 'actions'].map((key) => ({
+  [
+    'record',
+    'occurred_at',
+    'amount',
+    ...(remainingField.value ? ['remaining'] : []),
+    'status',
+    'actions',
+  ].map((key) => ({
     key,
-    label: t(`accounting.${key === 'occurred_at' ? 'occurredAt' : key}`),
+    label:
+      key === 'remaining'
+        ? t(`accounting.fields.${remainingField.value}`)
+        : t(`accounting.${key === 'occurred_at' ? 'occurredAt' : key}`),
   })),
 )
 const statusOptions = computed(() => {
@@ -1174,7 +1396,7 @@ const statusOptions = computed(() => {
     contracts: ['DRAFT', 'SIGNED', 'EXPIRED', 'VOID'],
     invoices: ['DRAFT', 'VERIFIED', 'VOID'],
     'vendor-invoices': ['DRAFT', 'CONFIRMED', 'VOID'],
-    expenses: ['DRAFT', 'PENDING', 'PAID', 'VOID', ...reconcile],
+    expenses: ['DRAFT', 'UNPAID', 'PENDING', 'PAID', 'VOID', ...reconcile],
     'expense-payments': ['PAID', 'VOID'],
     overview: reconcile,
     reconciliation: reconcile,
@@ -1190,8 +1412,13 @@ const filteredOrgs = computed(() =>
 const currentOrganization = computed(() =>
   orgs.value.find((org) => org.id === selectedOrg.value),
 )
+const managedOrganizationName = ref(''),
+  managedOrganizationKey = ref('')
 const organizationName = computed(
-  () => currentOrganization.value?.name || props.organizationId,
+  () =>
+    currentOrganization.value?.name ||
+    managedOrganizationName.value ||
+    props.organizationId,
 )
 const hasFilters = computed(() => Object.values(query).some(Boolean))
 function organizationLink(id: string) {
@@ -1239,7 +1466,33 @@ const requestKey = api.stableRequest()
 let abort: AbortController | null = null
 let generation = 0
 const access = useDesktopOrganizationAccess()
+const fieldError = ref('')
+const taxInfo = computed(() => taxPreview(form))
+const proofRetry = ref<AccountingRecord | null>(null)
 const formFields = computed(() => fields[formKind.value])
+function fieldRequired(key: string) {
+  return (
+    requiredFields[formKind.value]?.includes(key) ||
+    (formKind.value === 'transfers' &&
+      key === 'difference_reason' &&
+      !!taxInfo.value?.difference &&
+      taxInfo.value.difference !== '0') ||
+    (formKind.value === 'vcc-cards' &&
+      key === 'last_four' &&
+      !form.details.card_number) ||
+    (formKind.value === 'vcc-transactions' &&
+      key === 'original_transaction_id' &&
+      (form.details.transaction_type === 'REFUND' ||
+        (form.details.transaction_type === 'ADJUSTMENT' &&
+          form.details.direction === 'CREDIT')))
+  )
+}
+const parentOptions = computed(() =>
+  (
+    references[formKind.value === 'fx-exchanges' ? 'transfers' : 'vcc-cards'] ||
+    []
+  ).filter((r) => r.currency === form.currency.toUpperCase()),
+)
 const groupedFormFields = computed(() => fieldGroups[formKind.value])
 const shareableFile = computed(
   () =>
@@ -1256,7 +1509,19 @@ const visibleDetails = computed(() =>
   Object.fromEntries(
     Object.entries(detailRecord.value?.details || {}).filter(
       ([k]) =>
-        !['card_number', 'cvv', 'expiry', 'provider_token'].includes(k) &&
+        ![
+          'card_number',
+          'cvv',
+          'expiry',
+          'provider_token',
+          'contract_id',
+          'invoice_id',
+          'vendor_invoice_id',
+          'transaction_id',
+          'expense_id',
+          'target_transfer_id',
+          'source_exchange_id',
+        ].includes(k) &&
         (!props.customer || publicFields[detailKind.value]?.includes(k)),
     ),
   ),
@@ -1322,6 +1587,8 @@ function errorMessage(err: unknown) {
     metadata?: { field?: string }
   }
   const reasons: Record<string, string> = {
+    ACCOUNTING_PERIOD_CLOSED: 'ops.periodClosed',
+    ACCOUNTING_AUTHORIZATION_REQUIRED: 'ops.adminRequired',
     ACCOUNTING_INVALID: 'validation',
     ACCOUNTING_STATE_CONFLICT: 'stateConflict',
     ACCOUNTING_PROOF_REQUIRED: 'proofRequired',
@@ -1330,6 +1597,12 @@ function errorMessage(err: unknown) {
     ACCOUNTING_CURRENCY_MISMATCH: 'currencyMismatch',
     IDEMPOTENCY_KEY_CONFLICT: 'keyConflict',
   }
+  if (e.metadata?.field && te(`accounting.ops.validation.${e.metadata.field}`))
+    return t(`accounting.ops.validation.${e.metadata.field}`)
+  if (e.metadata?.field === 'expense_transaction_match')
+    return t('accounting.ops.cardExpenseMapping')
+  if (e.metadata?.field === 'use_source_transaction_adjustment')
+    return t('accounting.ops.cardExpenseMapping')
   if (e.metadata?.field === 'fixed_encryption_key')
     return t('accounting.fixedKey')
   return e.reason && reasons[e.reason]
@@ -1345,7 +1618,26 @@ async function load() {
   try {
     if (props.customer) {
       const organization = await access.refreshDesktopOrganizationAccess(true)
-      if (!organization) throw new Error(t('accounting.error'))
+      if (current !== generation) return
+      if (!organization) {
+        managedOrganizationName.value = ''
+        managedOrganizationKey.value = ''
+        records.value = []
+        summaries.value = []
+        detailRecord.value = null
+        throw new Error(t('accounting.error'))
+      }
+      if (
+        managedOrganizationKey.value &&
+        managedOrganizationKey.value !== organization.public_id
+      ) {
+        records.value = []
+        summaries.value = []
+        detailRecord.value = null
+      }
+      managedOrganizationKey.value = organization.public_id
+      managedOrganizationName.value =
+        organization.name || organization.public_id
     }
     const f = filters()
     const [summaryResult, orgResult] = await Promise.all([
@@ -1450,6 +1742,67 @@ function tabKey(event: KeyboardEvent, value: Tab) {
   selectTab(next)
   document.getElementById(`${uid}-${next}`)?.focus()
 }
+function optionLabel(record: AccountingRecord) {
+  const timestamp = Date.parse(record.occurred_at)
+  const when = Number.isFinite(timestamp)
+    ? new Intl.DateTimeFormat(undefined, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(timestamp)
+    : ''
+  return [
+    recordLabel(record.details, record.id),
+    when,
+    formatMoney(
+      String(
+        record.details.unallocated_amount ??
+          record.details.available_balance ??
+          record.details.effective_amount ??
+          record.amount,
+      ),
+      record.currency,
+    ),
+    t(`accounting.statuses.${record.status}`),
+  ]
+    .filter(Boolean)
+    .join(' · ')
+}
+function referenceOptions(field: Field) {
+  const rows = references[field.reference!] || []
+  if (field.reference !== 'vcc-transactions') return rows
+  const debits = rows
+    .filter(
+      (r) =>
+        r.details.transaction_type !== 'REFUND' &&
+        !(
+          r.details.transaction_type === 'ADJUSTMENT' &&
+          r.details.direction === 'CREDIT'
+        ),
+    )
+    .map((r) => {
+      let remaining = r.amount
+      for (const credit of rows) {
+        if (
+          credit.details.original_transaction_id === r.id &&
+          (credit.details.transaction_type === 'REFUND' ||
+            (credit.details.transaction_type === 'ADJUSTMENT' &&
+              credit.details.direction === 'CREDIT'))
+        )
+          remaining = subtractMoney(remaining, credit.amount)
+      }
+      return { ...r, details: { ...r.details, refundable_amount: remaining } }
+    })
+  if (field.key === 'original_transaction_id')
+    return debits.filter(
+      (r) =>
+        (!form.parent_id || r.parent_id === form.parent_id) &&
+        positiveMoney(r.details.refundable_amount),
+    )
+  if (formKind.value === 'expenses')
+    return debits.filter((r) => positiveMoney(r.details.refundable_amount))
+  return rows
+}
 async function loadReferences() {
   if (!form.organization_id) return
   if (action.value === 'pay' && actionRecord.value)
@@ -1461,16 +1814,34 @@ async function loadReferences() {
   )
   if (formKind.value === 'vcc-transactions' || action.value === 'allocate')
     kinds.add('vcc-cards')
-  for (const kind of kinds)
-    references[kind] = (
-      await api.listRecords(kind, false, {
+  if (formKind.value === 'fx-exchanges') kinds.add('transfers')
+  for (const kind of kinds) {
+    const found: AccountingRecord[] = []
+    let page = 1
+    for (;;) {
+      const result = await api.listRecords(kind, false, {
         organization_id: form.organization_id,
+        page,
         page_size: 100,
       })
-    ).items.filter(
-      (r) => r.status !== 'VOID' && r.organization_id === form.organization_id,
+      found.push(...result.items)
+      if (!result.items.length || page * 100 >= result.total) break
+      page++
+    }
+    references[kind] = found.filter(
+      (r) =>
+        r.organization_id === form.organization_id &&
+        r.status !== 'VOID' &&
+        (kind !== 'vcc-cards' || r.status === 'ACTIVE') &&
+        (kind !== 'vendor-invoices' || r.status === 'CONFIRMED') &&
+        (kind !== 'transfers' ||
+          (r.status === 'RECEIVED' &&
+            positiveMoney(r.details.unallocated_amount || r.amount))) &&
+        (kind !== 'vcc-transactions' || r.status === 'CONFIRMED'),
     )
+  }
 }
+
 function setupForm(kind: AccountingKind, record?: AccountingRecord) {
   formKind.value = kind
   form.organization_id = record?.organization_id || selectedOrg.value
@@ -1495,7 +1866,14 @@ function setupForm(kind: AccountingKind, record?: AccountingRecord) {
     form.details.tax_inclusive = true
   }
   selectedFile.value = null
+  proofRetry.value = null
+  fieldError.value = ''
   dialogError.value = ''
+  if (kind === 'fx-exchanges' && !record) {
+    form.details.fee_amount = '0'
+    form.details.exchange_rate = ''
+    form.details.target_currency = 'USD'
+  }
   void loadReferences().catch((err) => {
     dialogError.value = errorMessage(err)
   })
@@ -1521,13 +1899,23 @@ function openAction(
   actionRecord.value = record
   formKind.value = kind
   dialogError.value = ''
-  command.amount = record.amount
+  command.amount =
+    value === 'allocate'
+      ? String(record.details.unallocated_amount || record.amount)
+      : String(record.details.effective_amount || record.amount)
   command.card_id = ''
   command.reason = ''
   command.reference = ''
   form.organization_id = record.organization_id
   if (value === 'pay')
-    setupForm('expense-payments', { ...record, amount: '', details: {} })
+    setupForm('expense-payments', {
+      ...record,
+      amount: subtractMoney(
+        String(record.details.effective_amount || record.amount),
+        String(record.details.paid_amount || '0'),
+      ),
+      details: {},
+    })
   else if (value === 'allocate')
     void loadReferences().catch((err) => {
       dialogError.value = errorMessage(err)
@@ -1536,22 +1924,35 @@ function openAction(
 function openRecordFromTab(record: AccountingRecord) {
   if (isRecordTab(tab.value)) void openDetail(record, tab.value)
 }
+let detailGeneration = 0
+const detailLoading = ref(false)
 async function openDetail(record: AccountingRecord, kind: AccountingKind) {
+  const current = ++detailGeneration
   detailRecord.value = record
   detailKind.value = kind
   recordFiles.value = []
   allocationRows.value = []
+  detailLoading.value = true
   try {
-    if (!props.customer && ['transfers', 'vcc-cards'].includes(kind))
-      allocationRows.value = await api.allocationHistory(kind, record.id)
-    recordFiles.value =
+    const allocations =
+      !props.customer && ['transfers', 'vcc-cards'].includes(kind)
+        ? await api.allocationHistory(kind, record.id)
+        : []
+    if (current !== detailGeneration) return
+    allocationRows.value = allocations
+    const files =
       props.customer && kind === 'vcc-cards'
         ? []
         : await api.attachments(kind, record.id, props.customer)
-  } catch (err) {
-    error.value = errorMessage(err)
+    if (current === detailGeneration && detailRecord.value?.id === record.id)
+      recordFiles.value = files
+  } catch (cause) {
+    if (current === detailGeneration) error.value = errorMessage(cause)
+  } finally {
+    if (current === detailGeneration) detailLoading.value = false
   }
 }
+
 function chooseFile(event: Event) {
   selectedFile.value = (event.target as HTMLInputElement).files?.[0] || null
 }
@@ -1563,7 +1964,18 @@ async function saveAction() {
   }
   busy.value = true
   dialogError.value = ''
+  fieldError.value = ''
   try {
+    if (proofRetry.value) {
+      if (!selectedFile.value) throw new Error(t('accounting.ops.proofRetry'))
+      await api.upload(selectedFile.value, formKind.value, proofRetry.value)
+      proofRetry.value = null
+      requestKey.reset()
+      action.value = ''
+      detailRecord.value = null
+      await load()
+      return
+    }
     const record = actionRecord.value
     let path = '',
       payload: unknown = {},
@@ -1604,14 +2016,21 @@ async function saveAction() {
     if (
       selectedFile.value &&
       (action.value === 'create' || action.value === 'edit')
-    )
+    ) {
+      proofRetry.value = saved
       await api.upload(selectedFile.value, formKind.value, saved)
+      proofRetry.value = null
+    }
     requestKey.reset()
     action.value = ''
     detailRecord.value = null
     await load()
   } catch (err) {
-    dialogError.value = errorMessage(err)
+    fieldError.value =
+      (err as { metadata?: { field?: string } }).metadata?.field || ''
+    dialogError.value = proofRetry.value
+      ? t('accounting.ops.proofRetry')
+      : `${errorMessage(err)}${fieldError.value && te(`accounting.fields.${fieldError.value}`) ? ' · ' + t(`accounting.fields.${fieldError.value}`) : ''}`
   } finally {
     busy.value = false
   }
@@ -1682,12 +2101,107 @@ async function exportRecords() {
   })
 }
 watch(
+  () => form.details.transaction_id,
+  (id) => {
+    if (
+      formKind.value !== 'expenses' ||
+      action.value !== 'create' ||
+      !id ||
+      proofRetry.value
+    )
+      return
+    const source = references['vcc-transactions']?.find((r) => r.id === id)
+    if (source) {
+      form.amount = source.amount
+      form.currency = source.currency
+    }
+  },
+)
+watch(
+  () => form.details.original_transaction_id,
+  (id) => {
+    if (
+      formKind.value !== 'vcc-transactions' ||
+      action.value !== 'create' ||
+      !id ||
+      proofRetry.value
+    )
+      return
+    const field = fields['vcc-transactions'].find(
+      (f) => f.key === 'original_transaction_id',
+    )!
+    const source = referenceOptions(field).find((r) => r.id === id)
+    if (source) {
+      form.parent_id = source.parent_id || ''
+      form.currency = source.currency
+      form.amount = String(source.details.refundable_amount)
+    }
+  },
+)
+watch(
   () => route.query.tab,
   (value) => {
     const next = tabs.value.includes(value as Tab) ? (value as Tab) : 'overview'
     if (!directory.value && next !== tab.value) selectTab(next, false)
   },
 )
+async function cancelAction() {
+  const saved = proofRetry.value,
+    kind = formKind.value
+  action.value = ''
+  proofRetry.value = null
+  if (saved) {
+    void load()
+    await openDetail(saved, kind)
+  }
+}
+async function openRelated(kind: AccountingKind, id: string) {
+  try {
+    let record: AccountingRecord | undefined
+    if (props.customer) {
+      record = records.value.find((r) => r.id === id)
+      for (let page = 1; !record; page++) {
+        const result = await api.listRecords(kind, true, {
+          page,
+          page_size: 100,
+        })
+        record = result.items.find((r) => r.id === id)
+        if (page * 100 >= result.total || !result.items.length) break
+      }
+      if (!record) throw new Error(t('accounting.ops.referenceUnavailable'))
+    } else {
+      record = await api.getRecord(kind, id)
+      if (record.organization_id !== props.organizationId)
+        throw new Error(t('accounting.organizationUnavailable'))
+    }
+    await openDetail(record, kind)
+  } catch (cause) {
+    error.value = errorMessage(cause)
+  }
+}
+async function downloadProof(id: string) {
+  await perform(async () => {
+    window.open(
+      await api.download(id, props.customer),
+      '_blank',
+      'noopener,noreferrer',
+    )
+  })
+}
+
+async function workflowUpdated() {
+  void load()
+  if (detailRecord.value) {
+    const id = detailRecord.value.id,
+      kind = detailKind.value
+    try {
+      const record = await api.getRecord(kind, id)
+      if (detailRecord.value?.id === id) detailRecord.value = record
+    } catch (cause) {
+      error.value = errorMessage(cause)
+    }
+  }
+}
 function onFocus() {
   if (props.customer) void load()
 }

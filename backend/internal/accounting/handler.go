@@ -4,15 +4,18 @@ import (
 	"database/sql"
 	"encoding/csv"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 )
 
 type Handler struct{ engine *Engine }
@@ -28,6 +31,7 @@ func (h *Handler) RegisterAdmin(parent *gin.RouterGroup) {
 	g.GET("/organizations/:organization_id/summary", h.summary)
 	g.GET("/audit-logs", h.auditLogs)
 	g.GET("/export", h.export)
+	h.registerWorkflows(g)
 	for kind := range specs {
 		entity := kind
 		if entity == "contracts" || entity == "invoices" {
@@ -92,6 +96,9 @@ func (h *Handler) RegisterOrganization(parent *gin.RouterGroup) {
 	})
 	g.GET("/summary", h.summary)
 	g.GET("/trend", h.trend)
+	g.GET("/periods", h.periods)
+	g.GET("/statements/:id", h.statement)
+	g.GET("/statements/:id/export", h.statementExport)
 	for _, kind := range []string{"transfers", "contracts", "invoices"} {
 		entity := kind
 		g.GET("/"+entity, func(c *gin.Context) { h.list(c, entity) })
@@ -191,6 +198,9 @@ func (h *Handler) get(c *gin.Context, kind string) {
 	if response.ErrorFrom(c, err) {
 		return
 	}
+	if response.ErrorFrom(c, h.engine.enrich(c.Request.Context(), kind, r)) {
+		return
+	}
 	response.Success(c, r)
 }
 func (h *Handler) create(c *gin.Context, kind string) {
@@ -262,7 +272,7 @@ func (h *Handler) lifecycle(c *gin.Context, kind, action string) {
 		}
 		switch action {
 		case "confirm":
-			err = h.engine.Confirm(c.Request.Context(), tx, kind, r)
+			err = h.engine.Confirm(c.Request.Context(), tx, kind, r, actor(c))
 		case "void":
 			err = h.engine.Void(c.Request.Context(), tx, kind, r, strings.TrimSpace(in.Reason), actor(c))
 		case "expire":
@@ -307,6 +317,13 @@ func (h *Handler) pay(c *gin.Context) {
 	if c.ShouldBindJSON(&in) != nil {
 		response.ErrorFrom(c, ErrInvalid)
 		return
+	}
+	if flag(in.Details, "override") {
+		role, _ := middleware.GetUserRoleFromContext(c)
+		if role != "admin" {
+			response.ErrorFrom(c, ErrForbidden)
+			return
+		}
 	}
 	h.run(c, Operation{Org: r.Org, Kind: "expenses", Object: r.ID, Action: "pay", Payload: in}, func(tx *sql.Tx) (any, error) {
 		locked, err := get(c.Request.Context(), tx, "expenses", r.ID, r.Org, true)
@@ -365,9 +382,41 @@ func (h *Handler) export(c *gin.Context) {
 	c.Status(http.StatusOK)
 	_, _ = c.Writer.Write([]byte("\xef\xbb\xbf"))
 	writer := csv.NewWriter(c.Writer)
-	_ = writer.Write([]string{"id", "organization_id", "status", "currency", "amount", "occurred_at"})
+
+	extra := []string{}
+	for _, field := range specs[kind].fields {
+		if field != "card_number" && field != "cvv" && field != "expiry" && field != "provider_token" {
+			extra = append(extra, field)
+		}
+	}
+	extra = append(extra, "effective_amount", "unallocated_amount", "allocated_amount", "available_balance", "paid_amount", "settled_amount", "outstanding_amount", "funding_type")
+	headers := append([]string{"id", "organization_id", "status", "currency", "amount", "occurred_at", "organization_name", "reconciliation_status"}, extra...)
+	_ = writer.Write(headers)
+	names := map[int64]string{}
 	for _, r := range out {
-		_ = writer.Write([]string{r.ID, r.OrganizationID, r.Status, r.Currency, r.Amount, r.OccurredAt.Format("2006-01-02T15:04:05Z07:00")})
+		name, ok := names[r.Org]
+		if !ok {
+			if err := h.engine.db.QueryRowContext(c.Request.Context(), "SELECT name FROM desktop_organizations WHERE id=$1", r.Org).Scan(&name); err != nil {
+				response.ErrorFrom(c, err)
+				return
+			}
+			names[r.Org] = name
+		}
+		state := "UNMATCHED"
+		err := h.engine.db.QueryRowContext(c.Request.Context(), "SELECT status FROM accounting_reconciliation WHERE object_kind=$1 AND object_id=$2 ORDER BY created_at DESC,id DESC LIMIT 1", kind, r.ID).Scan(&state)
+		if err != nil && err != sql.ErrNoRows {
+			response.ErrorFrom(c, err)
+			return
+		}
+		values := []string{r.ID, r.OrganizationID, r.Status, r.Currency, r.Amount, r.OccurredAt.Format(time.RFC3339), csvText(name), state}
+		for _, key := range extra {
+			value := ""
+			if v, ok := r.Details[key]; ok {
+				value = fmt.Sprint(v)
+			}
+			values = append(values, csvField(key, value))
+		}
+		_ = writer.Write(values)
 	}
 	writer.Flush()
 }
@@ -385,7 +434,7 @@ func (h *Handler) allocationHistory(c *gin.Context) {
 	if kind == "vcc-cards" {
 		column = "card_id"
 	}
-	rows, err := h.engine.db.QueryContext(c.Request.Context(), "SELECT id::text,transfer_id::text,card_id::text,amount::text,used_amount::text,released_amount::text,closed_at IS NOT NULL FROM accounting_allocations WHERE "+column+"=$1 ORDER BY created_at,id", record.ID)
+	rows, err := h.engine.db.QueryContext(c.Request.Context(), "SELECT a.id::text,a.transfer_id::text,a.card_id::text,a.amount::text,a.used_amount::text,a.released_amount::text,a.closed_at IS NOT NULL,COALESCE(c.details->>'alias',''),COALESCE(t.details->>'bank_reference',t.details->>'payer_name','') FROM accounting_allocations a JOIN accounting_vcc_cards c ON c.id=a.card_id JOIN accounting_transfers t ON t.id=a.transfer_id WHERE a."+column+"=$1 ORDER BY a.created_at,a.id", record.ID)
 	if response.ErrorFrom(c, err) {
 		return
 	}
@@ -393,7 +442,7 @@ func (h *Handler) allocationHistory(c *gin.Context) {
 	items := []Allocation{}
 	for rows.Next() {
 		var a Allocation
-		if err = rows.Scan(&a.ID, &a.TransferID, &a.CardID, &a.Amount, &a.Used, &a.Released, &a.Closed); response.ErrorFrom(c, err) {
+		if err = rows.Scan(&a.ID, &a.TransferID, &a.CardID, &a.Amount, &a.Used, &a.Released, &a.Closed, &a.CardName, &a.TransferName); response.ErrorFrom(c, err) {
 			return
 		}
 		items = append(items, a)
@@ -402,4 +451,23 @@ func (h *Handler) allocationHistory(c *gin.Context) {
 		return
 	}
 	response.Success(c, items)
+}
+
+func csvText(value string) string {
+	if value != "" && strings.ContainsAny(value[:1], "=+@-\t\r") {
+		return "'" + value
+	}
+	return value
+}
+
+func csvField(key, value string) string {
+	switch key {
+	case "amount", "effective_amount", "original_amount", "adjustment_amount", "unallocated_amount", "allocated_amount", "available_balance", "paid_amount", "unpaid_amount", "overpaid_amount", "settled_amount", "outstanding_amount", "sales_amount", "tax_rate", "tax_amount", "net_sales_amount", "receivable_amount", "received_amount", "credit_limit", "net_amount", "total_amount", "target_amount", "fee_amount", "exchange_rate", "allocated_cost", "unallocated_cost":
+		if len(value) <= 64 {
+			if d, err := decimal.NewFromString(value); err == nil && d.Exponent() >= -12 && d.Exponent() <= 18 {
+				return d.String()
+			}
+		}
+	}
+	return csvText(value)
 }

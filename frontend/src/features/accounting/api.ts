@@ -230,7 +230,43 @@ export async function allocationHistory(kind: AccountingKind, id: string) {
         used_amount: string
         released_amount: string
         closed: boolean
+        card_name?: string
+        transfer_name?: string
       }[]
     >(`${adminBase}/${kind}/${id}/allocations`)
+  ).data
+}
+
+export async function getRecord(
+  kind: AccountingKind,
+  id: string,
+  signal?: AbortSignal,
+) {
+  return (
+    await apiClient.get<AccountingRecord>(
+      `${adminBase}/${kind}/${encodeURIComponent(id)}`,
+      { signal },
+    )
+  ).data
+}
+export async function workflow<T>(
+  path: string,
+  organization: string,
+  customer = false,
+  signal?: AbortSignal,
+) {
+  return (
+    await apiClient.get<T>(`${base(customer)}/${path}`, {
+      params: customer ? {} : { organization_id: organization },
+      signal,
+    })
+  ).data
+}
+export async function statementCSV(id: string, customer = false) {
+  return (
+    await apiClient.get<Blob>(
+      `${base(customer)}/statements/${encodeURIComponent(id)}/export`,
+      { responseType: 'blob' },
+    )
   ).data
 }

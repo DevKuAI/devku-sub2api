@@ -69,9 +69,48 @@ func (e *Engine) write(ctx context.Context, op Operation, fn func(*sql.Tx) (any,
 	if err != nil {
 		return nil, false, err
 	}
+	date, err := operationDate(ctx, tx, op)
+	if err != nil {
+		return nil, false, err
+	}
+	if err = protectPeriod(ctx, tx, op, date); err != nil {
+		return nil, false, err
+	}
+	beforePositions, err := currentPositions(ctx, tx, op.Org)
+	if err != nil {
+		return nil, false, err
+	}
+	if err = ensurePositionBaseline(ctx, tx, op.Org, beforePositions); err != nil {
+		return nil, false, err
+	}
+	before := map[string]any{}
+	if _, ok := specs[op.Kind]; ok && op.Object != "" {
+		if r, readErr := get(ctx, tx, op.Kind, op.Object, op.Org, false); readErr == nil {
+			before = map[string]any{"amount": r.Amount, "currency": r.Currency, "status": r.Status, "version": r.Version}
+		}
+	}
+	if fields, ok := specs[op.Kind]; ok && op.Object != "" {
+		if r, readErr := get(ctx, tx, op.Kind, op.Object, op.Org, false); readErr == nil {
+			before["fields"] = auditFields(r, fields.fields)
+			if op.Kind == "transfers" || op.Kind == "expenses" || op.Kind == "receivables" {
+				v, valueErr := effective(ctx, tx, op.Kind, r)
+				if valueErr != nil {
+					return nil, false, valueErr
+				}
+				before["effective_amount"] = v.String()
+			}
+		}
+	}
 	output, err := fn(tx)
 	if err != nil {
 		return nil, false, translate(err)
+	}
+	afterPositions, err := currentPositions(ctx, tx, op.Org)
+	if err != nil {
+		return nil, false, err
+	}
+	if err = recordPositionChanges(ctx, tx, op, date, beforePositions, afterPositions); err != nil {
+		return nil, false, err
 	}
 	encoded, err := json.Marshal(output)
 	if err != nil {
@@ -94,7 +133,21 @@ func (e *Engine) write(ctx context.Context, op Operation, fn func(*sql.Tx) (any,
 			object = nested.Attachment.ID
 		}
 	}
-	if err = audit(ctx, tx, op.Org, op.Kind, object, op.Action, op.Actor, op.RequestID, auditSummary(encoded, op.Action)); err != nil {
+	summary := operationAudit(encoded, op, before)
+	if fields, ok := specs[op.Kind]; ok && op.Object != "" {
+		if r, readErr := get(ctx, tx, op.Kind, op.Object, op.Org, false); readErr == nil {
+			after := map[string]any{"status": r.Status, "amount": r.Amount, "currency": r.Currency, "fields": auditFields(r, fields.fields)}
+			if op.Kind == "transfers" || op.Kind == "expenses" || op.Kind == "receivables" {
+				v, valueErr := effective(ctx, tx, op.Kind, r)
+				if valueErr != nil {
+					return nil, false, valueErr
+				}
+				after["effective_amount"] = v.String()
+			}
+			summary["after"] = after
+		}
+	}
+	if err = audit(ctx, tx, op.Org, op.Kind, object, op.Action, op.Actor, op.RequestID, summary); err != nil {
 		return nil, false, err
 	}
 	_, err = tx.ExecContext(ctx, "INSERT INTO accounting_operation_results(actor_id,operation,key_hash,fingerprint,response) VALUES($1,$2,$3,$4,$5)", op.Actor, operation, hash([]byte(key)), fingerprint, encoded)
@@ -137,4 +190,26 @@ func auditSummary(body []byte, action string) map[string]any {
 	summary := selected(record, []string{"status", "amount", "currency", "effective_amount", "customer_visible", "version"})
 	summary["operation"] = action
 	return summary
+}
+
+func operationAudit(body []byte, op Operation, before map[string]any) map[string]any {
+	summary := auditSummary(body, op.Action)
+	summary["before"] = before
+	payload := map[string]any{}
+	raw, _ := json.Marshal(op.Payload)
+	_ = json.Unmarshal(raw, &payload)
+	for _, key := range []string{"reason", "reference", "amount", "card_id", "transfer_id", "invoice_id", "source_kind", "source_id"} {
+		if value, ok := payload[key]; ok {
+			summary[key] = value
+		}
+	}
+	return summary
+}
+
+func auditFields(r *Record, fields []string) map[string]any {
+	values := selected(r.Details, fields)
+	for _, key := range []string{"card_number", "cvv", "expiry", "provider_token"} {
+		delete(values, key)
+	}
+	return values
 }

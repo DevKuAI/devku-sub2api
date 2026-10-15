@@ -41,6 +41,8 @@ desktop_update_storage:
 
 完整卡号、CVV、卡片有效期及服务商 token 使用 AES-256-GCM。录入敏感信息需要配置固定的 `TOTP_ENCRYPTION_KEY`；备份和恢复时保留该密钥。所有读取接口均不返回这些字段的明文或密文。卡片有效期只作为加密字段录入；生效/失效日期为独立业务字段。
 
+新增业务闭环和账期规则见 [企业账务闭环](workflows.md)。
+
 ## 数据与接口
 
 迁移 `256_accounting_management.sql` 只增加账目表及索引，不转换或回填支付、Gateway 余额或 API 计费数据。金额、资金来源及销售/税务金额使用 `NUMERIC(24,6)`；税率使用比例。业务 metadata 使用经过字段白名单校验的 JSONB，销售、税务和发票金额具有自动同步的 numeric generated columns。

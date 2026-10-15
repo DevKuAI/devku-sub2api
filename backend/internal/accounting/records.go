@@ -30,6 +30,9 @@ func prepare(kind string, in Input, old *Record) (*Record, error) {
 		}
 	}
 	for k, v := range in.Details {
+		if computedField(k) {
+			continue
+		}
 		found := false
 		for _, f := range s.fields {
 			if k == f {
@@ -115,6 +118,8 @@ func validateFields(kind string, r *Record) error {
 	}
 
 	switch kind {
+	case "receivables", "fx-exchanges":
+		return validateWorkflowRecord(kind, r)
 	case "transfers":
 		return calculateTax(r)
 	case "vcc-cards":
@@ -251,6 +256,10 @@ func (e *Engine) checkRelations(ctx context.Context, tx dbQuery, kind string, r 
 			if linked.Status == "VOID" {
 				return ErrState
 			}
+			if kind == "expenses" && field == "transaction_id" && (linked.Status != "CONFIRMED" || linked.Currency != r.Currency || !amount(linked).Equal(amount(r)) || isCredit(linked)) {
+				return ErrState.WithMetadata(map[string]string{"field": "expense_transaction_match"})
+			}
+
 		}
 	}
 	return nil
@@ -390,4 +399,12 @@ func (e *Engine) Update(ctx context.Context, tx *sql.Tx, kind string, old *Recor
 		return nil, err
 	}
 	return r, nil
+}
+
+func computedField(key string) bool {
+	switch key {
+	case "effective_amount", "original_amount", "adjustment_amount", "paid_amount", "unpaid_amount", "overpaid_amount", "unallocated_amount", "settled_amount", "outstanding_amount", "allocated_cost", "unallocated_cost", "target_available", "available_balance", "allocated_amount", "has_difference", "reconciliation_status":
+		return true
+	}
+	return false
 }

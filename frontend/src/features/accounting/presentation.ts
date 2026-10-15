@@ -6,6 +6,18 @@ export const fieldGroups: Record<
   { key: string; fields: Field[] }[]
 > = Object.fromEntries(
   Object.entries({
+    receivables: [
+      ['receivable', 'name reference due_date'],
+      ['related', 'contract_id invoice_id'],
+      ['notes', 'remark'],
+    ],
+    'fx-exchanges': [
+      [
+        'exchange',
+        'target_currency target_amount exchange_rate fee_amount reference',
+      ],
+      ['notes', 'remark'],
+    ],
     transfers: [
       ['receipt', 'payer_name receiving_account bank_reference'],
       ['contacts', 'contact_name contact_phone contact_email contact_wechat'],
@@ -45,7 +57,10 @@ export const fieldGroups: Record<
     ],
     expenses: [
       ['expense', 'category payment_account supplier contract_number'],
-      ['related', 'contract_id ai_vendor vendor_invoice_id invoice_id'],
+      [
+        'related',
+        'contract_id ai_vendor vendor_invoice_id invoice_id transaction_id',
+      ],
       ['notes', 'remark'],
     ],
     'expense-payments': [
@@ -68,11 +83,24 @@ export const fieldGroups: Record<
 ) as Record<AccountingKind, { key: string; fields: Field[] }[]>
 
 export const navigationGroups = [
-  { key: 'overview', tabs: ['overview'] },
-  { key: 'funds', tabs: ['transfers', 'vcc-cards', 'vcc-transactions'] },
-  { key: 'documents', tabs: ['contracts', 'invoices', 'vendor-invoices'] },
+  { key: 'overview', tabs: ['overview', 'workbench'] },
+  {
+    key: 'funds',
+    tabs: ['transfers', 'vcc-cards', 'vcc-transactions', 'fx-exchanges'],
+  },
+  {
+    key: 'documents',
+    tabs: ['receivables', 'contracts', 'invoices', 'vendor-invoices', 'costs'],
+  },
   {
     key: 'settlement',
-    tabs: ['expenses', 'expense-payments', 'reconciliation', 'audit'],
+    tabs: [
+      'expenses',
+      'expense-payments',
+      'reconciliation',
+      'external',
+      'periods',
+      'audit',
+    ],
   },
 ]

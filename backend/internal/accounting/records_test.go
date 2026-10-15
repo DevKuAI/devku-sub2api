@@ -109,3 +109,28 @@ func TestAccountingPermissionsAllowFinanceWithoutAdminPrivileges(t *testing.T) {
 		}
 	}
 }
+
+func TestWorkflowDecimalBoundsAndComputedMetadata(t *testing.T) {
+	for _, raw := range []string{"1e100000000", "1e-100000000", "-1", "0"} {
+		_, err := parseRate(raw)
+		require.Error(t, err)
+	}
+	_, err := number("1e100000000", "CNY", true)
+	require.Error(t, err)
+	in := transferInput("100", "100", "0", true)
+	in.Details["effective_amount"] = "900000"
+	r, err := prepare("transfers", in, nil)
+	require.NoError(t, err)
+	require.NotContains(t, r.Details, "effective_amount")
+	in.Details["funding_type"] = "FX"
+	_, err = prepare("transfers", in, nil)
+	require.Error(t, err)
+	r = &Record{Details: map[string]any{"card_number": "SECRET", "provider_token": "SECRET", "alias": "Card"}}
+	require.Equal(t, map[string]any{"alias": "Card"}, auditFields(r, []string{"card_number", "provider_token", "alias"}))
+}
+
+func TestAccountingCSVPreservesNumericAdjustmentsAndEscapesFormulaText(t *testing.T) {
+	require.Equal(t, "-12.34", csvField("adjustment_amount", "-12.340000"))
+	require.Equal(t, "'=SUM(A1:A2)", csvField("remark", "=SUM(A1:A2)"))
+	require.Equal(t, "'-invoice", csvField("invoice_number", "-invoice"))
+}

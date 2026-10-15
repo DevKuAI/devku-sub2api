@@ -18,13 +18,15 @@ import (
 )
 
 var (
-	ErrInvalid  = appErrors.BadRequest("ACCOUNTING_INVALID", "Invalid accounting fields")
-	ErrNotFound = appErrors.NotFound("ACCOUNTING_NOT_FOUND", "Accounting record not found")
-	ErrState    = appErrors.Conflict("ACCOUNTING_STATE_CONFLICT", "Record state or dependencies prevent this operation")
-	ErrAmount   = appErrors.Conflict("ACCOUNTING_AMOUNT_CONFLICT", "Amount exceeds available funds or refund limit")
-	ErrCurrency = appErrors.BadRequest("ACCOUNTING_CURRENCY_MISMATCH", "Related records must use the same currency")
-	ErrProof    = appErrors.BadRequest("ACCOUNTING_PROOF_REQUIRED", "A completed proof or confirmed AI Invoice is required")
-	ErrStorage  = appErrors.ServiceUnavailable("ACCOUNTING_STORAGE_UNAVAILABLE", "Private accounting storage is not configured or unavailable")
+	ErrInvalid      = appErrors.BadRequest("ACCOUNTING_INVALID", "Invalid accounting fields")
+	ErrNotFound     = appErrors.NotFound("ACCOUNTING_NOT_FOUND", "Accounting record not found")
+	ErrState        = appErrors.Conflict("ACCOUNTING_STATE_CONFLICT", "Record state or dependencies prevent this operation")
+	ErrAmount       = appErrors.Conflict("ACCOUNTING_AMOUNT_CONFLICT", "Amount exceeds available funds or refund limit")
+	ErrCurrency     = appErrors.BadRequest("ACCOUNTING_CURRENCY_MISMATCH", "Related records must use the same currency")
+	ErrProof        = appErrors.BadRequest("ACCOUNTING_PROOF_REQUIRED", "A completed proof or confirmed AI Invoice is required")
+	ErrPeriodClosed = appErrors.Conflict("ACCOUNTING_PERIOD_CLOSED", "The accounting period is closed")
+	ErrForbidden    = appErrors.Forbidden("ACCOUNTING_AUTHORIZATION_REQUIRED", "Administrator authorization required")
+	ErrStorage      = appErrors.ServiceUnavailable("ACCOUNTING_STORAGE_UNAVAILABLE", "Private accounting storage is not configured or unavailable")
 )
 
 type Storage interface {
@@ -68,13 +70,15 @@ type spec struct {
 }
 
 var specs = map[string]spec{
-	"transfers":        {"accounting_transfers", strings.Fields("payer_name contact_name contact_phone contact_email contact_wechat receiving_account sales_amount tax_inclusive tax_rate tax_amount net_sales_amount receivable_amount received_amount difference_reason bank_reference remark"), strings.Fields("payer_name sales_amount tax_inclusive tax_rate tax_amount net_sales_amount receivable_amount received_amount"), true},
+	"receivables":      {"accounting_receivables", strings.Fields("name reference due_date contract_id invoice_id remark"), strings.Fields("name reference due_date settled_amount outstanding_amount"), true},
+	"fx-exchanges":     {"accounting_fx_exchanges", strings.Fields("target_currency target_amount exchange_rate fee_amount reference remark"), nil, true},
+	"transfers":        {"accounting_transfers", strings.Fields("payer_name contact_name contact_phone contact_email contact_wechat receiving_account sales_amount tax_inclusive tax_rate tax_amount net_sales_amount receivable_amount received_amount difference_reason bank_reference remark"), strings.Fields("payer_name sales_amount tax_inclusive tax_rate tax_amount net_sales_amount receivable_amount received_amount original_amount adjustment_amount"), true},
 	"vcc-cards":        {"accounting_vcc_cards", strings.Fields("provider alias last_four credit_limit active_at inactive_at card_number cvv expiry provider_token remark"), strings.Fields("alias last_four allocated_amount available_balance"), false},
 	"vcc-transactions": {"accounting_vcc_transactions", strings.Fields("transaction_type direction merchant provider_transaction_id original_transaction_id ai_vendor vendor_invoice_id remark"), strings.Fields("transaction_type merchant original_transaction_id"), true},
 	"contracts":        {"accounting_contracts", strings.Fields("name contract_number party_name tax_inclusive tax_rate signed_at effective_at expires_at remark"), strings.Fields("name contract_number party_name tax_inclusive tax_rate signed_at effective_at expires_at"), true},
 	"invoices":         {"accounting_invoices", strings.Fields("invoice_type invoice_code invoice_number issue_date issuer_name issuer_tax_id recipient_name recipient_tax_id net_amount tax_amount total_amount remark"), strings.Fields("invoice_type invoice_code invoice_number issue_date issuer_name issuer_tax_id recipient_name recipient_tax_id net_amount tax_amount total_amount"), true},
 	"vendor-invoices":  {"accounting_vendor_invoices", strings.Fields("vendor period_start period_end document_type invoice_number transaction_id expense_id remark"), nil, true},
-	"expenses":         {"accounting_expenses", strings.Fields("category payment_account supplier contract_id contract_number vendor_invoice_id invoice_id ai_vendor remark"), nil, true},
+	"expenses":         {"accounting_expenses", strings.Fields("category payment_account supplier contract_id contract_number vendor_invoice_id invoice_id transaction_id ai_vendor remark"), nil, true},
 	"expense-payments": {"accounting_expense_payments", strings.Fields("payment_account transaction_number proof_attachment_id override reason remark"), nil, true},
 }
 
@@ -84,7 +88,7 @@ func flag(m map[string]any, key string) bool   { v, _ := m[key].(bool); return v
 func invalid(field string) error               { return ErrInvalid.WithMetadata(map[string]string{"field": field}) }
 func number(raw, currency string, positive bool) (decimal.Decimal, error) {
 	d, err := decimal.NewFromString(raw)
-	if err != nil || !d.Truncate(int32(payment.CurrencyMaxFractionDigits(currency))).Equal(d) || (positive && !d.IsPositive()) || d.Abs().GreaterThanOrEqual(decimal.New(1, 18)) {
+	if err != nil || len(raw) > 64 || d.Exponent() < -6 || d.Exponent() > 18 || !d.Truncate(int32(payment.CurrencyMaxFractionDigits(currency))).Equal(d) || (positive && !d.IsPositive()) || d.Abs().GreaterThanOrEqual(decimal.New(1, 18)) {
 		return decimal.Zero, invalid("amount")
 	}
 	return d, nil
@@ -104,6 +108,9 @@ func (r *Record) Public(kind string) *Record {
 	copy.Details = selected(r.Details, specs[kind].public)
 	copy.SharedBy = nil
 	copy.Version = 0
+	if kind == "transfers" && detail(r, "effective_amount") != "" {
+		copy.Amount = detail(r, "effective_amount")
+	}
 	if kind == "vcc-cards" {
 		copy.Amount = detail(r, "allocated_amount")
 	}

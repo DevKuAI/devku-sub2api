@@ -1,5 +1,144 @@
 export default {
   accounting: {
+    ops: {
+      viewOriginal: 'View original transaction',
+      referenceUnavailable:
+        'The original record is outside the visible scope. Contact finance to review it.',
+      externalStatuses: {
+        PENDING: 'Awaiting provider confirmation',
+        CONFIRMED: 'Provider confirmed',
+        VOID: 'No execution needed',
+      },
+      cardExpenseMapping:
+        'An expense linked to a confirmed card transaction maps the same purchase. Its amount and currency must match. Confirmation marks it paid without another payment; refunds change its net value with the source transaction.',
+      exemptExternal: 'Record no provider action needed',
+      sourceAmount: 'Amount in the source currency',
+      periodClosedLabel: 'Closed period',
+      periodOpenLabel: 'Reopened period',
+      book_cost: 'Posted cost (deduplicated by source)',
+      invoice_total: 'Confirmed AI invoice amount',
+      allocated_cost: 'Allocated invoice amount',
+      unallocated_cost: 'Invoice amount to allocate',
+      cashMovement: 'Available funds movement',
+      cardMovement: 'Card funds movement',
+      allocateCost: 'Allocate cost',
+      settle: 'Settle receipts',
+      related: 'Related business records',
+      settlementHistory: 'Receipt settlement history',
+      timeline: 'Business activity',
+      recordContext: 'Related records and activity',
+      recordContextHint:
+        'Review related documents, funding and the operation history.',
+      bookBalance: 'VCC book balance',
+      pendingUsage: 'Pending consumption and fees (excluded from book balance)',
+      todoType: 'Task type',
+      todoLimit:
+        'Showing {count} of {total} tasks. Open the related record list to continue.',
+      noTodo: 'No matching tasks.',
+      sourceKind: 'Actual cost source',
+      costHint:
+        'Allocate posted records directly in the same currency. For different currencies, enter the source amount and explicit exchange rate. Expenses linked to a card transaction share its cost limit.',
+      confirmExternal: 'Record provider confirmation',
+      externalHint:
+        'This manually confirms an external provider action. The system does not execute a top-up or stop a card.',
+      externalProof:
+        'Upload provider evidence in the card details, then select a completed attachment.',
+      closePeriod: 'Close period',
+      reopen: 'Reopen period',
+      month: 'Accounting month (Beijing time)',
+      revision: 'Revision',
+      closeHint:
+        'Close completed calendar months after resolving drafts, reconciliation, invoice allocation and provider confirmations. Closed periods are locked; reopening requires an administrator and a reason.',
+      partialHint:
+        'If opening balances predate tracking, accept an initial statement with its actual coverage and explain the limitation.',
+      unknownOpening:
+        'This period starts before balance tracking. Its opening balance is unknown and must not be read as zero.',
+      unknown: 'Unknown',
+      statement: 'Monthly organization statement',
+      openingCash: 'Opening available funds',
+      closingCash: 'Closing available funds',
+      openingCard: 'Opening VCC book balance',
+      closingCard: 'Closing VCC book balance',
+      periodClosed:
+        'This accounting period is closed. Ask an administrator to review and reopen it before making changes.',
+      adminRequired: 'Administrator authorization is required.',
+      proofRetry:
+        'The record was saved, but its attachment was not uploaded. Save retries only the attachment. You can also cancel and upload it from the record details.',
+      hints: {
+        workbench:
+          'Outstanding work for this organization. Reconcile book and provider balances separately.',
+        costs: 'Allocate actual costs to AI invoices and trace every source.',
+        external:
+          'Verify that the provider executed recorded funding or card closure actions.',
+        periods: 'Review immutable monthly statements and period status.',
+      },
+      reasons: {
+        draft: 'Awaiting confirmation',
+        proof_missing: 'Missing completed evidence',
+        unpaid: 'Expense awaiting payment',
+        missing_invoice: 'Missing confirmed AI invoice',
+        receivable_overdue: 'Overdue receivable',
+        invoice_unallocated: 'Invoice not fully allocated',
+        difference: 'Reconciliation difference',
+        external_pending: 'Provider action pending',
+        unallocated: 'Receipt funds available for allocation',
+        overdraft: 'Negative card book balance',
+      },
+      externalActions: {
+        FUND: 'Funding / top-up verification',
+        CLOSE: 'Card closure verification',
+      },
+      dialogs: {
+        'external-exempt': 'Record why no provider action is needed',
+        settle: 'Settle actual receipts',
+        cost: 'Allocate invoice cost',
+        'fx-allocate': 'Allocate exchange target funds',
+        external: 'Confirm provider execution',
+        close: 'Close organization period',
+        reopen: 'Reopen accounting period',
+        'void-cost': 'Reverse cost allocation',
+        'void-settlement': 'Reverse receipt settlement',
+        '': 'Business action',
+      },
+      actions: {
+        'read-statement': 'Read statement',
+        create: 'Create record',
+        update: 'Edit draft',
+        confirm: 'Confirm entry',
+        void: 'Void or reverse',
+        allocate: 'Record VCC allocation',
+        close: 'Close book card',
+        pay: 'Record payment',
+        sharing: 'Change sharing',
+        intent: 'Register evidence',
+        upload: 'Upload evidence',
+        complete: 'Complete evidence',
+        download: 'Download evidence',
+        delete: 'Delete attachment',
+        export: 'Export records',
+        adjust: 'Adjust amount',
+        settle: 'Settle receipts',
+        reopen: 'Reopen period',
+        expire: 'Mark contract expired',
+      },
+      validation: {
+        cost_allocation_in_use:
+          'Allocated costs are still in use. Review and reverse the related allocations before confirming the refund.',
+        period_blockers: 'Resolve outstanding records in this period first.',
+        opening_balance_unknown:
+          'Accept the initial coverage and explain the unknown opening balance.',
+        period_before_coverage:
+          'This period predates balance tracking; balances cannot be inferred.',
+        earlier_period_open: 'Close earlier open periods first.',
+        later_period_closed:
+          'Reopen later periods first, starting with the latest.',
+        month_not_finished: 'The selected month has not ended.',
+        reason: 'Enter a reason.',
+        reference: 'Enter a provider reference.',
+        target_amount:
+          'The target amount must match the source amount, exchange rate and currency precision.',
+      },
+    },
     tableHint: 'Wide tables can be scrolled horizontally to view all content.',
     recordSection: 'Accounting section',
     emptyTrend: 'No receipts in the selected period.',
@@ -28,6 +167,9 @@ export default {
     secretHint:
       'Sensitive fields remain encrypted. Saved sensitive values are not displayed in record details.',
     formGroups: {
+      receivable: 'Receivable information',
+      exchange: 'Currency exchange',
+
       basic: 'Amount and business time',
       receipt: 'Receipt information',
       contacts: 'Contact information',
@@ -55,6 +197,11 @@ export default {
       settlement: 'Expenses and reconciliation',
     },
     workflows: {
+      receivables:
+        'Record receivables and due dates. After confirmation, settle actual receipts in installments without adding funds again.',
+      'fx-exchanges':
+        'Record a completed currency exchange and evidence. Confirm before allocating target funds to a card in that currency.',
+
       transfers:
         'Record received funds, upload evidence and confirm before allocating available funds to this organization’s VCC.',
       'vcc-cards':
@@ -94,8 +241,8 @@ export default {
     edit: 'Edit',
     confirm: 'Confirm',
     void: 'Void',
-    closeCard: 'Close card',
-    allocate: 'Allocate',
+    closeCard: 'Close book card',
+    allocate: 'Record VCC allocation',
     pay: 'Pay',
     match: 'Match',
     exclude: 'Exclude',
@@ -164,6 +311,19 @@ export default {
     released: 'Released',
     referenceRecord: 'Reference record',
     kinds: {
+      attachments: 'Attachments and evidence',
+      allocations: 'VCC allocations',
+      settlements: 'Receipt settlements',
+      'cost-allocations': 'Cost allocations',
+      'external-actions': 'Provider verification',
+      statements: 'Monthly statements',
+      receivables: 'Receivables and settlements',
+      'fx-exchanges': 'Currency exchanges',
+      workbench: 'Finance workbench',
+      costs: 'Cost allocation',
+      external: 'Provider confirmations',
+      periods: 'Period close and statements',
+
       transfers: 'Transfers',
       'vcc-cards': 'VCC cards',
       'vcc-transactions': 'VCC transactions',
@@ -187,6 +347,32 @@ export default {
       expenses: 'Expenses',
     },
     fields: {
+      amount: 'Amount',
+      currency: 'Currency',
+      occurred_at: 'Business time',
+      organization_id: 'Organization',
+      parent_id: 'Related funding or card',
+      target_available: 'Target funds available for allocation',
+      overpaid_amount: 'Overpaid amount',
+      source_amount: 'Source currency amount',
+      original_amount: 'Original amount',
+      adjustment_amount: 'Cumulative adjustments',
+      unpaid_amount: 'Unpaid amount',
+      allocated_cost: 'Allocated cost',
+      unallocated_cost: 'Cost to allocate',
+      reference: 'Business reference',
+      due_date: 'Receivable due date',
+      settled_amount: 'Settled receipts',
+      outstanding_amount: 'Outstanding amount',
+      target_currency: 'Target currency',
+      target_amount: 'Target amount',
+      exchange_rate: 'Exchange rate (target / source)',
+      fee_amount: 'Exchange fee (source currency)',
+      target_transfer_id: 'Target funding record',
+      funding_type: 'Funding type',
+      source_exchange_id: 'Source exchange',
+      unallocated_amount: 'Available for allocation',
+
       proof_attachment_id: 'Payment proof',
       payer_name: 'Payer name',
       contact_name: 'Contact name',
@@ -259,6 +445,9 @@ export default {
       has_difference: 'Has difference',
     },
     statuses: {
+      UNPAID: 'Awaiting payment',
+      OPEN: 'Open period',
+
       DRAFT: 'Draft',
       RECEIVED: 'Received',
       VOID: 'Void',

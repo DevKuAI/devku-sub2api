@@ -9,13 +9,15 @@ import (
 )
 
 type Allocation struct {
-	ID         string `json:"id"`
-	TransferID string `json:"transfer_id"`
-	CardID     string `json:"card_id"`
-	Amount     string `json:"amount"`
-	Used       string `json:"used_amount"`
-	Released   string `json:"released_amount"`
-	Closed     bool   `json:"closed"`
+	ID           string `json:"id"`
+	CardName     string `json:"card_name,omitempty"`
+	TransferName string `json:"transfer_name,omitempty"`
+	TransferID   string `json:"transfer_id"`
+	CardID       string `json:"card_id"`
+	Amount       string `json:"amount"`
+	Used         string `json:"used_amount"`
+	Released     string `json:"released_amount"`
+	Closed       bool   `json:"closed"`
 }
 
 func sum(ctx context.Context, q dbQuery, query string, args ...any) (decimal.Decimal, error) {
@@ -27,6 +29,9 @@ func sum(ctx context.Context, q dbQuery, query string, args ...any) (decimal.Dec
 	return decimal.NewFromString(raw)
 }
 func effective(ctx context.Context, q dbQuery, kind string, r *Record) (decimal.Decimal, error) {
+	if kind == "expenses" && detail(r, "transaction_id") != "" {
+		return linkedCardPaid(ctx, q, detail(r, "transaction_id"))
+	}
 	delta, err := sum(ctx, q, "SELECT COALESCE(SUM(amount),0)::text FROM accounting_adjustments WHERE object_kind=$1 AND object_id=$2", kind, r.ID)
 	return amount(r).Add(delta), err
 }
@@ -65,7 +70,7 @@ func (e *Engine) Allocate(ctx context.Context, tx *sql.Tx, transfer *Record, car
 	if err != nil {
 		return nil, err
 	}
-	used, err := sum(ctx, tx, "SELECT COALESCE(SUM(amount-released_amount),0)::text FROM accounting_allocations WHERE transfer_id=$1", transfer.ID)
+	used, err := transferCommitted(ctx, tx, transfer.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -82,6 +87,12 @@ func (e *Engine) Allocate(ctx context.Context, tx *sql.Tx, transfer *Record, car
 		return nil, err
 	}
 	if err = coverOverdraft(ctx, tx, a); err != nil {
+		return nil, err
+	}
+	event := *transfer
+	event.ID = a.ID
+	event.Amount = a.Amount
+	if err = externalAction(ctx, tx, &event, "allocations", "FUND", card.ID, actor); err != nil {
 		return nil, err
 	}
 	return a, nil
@@ -125,6 +136,9 @@ func (e *Engine) CloseCard(ctx context.Context, tx *sql.Tx, card *Record) error 
 		}
 	}
 	if _, err = tx.ExecContext(ctx, "UPDATE accounting_allocations SET closed_at=NOW() WHERE card_id=$1 AND closed_at IS NULL", card.ID); err != nil {
+		return err
+	}
+	if err := externalAction(ctx, tx, card, "vcc-cards", "CLOSE", card.ID, 0); err != nil {
 		return err
 	}
 	card.Status = "CLOSED"
@@ -400,4 +414,8 @@ func rebalanceFunding(ctx context.Context, tx *sql.Tx, cardID string) error {
 		}
 	}
 	return nil
+}
+
+func linkedCardPaid(ctx context.Context, q dbQuery, transactionID string) (decimal.Decimal, error) {
+	return sum(ctx, q, `SELECT t.amount-COALESCE((SELECT SUM(x.amount) FROM accounting_vcc_transactions x WHERE x.details->>'original_transaction_id'=t.id::text AND x.status='CONFIRMED' AND (x.details->>'transaction_type'='REFUND' OR (x.details->>'transaction_type'='ADJUSTMENT' AND x.details->>'direction'='CREDIT'))),0) FROM accounting_vcc_transactions t WHERE t.id=$1 AND t.status='CONFIRMED'`, transactionID)
 }

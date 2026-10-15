@@ -17,6 +17,7 @@ const api = vi.hoisted(() => ({
   auditLogs: vi.fn(),
   exportCSV: vi.fn(),
   upload: vi.fn(),
+  getRecord: vi.fn(),
 }))
 const access = vi.hoisted(() => ({
   refreshDesktopOrganizationAccess: vi.fn(),
@@ -62,6 +63,7 @@ function render(customer = false, organizationId = customer ? '' : 'org_one') {
         }),
       ],
       stubs: {
+        AccountingOperations: true,
         RouterLink: { props: ['to'], template: '<a><slot /></a>' },
         BaseDialog: {
           props: ['show', 'title'],
@@ -91,6 +93,18 @@ describe('accounting workspace', () => {
     api.reconciliation.mockResolvedValue({ items: [], total: 0 })
     api.auditLogs.mockResolvedValue({ items: [], total: 0 })
   })
+  it.each(['workbench', 'costs', 'external', 'periods'])(
+    'leaves the empty state to the %s business view',
+    async (tab) => {
+      route.query = { tab }
+      const wrapper = render()
+      await flushPromises()
+      expect(
+        wrapper.findComponent({ name: 'AccountingOperations' }).exists(),
+      ).toBe(true)
+      expect(wrapper.text()).not.toContain('本企业在当前条件下暂无记录')
+    },
+  )
   it('keeps the linked-account view available without financial records', async () => {
     const wrapper = render(true)
     await flushPromises()
@@ -431,6 +445,132 @@ describe('accounting workspace', () => {
       expect.anything(),
     )
     expect(router.replace).toHaveBeenCalledWith({ query: { tab: 'invoices' } })
+    wrapper.unmount()
+  })
+  it('retries only the attachment after a record was saved successfully', async () => {
+    api.upload
+      .mockRejectedValueOnce(new Error('network failure'))
+      .mockResolvedValueOnce(undefined)
+    const wrapper = render()
+    await flushPromises()
+    await wrapper
+      .findAll('[role="tab"]')
+      .find((button) => button.text() === 'VCC 卡片')!
+      .trigger('click')
+    await flushPromises()
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === '新增VCC 卡片')!
+      .trigger('click')
+    await flushPromises()
+    const dialog = wrapper.findAll('.dialog').at(-1)!
+    const fileInput = dialog.get('input[type=file]')
+    Object.defineProperty(fileInput.element, 'files', {
+      value: [new File(['proof'], 'proof.pdf', { type: 'application/pdf' })],
+      configurable: true,
+    })
+    await fileInput.trigger('change')
+    await dialog.get('form').trigger('submit')
+    await flushPromises()
+    expect(api.mutate).toHaveBeenCalledTimes(1)
+    expect(dialog.text()).toContain('记录已经保存')
+    expect(dialog.get('fieldset').attributes('disabled')).toBeDefined()
+    await dialog.get('form').trigger('submit')
+    await flushPromises()
+    expect(api.upload).toHaveBeenCalledTimes(2)
+    expect(api.mutate).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+  it('keeps original-transaction navigation on the customer read-only API', async () => {
+    const original = {
+      ...record,
+      id: 'original',
+      status: 'CONFIRMED',
+      details: { transaction_type: 'CONSUME', merchant: '原始消费' },
+    }
+    const refund = {
+      ...record,
+      id: 'refund',
+      status: 'CONFIRMED',
+      details: {
+        transaction_type: 'REFUND',
+        merchant: '退款记录',
+        original_transaction_id: 'original',
+      },
+    }
+    api.listRecords.mockResolvedValue({ items: [refund, original], total: 2 })
+    const wrapper = render(true)
+    await flushPromises()
+    await wrapper
+      .findAll('[role="tab"]')
+      .find((button) => button.text() === 'VCC 消费')!
+      .trigger('click')
+    await flushPromises()
+    await wrapper.findAll('tbody button')[0]!.trigger('click')
+    await flushPromises()
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === '查看原消费')!
+      .trigger('click')
+    await flushPromises()
+    expect(wrapper.findAll('.dialog').at(-1)!.text()).toContain('原始消费')
+    expect(api.getRecord).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+  it('clears customer record details when the account loses its company binding', async () => {
+    const wrapper = render(true)
+    await flushPromises()
+    await wrapper
+      .findAll('[role="tab"]')
+      .find((button) => button.text() === '到账记录')!
+      .trigger('click')
+    await flushPromises()
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === '记录详情')!
+      .trigger('click')
+    await flushPromises()
+    expect(wrapper.find('.dialog').exists()).toBe(true)
+    access.refreshDesktopOrganizationAccess.mockResolvedValue(null)
+    window.dispatchEvent(new Event('focus'))
+    await flushPromises()
+    expect(wrapper.find('.dialog').exists()).toBe(false)
+    expect(wrapper.find('[role="alert"]').exists()).toBe(true)
+    wrapper.unmount()
+  })
+  it('updates parent funding choices when the currency changes', async () => {
+    api.listRecords.mockResolvedValue({
+      items: [
+        { ...record, id: 'cny', status: 'RECEIVED' },
+        { ...record, id: 'usd', status: 'RECEIVED', currency: 'USD' },
+      ],
+      total: 2,
+    })
+    const wrapper = render()
+    await flushPromises()
+    await wrapper
+      .findAll('[role="tab"]')
+      .find((button) => button.text() === '换汇')!
+      .trigger('click')
+    await flushPromises()
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === '新增换汇')!
+      .trigger('click')
+    await flushPromises()
+    const dialog = wrapper.findAll('.dialog').at(-1)!
+    const select = dialog.findAll('select')[0]!
+    expect(
+      select.findAll('option').map((option) => option.attributes('value')),
+    ).toContain('cny')
+    await dialog.get('input[maxlength="3"]').setValue('USD')
+    await flushPromises()
+    expect(
+      select.findAll('option').map((option) => option.attributes('value')),
+    ).toContain('usd')
+    expect(
+      select.findAll('option').map((option) => option.attributes('value')),
+    ).not.toContain('cny')
     wrapper.unmount()
   })
 })
