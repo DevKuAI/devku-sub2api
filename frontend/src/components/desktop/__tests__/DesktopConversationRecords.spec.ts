@@ -16,7 +16,7 @@ const record: DesktopConversation = {
   duration_ms: 60_000,
   cwd: '/workspace', capture_status: 'captured', prompt_count: 1,
 }
-const detail: DesktopConversationDetail = { ...record, schema_version: 2, prompts: [{ text: '<script>private</script>', truncated: true }], response: { text: 'answer', truncated: false } }
+const detail: DesktopConversationDetail = { ...record, schema_version: 2, prompts: [{ text: '**提问**\n\n<script>private</script>', truncated: true }], response: { text: '## answer\n\n- `origin/main`', truncated: false } }
 const DataTableStub = defineComponent({
   props: ['data', 'columns', 'loading'],
   template: '<div><slot v-if="!loading && !data.length" name="empty" /><div v-for="row in data" :key="row.record_id"><slot name="cell-member_name" :row="row" /><slot name="cell-duration_ms" :value="row.duration_ms" /><slot name="cell-actions" :row="row" /></div></div>',
@@ -39,14 +39,17 @@ describe('Desktop conversation records', () => {
     api.getDesktopConversationStatistics.mockResolvedValue({ timezone: 'Asia/Shanghai', as_of: '2026-09-22T04:00:00Z', today: counts(3, 5), week: counts(12, 20), month: counts(30, 45), total: counts(80, 100), last_30_days: counts(30, 45), captured_last_30_days: 25, response_missing_last_30_days: 5, workbuddy_last_30_days: 10, chatgpt_codex_last_30_days: 20 })
   })
 
-  it('loads only metadata until selected, renders plain text, and preserves missing responses', async () => {
+  it('loads only metadata until selected, renders Markdown safely, and preserves missing responses', async () => {
     const wrapper = view()
     await flushPromises()
     expect(api.getDesktopConversation).not.toHaveBeenCalled()
     expect(wrapper.find('[data-testid="conversation-duration"]').text()).toBe('1m 0s')
     await wrapper.findAll('button').find((button) => button.text().includes('viewDetail'))!.trigger('click')
     await flushPromises()
-    expect(wrapper.find('pre').text()).toBe('<script>private</script>')
+    expect(wrapper.get('.conversation-markdown strong').text()).toBe('提问')
+    expect(wrapper.get('.conversation-markdown').text()).toContain('<script>private</script>')
+    expect(wrapper.get('.conversation-markdown h2').text()).toBe('answer')
+    expect(wrapper.get('.conversation-markdown li code').text()).toBe('origin/main')
     expect(wrapper.find('script').exists()).toBe(false)
     expect(wrapper.text()).toContain('conversations.truncated')
     api.getDesktopConversation.mockResolvedValue({ ...detail, response: null, capture_status: 'response_missing' })
@@ -220,7 +223,7 @@ describe('Desktop conversation records', () => {
     expect(wrapper.find('[data-testid="conversation-detail"] [role="alert"]').text()).toContain('conversations.notFound')
     await wrapper.find('[data-testid="conversation-detail"] [role="alert"] button').trigger('click')
     await flushPromises()
-    expect(wrapper.find('[role="dialog"] pre').exists()).toBe(true)
+    expect(wrapper.find('[role="dialog"] .conversation-markdown').exists()).toBe(true)
     await wrapper.find('[role="dialog"] button[aria-label="common.close"]').trigger('click')
     api.listDesktopConversations.mockResolvedValueOnce({ items: [], total: 0 })
     await wrapper.findAll('button').find(button => button.text().includes('viewThread'))!.trigger('click')
@@ -288,13 +291,56 @@ describe('Desktop conversation records', () => {
     expect((api.getDesktopConversationStatistics.mock.lastCall?.[3] as AbortSignal).aborted).toBe(true)
   })
 
-  it('expands long text without modifying its content', async () => {
+  it('renders Markdown blocks, inline formatting, line breaks and keyboard reachable tables', () => {
+    const text = [
+      '# 标题', '', '第一行', '第二行 **加粗** *强调* ~~删除~~ [文档](https://example.com/docs)', '',
+      '- 项目 `origin/main`', '', '1. 步骤', '', '> 引用', '',
+      '```html', '<div>code</div>', '```', '', '| 名称 | 状态 |', '| --- | --- |', '| Markdown | 支持 |',
+    ].join('\n')
+    const wrapper = mount(DesktopConversationText, { props: { segment: { text, truncated: false } } })
+    expect(wrapper.get('h1').text()).toBe('标题')
+    expect(wrapper.find('p br').exists()).toBe(true)
+    expect(wrapper.get('strong').text()).toBe('加粗')
+    expect(wrapper.get('em').text()).toBe('强调')
+    expect(wrapper.get('del').text()).toBe('删除')
+    expect(wrapper.get('a').attributes('href')).toBe('https://example.com/docs')
+    expect(wrapper.get('ul li code').text()).toBe('origin/main')
+    expect(wrapper.get('ol li').text()).toBe('步骤')
+    expect(wrapper.get('blockquote').text()).toBe('引用')
+    expect(wrapper.get('pre code.language-html').text()).toBe('<div>code</div>')
+    expect(wrapper.get('.conversation-markdown-table').attributes()).toMatchObject({ tabindex: '0', role: 'region', 'aria-label': 'admin.desktop.detail.tableScrollHint' })
+    expect(wrapper.findAll('tbody td').map(cell => cell.text())).toEqual(['Markdown', '支持'])
+    wrapper.unmount()
+  })
+
+  it('keeps raw HTML as text and removes unsafe Markdown links', () => {
+    const text = '<script>alert(1)</script>\n\n<img src="x" onerror="alert(2)">\n\n[危险链接](javascript:alert%283%29)\n\n`<iframe src="x">`'
+    const wrapper = mount(DesktopConversationText, { props: { segment: { text, truncated: false } } })
+    expect(wrapper.find('script, img, iframe').exists()).toBe(false)
+    expect(wrapper.text()).toContain('<script>alert(1)</script>')
+    expect(wrapper.text()).toContain('<img src="x" onerror="alert(2)">')
+    expect(wrapper.get('a').attributes('href')).toBeUndefined()
+    expect(wrapper.get('code').text()).toBe('<iframe src="x">')
+    wrapper.unmount()
+  })
+
+  it('preserves the empty text placeholder', () => {
+    const wrapper = mount(DesktopConversationText, { props: { segment: { text: '', truncated: false } } })
+    expect(wrapper.get('.conversation-markdown').text()).toBe('admin.desktop.conversations.emptyText')
+    expect(wrapper.find('button').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('expands and collapses long Markdown without modifying its content', async () => {
     const text = `${'文'.repeat(3000)}end`
     const wrapper = mount(DesktopConversationText, { props: { segment: { text, truncated: false } } })
-    expect(wrapper.find('pre').text().length).toBe(2400)
+    expect(wrapper.get('.conversation-markdown').text().length).toBe(2400)
     await wrapper.find('button').trigger('click')
-    expect(wrapper.find('pre').text()).toBe(text)
+    expect(wrapper.get('.conversation-markdown').text()).toBe(text)
     expect(wrapper.find('button').attributes('aria-expanded')).toBe('true')
+    await wrapper.find('button').trigger('click')
+    expect(wrapper.get('.conversation-markdown').text().length).toBe(2400)
+    expect(wrapper.find('button').attributes('aria-expanded')).toBe('false')
     wrapper.unmount()
   })
   it('explains an inverted received-time range before making a request', async () => {
