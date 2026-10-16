@@ -6,7 +6,20 @@ const client = vi.hoisted(() => ({
   put: vi.fn(),
 }))
 vi.mock('@/api/client', () => ({ apiClient: client }))
-import { listRecords, stableRequest, mutate, upload } from '../api'
+import {
+  createOrganizationContact,
+  createReceivingAccount,
+  deleteOrganizationContact,
+  getRecord,
+  listRecords,
+  mutate,
+  organizationContacts,
+  receivingAccounts,
+  stableRequest,
+  updateOrganizationContact,
+  updateReceivingAccount,
+  upload,
+} from '../api'
 describe('accounting request isolation and idempotency', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -24,6 +37,13 @@ describe('accounting request isolation and idempotency', () => {
     expect(client.get).toHaveBeenLastCalledWith(
       '/admin/accounting/transfers',
       expect.objectContaining({ params: { organization_id: 'org_one' } }),
+    )
+  })
+  it('loads one admin accounting record for an edit page', async () => {
+    client.get.mockResolvedValueOnce({ data: { id: 'card-one' } })
+    await getRecord('vcc-cards', 'card-one')
+    expect(client.get).toHaveBeenCalledWith(
+      '/admin/accounting/vcc-cards/card-one',
     )
   })
   it('reuses a key for a failed request retry and changes it after edits', () => {
@@ -47,6 +67,100 @@ describe('accounting request isolation and idempotency', () => {
       expect.objectContaining({
         method: 'patch',
         headers: { 'Idempotency-Key': 'stable-key' },
+      }),
+    )
+  })
+  it('uses the admin contact endpoints with idempotency keys', async () => {
+    const input = {
+      organization_id: 'org_one',
+      name: '王财务',
+      role: 'FINANCE' as const,
+      phone: '13800138000',
+      email: 'finance@example.test',
+      wechat: '',
+      remark: '',
+      is_primary: true,
+    }
+    client.get.mockResolvedValueOnce({
+      data: [
+        { id: 'legacy-record', details: { contact_name: '旧数据' } },
+        { ...input, id: 'contact-one' },
+      ],
+    })
+    expect(await organizationContacts('org_one')).toEqual([
+      { ...input, id: 'contact-one' },
+    ])
+    expect(client.get).toHaveBeenLastCalledWith(
+      '/admin/accounting/organization-contacts',
+      { params: { organization_id: 'org_one' } },
+    )
+
+    await createOrganizationContact(input, 'create-key')
+    await updateOrganizationContact('contact-one', input, 'update-key')
+    await deleteOrganizationContact('contact-one', 'delete-key')
+    expect(client.request).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        url: '/admin/accounting/organization-contacts',
+        method: 'post',
+        headers: { 'Idempotency-Key': 'create-key' },
+      }),
+    )
+    expect(client.request).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        url: '/admin/accounting/organization-contacts/contact-one',
+        method: 'patch',
+        headers: { 'Idempotency-Key': 'update-key' },
+      }),
+    )
+    expect(client.request).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        url: '/admin/accounting/organization-contacts/contact-one',
+        method: 'delete',
+        headers: { 'Idempotency-Key': 'delete-key' },
+      }),
+    )
+  })
+  it('uses global receiving-account endpoints with idempotency keys', async () => {
+    const input = {
+      currency: 'CNY',
+      account_name: '上海星海智能科技有限公司',
+      bank_name: '招商银行',
+      bank_account: '6225888800001234',
+      bank_branch: '上海科技园支行',
+      remark: '',
+    }
+    client.get.mockResolvedValueOnce({
+      data: [
+        { id: 'legacy-record', details: { receiving_account: '旧数据' } },
+        { ...input, id: 'account-one' },
+      ],
+    })
+    expect(await receivingAccounts()).toEqual([
+      { ...input, id: 'account-one' },
+    ])
+    expect(client.get).toHaveBeenLastCalledWith(
+      '/admin/accounting/receiving-accounts',
+    )
+
+    await createReceivingAccount(input, 'create-account-key')
+    await updateReceivingAccount('account-one', input, 'update-account-key')
+    expect(client.request).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        url: '/admin/accounting/receiving-accounts',
+        method: 'post',
+        headers: { 'Idempotency-Key': 'create-account-key' },
+      }),
+    )
+    expect(client.request).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        url: '/admin/accounting/receiving-accounts/account-one',
+        method: 'patch',
+        headers: { 'Idempotency-Key': 'update-account-key' },
       }),
     )
   })

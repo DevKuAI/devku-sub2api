@@ -107,7 +107,7 @@ func workflowDependencies(ctx context.Context, q dbQuery, kind string, r *Record
 			return err
 		}
 	case "transfers":
-		if detail(r, "funding_type") == "FX" {
+		if internalFunding(r) {
 			return ErrState
 		}
 		if err := q.QueryRowContext(ctx, "SELECT COUNT(*) FROM accounting_receipt_settlements WHERE transfer_id=$1 AND status='ACTIVE'", r.ID).Scan(&count); err != nil {

@@ -48,9 +48,11 @@ func (s *accountingTestStorage) Presign(_ context.Context, key, _, _ string, _ t
 }
 
 type accountingFixture struct {
-	desktop *desktopRepositoryFixture
-	router  *gin.Engine
-	storage *accountingTestStorage
+	desktop            *desktopRepositoryFixture
+	router             *gin.Engine
+	storage            *accountingTestStorage
+	receivingAccountID string
+	orderID            string
 }
 
 func newAccountingFixture(t *testing.T) *accountingFixture {
@@ -104,6 +106,10 @@ func newAccountingFixture(t *testing.T) *accountingFixture {
 			"DELETE FROM accounting_receivables WHERE organization_id=$1",
 			"DELETE FROM accounting_position_events WHERE organization_id=$1",
 			"DELETE FROM accounting_position_baselines WHERE organization_id=$1",
+			"DELETE FROM accounting_organization_contacts WHERE organization_id=$1",
+			"DELETE FROM accounting_receiving_accounts WHERE created_by=$1",
+			"DELETE FROM accounting_order_items WHERE organization_id=$1",
+			"DELETE FROM accounting_orders WHERE organization_id=$1",
 			"DELETE FROM accounting_funding WHERE transaction_id IN (SELECT id FROM accounting_vcc_transactions WHERE organization_id=$1)",
 			"DELETE FROM accounting_allocations WHERE organization_id=$1",
 			"DELETE FROM accounting_reconciliation WHERE organization_id=$1",
@@ -121,7 +127,7 @@ func newAccountingFixture(t *testing.T) *accountingFixture {
 			"DELETE FROM accounting_expenses WHERE organization_id=$1",
 		} {
 			value := f.organization.ID
-			if strings.Contains(query, "operation_results") {
+			if strings.Contains(query, "operation_results") || strings.Contains(query, "accounting_receiving_accounts") {
 				value = f.user.ID
 			}
 			_, cleanupErr := integrationDB.ExecContext(ctx, query, value)
@@ -129,6 +135,64 @@ func newAccountingFixture(t *testing.T) *accountingFixture {
 		}
 	})
 	return &accountingFixture{desktop: f, router: router, storage: storage}
+}
+
+func TestAccountingOrganizationContactsAndRecordSnapshots(t *testing.T) {
+	f := newAccountingFixture(t)
+	input := accounting.OrganizationContactInput{
+		OrganizationID: f.desktop.organization.PublicID,
+		Name:           "Finance Contact",
+		Role:           "FINANCE",
+		Phone:          "+8613800000000",
+		Email:          "finance@example.test",
+		WeChat:         "finance-contact",
+		IsPrimary:      true,
+	}
+	var contact accounting.OrganizationContact
+	require.NoError(t, json.Unmarshal(accountingData(t, f.request("POST", "organization-contacts", uuid.NewString(), input)), &contact))
+	require.Equal(t, input.Name, contact.Name)
+	require.True(t, contact.IsPrimary)
+	receivingAccountID := f.receivingAccount(t)
+
+	transfer := f.create(t, "transfers", "100", map[string]any{
+		"payer_name":           "Customer",
+		"contact_id":           contact.ID,
+		"receiving_account_id": receivingAccountID,
+		"sales_amount":         "100",
+		"tax_inclusive":        true,
+		"tax_rate":             "0",
+		"bank_reference":       uuid.NewString(),
+	}, "")
+	require.Equal(t, "Finance Contact", transfer.Details["contact_name"])
+	require.Equal(t, "finance@example.test", transfer.Details["contact_email"])
+	require.Equal(t, "6225888800001234", transfer.Details["receiving_account"])
+	require.Equal(t, "Test Bank", transfer.Details["receiving_bank_name"])
+
+	input.Name = "Updated Contact"
+	input.Email = "updated@example.test"
+	accountingData(t, f.request("PATCH", "organization-contacts/"+contact.ID, uuid.NewString(), input))
+	accountingData(t, f.request("PATCH", "receiving-accounts/"+receivingAccountID, uuid.NewString(), accounting.ReceivingAccountInput{
+		Currency:    "CNY",
+		AccountName: f.desktop.organization.Name,
+		BankName:    "Updated Bank",
+		BankAccount: "6225888800009999",
+		BankBranch:  "Updated Branch",
+	}))
+	var stored accounting.Record
+	require.NoError(t, json.Unmarshal(accountingData(t, f.request("GET", "transfers/"+transfer.ID, "", nil)), &stored))
+	require.Equal(t, "Finance Contact", stored.Details["contact_name"])
+	require.Equal(t, "finance@example.test", stored.Details["contact_email"])
+	require.Equal(t, "6225888800001234", stored.Details["receiving_account"])
+	require.Equal(t, "Test Bank", stored.Details["receiving_bank_name"])
+
+	contract := f.create(t, "contracts", "100", map[string]any{
+		"name":            "Sales Contract",
+		"contract_number": uuid.NewString(),
+		"contact_id":      contact.ID,
+	}, "")
+	require.Equal(t, f.desktop.organization.Name, contract.Details["party_name"])
+	require.Equal(t, "Updated Contact", contract.Details["contact_name"])
+	require.Equal(t, "updated@example.test", contract.Details["contact_email"])
 }
 func (f *accountingFixture) request(method, path, key string, payload any) *httptest.ResponseRecorder {
 	body, _ := json.Marshal(payload)
@@ -151,16 +215,65 @@ func accountingData(t *testing.T, res *httptest.ResponseRecorder) json.RawMessag
 func (f *accountingFixture) create(t *testing.T, kind, amount string, details map[string]any, parent string) *accounting.Record {
 	t.Helper()
 	in := accounting.Input{OrganizationID: f.desktop.organization.PublicID, Currency: "CNY", Amount: amount, Details: details, ParentID: parent}
+	if kind == "vcc-cards" || kind == "vcc-transactions" {
+		in.OrderID = f.order(t)
+	}
+	if kind == "vcc-cards" && details["card_number"] == nil {
+		details["card_number"] = testCardNumber()
+	}
 	res := f.request("POST", kind, uuid.NewString(), in)
 	var record accounting.Record
 	require.NoError(t, json.Unmarshal(accountingData(t, res), &record))
 	return &record
 }
+
+// order returns the fixture's working order; cards and card spend can only be created inside one.
+func (f *accountingFixture) order(t *testing.T) string {
+	t.Helper()
+	if f.orderID != "" {
+		return f.orderID
+	}
+	var order accounting.Order
+	require.NoError(t, json.Unmarshal(accountingData(t, f.request("POST", "orders", uuid.NewString(), map[string]string{"organization_id": f.desktop.organization.PublicID, "name": "Fixture order"})), &order))
+	f.orderID = order.ID
+	return order.ID
+}
+
+// testCardNumber returns a distinct 16-digit number so card fingerprints never collide between tests.
+func testCardNumber() string {
+	digits := strings.Map(func(r rune) rune {
+		if r >= 'a' && r <= 'f' {
+			return '0' + (r-'a')%10
+		}
+		if r >= '0' && r <= '9' {
+			return r
+		}
+		return -1
+	}, uuid.NewString())
+	return "4" + digits[:15]
+}
+func (f *accountingFixture) receivingAccount(t *testing.T) string {
+	t.Helper()
+	if f.receivingAccountID != "" {
+		return f.receivingAccountID
+	}
+	input := accounting.ReceivingAccountInput{
+		Currency:    "CNY",
+		AccountName: f.desktop.organization.Name,
+		BankName:    "Test Bank",
+		BankAccount: "6225888800001234",
+		BankBranch:  "Test Branch",
+	}
+	var account accounting.ReceivingAccount
+	require.NoError(t, json.Unmarshal(accountingData(t, f.request("POST", "receiving-accounts", uuid.NewString(), input)), &account))
+	f.receivingAccountID = account.ID
+	return account.ID
+}
 func (f *accountingFixture) transfer(t *testing.T, total string) *accounting.Record {
-	return f.create(t, "transfers", total, map[string]any{"payer_name": "Customer", "receiving_account": "INTERNAL-BANK", "sales_amount": total, "tax_inclusive": true, "tax_rate": "0.06", "bank_reference": uuid.NewString(), "remark": "INTERNAL-REMARK"}, "")
+	return f.create(t, "transfers", total, map[string]any{"payer_name": "Customer", "receiving_account_id": f.receivingAccount(t), "sales_amount": total, "tax_inclusive": true, "tax_rate": "0.06", "bank_reference": uuid.NewString(), "remark": "INTERNAL-REMARK"}, "")
 }
 func (f *accountingFixture) card(t *testing.T) *accounting.Record {
-	return f.create(t, "vcc-cards", "0", map[string]any{"alias": "AI card", "provider": "INTERNAL-PROVIDER", "last_four": "4821"}, "")
+	return f.create(t, "vcc-cards", "0", map[string]any{"alias": "AI card", "provider": "INTERNAL-PROVIDER"}, "")
 }
 func (f *accountingFixture) transaction(t *testing.T, card *accounting.Record, kind, total, original string) *accounting.Record {
 	return f.create(t, "vcc-transactions", total, map[string]any{"transaction_type": kind, "merchant": "AI merchant", "provider_transaction_id": uuid.NewString(), "original_transaction_id": original}, card.ID)
@@ -258,7 +371,7 @@ func TestAccountingConcurrentAllocationAndDuplicateReferences(t *testing.T) {
 	require.Equal(t, 1, success)
 	require.Equal(t, 409, f.request("POST", "transfers", uuid.NewString(), accounting.Input{OrganizationID: receipt.OrganizationID, Currency: "CNY", Amount: receipt.Amount, Details: receipt.Details}).Code)
 	r := f.transaction(t, card, "CONSUME", "1", "")
-	require.Equal(t, 409, f.request("POST", "vcc-transactions", uuid.NewString(), accounting.Input{OrganizationID: r.OrganizationID, ParentID: card.ID, Currency: r.Currency, Amount: r.Amount, Details: r.Details}).Code)
+	require.Equal(t, 409, f.request("POST", "vcc-transactions", uuid.NewString(), accounting.Input{OrganizationID: r.OrganizationID, ParentID: card.ID, Currency: r.Currency, Amount: r.Amount, Details: r.Details, OrderID: f.order(t)}).Code)
 	require.Equal(t, 400, f.request("POST", "transfers", "", accounting.Input{OrganizationID: receipt.OrganizationID, Currency: "CNY", Amount: "1", Details: receipt.Details}).Code)
 }
 func TestAccountingOverdraftAndCurrencyIsolation(t *testing.T) {
@@ -280,7 +393,7 @@ func TestAccountingOverdraftAndCurrencyIsolation(t *testing.T) {
 	f.confirm(t, "vcc-transactions", refund)
 	require.NoError(t, integrationDB.QueryRow("SELECT released_amount::text FROM accounting_allocations WHERE card_id=$1", card.ID).Scan(&released))
 	require.Equal(t, "20.000000", released)
-	require.Equal(t, 400, f.request("POST", "vcc-transactions", uuid.NewString(), accounting.Input{OrganizationID: receipt.OrganizationID, ParentID: card.ID, Currency: "USD", Amount: "1", Details: map[string]any{"transaction_type": "REFUND", "original_transaction_id": consume.ID, "merchant": "Vendor", "provider_transaction_id": uuid.NewString()}}).Code)
+	require.Equal(t, 400, f.request("POST", "vcc-transactions", uuid.NewString(), accounting.Input{OrganizationID: receipt.OrganizationID, ParentID: card.ID, Currency: "USD", Amount: "1", Details: map[string]any{"transaction_type": "REFUND", "original_transaction_id": consume.ID, "merchant": "Vendor", "provider_transaction_id": uuid.NewString()}, OrderID: f.order(t)}).Code)
 }
 func TestAccountingOrganizationReadOnlySharingAndSecrets(t *testing.T) {
 	f := newAccountingFixture(t)
@@ -294,6 +407,15 @@ func TestAccountingOrganizationReadOnlySharingAndSecrets(t *testing.T) {
 		f.router.ServeHTTP(res, req)
 		return res
 	}
+	// Drafts and their shared proofs stay internal until the receipt is confirmed.
+	accountingData(t, f.request("PATCH", "attachments/"+file+"/sharing", uuid.NewString(), map[string]bool{"customer_visible": true}))
+	draft := read("transfers", f.desktop.user.ID)
+	require.Equal(t, 200, draft.Code)
+	require.NotContains(t, draft.Body.String(), receipt.ID)
+	require.Equal(t, 404, read("attachments/"+file+"/download-url", f.desktop.user.ID).Code)
+	require.Equal(t, 404, read("attachments?object_kind=transfers&object_id="+receipt.ID, f.desktop.user.ID).Code)
+	accountingData(t, f.request("PATCH", "attachments/"+file+"/sharing", uuid.NewString(), map[string]bool{"customer_visible": false}))
+	f.confirm(t, "transfers", receipt)
 	own := read("transfers?organization_id=forged", f.desktop.user.ID)
 	require.Equal(t, 200, own.Code)
 	require.Contains(t, own.Body.String(), receipt.ID)
@@ -356,6 +478,7 @@ func TestAccountingPaymentsAIInvoiceAndAdjustments(t *testing.T) {
 func TestAccountingAuditRollbackAndSafeRetry(t *testing.T) {
 	f := newAccountingFixture(t)
 	ctx := context.Background()
+	receivingAccountID := f.receivingAccount(t)
 	name := fmt.Sprintf("accounting_audit_fail_%d", f.desktop.user.ID)
 	_, err := integrationDB.ExecContext(ctx, fmt.Sprintf("CREATE FUNCTION %s() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.actor_id=%d THEN RAISE EXCEPTION 'test audit unavailable'; END IF; RETURN NEW; END $$; CREATE TRIGGER %s BEFORE INSERT ON accounting_audit_logs FOR EACH ROW EXECUTE FUNCTION %s()", name, f.desktop.user.ID, name, name))
 	require.NoError(t, err)
@@ -364,7 +487,7 @@ func TestAccountingAuditRollbackAndSafeRetry(t *testing.T) {
 	}
 	t.Cleanup(cleanup)
 	key := uuid.NewString()
-	in := accounting.Input{OrganizationID: f.desktop.organization.PublicID, Currency: "CNY", Amount: "100", Details: map[string]any{"payer_name": "Customer", "receiving_account": "Bank", "sales_amount": "100", "tax_inclusive": true, "tax_rate": "0", "bank_reference": uuid.NewString()}}
+	in := accounting.Input{OrganizationID: f.desktop.organization.PublicID, Currency: "CNY", Amount: "100", Details: map[string]any{"payer_name": "Customer", "receiving_account_id": receivingAccountID, "sales_amount": "100", "tax_inclusive": true, "tax_rate": "0", "bank_reference": uuid.NewString()}}
 	require.Equal(t, 500, f.request("POST", "transfers", key, in).Code)
 	var count int
 	require.NoError(t, integrationDB.QueryRow("SELECT COUNT(*) FROM accounting_transfers WHERE organization_id=$1", f.desktop.organization.ID).Scan(&count))
@@ -560,6 +683,8 @@ func TestAccountingAttachmentFailureExpiryAndSoftDeletion(t *testing.T) {
 func TestAccountingBindingReassignmentRevokesOldAccountImmediately(t *testing.T) {
 	f := newAccountingFixture(t)
 	receipt := f.transfer(t, "100")
+	f.proof(t, "transfers", receipt)
+	f.confirm(t, "transfers", receipt)
 	replacement := mustCreateUser(t, integrationEntClient, &service.User{Email: "accounting-replacement-" + uuid.NewString() + "@example.test"})
 	t.Cleanup(func() {
 		_, _ = integrationDB.Exec("UPDATE desktop_organizations SET gateway_user_id=$2 WHERE id=$1", f.desktop.organization.ID, f.desktop.user.ID)

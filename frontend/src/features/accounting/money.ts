@@ -1,4 +1,9 @@
-import type { AccountingInput, AccountingKind } from './types'
+// Exact decimal arithmetic for API amounts (strings with up to six fraction digits).
+interface TaxInput {
+  currency: string
+  amount: string
+  details: Record<string, unknown>
+}
 const scale = 1_000_000n
 function units(raw: string): bigint {
   if (!/^-?\d+(\.\d{0,6})?$/.test(raw)) throw new Error('amount')
@@ -22,6 +27,21 @@ export function subtractMoney(a: string, b: string) {
     return ''
   }
 }
+export function addMoney(a: string, b: string) {
+  try {
+    return value(units(a) + units(b))
+  } catch {
+    return ''
+  }
+}
+export function compareMoney(a: string, b: string) {
+  try {
+    const difference = units(a) - units(b)
+    return difference > 0n ? 1 : difference < 0n ? -1 : 0
+  } catch {
+    return 0
+  }
+}
 export function positiveMoney(raw: unknown) {
   try {
     return units(String(raw)) > 0n
@@ -29,7 +49,7 @@ export function positiveMoney(raw: unknown) {
     return false
   }
 }
-export function taxPreview(input: AccountingInput) {
+export function taxPreview(input: TaxInput) {
   try {
     const sales = units(String(input.details.sales_amount)),
       rate = units(String(input.details.tax_rate))
@@ -50,44 +70,9 @@ export function taxPreview(input: AccountingInput) {
       tax: value(tax),
       net: value(net),
       receivable: value(receivable),
-      difference: subtractMoney(input.amount, value(receivable)),
+      difference: subtractMoney(String(input.amount), value(receivable)),
     }
   } catch {
     return null
   }
-}
-export const requiredFields: Partial<Record<AccountingKind, string[]>> = {
-  transfers: [
-    'payer_name',
-    'receiving_account',
-    'sales_amount',
-    'tax_rate',
-    'bank_reference',
-  ],
-  'vcc-cards': ['provider', 'alias'],
-  'vcc-transactions': ['merchant', 'provider_transaction_id'],
-  contracts: ['name', 'contract_number', 'party_name'],
-  invoices: [
-    'invoice_code',
-    'invoice_number',
-    'issuer_name',
-    'recipient_name',
-    'net_amount',
-    'tax_amount',
-  ],
-  'vendor-invoices': ['vendor', 'period_start', 'period_end'],
-  expenses: ['category', 'supplier', 'payment_account'],
-  'expense-payments': [
-    'payment_account',
-    'transaction_number',
-    'proof_attachment_id',
-  ],
-  receivables: ['name', 'reference', 'due_date'],
-  'fx-exchanges': [
-    'target_currency',
-    'target_amount',
-    'exchange_rate',
-    'fee_amount',
-    'reference',
-  ],
 }

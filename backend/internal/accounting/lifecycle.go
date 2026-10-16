@@ -72,7 +72,7 @@ func (e *Engine) Confirm(ctx context.Context, tx *sql.Tx, kind string, r *Record
 		}
 		r.Status = "CONFIRMED"
 	case "vcc-transactions":
-		if err := e.checkRelations(ctx, tx, kind, r); err != nil {
+		if err := e.checkRelations(ctx, tx, kind, r, r); err != nil {
 			return err
 		}
 		if err := e.requireVendorInvoice(ctx, tx, r); err != nil {
@@ -104,9 +104,11 @@ func (e *Engine) Confirm(ctx context.Context, tx *sql.Tx, kind string, r *Record
 		if err := rebalanceFunding(ctx, tx, r.ParentID); err != nil {
 			return err
 		}
-		return settleClosedCard(ctx, tx, r.ParentID)
+		if err := settleClosedCard(ctx, tx, r.ParentID); err != nil {
+			return err
+		}
 	}
-	return nil
+	return e.afterOrderChange(ctx, tx, kind, r, actor)
 }
 func (e *Engine) Void(ctx context.Context, tx *sql.Tx, kind string, r *Record, reason string, actor int64) error {
 	if reason == "" {
@@ -288,7 +290,7 @@ func (e *Engine) Adjust(ctx context.Context, tx *sql.Tx, kind string, r *Record,
 	var used decimal.Decimal
 	switch kind {
 	case "transfers":
-		if detail(r, "funding_type") == "FX" {
+		if internalFunding(r) {
 			return nil, ErrState
 		}
 		used, err = transferCommitted(ctx, tx, r.ID)

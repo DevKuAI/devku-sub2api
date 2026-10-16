@@ -12,6 +12,7 @@ type Allocation struct {
 	ID           string `json:"id"`
 	CardName     string `json:"card_name,omitempty"`
 	TransferName string `json:"transfer_name,omitempty"`
+	FundingType  string `json:"funding_type,omitempty"`
 	TransferID   string `json:"transfer_id"`
 	CardID       string `json:"card_id"`
 	Amount       string `json:"amount"`
@@ -53,6 +54,12 @@ func allocations(ctx context.Context, q dbQuery, card string) ([]Allocation, err
 }
 func dec(raw string) decimal.Decimal { d, _ := decimal.NewFromString(raw); return d }
 func (e *Engine) Allocate(ctx context.Context, tx *sql.Tx, transfer *Record, cardID, raw string, actor int64) (*Allocation, error) {
+	return e.allocate(ctx, tx, transfer, cardID, raw, actor, true)
+}
+
+// allocate funds a card from a transfer. external=false is for funding that already happened at the
+// provider (card top-ups, spend recorded in an order), so no provider confirmation is queued.
+func (e *Engine) allocate(ctx context.Context, tx *sql.Tx, transfer *Record, cardID, raw string, actor int64, external bool) (*Allocation, error) {
 	if transfer.Status != "RECEIVED" {
 		return nil, ErrState
 	}
@@ -88,6 +95,9 @@ func (e *Engine) Allocate(ctx context.Context, tx *sql.Tx, transfer *Record, car
 	}
 	if err = coverOverdraft(ctx, tx, a); err != nil {
 		return nil, err
+	}
+	if !external {
+		return a, nil
 	}
 	event := *transfer
 	event.ID = a.ID

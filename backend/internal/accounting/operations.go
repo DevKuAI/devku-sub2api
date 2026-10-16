@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/google/uuid"
@@ -16,6 +17,7 @@ import (
 type Operation struct {
 	Actor     int64
 	Org       int64
+	Global    bool
 	Kind      string
 	Object    string
 	Action    string
@@ -61,43 +63,49 @@ func (e *Engine) write(ctx context.Context, op Operation, fn func(*sql.Tx) (any,
 	if err != sql.ErrNoRows {
 		return nil, false, err
 	}
-	var org int64
-	err = tx.QueryRowContext(ctx, "SELECT id FROM desktop_organizations WHERE id=$1 AND deleted_at IS NULL FOR UPDATE", op.Org).Scan(&org)
-	if err == sql.ErrNoRows {
-		return nil, false, ErrNotFound
-	}
-	if err != nil {
-		return nil, false, err
-	}
-	date, err := operationDate(ctx, tx, op)
-	if err != nil {
-		return nil, false, err
-	}
-	if err = protectPeriod(ctx, tx, op, date); err != nil {
-		return nil, false, err
-	}
-	beforePositions, err := currentPositions(ctx, tx, op.Org)
-	if err != nil {
-		return nil, false, err
-	}
-	if err = ensurePositionBaseline(ctx, tx, op.Org, beforePositions); err != nil {
-		return nil, false, err
-	}
-	before := map[string]any{}
-	if _, ok := specs[op.Kind]; ok && op.Object != "" {
-		if r, readErr := get(ctx, tx, op.Kind, op.Object, op.Org, false); readErr == nil {
-			before = map[string]any{"amount": r.Amount, "currency": r.Currency, "status": r.Status, "version": r.Version}
+	if !op.Global {
+		var org int64
+		err = tx.QueryRowContext(ctx, "SELECT id FROM desktop_organizations WHERE id=$1 AND deleted_at IS NULL FOR UPDATE", op.Org).Scan(&org)
+		if err == sql.ErrNoRows {
+			return nil, false, ErrNotFound
+		}
+		if err != nil {
+			return nil, false, err
 		}
 	}
-	if fields, ok := specs[op.Kind]; ok && op.Object != "" {
-		if r, readErr := get(ctx, tx, op.Kind, op.Object, op.Org, false); readErr == nil {
-			before["fields"] = auditFields(r, fields.fields)
-			if op.Kind == "transfers" || op.Kind == "expenses" || op.Kind == "receivables" {
-				v, valueErr := effective(ctx, tx, op.Kind, r)
-				if valueErr != nil {
-					return nil, false, valueErr
+	date := time.Time{}
+	beforePositions := map[string]Position{}
+	before := map[string]any{}
+	if !op.Global {
+		date, err = operationDate(ctx, tx, op)
+		if err != nil {
+			return nil, false, err
+		}
+		if err = protectPeriod(ctx, tx, op, date); err != nil {
+			return nil, false, err
+		}
+		beforePositions, err = currentPositions(ctx, tx, op.Org)
+		if err != nil {
+			return nil, false, err
+		}
+		if err = ensurePositionBaseline(ctx, tx, op.Org, beforePositions); err != nil {
+			return nil, false, err
+		}
+		if _, ok := specs[op.Kind]; ok && op.Object != "" {
+			if r, readErr := get(ctx, tx, op.Kind, op.Object, op.Org, false); readErr == nil {
+				before = map[string]any{"amount": r.Amount, "currency": r.Currency, "status": r.Status, "version": r.Version}
+			}
+		}
+		if fields, ok := specs[op.Kind]; ok && op.Object != "" {
+			if r, readErr := get(ctx, tx, op.Kind, op.Object, op.Org, false); readErr == nil {
+				before["fields"] = auditFields(r, fields.fields)
+				if op.Kind == "transfers" || op.Kind == "expenses" || op.Kind == "receivables" {
+					v, valueErr := effective(ctx, tx, op.Kind, r)
+					if valueErr != nil {
+						return nil, false, valueErr
+					}
+					before["effective_amount"] = v.String()
 				}
-				before["effective_amount"] = v.String()
 			}
 		}
 	}
@@ -105,12 +113,14 @@ func (e *Engine) write(ctx context.Context, op Operation, fn func(*sql.Tx) (any,
 	if err != nil {
 		return nil, false, translate(err)
 	}
-	afterPositions, err := currentPositions(ctx, tx, op.Org)
-	if err != nil {
-		return nil, false, err
-	}
-	if err = recordPositionChanges(ctx, tx, op, date, beforePositions, afterPositions); err != nil {
-		return nil, false, err
+	if !op.Global {
+		afterPositions, positionErr := currentPositions(ctx, tx, op.Org)
+		if positionErr != nil {
+			return nil, false, positionErr
+		}
+		if err = recordPositionChanges(ctx, tx, op, date, beforePositions, afterPositions); err != nil {
+			return nil, false, err
+		}
 	}
 	encoded, err := json.Marshal(output)
 	if err != nil {
@@ -133,22 +143,24 @@ func (e *Engine) write(ctx context.Context, op Operation, fn func(*sql.Tx) (any,
 			object = nested.Attachment.ID
 		}
 	}
-	summary := operationAudit(encoded, op, before)
-	if fields, ok := specs[op.Kind]; ok && op.Object != "" {
-		if r, readErr := get(ctx, tx, op.Kind, op.Object, op.Org, false); readErr == nil {
-			after := map[string]any{"status": r.Status, "amount": r.Amount, "currency": r.Currency, "fields": auditFields(r, fields.fields)}
-			if op.Kind == "transfers" || op.Kind == "expenses" || op.Kind == "receivables" {
-				v, valueErr := effective(ctx, tx, op.Kind, r)
-				if valueErr != nil {
-					return nil, false, valueErr
+	if !op.Global {
+		summary := operationAudit(encoded, op, before)
+		if fields, ok := specs[op.Kind]; ok && op.Object != "" {
+			if r, readErr := get(ctx, tx, op.Kind, op.Object, op.Org, false); readErr == nil {
+				after := map[string]any{"status": r.Status, "amount": r.Amount, "currency": r.Currency, "fields": auditFields(r, fields.fields)}
+				if op.Kind == "transfers" || op.Kind == "expenses" || op.Kind == "receivables" {
+					v, valueErr := effective(ctx, tx, op.Kind, r)
+					if valueErr != nil {
+						return nil, false, valueErr
+					}
+					after["effective_amount"] = v.String()
 				}
-				after["effective_amount"] = v.String()
+				summary["after"] = after
 			}
-			summary["after"] = after
 		}
-	}
-	if err = audit(ctx, tx, op.Org, op.Kind, object, op.Action, op.Actor, op.RequestID, summary); err != nil {
-		return nil, false, err
+		if err = audit(ctx, tx, op.Org, op.Kind, object, op.Action, op.Actor, op.RequestID, summary); err != nil {
+			return nil, false, err
+		}
 	}
 	_, err = tx.ExecContext(ctx, "INSERT INTO accounting_operation_results(actor_id,operation,key_hash,fingerprint,response) VALUES($1,$2,$3,$4,$5)", op.Actor, operation, hash([]byte(key)), fingerprint, encoded)
 	if err != nil {

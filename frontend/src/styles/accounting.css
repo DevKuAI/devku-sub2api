@@ -1,156 +1,106 @@
-.accounting-workspace {
-  container: accounting / inline-size;
+.accounting-back {
+  @apply mb-1 inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-950 dark:text-dark-200 dark:hover:text-white;
 }
-.accounting-filters {
-  @apply flex min-w-0 flex-wrap items-end gap-3 p-4;
+.accounting-section-title {
+  @apply text-base font-semibold text-gray-950 dark:text-white;
 }
-.accounting-filters > label {
-  min-width: 0;
-  flex: 1 1 10rem;
+.accounting-link {
+  @apply font-medium text-primary-600 hover:underline dark:text-primary-400;
 }
-.accounting-filters .input {
-  width: 100%;
+.accounting-error {
+  @apply rounded-lg border border-red-200 bg-red-50 p-3 text-sm leading-relaxed text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-200;
 }
-.accounting-context {
-  @apply flex min-w-0 flex-col gap-1 rounded-xl bg-gray-50 p-4 text-sm text-gray-700 dark:bg-dark-800 dark:text-dark-200;
-  overflow-wrap: anywhere;
+.accounting-warning {
+  @apply rounded-lg bg-amber-50 p-3 text-sm leading-relaxed text-amber-800 dark:bg-amber-950/40 dark:text-amber-200;
 }
-.accounting-mobile-navigation {
-  display: block;
-  padding: 16px;
+.accounting-optional {
+  @apply ms-1.5 text-xs font-normal text-gray-400;
 }
-.accounting-navigation {
-  display: none;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 16px;
-  padding: 16px;
+.accounting-field-hint {
+  @apply mt-1.5 text-xs leading-5 text-gray-500 dark:text-dark-300;
 }
-.accounting-nav-label {
-  @apply mb-2 text-xs font-medium text-gray-500 dark:text-dark-300;
+.accounting-field-warning {
+  @apply mt-1 text-sm text-amber-800 dark:text-amber-200;
 }
-.accounting-tab {
-  @apply min-w-0 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 dark:text-dark-300;
-  min-height: 40px;
-  text-align: start;
-  overflow-wrap: anywhere;
+.accounting-snapshot {
+  @apply rounded-lg bg-gray-50 p-3 text-sm dark:bg-dark-800;
 }
-.accounting-tab[aria-selected='true'] {
-  @apply bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-200;
+
+/* Workspace navigation: top-level sections plus a segmented control for record types. */
+.accounting-tabs {
+  @apply flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-dark-700;
 }
-.accounting-record-heading {
-  @apply flex min-w-0 flex-wrap items-start justify-between gap-4;
+.accounting-tabs > button {
+  @apply -mb-px whitespace-nowrap border-b-2 border-transparent px-3 py-2.5 text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-dark-300 dark:hover:text-white;
 }
-.accounting-record-table {
-  max-width: 100%;
-  overflow-x: auto;
+.accounting-tabs > button[aria-selected='true'] {
+  @apply border-primary-600 text-primary-700 dark:text-primary-300;
 }
-.accounting-record-table table {
-  min-width: 40rem;
+.accounting-segmented {
+  @apply inline-flex max-w-full flex-wrap gap-1 rounded-lg bg-gray-100 p-1 dark:bg-dark-800;
 }
-.accounting-workspace
-  :where(button, a, input, select, textarea, [tabindex]):focus-visible,
-.accounting-action-dialog
-  :where(button, a, input, select, textarea, [tabindex]):focus-visible {
-  outline: 2px solid theme('colors.primary.600');
-  outline-offset: 2px;
+.accounting-segmented > button {
+  @apply rounded-md px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-60 dark:text-dark-300 dark:hover:text-white;
 }
-.accounting-form {
-  display: flex;
-  flex-direction: column;
-  gap: 28px;
-  min-width: 0;
+.accounting-segmented > button[aria-pressed='true'] {
+  @apply bg-white text-gray-950 shadow-sm dark:bg-dark-600 dark:text-white;
 }
-.accounting-action-dialog .modal-body {
-  container: accounting-form / inline-size;
-  min-width: 0;
+.accounting-chip {
+  @apply inline-flex min-h-8 items-center gap-1 rounded-full border border-gray-200 px-3 text-xs font-medium text-gray-600 hover:border-gray-300 dark:border-dark-600 dark:text-dark-200;
 }
-.accounting-form-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 16px;
-}
-.accounting-fieldset {
-  min-width: 0;
-}
-.accounting-fieldset legend {
-  @apply mb-4 text-base font-semibold text-gray-900 dark:text-gray-100;
-}
-.accounting-form-hint {
-  @apply mb-4 text-sm leading-relaxed text-gray-500 dark:text-dark-300;
-}
-.accounting-boolean {
-  @apply flex items-center justify-between gap-4 rounded-lg bg-gray-50 p-3 dark:bg-dark-800;
-}
-.accounting-boolean .input-label {
-  margin: 0;
-}
-.accounting-boolean input {
-  margin: 0;
-  flex-shrink: 0;
-}
-.accounting-upload {
-  @apply rounded-xl border border-dashed border-gray-300 p-4 dark:border-dark-600;
-}
-.accounting-upload input {
-  max-width: 100%;
-}
-@container accounting (min-width: 40rem) {
-  .accounting-mobile-navigation {
-    display: none;
-  }
-  .accounting-navigation {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-@container accounting (min-width: 64rem) {
-  .accounting-navigation {
-    grid-template-columns: minmax(0, 0.65fr) repeat(3, minmax(0, 1fr));
-  }
-}
-@container accounting-form (min-width: 32rem) {
-  .accounting-form-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .accounting-field-wide {
-    grid-column: 1 / -1;
-  }
+.accounting-chip[aria-pressed='true'] {
+  @apply border-primary-500 bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-200;
 }
 @media (forced-colors: active) {
-  .accounting-tab[aria-selected='true'] {
-    border: 1px solid Highlight;
+  .accounting-tabs > button[aria-selected='true'],
+  .accounting-segmented > button[aria-pressed='true'],
+  .accounting-chip[aria-pressed='true'] {
+    outline: 2px solid Highlight;
   }
 }
 
-.accounting-action-dialog .input {
-  min-width: 0;
-  max-width: 100%;
+.accounting-toolbar {
+  @apply flex flex-wrap items-center justify-between gap-3;
 }
-.accounting-fieldset legend {
-  max-width: 100%;
-  overflow-wrap: anywhere;
+.accounting-filters {
+  @apply flex min-w-0 flex-1 flex-wrap items-center gap-2;
 }
-@container accounting-form (max-width: 31.99rem) {
-  .accounting-form .input {
-    font-size: 16px;
-  }
+.accounting-filters .input {
+  @apply w-auto;
 }
 
-.accounting-error {
-  @apply rounded-xl bg-red-50 p-4 text-sm leading-relaxed text-red-800 dark:bg-red-950 dark:text-red-200;
+.accounting-fields {
+  @apply grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3;
 }
-.accounting-table-region {
-  max-width: 100%;
-  overflow-x: auto;
+.accounting-fields dt {
+  @apply text-xs text-gray-500 dark:text-dark-300;
 }
-.accounting-table-region table {
-  min-width: 36rem;
+.accounting-fields dd {
+  @apply mt-1 break-words text-sm text-gray-900 dark:text-white;
 }
-.accounting-table-region th,
-.accounting-table-region td {
-  @apply border-b border-gray-200 p-3 dark:border-dark-600;
+.accounting-preview {
+  @apply mt-3 grid gap-3 rounded-lg bg-gray-50 p-3 sm:grid-cols-3 dark:bg-dark-800;
 }
-.accounting-workspace [aria-invalid='true'],
-.accounting-action-dialog [aria-invalid='true'] {
-  @apply border-red-500;
+.accounting-preview dt {
+  @apply text-xs text-gray-500 dark:text-dark-300;
+}
+.accounting-preview dd {
+  @apply mt-0.5 font-medium tabular-nums;
+}
+
+.accounting-table {
+  @apply w-full min-w-[36rem] text-start text-sm;
+}
+.accounting-table th {
+  @apply border-b border-gray-200 px-4 py-2.5 text-start text-xs font-medium text-gray-500 dark:border-dark-700 dark:text-dark-300;
+}
+.accounting-table td {
+  @apply border-b border-gray-100 px-4 py-3 align-top last:border-b-0 dark:border-dark-800;
+}
+.accounting-table tbody tr:last-child td {
+  @apply border-b-0;
+}
+.accounting-table th.text-right,
+.accounting-table td.text-right {
+  text-align: end;
 }

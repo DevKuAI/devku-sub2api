@@ -206,7 +206,7 @@ func (h *Handler) trend(c *gin.Context) {
 	if response.ErrorFrom(c, err) {
 		return
 	}
-	rows, err := h.engine.db.QueryContext(c.Request.Context(), "SELECT to_char(r.occurred_at AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD'),r.currency,SUM(r.amount+COALESCE((SELECT SUM(a.amount) FROM accounting_adjustments a WHERE a.object_kind='transfers' AND a.object_id=r.id),0))::text FROM accounting_transfers r JOIN desktop_organizations o ON o.id=r.organization_id WHERE "+where+" AND COALESCE(r.details->>'funding_type','')<>'FX' GROUP BY 1,2 ORDER BY 1,2", args...)
+	rows, err := h.engine.db.QueryContext(c.Request.Context(), "SELECT to_char(r.occurred_at AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD'),r.currency,SUM(r.amount+COALESCE((SELECT SUM(a.amount) FROM accounting_adjustments a WHERE a.object_kind='transfers' AND a.object_id=r.id),0))::text FROM accounting_transfers r JOIN desktop_organizations o ON o.id=r.organization_id WHERE "+where+" AND COALESCE(r.details->>'funding_type','')='' GROUP BY 1,2 ORDER BY 1,2", args...)
 	if response.ErrorFrom(c, err) {
 		return
 	}

@@ -83,6 +83,10 @@
         </div>
       </section>
 
+      <section v-else-if="organization && activeTab === 'business'" :id="panelId('business')" class="min-w-0" tabindex="0" role="tabpanel" :aria-labelledby="tabId('business')">
+        <DesktopOrganizationBusiness :organization-id="organizationID" />
+      </section>
+
       <section v-else-if="organization && activeTab === 'usage'" :id="panelId('usage')" class="min-w-0 space-y-6" tabindex="0" role="tabpanel" :aria-labelledby="tabId('usage')">
         <DesktopAnalyticsRangePicker v-model="analyticsRange" />
         <DesktopOrganizationUsageStatistics v-if="organization" :organization-id="organizationID" :self-managed="selfManaged" :range="analyticsRange" view="insights" />
@@ -362,13 +366,14 @@ import DesktopConversationStatistics from '@/components/desktop/DesktopConversat
 import DesktopAnalyticsRangePicker from '@/components/desktop/DesktopAnalyticsRangePicker.vue'
 import DesktopOrganizationUsageStatistics from '@/components/desktop/DesktopOrganizationUsageStatistics.vue'
 import DesktopMemberImportDialog from '@/components/desktop/DesktopMemberImportDialog.vue'
+import DesktopOrganizationBusiness from '@/components/desktop/DesktopOrganizationBusiness.vue'
 import type { DesktopAnalyticsRange } from '@/api/desktopOrganizationUsage'
 import DesktopPeriodReports from '@/components/desktop/DesktopPeriodReports.vue'
 import BIGrantManagement from '@/components/bi/BIGrantManagement.vue'
 import { biDate } from '@/components/bi/display'
 import '@/styles/desktopDetail.css'
 
-type DetailTab = 'overview' | 'usage' | 'members' | 'configuration' | 'conversations' | 'grants' | 'reports'
+type DetailTab = 'overview' | 'business' | 'usage' | 'members' | 'configuration' | 'conversations' | 'grants' | 'reports'
 const { selfManaged = false } = defineProps<{ selfManaged?: boolean }>()
 const { t, te } = useI18n()
 const route = useRoute()
@@ -393,9 +398,11 @@ const canViewConversations = computed(() => !selfManaged || organization.value?.
 const unfilteredConversationFilters = {}
 const analyticsRange = ref<DesktopAnalyticsRange>({ days: 30 })
 const tabScroll = ref<HTMLElement>()
-const tabIcons = { overview: 'infoCircle', usage: 'chartBar', members: 'users', configuration: 'cog', conversations: 'chat', reports: 'document', grants: 'shield' } as const
+const tabIcons = { overview: 'infoCircle', business: 'document', usage: 'chartBar', members: 'users', configuration: 'cog', conversations: 'chat', reports: 'document', grants: 'shield' } as const
 const tabs = computed(() => {
-  const result: { value: DetailTab; label: string }[] = [{ value: 'overview', label: t('admin.desktop.detail.organizationInfo') }, { value: 'usage', label: t('admin.desktop.usageStatistics.tab') }, { value: 'members', label: t('admin.desktop.members') }, { value: 'configuration', label: t('admin.desktop.configuration') }]
+  const result: { value: DetailTab; label: string }[] = [{ value: 'overview', label: t('admin.desktop.detail.organizationInfo') }]
+  if (!selfManaged) result.push({ value: 'business', label: t('admin.desktop.business.title') })
+  result.push({ value: 'usage', label: t('admin.desktop.usageStatistics.tab') }, { value: 'members', label: t('admin.desktop.members') }, { value: 'configuration', label: t('admin.desktop.configuration') })
   if (canViewConversations.value) result.push({ value: 'conversations', label: t('admin.desktop.conversations.title') })
   if (!selfManaged || organization.value?.conversation_summary_enabled) result.push({ value: 'reports', label: t('admin.desktop.reports.title') })
   result.push({ value: 'grants', label: t('biNative.users') })

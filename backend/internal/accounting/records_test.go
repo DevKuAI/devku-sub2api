@@ -41,6 +41,13 @@ func TestTaxCalculationAndCurrencyPrecision(t *testing.T) {
 	_, err = number("1.1", "JPY", true)
 	require.Error(t, err)
 }
+func TestTransferPreservesContractReference(t *testing.T) {
+	in := transferInput("100", "100", "0.06", true)
+	in.Details["contract_id"] = "13c6bcf6-14e7-4e49-8a24-27e83af7e643"
+	r, err := prepare("transfers", in, nil)
+	require.NoError(t, err)
+	require.Equal(t, in.Details["contract_id"], r.Details["contract_id"])
+}
 func TestPublicDTOAndQueryWhitelist(t *testing.T) {
 	r := &Record{Details: map[string]any{"sales_amount": "100", "receiving_account": "hidden", "remark": "private", "provider_token": "secret"}, Amount: "100"}
 	body, err := json.Marshal(r.Public("transfers"))
@@ -53,6 +60,22 @@ func TestPublicDTOAndQueryWhitelist(t *testing.T) {
 	require.NotContains(t, columns, "receiving_account")
 	require.NotContains(t, columns, "r.details,")
 	require.NotContains(t, customerColumns("vcc-cards"), "provider")
+}
+func TestCustomerSeesOnlyFinalRecordStates(t *testing.T) {
+	for kind, states := range map[string]map[string]bool{
+		"transfers":        {"DRAFT": false, "RECEIVED": true, "VOID": false},
+		"vcc-cards":        {"ACTIVE": true, "CLOSED": true},
+		"vcc-transactions": {"DRAFT": false, "CONFIRMED": true, "VOID": false},
+		"contracts":        {"DRAFT": false, "SIGNED": true, "EXPIRED": true, "VOID": false},
+		"invoices":         {"DRAFT": false, "VERIFIED": true, "VOID": false},
+		"expenses":         {"PAID": false},
+	} {
+		for status, visible := range states {
+			require.Equal(t, visible, customerVisibleStatus(kind, status), "%s %s", kind, status)
+		}
+	}
+	require.Equal(t, " AND r.status IN ('RECEIVED')", customerStatusClause("transfers"))
+	require.Equal(t, " AND FALSE", customerStatusClause("expenses"))
 }
 func TestAccountingRoutesRejectUnprivilegedUsersAndExposeNoOrganizationWrites(t *testing.T) {
 	gin.SetMode(gin.TestMode)

@@ -1,6 +1,7 @@
 package accounting
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"strings"
@@ -33,6 +34,7 @@ type workflowInput struct {
 }
 
 func (h *Handler) registerWorkflows(g *gin.RouterGroup) {
+	h.registerOrders(g)
 	g.GET("/workbench", h.workbench)
 	g.GET("/activity/:kind/:id", h.activity)
 	g.GET("/related/:kind/:id", h.related)
@@ -111,7 +113,7 @@ func (h *Handler) settleReceipt(c *gin.Context) {
 		if err != nil {
 			return nil, err
 		}
-		if receipt.Status != "RECEIVED" || detail(receipt, "funding_type") == "FX" {
+		if receipt.Status != "RECEIVED" || internalFunding(receipt) {
 			return nil, ErrState
 		}
 		if receipt.Currency != current.Currency {
@@ -200,103 +202,114 @@ func (h *Handler) allocateCost(c *gin.Context) {
 		return
 	}
 	h.run(c, Operation{Org: org, Kind: "cost-allocations", Action: "create", Payload: in}, func(tx *sql.Tx) (any, error) {
-		invoice, err := get(c.Request.Context(), tx, "vendor-invoices", in.InvoiceID, org, true)
-		if err != nil {
-			return nil, err
-		}
-		if invoice.Status != "CONFIRMED" {
-			return nil, ErrState
-		}
-		if in.SourceKind != "expenses" && in.SourceKind != "vcc-transactions" {
-			return nil, invalid("source_kind")
-		}
-		source, err := get(c.Request.Context(), tx, in.SourceKind, in.SourceID, org, true)
-		if err != nil {
-			return nil, err
-		}
-		if source.Status == "DRAFT" || source.Status == "VOID" {
-			return nil, ErrState
-		}
+		return h.engine.allocateCost(c.Request.Context(), tx, org, in, actor(c))
+	})
+}
 
-		identity := in.SourceKind + ":" + source.ID
-		limit, err := effective(c.Request.Context(), tx, in.SourceKind, source)
+// costSource resolves the cost identity behind a source and how much of it can still be allocated.
+func costSource(ctx context.Context, tx dbQuery, org int64, sourceKind string, source *Record) (string, decimal.Decimal, error) {
+	identity := sourceKind + ":" + source.ID
+	limit, err := effective(ctx, tx, sourceKind, source)
+	if err != nil {
+		return "", decimal.Zero, err
+	}
+	if sourceKind == "vcc-transactions" && isCredit(source) {
+		return "", decimal.Zero, ErrState
+	}
+	if sourceKind == "expenses" && detail(source, "transaction_id") != "" {
+		linked, lookupErr := get(ctx, tx, "vcc-transactions", detail(source, "transaction_id"), org, true)
+		if lookupErr != nil {
+			return "", decimal.Zero, lookupErr
+		}
+		if linked.Status != "CONFIRMED" || isCredit(linked) || linked.Currency != source.Currency {
+			return "", decimal.Zero, ErrState
+		}
+		identity = "vcc-transactions:" + linked.ID
+		limit = amount(linked)
+	}
+	if strings.HasPrefix(identity, "vcc-transactions:") {
+		refunded, refundErr := sum(ctx, tx, "SELECT COALESCE(SUM(amount),0)::text FROM accounting_vcc_transactions WHERE details->>'original_transaction_id'=$1 AND status='CONFIRMED' AND (details->>'transaction_type'='REFUND' OR (details->>'transaction_type'='ADJUSTMENT' AND details->>'direction'='CREDIT'))", identity[len("vcc-transactions:"):])
+		if refundErr != nil {
+			return "", decimal.Zero, refundErr
+		}
+		limit = limit.Sub(refunded)
+	}
+	return identity, limit, nil
+}
+
+func (e *Engine) allocateCost(ctx context.Context, tx *sql.Tx, org int64, in workflowInput, actorID int64) (gin.H, error) {
+	invoice, err := get(ctx, tx, "vendor-invoices", in.InvoiceID, org, true)
+	if err != nil {
+		return nil, err
+	}
+	if invoice.Status != "CONFIRMED" {
+		return nil, ErrState
+	}
+	if in.SourceKind != "expenses" && in.SourceKind != "vcc-transactions" {
+		return nil, invalid("source_kind")
+	}
+	source, err := get(ctx, tx, in.SourceKind, in.SourceID, org, true)
+	if err != nil {
+		return nil, err
+	}
+	if source.Status == "DRAFT" || source.Status == "VOID" {
+		return nil, ErrState
+	}
+	identity, limit, err := costSource(ctx, tx, org, in.SourceKind, source)
+	if err != nil {
+		return nil, err
+	}
+	value, err := number(in.Amount, invoice.Currency, true)
+	if err != nil {
+		return nil, err
+	}
+	sourceValue := value
+	rate := decimal.NewFromInt(1)
+	if source.Currency != invoice.Currency {
+		sourceValue, err = number(in.SourceAmount, source.Currency, true)
 		if err != nil {
-			return nil, err
-		}
-		if in.SourceKind == "vcc-transactions" && isCredit(source) {
-			return nil, ErrState
-		}
-		if in.SourceKind == "expenses" && detail(source, "transaction_id") != "" {
-			linked, lookupErr := get(c.Request.Context(), tx, "vcc-transactions", detail(source, "transaction_id"), org, true)
-			if lookupErr != nil {
-				return nil, lookupErr
-			}
-			if linked.Status != "CONFIRMED" || isCredit(linked) || linked.Currency != source.Currency {
-				return nil, ErrState
-			}
-			identity = "vcc-transactions:" + linked.ID
-			limit = amount(linked)
-		}
-		if strings.HasPrefix(identity, "vcc-transactions:") {
-			refunded, refundErr := sum(c.Request.Context(), tx, "SELECT COALESCE(SUM(amount),0)::text FROM accounting_vcc_transactions WHERE details->>'original_transaction_id'=$1 AND status='CONFIRMED' AND (details->>'transaction_type'='REFUND' OR (details->>'transaction_type'='ADJUSTMENT' AND details->>'direction'='CREDIT'))", identity[len("vcc-transactions:"):])
-			if refundErr != nil {
-				return nil, refundErr
-			}
-			limit = limit.Sub(refunded)
-		}
-		value, err := number(in.Amount, invoice.Currency, true)
-		if err != nil {
-			return nil, err
-		}
-		sourceValue := value
-		rate := decimal.NewFromInt(1)
-		if source.Currency != invoice.Currency {
-			sourceValue, err = number(in.SourceAmount, source.Currency, true)
-			if err != nil {
-				return nil, invalid("source_amount")
-			}
-			rate, err = parseRate(in.ExchangeRate)
-			if err != nil {
-				return nil, invalid("exchange_rate")
-			}
-			if !sourceValue.Mul(rate).Round(int32(payment.CurrencyMaxFractionDigits(invoice.Currency))).Equal(value) {
-				return nil, invalid("source_amount")
-			}
-		} else if in.SourceAmount != "" && !dec(in.SourceAmount).Equal(value) {
 			return nil, invalid("source_amount")
 		}
+		rate, err = parseRate(in.ExchangeRate)
+		if err != nil {
+			return nil, invalid("exchange_rate")
+		}
+		if !sourceValue.Mul(rate).Round(int32(payment.CurrencyMaxFractionDigits(invoice.Currency))).Equal(value) {
+			return nil, invalid("source_amount")
+		}
+	} else if in.SourceAmount != "" && !dec(in.SourceAmount).Equal(value) {
+		return nil, invalid("source_amount")
+	}
 
-		used, err := sum(c.Request.Context(), tx, "SELECT COALESCE(SUM(amount),0)::text FROM accounting_cost_allocations WHERE invoice_id=$1 AND status='ACTIVE'", invoice.ID)
-		if err != nil {
-			return nil, err
-		}
-		occupied, err := sum(c.Request.Context(), tx, "SELECT COALESCE(SUM(source_amount),0)::text FROM accounting_cost_allocations WHERE cost_identity=$1 AND status='ACTIVE'", identity)
-		if err != nil {
-			return nil, err
-		}
-
-		own, err := sum(c.Request.Context(), tx, "SELECT COALESCE(SUM(source_amount),0)::text FROM accounting_cost_allocations WHERE source_kind=$1 AND source_id=$2 AND status='ACTIVE'", in.SourceKind, source.ID)
-		if err != nil {
-			return nil, err
-		}
-		ownLimit, err := effective(c.Request.Context(), tx, in.SourceKind, source)
-		if err != nil {
-			return nil, err
-		}
-		if own.Add(sourceValue).GreaterThan(ownLimit) {
-			return nil, ErrAmount
-		}
-		if used.Add(value).GreaterThan(amount(invoice)) || occupied.Add(sourceValue).GreaterThan(limit) {
-			return nil, ErrAmount
-		}
-		occurred, err := workflowTime(in.OccurredAt)
-		if err != nil {
-			return nil, err
-		}
-		id := uuid.NewString()
-		_, err = tx.ExecContext(c.Request.Context(), `INSERT INTO accounting_cost_allocations(id,organization_id,invoice_id,source_kind,source_id,cost_identity,amount,currency,status,occurred_at,created_by,source_amount,source_currency,exchange_rate) VALUES($1,$2,$3,$4,$5,$6,$7,$8,'ACTIVE',$9,$10,$11,$12,$13)`, id, org, invoice.ID, in.SourceKind, source.ID, identity, value.String(), invoice.Currency, occurred, actor(c), sourceValue.String(), source.Currency, rate.String())
-		return gin.H{"id": id, "amount": value.String(), "cost_identity": identity, "status": "ACTIVE"}, err
-	})
+	used, err := sum(ctx, tx, "SELECT COALESCE(SUM(amount),0)::text FROM accounting_cost_allocations WHERE invoice_id=$1 AND status='ACTIVE'", invoice.ID)
+	if err != nil {
+		return nil, err
+	}
+	occupied, err := sum(ctx, tx, "SELECT COALESCE(SUM(source_amount),0)::text FROM accounting_cost_allocations WHERE cost_identity=$1 AND status='ACTIVE'", identity)
+	if err != nil {
+		return nil, err
+	}
+	own, err := sum(ctx, tx, "SELECT COALESCE(SUM(source_amount),0)::text FROM accounting_cost_allocations WHERE source_kind=$1 AND source_id=$2 AND status='ACTIVE'", in.SourceKind, source.ID)
+	if err != nil {
+		return nil, err
+	}
+	ownLimit, err := effective(ctx, tx, in.SourceKind, source)
+	if err != nil {
+		return nil, err
+	}
+	if own.Add(sourceValue).GreaterThan(ownLimit) {
+		return nil, ErrAmount
+	}
+	if used.Add(value).GreaterThan(amount(invoice)) || occupied.Add(sourceValue).GreaterThan(limit) {
+		return nil, ErrAmount
+	}
+	occurred, err := workflowTime(in.OccurredAt)
+	if err != nil {
+		return nil, err
+	}
+	id := uuid.NewString()
+	_, err = tx.ExecContext(ctx, `INSERT INTO accounting_cost_allocations(id,organization_id,invoice_id,source_kind,source_id,cost_identity,amount,currency,status,occurred_at,created_by,source_amount,source_currency,exchange_rate) VALUES($1,$2,$3,$4,$5,$6,$7,$8,'ACTIVE',$9,$10,$11,$12,$13)`, id, org, invoice.ID, in.SourceKind, source.ID, identity, value.String(), invoice.Currency, occurred, actorID, sourceValue.String(), source.Currency, rate.String())
+	return gin.H{"id": id, "amount": value.String(), "cost_identity": identity, "status": "ACTIVE"}, err
 }
 func (h *Handler) costAllocations(c *gin.Context) {
 	org, ok := h.workflowOrg(c, c.Query("organization_id"))

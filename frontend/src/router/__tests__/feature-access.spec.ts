@@ -123,7 +123,7 @@ describe('feature route guard', () => {
     appStore.fetchPublicSettings.mockReset()
   })
 
-  it.each(['/admin/dashboard', '/admin/users', '/admin/settings', '/dashboard', '/keys', '/profile', '/login', '/model-plaza', '/admin/accounting-other', '/admin/accounting/organizations/org_one/settings', '/admin/accounting/other'])('redirects finance users from %s to accounting', async (path) => {
+  it.each(['/admin/dashboard', '/admin/users', '/admin/settings', '/dashboard', '/keys', '/profile', '/login', '/model-plaza', '/admin/accounting-other', '/admin/accounting/organizations/org_one/settings', '/admin/accounting/other', '/admin/accounting/organizations/org_one/transfers/record-one/unknown', '/admin/accounting/vcc-cards/new'])('redirects finance users from %s to accounting', async (path) => {
     authStore.isFinance = true
     const { navigation, next } = runGuard({ requiresAdmin: path.startsWith('/admin'), requiresAuth: path !== '/login' }, path)
     await navigation
@@ -146,6 +146,26 @@ describe('feature route guard', () => {
     expect(next).toHaveBeenCalledWith()
   })
 
+  it.each([
+    '/admin/accounting/organizations/org_one/vcc-cards/new',
+    '/admin/accounting/organizations/org_one/transfers/record-one',
+    '/admin/accounting/organizations/org_one/transfers/record-one/edit',
+    '/admin/accounting/organizations/org_one/expenses/record-one/pay',
+    '/admin/accounting/organizations/org_one/actions/close',
+    '/admin/accounting/organizations/org_one/actions/reopen/period-one',
+    '/admin/accounting/organizations/org_one/contacts/new',
+    '/admin/accounting/organizations/org_one/orders/new',
+    '/admin/accounting/organizations/org_one/orders/order-one',
+    '/admin/accounting/organizations/org_one/actions/order-link/order-one',
+    '/admin/accounting/organizations/org_one/vcc-cards/card-one/top-up',
+    '/admin/accounting/receiving-accounts/new',
+  ])('allows finance users to open accounting page %s', async (path) => {
+    authStore.isFinance = true
+    const { navigation, next } = runGuard({ requiresAdmin: true }, path)
+    await navigation
+    expect(next).toHaveBeenCalledWith()
+  })
+
   it('blocks an ordinary user from the enterprise accounting workspace', async () => {
     const { navigation, next } = runGuard({ requiresAdmin: true }, '/admin/accounting/organizations/org_one')
     await navigation
@@ -160,7 +180,6 @@ describe('feature route guard', () => {
     await navigation
     expect(next).toHaveBeenCalledWith({ path: '/login', query: { redirect: path } })
   })
-
   it('keeps unauthenticated finance state behind login', async () => {
     authStore.isFinance = true
     authStore.isAuthenticated = false

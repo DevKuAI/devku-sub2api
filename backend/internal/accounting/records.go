@@ -153,7 +153,7 @@ func validateFields(kind string, r *Record) error {
 		}
 		return required(r, "merchant", "provider_transaction_id")
 	case "contracts":
-		return required(r, "name", "contract_number", "party_name")
+		return required(r, "name", "contract_number")
 	case "invoices":
 		if detail(r, "invoice_type") != "SALES" && detail(r, "invoice_type") != "PURCHASE" {
 			return invalid("invoice_type")
@@ -184,8 +184,11 @@ func validateFields(kind string, r *Record) error {
 	return nil
 }
 func calculateTax(r *Record) error {
-	if err := required(r, "payer_name", "receiving_account", "bank_reference"); err != nil {
+	if err := required(r, "payer_name", "bank_reference"); err != nil {
 		return err
+	}
+	if detail(r, "receiving_account_id") == "" && detail(r, "receiving_account") == "" {
+		return invalid("receiving_account_id")
 	}
 	sales, err := number(detail(r, "sales_amount"), r.Currency, true)
 	if err != nil {
@@ -227,7 +230,17 @@ func insertRecord(ctx context.Context, tx dbQuery, kind string, r *Record, actor
 	_, err = tx.ExecContext(ctx, "INSERT INTO "+specs[kind].table+"(id,organization_id,parent_id,status,currency,amount,occurred_at,details,created_by) VALUES($1,$2,NULLIF($3,'')::uuid,$4,$5,$6,$7,$8,$9)", r.ID, r.Org, r.ParentID, r.Status, r.Currency, r.Amount, r.OccurredAt, body, actor)
 	return err
 }
-func (e *Engine) checkRelations(ctx context.Context, tx dbQuery, kind string, r *Record) error {
+func (e *Engine) checkRelations(ctx context.Context, tx dbQuery, kind string, r, old *Record) error {
+	if kind == "contracts" {
+		var organizationName string
+		if err := tx.QueryRowContext(ctx, "SELECT name FROM desktop_organizations WHERE id=$1 AND deleted_at IS NULL", r.Org).Scan(&organizationName); err != nil {
+			if err == sql.ErrNoRows {
+				return ErrNotFound
+			}
+			return err
+		}
+		r.Details["party_name"] = organizationName
+	}
 	if kind == "vcc-transactions" || kind == "expense-payments" {
 		target := "vcc-cards"
 		if kind == "expense-payments" {
@@ -262,6 +275,26 @@ func (e *Engine) checkRelations(ctx context.Context, tx dbQuery, kind string, r 
 
 		}
 	}
+	if kind == "transfers" {
+		if old == nil || old.Currency != r.Currency || detail(old, "receiving_account_id") != detail(r, "receiving_account_id") {
+			if err := hydrateReceivingAccountSnapshot(ctx, tx, r); err != nil {
+				return err
+			}
+		} else {
+			for _, key := range strings.Fields("receiving_account receiving_account_name receiving_bank_name receiving_bank_branch") {
+				r.Details[key] = old.Details[key]
+			}
+		}
+	}
+	if kind == "transfers" || kind == "contracts" {
+		if old != nil && detail(old, "contact_id") == detail(r, "contact_id") {
+			for _, key := range strings.Fields("contact_name contact_phone contact_email contact_wechat") {
+				r.Details[key] = old.Details[key]
+			}
+		} else if err := hydrateContactSnapshot(ctx, tx, r); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 func (e *Engine) storeSecrets(ctx context.Context, tx dbQuery, r *Record, in Input) error {
@@ -290,6 +323,9 @@ func (e *Engine) storeSecrets(ctx context.Context, tx dbQuery, r *Record, in Inp
 			}
 		}
 		r.Details["last_four"] = pan[len(pan)-4:]
+		if err := e.claimCard(ctx, tx, r, pan); err != nil {
+			return err
+		}
 	}
 	if cvv := text(secret, "cvv"); cvv != "" {
 		if len(cvv) < 3 || len(cvv) > 4 {
@@ -339,7 +375,14 @@ func (e *Engine) Create(ctx context.Context, tx *sql.Tx, kind string, in Input, 
 	if kind == "expense-payments" {
 		return nil, ErrState
 	}
-	if err = e.checkRelations(ctx, tx, kind, r); err != nil {
+	if kind == "transfers" && detail(r, "receiving_account_id") == "" {
+		return nil, invalid("receiving_account_id")
+	}
+	// A card is identified by its full number so it can be checked against every organization.
+	if kind == "vcc-cards" && text(in.Details, "card_number") == "" {
+		return nil, invalid("card_number")
+	}
+	if err = e.checkRelations(ctx, tx, kind, r, nil); err != nil {
 		return nil, err
 	}
 	// Secrets are never inserted into metadata, even inside an uncommitted transaction.
@@ -360,6 +403,9 @@ func (e *Engine) Create(ctx context.Context, tx *sql.Tx, kind string, in Input, 
 			return nil, err
 		}
 	}
+	if err = attachToOrder(ctx, tx, kind, r, in.OrderID, actor); err != nil {
+		return nil, err
+	}
 	return r, nil
 }
 func (e *Engine) Update(ctx context.Context, tx *sql.Tx, kind string, old *Record, in Input) (*Record, error) {
@@ -373,7 +419,7 @@ func (e *Engine) Update(ctx context.Context, tx *sql.Tx, kind string, old *Recor
 	if err != nil {
 		return nil, err
 	}
-	if err = e.checkRelations(ctx, tx, kind, r); err != nil {
+	if err = e.checkRelations(ctx, tx, kind, r, old); err != nil {
 		return nil, err
 	}
 	if kind == "vcc-cards" {
@@ -403,7 +449,7 @@ func (e *Engine) Update(ctx context.Context, tx *sql.Tx, kind string, old *Recor
 
 func computedField(key string) bool {
 	switch key {
-	case "effective_amount", "original_amount", "adjustment_amount", "paid_amount", "unpaid_amount", "overpaid_amount", "unallocated_amount", "settled_amount", "outstanding_amount", "allocated_cost", "unallocated_cost", "target_available", "available_balance", "allocated_amount", "has_difference", "reconciliation_status":
+	case "effective_amount", "original_amount", "adjustment_amount", "paid_amount", "unpaid_amount", "overpaid_amount", "unallocated_amount", "settled_amount", "outstanding_amount", "allocated_cost", "unallocated_cost", "target_available", "available_balance", "allocated_amount", "has_difference", "reconciliation_status", "order_id", "order_name":
 		return true
 	}
 	return false
