@@ -100,7 +100,7 @@ func TestDesktopNativeUsageSnapshotReconcilesDuringConcurrentBackfill(t *testing
 		}
 		done <- nil
 	}()
-	t.Cleanup(func(){close(stop);require.NoError(t,<-done)})
+	t.Cleanup(func() { close(stop); require.NoError(t, <-done) })
 	repo := newUsageLogRepositoryWithSQL(integrationEntClient, integrationDB)
 	for i := 0; i < 12; i++ {
 		usage, err := repo.NativeUsage(ctx, f.organization.ID, selected)
