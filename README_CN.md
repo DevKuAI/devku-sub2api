@@ -279,6 +279,13 @@ websocat -H="Sec-WebSocket-Protocol: sub2api-admin, jwt.<ADMIN_TOKEN>" ws://loca
 
 ## Provider 与兼容性
 
+### v0.2.17 兼容性更新
+
+- **OpenAI 订阅模型**：ChatGPT OAuth 和 SetupToken 账号不再调度已退役的 GPT-5.5 目标，模型列表也会过滤这些目标。API Key 账号仍可使用；指向受支持替代模型的显式映射继续生效。升级时核对客户端默认模型及 compact 专用映射，系统不会自动改写配置。见 [迁移说明](docs/OPENAI_GPT55_RETIREMENT.md)。
+- **Gemini 与 Antigravity**：新增 Gemini 4 Argon 模型目录和计费，兼容入口转发思考档位并流式返回思考摘要，保留工具图片和 thought signature，修复 Vertex 服务账号失效及共享容量重试处理。
+- **网关兼容性**：Responses 对象补齐 `created_at`；`gateway.min_output_tokens` 控制协议转换后的输出下限，默认 `128`、最小 `16`。Codex 导入按 workspace 区分账号，Anthropic 转发遵循协议 base URL，OpenAI API Key 账号可在 `/v1/messages` 使用 web-search emulation。
+- **支付与配额**：EasyPay 通知核验后才入账；退款结果待定时继续保留扣减。Stripe 恢复支付使用本地 client-secret 快照，并修正 GLM Coding Plan 用量窗口。
+
 ### v0.2.16 兼容性更新
 
 - **Gemini 显式上下文缓存**：支持 `/v1beta/cachedContents` 的创建、列表、查询、延长和删除，生成请求通过 `cachedContent` 引用缓存。支持 AI Studio、Agent Platform (Vertex) 和启用显式缓存的自建网关上游；`gateway.gemini_cached_content_max_ttl_seconds` 默认值为 `86400`，存储费在创建或延长时收取。

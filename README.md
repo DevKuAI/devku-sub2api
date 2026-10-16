@@ -293,6 +293,13 @@ Simple Mode is designed for individual developers or internal teams who want qui
 
 ## Providers and compatibility
 
+### v0.2.17 compatibility updates
+
+- **OpenAI subscription models:** ChatGPT OAuth and SetupToken accounts exclude retired GPT-5.5 targets from routing and model catalogs. API-key accounts remain eligible; explicit mappings to supported replacements remain valid. Review client defaults and compact-only mappings; settings are not rewritten automatically. See [migration notes](docs/OPENAI_GPT55_RETIREMENT.md).
+- **Gemini and Antigravity:** Adds Gemini 4 Argon catalogs and pricing, forwards thinking settings and streams thinking summaries through compatibility endpoints, preserves tool images and thought signatures, and handles Vertex service-account failures and shared-capacity retries.
+- **Gateway compatibility:** Responses objects include `created_at`; `gateway.min_output_tokens` controls the conversion floor (default `128`, minimum `16`). Codex imports distinguish workspaces, Anthropic forwarding honors protocol base URLs, and OpenAI API-key accounts can use web-search emulation on `/v1/messages`.
+- **Payments and quotas:** EasyPay notifications are confirmed before crediting; pending refunds keep deductions until their outcome is resolved. Stripe resumes use the local client-secret snapshot, and GLM Coding Plan usage windows are corrected.
+
 ### v0.2.16 compatibility updates
 
 - **Gemini explicit context caching**: create, list, retrieve, extend, and delete caches through `/v1beta/cachedContents`, then reference them with `cachedContent` in generation requests. AI Studio, Agent Platform (Vertex), and self-hosted upstream gateways with explicit caching enabled are supported. `gateway.gemini_cached_content_max_ttl_seconds` defaults to `86400`; storage fees are charged on creation or extension.
