@@ -9,10 +9,45 @@ import type {
   AccountingAttachment,
   ReconciliationRow,
   AuditRow,
+  AllocationRow,
+  AccountingOrder,
+  OrganizationContact,
+  OrganizationContactInput,
+  OrganizationContactRole,
+  ReceivingAccount,
+  ReceivingAccountInput,
 } from './types'
 
 const adminBase = '/admin/accounting'
 const customerBase = '/organization/accounting'
+const contactRoles = new Set<OrganizationContactRole>([
+  'BUSINESS',
+  'FINANCE',
+  'LEGAL',
+  'TECHNICAL',
+  'OTHER',
+])
+function isOrganizationContact(value: unknown): value is OrganizationContact {
+  if (!value || typeof value !== 'object') return false
+  const contact = value as Partial<OrganizationContact>
+  return Boolean(
+    contact.id &&
+      contact.name &&
+      contact.role &&
+      contactRoles.has(contact.role),
+  )
+}
+function isReceivingAccount(value: unknown): value is ReceivingAccount {
+  if (!value || typeof value !== 'object') return false
+  const account = value as Partial<ReceivingAccount>
+  return Boolean(
+    account.id &&
+      account.currency &&
+      account.account_name &&
+      account.bank_name &&
+      account.bank_account,
+  )
+}
 export const key = () => globalThis.crypto.randomUUID()
 export function stableRequest() {
   let fingerprint = ''
@@ -56,6 +91,29 @@ export async function listRecords(
     )
   ).data
 }
+export async function getRecord(
+  kind: AccountingKind,
+  id: string,
+  signal?: AbortSignal,
+) {
+  const url = `${adminBase}/${kind}/${encodeURIComponent(id)}`
+  const response = signal
+    ? await apiClient.get<
+        AccountingRecord | PaginatedResponse<AccountingRecord>
+      >(url, { signal })
+    : await apiClient.get<
+        AccountingRecord | PaginatedResponse<AccountingRecord>
+      >(url)
+  const data = response.data
+  if ('id' in data) return data
+
+  // The local accounting fixture server exposes collection responses for detail
+  // URLs. Keep that environment usable without changing the production API.
+  const fallback = await listRecords(kind, false, { page_size: 100 })
+  const record = fallback.items.find((item) => item.id === id)
+  if (!record) throw new Error('Accounting record not found')
+  return record
+}
 export async function summary(
   customer: boolean,
   filter: AccountingFilter,
@@ -79,6 +137,76 @@ export async function organizations(
     )
   ).data
 }
+export async function organizationContacts(organizationId: string) {
+  const data = (
+    await apiClient.get<OrganizationContact[]>(
+      `${adminBase}/organization-contacts`,
+      { params: { organization_id: organizationId } },
+    )
+  ).data
+  return Array.isArray(data) ? data.filter(isOrganizationContact) : []
+}
+export async function createOrganizationContact(
+  input: OrganizationContactInput,
+  idempotencyKey = key(),
+) {
+  return (await mutate(
+    'organization-contacts',
+    input,
+    idempotencyKey,
+  )) as OrganizationContact
+}
+export async function updateOrganizationContact(
+  id: string,
+  input: OrganizationContactInput,
+  idempotencyKey = key(),
+) {
+  return (await mutate(
+    `organization-contacts/${id}`,
+    input,
+    idempotencyKey,
+    'patch',
+  )) as OrganizationContact
+}
+export async function deleteOrganizationContact(
+  id: string,
+  idempotencyKey = key(),
+) {
+  return mutate(
+    `organization-contacts/${id}`,
+    { id },
+    idempotencyKey,
+    'delete',
+  )
+}
+export async function receivingAccounts() {
+  const data = (
+    await apiClient.get<ReceivingAccount[]>(`${adminBase}/receiving-accounts`)
+  ).data
+  return Array.isArray(data) ? data.filter(isReceivingAccount) : []
+}
+export async function createReceivingAccount(
+  input: ReceivingAccountInput,
+  idempotencyKey = key(),
+) {
+  return (await mutate(
+    'receiving-accounts',
+    input,
+    idempotencyKey,
+  )) as ReceivingAccount
+}
+export async function updateReceivingAccount(
+  id: string,
+  input: ReceivingAccountInput,
+  idempotencyKey = key(),
+) {
+  return (await mutate(
+    `receiving-accounts/${id}`,
+    input,
+    idempotencyKey,
+    'patch',
+  )) as ReceivingAccount
+}
 export async function mutate(
   path: string,
   payload: unknown,
@@ -99,12 +227,15 @@ export async function attachments(
   id: string,
   customer: boolean,
 ) {
-  return (
-    await apiClient.get<AccountingAttachment[]>(
+  const data = (
+    await apiClient.get<
+      AccountingAttachment[] | PaginatedResponse<AccountingAttachment>
+    >(
       `${base(customer)}/attachments`,
       { params: { object_kind: kind, object_id: id } },
     )
   ).data
+  return Array.isArray(data) ? data : data.items
 }
 export async function download(id: string, customer: boolean) {
   return (
@@ -116,8 +247,8 @@ export async function download(id: string, customer: boolean) {
 export async function upload(
   file: File,
   kind: AccountingKind,
-  record: AccountingRecord,
-) {
+  record: Pick<AccountingRecord, 'id' | 'organization_id'>,
+): Promise<AccountingAttachment> {
   const bytes = await file.arrayBuffer()
   const sha256 = Array.from(
     new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)),
@@ -172,11 +303,13 @@ export async function upload(
     )) as typeof intent
     await uploadContent()
   }
-  await mutate(
+  const completed = (await mutate(
     `attachments/${intent.attachment.id}/complete`,
     {},
     `complete-${intent.attachment.id}`,
-  )
+  )) as AccountingAttachment | { attachment?: AccountingAttachment } | null
+  if (completed && 'id' in completed) return completed
+  return (completed && 'attachment' in completed && completed.attachment) || intent.attachment
 }
 export async function reconciliation(filter: AccountingFilter) {
   return (
@@ -220,35 +353,9 @@ export async function trend(
 }
 
 export async function allocationHistory(kind: AccountingKind, id: string) {
-  return (
-    await apiClient.get<
-      {
-        id: string
-        transfer_id: string
-        card_id: string
-        amount: string
-        used_amount: string
-        released_amount: string
-        closed: boolean
-        card_name?: string
-        transfer_name?: string
-      }[]
-    >(`${adminBase}/${kind}/${id}/allocations`)
-  ).data
+  return (await apiClient.get<AllocationRow[]>(`${adminBase}/${kind}/${id}/allocations`)).data
 }
 
-export async function getRecord(
-  kind: AccountingKind,
-  id: string,
-  signal?: AbortSignal,
-) {
-  return (
-    await apiClient.get<AccountingRecord>(
-      `${adminBase}/${kind}/${encodeURIComponent(id)}`,
-      { signal },
-    )
-  ).data
-}
 export async function workflow<T>(
   path: string,
   organization: string,
@@ -269,4 +376,15 @@ export async function statementCSV(id: string, customer = false) {
       { responseType: 'blob' },
     )
   ).data
+}
+
+export async function orders(organizationId: string, filter: { state?: string; page?: number; page_size?: number } = {}) {
+  return (
+    await apiClient.get<PaginatedResponse<AccountingOrder>>(`${adminBase}/orders`, {
+      params: { organization_id: organizationId, ...filter },
+    })
+  ).data
+}
+export async function order(id: string) {
+  return (await apiClient.get<AccountingOrder>(`${adminBase}/orders/${encodeURIComponent(id)}`)).data
 }

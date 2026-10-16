@@ -29,6 +29,13 @@ func (h *Handler) RegisterAdmin(parent *gin.RouterGroup) {
 	g.GET("/trend", h.trend)
 	g.GET("/organizations", h.organizations)
 	g.GET("/organizations/:organization_id/summary", h.summary)
+	g.GET("/organization-contacts", h.listContacts)
+	g.POST("/organization-contacts", h.createContact)
+	g.PATCH("/organization-contacts/:id", h.updateContact)
+	g.DELETE("/organization-contacts/:id", h.deleteContact)
+	g.GET("/receiving-accounts", h.listReceivingAccounts)
+	g.POST("/receiving-accounts", h.createReceivingAccount)
+	g.PATCH("/receiving-accounts/:id", h.updateReceivingAccount)
 	g.GET("/audit-logs", h.auditLogs)
 	g.GET("/export", h.export)
 	h.registerWorkflows(g)
@@ -71,6 +78,123 @@ func (h *Handler) RegisterAdmin(parent *gin.RouterGroup) {
 	g.GET("/attachments/:id/download-url", h.download)
 	g.DELETE("/attachments/:id", h.deleteAttachment)
 	g.PATCH("/attachments/:id/sharing", h.shareAttachment)
+}
+
+func (h *Handler) listReceivingAccounts(c *gin.Context) {
+	accounts, err := h.engine.ListReceivingAccounts(c.Request.Context())
+	if response.ErrorFrom(c, err) {
+		return
+	}
+	response.Success(c, accounts)
+}
+
+func (h *Handler) createReceivingAccount(c *gin.Context) {
+	var in ReceivingAccountInput
+	if c.ShouldBindJSON(&in) != nil {
+		response.ErrorFrom(c, ErrInvalid)
+		return
+	}
+	h.run(c, Operation{Global: true, Kind: "receiving-accounts", Action: "create", Payload: in}, func(tx *sql.Tx) (any, error) {
+		return createReceivingAccount(c.Request.Context(), tx, actor(c), in)
+	})
+}
+
+func (h *Handler) updateReceivingAccount(c *gin.Context) {
+	if !idValid(c, c.Param("id")) {
+		return
+	}
+	current, err := getReceivingAccount(c.Request.Context(), h.engine.db, c.Param("id"), false)
+	if response.ErrorFrom(c, err) {
+		return
+	}
+	var in ReceivingAccountInput
+	if c.ShouldBindJSON(&in) != nil {
+		response.ErrorFrom(c, ErrInvalid)
+		return
+	}
+	in.Currency = current.Currency
+	h.run(c, Operation{Global: true, Kind: "receiving-accounts", Object: current.ID, Action: "update", Payload: in}, func(tx *sql.Tx) (any, error) {
+		locked, lockErr := getReceivingAccount(c.Request.Context(), tx, current.ID, true)
+		if lockErr != nil {
+			return nil, lockErr
+		}
+		return updateReceivingAccount(c.Request.Context(), tx, locked, in)
+	})
+}
+
+func (h *Handler) listContacts(c *gin.Context) {
+	organizationID := strings.TrimSpace(c.Query("organization_id"))
+	if organizationID == "" {
+		response.ErrorFrom(c, invalid("organization_id"))
+		return
+	}
+	contacts, err := h.engine.ListContacts(c.Request.Context(), organizationID)
+	if response.ErrorFrom(c, err) {
+		return
+	}
+	response.Success(c, contacts)
+}
+
+func (h *Handler) createContact(c *gin.Context) {
+	var in OrganizationContactInput
+	if c.ShouldBindJSON(&in) != nil {
+		response.ErrorFrom(c, ErrInvalid)
+		return
+	}
+	org, err := h.resolveOrg(c, in.OrganizationID)
+	if response.ErrorFrom(c, err) {
+		return
+	}
+	h.run(c, Operation{Org: org, Kind: "organization-contacts", Action: "create", Payload: in}, func(tx *sql.Tx) (any, error) {
+		return createContact(c.Request.Context(), tx, org, actor(c), in.OrganizationID, in)
+	})
+}
+
+func (h *Handler) updateContact(c *gin.Context) {
+	if !idValid(c, c.Param("id")) {
+		return
+	}
+	current, err := getContact(c.Request.Context(), h.engine.db, c.Param("id"), 0, false)
+	if response.ErrorFrom(c, err) {
+		return
+	}
+	var in OrganizationContactInput
+	if c.ShouldBindJSON(&in) != nil {
+		response.ErrorFrom(c, ErrInvalid)
+		return
+	}
+	in.OrganizationID = current.OrganizationID
+	h.run(c, Operation{Org: current.Org, Kind: "organization-contacts", Object: current.ID, Action: "update", Payload: in}, func(tx *sql.Tx) (any, error) {
+		locked, lockErr := getContact(c.Request.Context(), tx, current.ID, current.Org, true)
+		if lockErr != nil {
+			return nil, lockErr
+		}
+		return updateContact(c.Request.Context(), tx, locked, in)
+	})
+}
+
+func (h *Handler) deleteContact(c *gin.Context) {
+	if !idValid(c, c.Param("id")) {
+		return
+	}
+	current, err := getContact(c.Request.Context(), h.engine.db, c.Param("id"), 0, false)
+	if response.ErrorFrom(c, err) {
+		return
+	}
+	h.run(c, Operation{Org: current.Org, Kind: "organization-contacts", Object: current.ID, Action: "delete", Payload: map[string]string{"id": current.ID}}, func(tx *sql.Tx) (any, error) {
+		result, deleteErr := tx.ExecContext(c.Request.Context(), "UPDATE accounting_organization_contacts SET deleted_at=NOW(),is_primary=FALSE,updated_at=NOW() WHERE id=$1 AND organization_id=$2 AND deleted_at IS NULL", current.ID, current.Org)
+		if deleteErr != nil {
+			return nil, deleteErr
+		}
+		count, deleteErr := result.RowsAffected()
+		if deleteErr != nil {
+			return nil, deleteErr
+		}
+		if count != 1 {
+			return nil, ErrNotFound
+		}
+		return map[string]any{"id": current.ID, "deleted": true}, nil
+	})
 }
 func (h *Handler) RegisterOrganization(parent *gin.RouterGroup) {
 	if !h.engine.desktopEnabled {
@@ -434,7 +558,7 @@ func (h *Handler) allocationHistory(c *gin.Context) {
 	if kind == "vcc-cards" {
 		column = "card_id"
 	}
-	rows, err := h.engine.db.QueryContext(c.Request.Context(), "SELECT a.id::text,a.transfer_id::text,a.card_id::text,a.amount::text,a.used_amount::text,a.released_amount::text,a.closed_at IS NOT NULL,COALESCE(c.details->>'alias',''),COALESCE(t.details->>'bank_reference',t.details->>'payer_name','') FROM accounting_allocations a JOIN accounting_vcc_cards c ON c.id=a.card_id JOIN accounting_transfers t ON t.id=a.transfer_id WHERE a."+column+"=$1 ORDER BY a.created_at,a.id", record.ID)
+	rows, err := h.engine.db.QueryContext(c.Request.Context(), "SELECT a.id::text,a.transfer_id::text,a.card_id::text,a.amount::text,a.used_amount::text,a.released_amount::text,a.closed_at IS NOT NULL,COALESCE(c.details->>'alias',''),COALESCE(t.details->>'bank_reference',t.details->>'payer_name',''),COALESCE(t.details->>'funding_type','') FROM accounting_allocations a JOIN accounting_vcc_cards c ON c.id=a.card_id JOIN accounting_transfers t ON t.id=a.transfer_id WHERE a."+column+"=$1 ORDER BY a.created_at,a.id", record.ID)
 	if response.ErrorFrom(c, err) {
 		return
 	}
@@ -442,7 +566,7 @@ func (h *Handler) allocationHistory(c *gin.Context) {
 	items := []Allocation{}
 	for rows.Next() {
 		var a Allocation
-		if err = rows.Scan(&a.ID, &a.TransferID, &a.CardID, &a.Amount, &a.Used, &a.Released, &a.Closed, &a.CardName, &a.TransferName); response.ErrorFrom(c, err) {
+		if err = rows.Scan(&a.ID, &a.TransferID, &a.CardID, &a.Amount, &a.Used, &a.Released, &a.Closed, &a.CardName, &a.TransferName, &a.FundingType); response.ErrorFrom(c, err) {
 			return
 		}
 		items = append(items, a)

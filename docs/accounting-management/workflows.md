@@ -67,5 +67,12 @@ VCC 分配和账务停用属于内部账务操作，不会调用服务商充值�
 | `/related/{kind}/{id}`、`/activity/{kind}/{id}` | GET | 关联业务和处理时间线 |
 | `/periods`、`/periods/close`、`/periods/{id}/reopen` | GET/POST/POST | 账期列表、管理员结账和重新开账 |
 | `/statements/{id}`、`/statements/{id}/export` | GET | 固定对账单及 CSV |
+| `/orders` | GET/POST | 订单列表（`state=open/completed/closed`）；新建订单，可带 `transfer` 同时登记收款 |
+| `/orders/{id}` | GET/PATCH | 订单详情（进度、汇总、全部记录）；修改名称和备注（带 `version`） |
+| `/orders/{id}/links` | POST | 把订单外的到账、销项发票、AI Invoice 归入订单 |
+| `/orders/{id}/close`、`/orders/{id}/reopen` | POST | 手动结束（需原因）、重新打开 |
+| `/vcc-cards/{id}/top-ups` | POST | 卡充值（我方自有资金） |
+
+新建记录可带 `order_id`；`vcc-cards`、`vcc-transactions` 必须带（退款可省略，自动沿用原消费的订单）。新增卡必须提交完整 `card_number`，同一张卡已登记时返回 409（`metadata.field=card_registered`）。
 
 企业只读接口新增 `/api/v1/organization/accounting/periods`、`/statements/{id}` 和 `/statements/{id}/export`，范围由当前账户绑定企业确定。管理写入仍要求 `Idempotency-Key`。超额付款、月结、重新开账及外部事项豁免要求管理员；财务角色不因此获得其他后台权限。

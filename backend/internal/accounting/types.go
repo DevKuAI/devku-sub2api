@@ -3,6 +3,8 @@ package accounting
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"io"
@@ -60,6 +62,8 @@ type Input struct {
 	OccurredAt     string         `json:"occurred_at"`
 	Details        map[string]any `json:"details"`
 	Version        int64          `json:"version"`
+	// OrderID places a new record in an order; cards and card transactions require it.
+	OrderID string `json:"order_id,omitempty"`
 }
 
 type spec struct {
@@ -72,10 +76,10 @@ type spec struct {
 var specs = map[string]spec{
 	"receivables":      {"accounting_receivables", strings.Fields("name reference due_date contract_id invoice_id remark"), strings.Fields("name reference due_date settled_amount outstanding_amount"), true},
 	"fx-exchanges":     {"accounting_fx_exchanges", strings.Fields("target_currency target_amount exchange_rate fee_amount reference remark"), nil, true},
-	"transfers":        {"accounting_transfers", strings.Fields("payer_name contact_name contact_phone contact_email contact_wechat receiving_account sales_amount tax_inclusive tax_rate tax_amount net_sales_amount receivable_amount received_amount difference_reason bank_reference remark"), strings.Fields("payer_name sales_amount tax_inclusive tax_rate tax_amount net_sales_amount receivable_amount received_amount original_amount adjustment_amount"), true},
+	"transfers":        {"accounting_transfers", strings.Fields("payer_name contact_id contact_name contact_phone contact_email contact_wechat contract_id receiving_account_id receiving_account receiving_account_name receiving_bank_name receiving_bank_branch sales_amount tax_inclusive tax_rate tax_amount net_sales_amount receivable_amount received_amount difference_reason bank_reference remark"), strings.Fields("payer_name sales_amount tax_inclusive tax_rate tax_amount net_sales_amount receivable_amount received_amount original_amount adjustment_amount"), true},
 	"vcc-cards":        {"accounting_vcc_cards", strings.Fields("provider alias last_four credit_limit active_at inactive_at card_number cvv expiry provider_token remark"), strings.Fields("alias last_four allocated_amount available_balance"), false},
 	"vcc-transactions": {"accounting_vcc_transactions", strings.Fields("transaction_type direction merchant provider_transaction_id original_transaction_id ai_vendor vendor_invoice_id remark"), strings.Fields("transaction_type merchant original_transaction_id"), true},
-	"contracts":        {"accounting_contracts", strings.Fields("name contract_number party_name tax_inclusive tax_rate signed_at effective_at expires_at remark"), strings.Fields("name contract_number party_name tax_inclusive tax_rate signed_at effective_at expires_at"), true},
+	"contracts":        {"accounting_contracts", strings.Fields("name contract_number party_name contact_id contact_name contact_phone contact_email contact_wechat tax_inclusive tax_rate signed_at effective_at expires_at remark"), strings.Fields("name contract_number party_name contact_name contact_phone contact_email tax_inclusive tax_rate signed_at effective_at expires_at"), true},
 	"invoices":         {"accounting_invoices", strings.Fields("invoice_type invoice_code invoice_number issue_date issuer_name issuer_tax_id recipient_name recipient_tax_id net_amount tax_amount total_amount remark"), strings.Fields("invoice_type invoice_code invoice_number issue_date issuer_name issuer_tax_id recipient_name recipient_tax_id net_amount tax_amount total_amount"), true},
 	"vendor-invoices":  {"accounting_vendor_invoices", strings.Fields("vendor period_start period_end document_type invoice_number transaction_id expense_id remark"), nil, true},
 	"expenses":         {"accounting_expenses", strings.Fields("category payment_account supplier contract_id contract_number vendor_invoice_id invoice_id transaction_id ai_vendor remark"), nil, true},
@@ -124,10 +128,18 @@ type Engine struct {
 	encryptor      service.SecretEncryptor
 	stableKey      bool
 	desktopEnabled bool
+	cardKey        []byte
 }
 
 func NewEngine(db *sql.DB, desktop *service.DesktopService, storage Storage, encryptor service.SecretEncryptor, cfg *config.Config) *Engine {
-	return &Engine{db: db, desktop: desktop, storage: storage, encryptor: encryptor, stableKey: cfg != nil && cfg.Totp.EncryptionKeyConfigured, desktopEnabled: cfg != nil && cfg.Desktop.Enabled}
+	e := &Engine{db: db, desktop: desktop, storage: storage, encryptor: encryptor, stableKey: cfg != nil && cfg.Totp.EncryptionKeyConfigured, desktopEnabled: cfg != nil && cfg.Desktop.Enabled}
+	if e.stableKey {
+		// Card fingerprints use a key derived from the fixed encryption key, so numbers are never stored in a guessable form.
+		mac := hmac.New(sha256.New, []byte(cfg.Totp.EncryptionKey))
+		_, _ = mac.Write([]byte("accounting-card-fingerprint"))
+		e.cardKey = mac.Sum(nil)
+	}
+	return e
 }
 
 type dbQuery interface {

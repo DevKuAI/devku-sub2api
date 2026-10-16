@@ -329,7 +329,10 @@ describe('DesktopOrganizationDetailView', () => {
       route.query.tab = tab
       const wrapper = mountPage()
       await flushPromises()
-      expect(wrapper.findAll('[role="tab"]').slice(0, 2).map(item => item.attributes('id'))).toEqual(['desktop-organization-tab-overview', 'desktop-organization-tab-usage'])
+      const expectedTabs = mountPage === mountManagedView
+        ? ['desktop-organization-tab-overview', 'desktop-organization-tab-usage']
+        : ['desktop-organization-tab-overview', 'desktop-organization-tab-business', 'desktop-organization-tab-usage']
+      expect(wrapper.findAll('[role="tab"]').slice(0, expectedTabs.length).map(item => item.attributes('id'))).toEqual(expectedTabs)
       expect(wrapper.get('#desktop-organization-tab-overview').attributes('aria-selected')).toBe('true')
       expect(wrapper.get('#desktop-organization-tab-usage').attributes('aria-selected')).toBe('false')
       expect(wrapper.find('[data-testid="organization-overview"]').exists()).toBe(true)

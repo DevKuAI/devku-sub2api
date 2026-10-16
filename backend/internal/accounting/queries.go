@@ -2,6 +2,8 @@ package accounting
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -68,9 +70,14 @@ func (e *Engine) List(ctx context.Context, kind string, f Filter) ([]*Record, in
 	if err != nil {
 		return nil, 0, err
 	}
+	if kind == "transfers" && !f.Customer {
+		// Card top-ups are our own money; they are listed on the card, not among customer receipts.
+		where += " AND COALESCE(r.details->>'funding_type','')<>'TOPUP'"
+	}
 	if f.Customer {
+		where += customerStatusClause(kind)
 		if kind == "transfers" {
-			where += " AND COALESCE(r.details->>'funding_type','')<>'FX'"
+			where += " AND COALESCE(r.details->>'funding_type','')=''"
 		}
 		if kind == "contracts" || kind == "invoices" {
 			where += " AND r.customer_visible"
@@ -159,7 +166,7 @@ func (e *Engine) Summary(ctx context.Context, f Filter) ([]CurrencySummary, erro
 		queries = append(queries, "SELECT '"+kind+"'::text AS kind,r.id,r.status,r.currency,"+value+" AS amount,r.details->>'transaction_type' AS transaction_type,r.details->>'direction' AS direction,COALESCE(r.details->>'funding_type','') AS funding_type FROM "+specs[kind].table+" r JOIN desktop_organizations o ON o.id=r.organization_id WHERE "+kindWhere)
 	}
 	query := `WITH records AS (` + strings.Join(queries, " UNION ALL ") + `) SELECT r.currency,
- COALESCE(SUM(r.amount) FILTER(WHERE kind='transfers' AND r.status='RECEIVED' AND funding_type<>'FX'),0)::text,
+ COALESCE(SUM(r.amount) FILTER(WHERE kind='transfers' AND r.status='RECEIVED' AND funding_type=''),0)::text,
  COALESCE(SUM(r.amount) FILTER(WHERE kind='vcc-transactions' AND r.status='CONFIRMED' AND transaction_type NOT IN ('REFUND') AND NOT(transaction_type='ADJUSTMENT' AND direction='CREDIT')),0)::text,
  COALESCE(SUM(r.amount) FILTER(WHERE kind='vcc-transactions' AND r.status='CONFIRMED' AND (transaction_type='REFUND' OR (transaction_type='ADJUSTMENT' AND direction='CREDIT'))),0)::text,
  COALESCE(SUM(r.amount) FILTER(WHERE kind='expenses' AND r.status<>'VOID'),0)::text,
@@ -328,6 +335,36 @@ func customerColumns(kind string) string {
 	return "r.id::text,o.public_id,COALESCE(r.parent_id::text,''),r.status,r.currency," + value + ",r.occurred_at," + details + ",r.customer_visible,r.shared_at,NULL::bigint,r.created_at,0::bigint,r.organization_id"
 }
 
+// customerStatuses lists the record states an organization account may see.
+// Drafts are unconfirmed and voided records were reversed, so both stay internal.
+var customerStatuses = map[string][]string{
+	"transfers":        {"RECEIVED"},
+	"vcc-cards":        {"ACTIVE", "CLOSED"},
+	"vcc-transactions": {"CONFIRMED"},
+	"contracts":        {"SIGNED", "EXPIRED"},
+	"invoices":         {"VERIFIED"},
+}
+
+func customerVisibleStatus(kind, status string) bool {
+	for _, allowed := range customerStatuses[kind] {
+		if status == allowed {
+			return true
+		}
+	}
+	return false
+}
+
+func customerStatusClause(kind string) string {
+	quoted := []string{}
+	for _, status := range customerStatuses[kind] {
+		quoted = append(quoted, "'"+status+"'")
+	}
+	if len(quoted) == 0 {
+		return " AND FALSE"
+	}
+	return " AND r.status IN (" + strings.Join(quoted, ",") + ")"
+}
+
 func isReconciliationStatus(status string) bool {
 	return status == "UNMATCHED" || status == "MATCHED" || status == "DIFFERENCE" || status == "EXCLUDED"
 }
@@ -406,6 +443,16 @@ func (e *Engine) enrich(ctx context.Context, kind string, r *Record) error {
 			r.Details["paid_amount"] = paid.String()
 			r.Details["unpaid_amount"] = decimal.Max(v.Sub(paid), decimal.Zero).String()
 			r.Details["overpaid_amount"] = decimal.Max(paid.Sub(v), decimal.Zero).String()
+		}
+	}
+	if orderKinds[kind] {
+		var orderID, orderName string
+		err := e.db.QueryRowContext(ctx, "SELECT a.id::text,a.name FROM accounting_order_items i JOIN accounting_orders a ON a.id=i.order_id WHERE i.object_kind=$1 AND i.object_id=$2", kind, r.ID).Scan(&orderID, &orderName)
+		if err == nil {
+			r.Details["order_id"] = orderID
+			r.Details["order_name"] = orderName
+		} else if !errors.Is(err, sql.ErrNoRows) {
+			return err
 		}
 	}
 	return nil

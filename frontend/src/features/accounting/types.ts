@@ -88,12 +88,89 @@ export interface AuditRow {
   request_id: string
   created_at: string
 }
-export interface Field {
-  key: string
-  type?: 'attachment' | 'boolean' | 'date' | 'reference' | 'secret' | 'select'
-  options?: string[]
-  reference?: AccountingKind
-  required?: boolean
+export type OrganizationContactRole =
+  | 'BUSINESS'
+  | 'FINANCE'
+  | 'LEGAL'
+  | 'TECHNICAL'
+  | 'OTHER'
+export interface OrganizationContact {
+  id: string
+  organization_id: string
+  name: string
+  role: OrganizationContactRole
+  phone: string
+  email: string
+  wechat: string
+  remark: string
+  is_primary: boolean
+  created_at: string
+  updated_at: string
+}
+export interface OrganizationContactInput {
+  organization_id: string
+  name: string
+  role: OrganizationContactRole
+  phone: string
+  email: string
+  wechat: string
+  remark: string
+  is_primary: boolean
+}
+export interface ReceivingAccount {
+  id: string
+  currency: string
+  account_name: string
+  bank_name: string
+  bank_account: string
+  bank_branch: string
+  remark: string
+  created_at: string
+  updated_at: string
+}
+export interface ReceivingAccountInput {
+  currency: string
+  account_name: string
+  bank_name: string
+  bank_account: string
+  bank_branch: string
+  remark: string
+}
+export interface AllocationRow {
+  id: string
+  transfer_id: string
+  card_id: string
+  amount: string
+  used_amount: string
+  released_amount: string
+  closed: boolean
+  card_name?: string
+  transfer_name?: string
+  funding_type?: string
+}
+export interface RelatedRow {
+  kind: AccountingKind
+  id: string
+  name: string
+  amount: string
+  currency: string
+  status: string
+}
+export interface ActivityRow {
+  id: string
+  action: string
+  actor_id: number
+  request_id: string
+  created_at: string
+  summary?: Record<string, unknown>
+}
+export interface SettlementRow {
+  id: string
+  transfer_id: string
+  reference: string
+  amount: string
+  currency: string
+  status: string
 }
 
 export interface WorkflowRow {
@@ -128,4 +205,29 @@ export interface Statement {
   movement: Record<string, BookPosition>
   closing: Record<string, BookPosition>
   records: { kind: AccountingKind; record: AccountingRecord }[]
+}
+
+export type OrderStep = 'receipt' | 'invoice' | 'purchase' | 'ai_invoice'
+export type OrderItemKind = 'transfers' | 'invoices' | 'vcc-cards' | 'vcc-transactions' | 'vendor-invoices'
+export interface OrderTotal {
+  currency: string
+  received: string
+  invoiced: string
+  spent: string
+  ai_cost: string
+}
+export interface AccountingOrder {
+  id: string
+  organization_id: string
+  name: string
+  remark: string
+  status: 'OPEN' | 'CLOSED'
+  state: 'OPEN' | 'COMPLETED' | 'CLOSED'
+  close_reason: string
+  closed_at?: string
+  created_at: string
+  version: number
+  progress: Record<OrderStep, boolean>
+  totals: OrderTotal[]
+  items?: Partial<Record<OrderItemKind, AccountingRecord[]>>
 }

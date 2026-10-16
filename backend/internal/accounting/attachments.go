@@ -126,6 +126,9 @@ func (e *Engine) Download(ctx context.Context, a *Attachment, actor int64, reque
 		if err != nil {
 			return nil, err
 		}
+		if !customerVisibleStatus(a.ObjectKind, r.Status) {
+			return nil, ErrNotFound
+		}
 		if a.ObjectKind == "contracts" || a.ObjectKind == "invoices" {
 			if !r.CustomerVisible {
 				return nil, ErrNotFound
@@ -157,6 +160,9 @@ func (e *Engine) Attachments(ctx context.Context, kind, id string, org int64, cu
 	record, err := get(ctx, e.db, kind, id, org, false)
 	if err != nil {
 		return nil, err
+	}
+	if customer && !customerVisibleStatus(kind, record.Status) {
+		return nil, ErrNotFound
 	}
 	if customer && ((kind == "contracts" || kind == "invoices") && !record.CustomerVisible) {
 		return nil, ErrNotFound

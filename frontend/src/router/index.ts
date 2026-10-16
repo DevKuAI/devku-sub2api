@@ -15,6 +15,26 @@ import { getSetupStatus } from '@/api/setup'
 import { resolveCompletedSetupRedirectPath } from './setupRedirect'
 import { resolveRouteDocumentTitle } from './title'
 
+const accountingKindPattern =
+  'receivables|fx-exchanges|transfers|vcc-cards|vcc-transactions|contracts|invoices|vendor-invoices|expenses|expense-payments'
+const accountingActionPattern =
+  'void|allocate|pay|adjust|match|exclude|settle|cost|fx-allocate|top-up'
+const accountingWorkflowActionPattern =
+  'cost|external|external-exempt|close|reopen|void-cost|void-settlement|order-close|order-edit|order-link'
+
+// Finance users may only reach the accounting pages registered below.
+const financeAccountingPathPattern = new RegExp(
+  `^/admin/accounting(?:` +
+    `/receiving-accounts(?:/new|/[^/]+/edit)?` +
+    `|/organizations/[^/]+(?:` +
+    `/contacts/(?:new|[^/]+/edit)` +
+    `|/orders/[^/]+` +
+    `|/actions/(?:${accountingWorkflowActionPattern})(?:/[^/]+)?` +
+    `|/(?:${accountingKindPattern})/(?:new|[^/]+(?:/edit|/(?:${accountingActionPattern}))?)` +
+    `)?` +
+    `)?$`,
+)
+
 /**
  * Route definitions with lazy loading
  */
@@ -318,7 +338,79 @@ const routes: RouteRecordRaw[] = [
     path: '/admin/accounting/organizations/:organizationId',
     name: 'AdminOrganizationAccounting',
     component: () => import('@/features/accounting/AccountingView.vue'),
-    meta: { requiresAuth: true, requiresAdmin: true, title: 'Organization accounting', titleKey: 'accounting.organizationWorkspace' }
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Organization accounting', titleKey: 'accounting.title' }
+  },
+  {
+    path: '/admin/accounting/organizations/:organizationId/contacts/new',
+    name: 'AdminAccountingOrganizationContactNew',
+    component: () => import('@/features/accounting/OrganizationContactFormView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'New organization contact', titleKey: 'accounting.contactForm.createTitle' }
+  },
+  {
+    path: '/admin/accounting/organizations/:organizationId/contacts/:contactId/edit',
+    name: 'AdminAccountingOrganizationContactEdit',
+    component: () => import('@/features/accounting/OrganizationContactFormView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Edit organization contact', titleKey: 'accounting.contactForm.editTitle' }
+  },
+  {
+    path: '/admin/accounting/organizations/:organizationId/orders/new',
+    name: 'AdminAccountingOrderNew',
+    component: () => import('@/features/accounting/AccountingRecordFormView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'New order', titleKey: 'accounting.orders.createTitle' }
+  },
+  {
+    path: '/admin/accounting/organizations/:organizationId/orders/:orderId',
+    name: 'AdminAccountingOrder',
+    component: () => import('@/features/accounting/OrderView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Order', titleKey: 'accounting.sections.orders' }
+  },
+  {
+    path: `/admin/accounting/organizations/:organizationId/actions/:action(${accountingWorkflowActionPattern})/:targetId?`,
+    name: 'AdminAccountingWorkflow',
+    component: () => import('@/features/accounting/AccountingActionView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Accounting action', titleKey: 'accounting.title' }
+  },
+  {
+    path: `/admin/accounting/organizations/:organizationId/:kind(${accountingKindPattern})/new`,
+    name: 'AdminAccountingRecordNew',
+    component: () => import('@/features/accounting/AccountingRecordFormView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'New accounting record', titleKey: 'accounting.title' }
+  },
+  {
+    path: `/admin/accounting/organizations/:organizationId/:kind(${accountingKindPattern})/:id`,
+    name: 'AdminAccountingRecord',
+    component: () => import('@/features/accounting/AccountingRecordView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Accounting record', titleKey: 'accounting.title' }
+  },
+  {
+    path: `/admin/accounting/organizations/:organizationId/:kind(${accountingKindPattern})/:id/edit`,
+    name: 'AdminAccountingRecordEdit',
+    component: () => import('@/features/accounting/AccountingRecordFormView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Edit accounting record', titleKey: 'accounting.title' }
+  },
+  {
+    path: `/admin/accounting/organizations/:organizationId/:kind(${accountingKindPattern})/:id/:action(${accountingActionPattern})`,
+    name: 'AdminAccountingRecordAction',
+    component: () => import('@/features/accounting/AccountingActionView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Accounting action', titleKey: 'accounting.title' }
+  },
+  {
+    path: '/admin/accounting/receiving-accounts',
+    name: 'AdminAccountingReceivingAccounts',
+    component: () => import('@/features/accounting/ReceivingAccountsView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Receiving accounts', titleKey: 'accounting.receivingAccounts.title' }
+  },
+  {
+    path: '/admin/accounting/receiving-accounts/new',
+    name: 'AdminAccountingReceivingAccountNew',
+    component: () => import('@/features/accounting/OrganizationReceivingAccountFormView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'New receiving account', titleKey: 'accounting.receivingAccountForm.createTitle' }
+  },
+  {
+    path: '/admin/accounting/receiving-accounts/:accountId/edit',
+    name: 'AdminAccountingReceivingAccountEdit',
+    component: () => import('@/features/accounting/OrganizationReceivingAccountFormView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Edit receiving account', titleKey: 'accounting.receivingAccountForm.editTitle' }
   },
   {
     path: '/desktop/organization',
@@ -920,7 +1012,9 @@ router.beforeEach(async (to, _from, next) => {
   document.title = resolveRouteDocumentTitle(to, appStore.siteName, customMenuItems)
 
   if (authStore.isAuthenticated && authStore.isFinance) {
-    if (to.path === '/admin/accounting' || /^\/admin\/accounting\/organizations\/[^/]+$/.test(to.path)) {
+    if (
+      financeAccountingPathPattern.test(to.path)
+    ) {
       next()
     } else {
       next('/admin/accounting')

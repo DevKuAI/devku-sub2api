@@ -392,10 +392,10 @@ func (h *Handler) periodSnapshot(ctx context.Context, q dbQuery, org int64, star
 				r.Details["received_amount"] = current.String()
 			}
 		}
-		visibleReceipt := kind == "transfers" && detail(r, "funding_type") != "FX"
+		visibleReceipt := kind == "transfers" && !internalFunding(r)
 		visibleTransaction := kind == "vcc-transactions" && (detail(r, "transaction_type") == "CONSUME" || detail(r, "transaction_type") == "REFUND")
 		sharedDocument := r.CustomerVisible && (kind == "contracts" || kind == "invoices" && detail(r, "invoice_type") == "SALES")
-		if visibleReceipt || visibleTransaction || sharedDocument {
+		if (visibleReceipt || visibleTransaction || sharedDocument) && customerVisibleStatus(kind, r.Status) {
 			visible = append(visible, StatementEntry{Kind: kind, Record: r.Public(kind)})
 		}
 	}
