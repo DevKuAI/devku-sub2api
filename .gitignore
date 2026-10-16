@@ -39,6 +39,11 @@ frontend/dist/
 *.tsbuildinfo
 vite.config.d.ts
 vite.config.js.timestamp-*
+frontend/audit.json
+
+# Python caches
+__pycache__/
+*.py[cod]
 
 # 日志
 npm-debug.log*
@@ -126,7 +131,6 @@ scripts
 !backend/scripts/resolve-version.sh
 !backend/scripts/release-version.sh
 .code-review-state
-#openspec/
 code-reviews/
 AGENTS.md
 backend/cmd/server/server
@@ -138,6 +142,12 @@ docs/*
 !docs/development/
 docs/development/*
 !docs/development/*.md
+!docs/archive/
+docs/archive/**
+!docs/archive/**/
+!docs/archive/**/*.md
+!docs/archive/**/*.json
+!docs/archive/**/*.html
 !docs/desktop/
 docs/desktop/*
 !docs/desktop/*.md
@@ -156,7 +166,6 @@ docs/media/*
 !docs/media/*.md
 !docs/accounting-management/
 !docs/accounting-management/*.md
-!docs/accounting-management/prototype.html
 !docs/codex-credits.md
 !docs/legal/
 !docs/legal/*.md

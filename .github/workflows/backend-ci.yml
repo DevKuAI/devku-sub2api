@@ -22,7 +22,7 @@ jobs:
           /bin/sh deploy/tests/docker-compose-desktop-update-storage-env-test.sh
           /bin/sh deploy/tests/docker-runtime-resources-test.sh
           /bin/bash deploy/tests/release-version-test.sh
-          /bin/sh deploy/test-caddyfile-cache.sh
+          /bin/sh deploy/tests/caddyfile-cache-test.sh
 
   test:
     runs-on: ubuntu-latest

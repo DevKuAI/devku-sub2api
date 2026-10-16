@@ -45,7 +45,7 @@ Sub2API 是可自行部署的 AI API 网关，用于管理上游 OAuth 和 API K
 | Desktop 企业 | 企业与成员、企业挂载 Web 账户、成员 Model Token、模型配置、用量统计、会话/对话上报和日报。对话上报由企业级开关控制。 |
 | Desktop 资源与更新 | MCP/Skill 包管理与鉴权分发，以及基于 S3 兼容存储的 Desktop 更新发布。私有资源与公开更新文件使用独立 bucket。 |
 | 企业账目 | 到账与税务、VCC 分配/消费/退款、合同、发票、AI Invoice、支出与分次付款、对账、CSV 导出、私有附件和审计。不同币种分别记账。 |
-| 企业 BI | 微信绑定与管理授权、Connector 凭证、数据源配置、手动导入 sub2api 用量、报告、保留期限/清理和审计。真实数据源、微信设备和生产容量验收仍按 [BI 文档](docs/mobile-bi/README.md) 跟踪。 |
+| 企业 BI | 独立微信身份、企业邀请与功能授权，读取 Desktop 用量及日／周／月总结，提供管理端 metadata 运维。微信设备和生产容量验收仍按 [BI 文档](docs/mobile-bi/README.md) 跟踪。 |
 | 管理与扩展 | Web 管理后台、运行监控、插件宿主服务，以及通过 iframe 接入外部系统。 |
 
 ### 企业账户入口
@@ -506,6 +506,7 @@ git diff --check
 | 文档索引 | [docs/README.md](docs/README.md) |
 | 部署与安全 | [部署说明](deploy/README.md)、[边缘安全](deploy/EDGE_SECURITY.md)、[Apple container](deploy/APPLE_CONTAINER.md) |
 | 开发 | [开发指南](docs/development/DEV_GUIDE.md) |
+| 仓库结构 | [目录说明](docs/development/REPOSITORY_LAYOUT.md)、[Agent skills](.agents/skills/) |
 | Desktop API | [API v1](docs/desktop/DESKTOP_API_V1.md)、[OpenAPI](docs/desktop/openapi/DESKTOP_API_V1.openapi.yaml)、[会话/对话 v2](docs/desktop/DESKTOP_SESSION_CONVERSATION_V2.md)、[日报](docs/desktop/DESKTOP_DAILY_REPORTS.md) |
 | Desktop 资源 | [MCP/Skill 分发](docs/desktop/desktop-resources-v1.md) |
 | 账目管理 | [设计、实现/配置与验证](docs/accounting-management/README.md) |
@@ -520,11 +521,10 @@ sub2api/
 ├── deploy/     # 安装脚本、Compose 模板与运维文档
 ├── docs/       # 开发指南、功能设计、API 契约与验证记录
 ├── assets/     # README 图片
-├── openspec/   # 变更提案与规格
-├── skills/     # 集成 skills
 ├── tools/      # 仓库维护工具
 ├── .github/    # CI 与发布 workflow
 └── .agents/    # 项目 Agent skills
+    └── skills/
 ```
 
 ## 许可证

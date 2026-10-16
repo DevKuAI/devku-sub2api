@@ -45,7 +45,7 @@ Use this README to choose a deployment method and configure the service. See the
 | Desktop enterprises | Organizations and members, enterprise-to-Web-account binding, managed Model Tokens, model configuration, usage statistics, session/conversation reporting and daily reports. Reporting is controlled per enterprise. |
 | Desktop resources and updates | MCP/Skill package management and authenticated distribution, plus Desktop update publishing backed by S3-compatible storage. Private resource storage is separate from public update artifacts. |
 | Enterprise accounting | Transfers and tax calculations, VCC allocations/transactions/refunds, contracts, invoices, AI Invoice, expenses and installments, reconciliation, CSV export, private attachments and audits. Currencies are tracked separately. |
-| Enterprise BI | WeChat binding and management grants, Connector credentials, data-source setup, manual sub2api usage-log imports, reports, retention/cleanup and audits. Real-source, WeChat-device and production-capacity acceptance remains tracked in the [BI documentation](docs/mobile-bi/README.md). |
+| Enterprise BI | Independent WeChat identity, enterprise invitations and feature grants, Desktop usage and daily/weekly/monthly reports, and administrative metadata. WeChat-device and production-capacity acceptance remains tracked in the [BI documentation](docs/mobile-bi/README.md). |
 | Administration and extensions | Web administration, operational monitoring, plugin host services and iframe integration with external systems. |
 
 ### Enterprise account access
@@ -521,6 +521,7 @@ Integration tests require Docker and live test containers; skipped integration t
 | Documentation index | [docs/README.md](docs/README.md) |
 | Deployment and security | [Deployment](deploy/README.md), [edge security](deploy/EDGE_SECURITY.md), [Apple container](deploy/APPLE_CONTAINER.md) |
 | Development | [Developer guide](docs/development/DEV_GUIDE.md) |
+| Repository organization | [Directory layout](docs/development/REPOSITORY_LAYOUT.md), [Agent skills](.agents/skills/) |
 | Desktop APIs | [API v1](docs/desktop/DESKTOP_API_V1.md), [OpenAPI](docs/desktop/openapi/DESKTOP_API_V1.openapi.yaml), [sessions/conversations v2](docs/desktop/DESKTOP_SESSION_CONVERSATION_V2.md), [daily reports](docs/desktop/DESKTOP_DAILY_REPORTS.md) |
 | Desktop resources | [MCP/Skill distribution](docs/desktop/desktop-resources-v1.md) |
 | Accounting | [Design, implementation/configuration and validation](docs/accounting-management/README.md) |
@@ -535,11 +536,10 @@ sub2api/
 ├── deploy/     # Installation scripts, Compose templates and operations guides
 ├── docs/       # Development guides, feature designs, API contracts and validation
 ├── assets/     # README images
-├── openspec/   # Change proposals and specifications
-├── skills/     # Integration skills
 ├── tools/      # Repository maintenance utilities
 ├── .github/    # CI and release workflows
 └── .agents/    # Project Agent skills
+    └── skills/
 ```
 
 ## License

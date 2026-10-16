@@ -1,6 +1,6 @@
 # 账目管理实现与验收说明
 
-需求基线为 `origin/docs/accounting-management` 的 `4cab773bda883ad6306e26d30c497d032108497e`。同目录的 `design.md`、`prototype.html` 保留该提交的原始内容。
+需求基线为 `origin/docs/accounting-management` 的 `4cab773bda883ad6306e26d30c497d032108497e`。[原始设计](../archive/accounting-management/design.md) 与 [HTML 原型](../archive/accounting-management/prototype.html) 已归档，保留该提交的原始内容。
 
 ## 账户入口与权限
 
