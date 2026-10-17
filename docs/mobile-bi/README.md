@@ -15,6 +15,7 @@
 | [配置](configuration.md) | 服务开关、密钥、隐私地址与部署 |
 | [协议](protocol.md) | 独立身份、邀请、内存凭证、退出、错误和权限 |
 | [两端交接](backend-handoff.md) | 后端与移动端共同遵循的协议和联调约束 |
+| [微信扫码加入修改交接](wechat-scan-join-handoff.md) | 后端和 Web 已实现；小程序官方码入口、手动输入与主动确认的完整接口及验收说明 |
 | [运维](operations.md) | 企业接入、身份、任务、审计保留 |
 | [页面交互](interaction-map.md) | 四个主入口、按需读取、失败恢复 |
 | [周月总结](period-reports.md) | 自然周期、来源冻结、任务恢复、预算与版本 |

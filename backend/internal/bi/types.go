@@ -59,6 +59,7 @@ type IssuedInvitation struct {
 	Invitation
 	Token string `json:"token"`
 	Path  string `json:"path"`
+	Scene string `json:"scene"`
 }
 type Page[T any] struct {
 	Items    []T   `json:"items"`

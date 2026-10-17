@@ -228,6 +228,16 @@ describe('API Client', () => {
   // --- 响应拦截器 ---
 
   describe('响应拦截器', () => {
+    it('保留限流重试时间且不丢失原有错误信息', async () => {
+      apiClient.defaults.adapter = vi.fn().mockRejectedValue({
+        response: { status: 429, headers: { 'retry-after': '30' }, data: { code: 'RATE_LIMITED', message: 'Try later' } },
+        config: { url: '/test' },
+      })
+      await expect(apiClient.post('/test')).rejects.toMatchObject({
+        status: 429, code: 'RATE_LIMITED', message: 'Try later', retryAfter: '30',
+      })
+    })
+
     it('code=0 时解包 data 字段', async () => {
       const adapter = vi.fn().mockResolvedValue({
         status: 200,

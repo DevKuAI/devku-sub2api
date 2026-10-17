@@ -7,19 +7,6 @@
     <p v-if="availabilityLoading" role="status" class="bi-caption">{{ t('common.loading') }}</p>
     <p v-else-if="enabled === false" role="status" class="bi-caption">{{ t('biNative.disabled') }}</p>
     <div v-if="availabilityError" role="alert" class="bi-error"><p>{{ availabilityError }}</p><button class="btn btn-secondary mt-3" @click="checkAvailability">{{ t('biNative.retry') }}</button></div>
-    <section v-if="issued" class="bi-access-region space-y-4" :aria-label="t('biNative.created')">
-      <h3 class="bi-heading">{{ t('biNative.created') }}</h3>
-      <p class="bi-caption">{{ t('biNative.sendYourself') }}</p>
-      <div class="bi-invite-result">
-        <div class="min-w-0 space-y-4">
-          <label class="block"><span class="input-label">{{ t('biNative.inviteCode') }}</span><input class="input" :value="issued.token" readonly /></label>
-          <label class="block"><span class="input-label">{{ t('biNative.invitePath') }}</span><input class="input" :value="issued.path" readonly /></label>
-          <button class="btn btn-secondary" @click="copyInvitation">{{ t('common.copy') }}</button>
-          <p role="status" class="bi-caption">{{ copyStatus }}</p>
-        </div>
-        <div class="space-y-3"><img v-if="issuedQR" :src="issuedQR" :alt="t('biNative.inviteQRCode')" class="h-48 w-48 max-w-full rounded-lg border bg-white p-2" /><p class="bi-caption">{{ t('biNative.scanInviteHint') }}</p></div>
-      </div>
-    </section>
     <div class="bi-access-grid">
       <section class="bi-access-region" :aria-label="t('biNative.users')" :aria-busy="loading.users">
         <header class="bi-toolbar"><h3 class="bi-heading">{{ t('biNative.users') }}</h3><button class="btn btn-secondary" :disabled="loading.users || enabled !== true" @click="loadUsers()">{{ t('common.refresh') }}</button></header>
@@ -37,6 +24,7 @@
       <section class="bi-access-region" :aria-label="t('biNative.invitations')" :aria-busy="loading.invites">
         <header class="bi-toolbar"><h3 class="bi-heading">{{ t('biNative.invitations') }}</h3><button class="btn btn-secondary" :disabled="loading.invites || enabled !== true" @click="loadInvites()">{{ t('common.refresh') }}</button></header>
         <p class="bi-caption mb-3">{{ t('biNative.inviteHint') }}</p>
+        <p v-if="invites.length" class="bi-caption mb-3">{{ t('biNative.inviteCredentialsHint') }}</p>
         <div v-if="errors.invites" role="alert" class="bi-error"><p>{{ errors.invites }}</p><button class="btn btn-secondary mt-3" @click="loadInvites()">{{ t('biNative.retry') }}</button></div>
         <p v-if="loading.invites" role="status" class="bi-caption">{{ t('common.loading') }}</p>
         <p v-if="enabled === true && !loading.invites && !invites.length && !errors.invites" class="bi-empty">{{ t('biNative.noInvites') }}</p>
@@ -51,55 +39,38 @@
     </div>
     <BIStepUpDialog :controller="stepUp" />
     <ConfirmDialog :show="!!revoking" :title="t('biNative.revokeInvite')" :message="t('biNative.confirmRevoke')" :confirm-text="t('biNative.revokeInvite')" :loading="busy" danger content-class="bi-access-dialog" @confirm="confirmRevoke" @cancel="revoking = undefined" />
-    <BaseDialog :show="editing" :title="t(selected ? 'biNative.editAccess' : 'biNative.createInvite')" :close-label="t('common.close')" :close-on-escape="!busy" :show-close-button="!busy" :z-index="60" content-class="bi-access-dialog" width="wide" @close="close">
-      <form id="bi-access-form" class="space-y-4" @submit.prevent="save"><label v-if="!selected" class="block">{{ t('biNative.note') }}<input v-model="note" class="input mt-2" maxlength="100" :disabled="busy" /></label><label class="block">{{ t('biNative.organizationAlias') }}<input v-model="organizationAlias" class="input mt-2" maxlength="80" :disabled="busy" /><span class="bi-caption">{{ t('biNative.organizationAliasHint') }}</span></label><p>{{ t('biNative.wholeOrganization') }}</p><div class="flex flex-wrap gap-2"><button class="btn btn-secondary" type="button" :disabled="busy" @click="caps = ['analytics:read']">{{ t('biNative.presetSummary') }}</button><button class="btn btn-secondary" type="button" :disabled="busy" @click="caps = ['members:read','reports:read']">{{ t('biNative.presetReports') }}</button><button class="btn btn-secondary" type="button" :disabled="busy" @click="caps = [...biCapabilities]">{{ t('biNative.presetAll') }}</button></div><fieldset :disabled="busy" class="space-y-3"><legend class="mb-2 font-medium">{{ t('biNative.contentAccess') }}</legend><label v-for="cap in biCapabilities" :key="cap" class="flex items-start gap-3 rounded-lg border border-gray-200 p-3 dark:border-dark-700"><input class="mt-1 shrink-0" type="checkbox" :checked="caps.includes(cap)" @change="toggle(cap, ($event.target as HTMLInputElement).checked)" />{{ t(`biNative.capabilities.${cap}`) }}</label></fieldset><p class="bi-caption">{{ t('biNative.dependencyHint') }}</p><label v-if="selected" class="block">{{ t('biNative.accessStatus') }}<select v-model="status" class="input mt-2" :disabled="busy"><option value="active">{{ t('common.enabled') }}</option><option value="revoked">{{ t('biNative.revoked') }}</option></select></label><p v-if="editError" role="alert" class="text-red-600">{{ editError }}</p></form>
-      <template #footer><button class="btn btn-secondary" :disabled="busy" @click="close">{{ t('common.cancel') }}</button><button form="bi-access-form" class="btn btn-primary" type="submit" :disabled="busy || !caps.length">{{ t('common.save') }}</button></template>
-    </BaseDialog>
   </section>
 </template>
 <script setup lang="ts">
-import QRCode from 'qrcode'
 import { biDate, biStatusTone, biText } from './display'
 import '@/styles/biOperations.css'
-import { nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { biAccessPath, biAccessQuery } from './navigation'
 import { useI18n } from 'vue-i18n'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
-import BaseDialog from '@/components/common/BaseDialog.vue'
 import BIStepUpDialog from '@/components/bi/BIStepUpDialog.vue'
 import { useStepUp, isStepUpCancelled, StepUpCancelledError } from '@/composables/useStepUp'
-import { biCapabilities, biManagement, capabilityDependencies, isBIEnabled, type BICapability, type BIInvitation, type BIIssuedInvitation, type BIUserAccess } from '@/api/bi'
+import { biManagement, isBIEnabled, type BIInvitation, type BIUserAccess } from '@/api/bi'
 const props = defineProps<{ organizationId: string; selfManaged?: boolean }>()
-const emit = defineEmits<{ busyChange: [value: boolean] }>()
+const route = useRoute(), router = useRouter()
 const { t } = useI18n()
 const stepUp = useStepUp()
-const enabled = ref<boolean | null>(null), availabilityLoading = ref(false), availabilityError = ref(''), busy = ref(false), editing = ref(false)
+const enabled = ref<boolean | null>(null), availabilityLoading = ref(false), availabilityError = ref(''), busy = ref(false)
 const loading = reactive({ users: false, invites: false }), errors = reactive({ users: '', invites: '' })
-const users = ref<BIUserAccess[]>([]), invites = ref<BIInvitation[]>([]), issued = ref<BIIssuedInvitation>()
+const users = ref<BIUserAccess[]>([]), invites = ref<BIInvitation[]>([])
 const userPage = ref(1), invitePage = ref(1), usersMore = ref(false), invitesMore = ref(false)
-const selected = ref<BIUserAccess>(), caps = ref<BICapability[]>([]), note = ref(''), status = ref<BIUserAccess['status']>('active'), editError = ref(''), copyStatus = ref('')
-const organizationAlias = ref(''), issuedQR = ref(''), revoking = ref<BIInvitation>()
-watch(busy, value => emit('busyChange', value), { flush: 'sync' })
-watch(busy, async (value, previous) => {
-  if (!previous || value || !editing.value) return
-  const g = generation
-  await nextTick()
-  if (g === generation && editing.value) document.querySelector<HTMLElement>('#bi-access-form input:not(:disabled)')?.focus()
-})
-watch(issued, async value => { const token = value?.token; issuedQR.value = ''; if (token) { try { const svg = await QRCode.toString(value!.path, { type: 'svg', width: 192, margin: 2 }); if (issued.value?.token === token) issuedQR.value = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg) } catch { if (issued.value?.token === token) copyStatus.value = t('biNative.copyFailed') } } })
+const revoking = ref<BIInvitation>()
 let generation = 0, userLoad = 0, inviteLoad = 0, availabilityLoad = 0
 const api = () => biManagement(props.organizationId, props.selfManaged)
 function errorMessage(cause: unknown) { const code = (cause as { status?: number }).status; return t(code === 409 ? 'biNative.conflict' : code === 423 ? 'biNative.stepUp' : 'biNative.failed') }
 async function loadUsers(page = 1) { const g = generation, n = ++userLoad; loading.users = true; errors.users = ''; try { const result = await api().users(page); if (g !== generation || n !== userLoad) return; users.value = page === 1 ? result.items : [...users.value, ...result.items]; userPage.value = page; usersMore.value = result.has_more } catch (cause) { if (g === generation && n === userLoad) errors.users = errorMessage(cause) } finally { if (g === generation && n === userLoad) loading.users = false } }
 async function loadInvites(page = 1) { const g = generation, n = ++inviteLoad; loading.invites = true; errors.invites = ''; try { const result = await api().invitations(page); if (g !== generation || n !== inviteLoad) return; invites.value = page === 1 ? result.items : [...invites.value, ...result.items]; invitePage.value = page; invitesMore.value = result.has_more } catch (cause) { if (g === generation && n === inviteLoad) errors.invites = errorMessage(cause) } finally { if (g === generation && n === inviteLoad) loading.invites = false } }
-function openInvite() { copyStatus.value = ''; selected.value = undefined; caps.value = ['analytics:read']; note.value = ''; organizationAlias.value = ''; status.value = 'active'; editError.value = ''; editing.value = true }
-function openUser(user: BIUserAccess) { organizationAlias.value = user.organization_alias || ''; selected.value = user; caps.value = [...user.capabilities]; status.value = user.status; editError.value = ''; editing.value = true }
-function close() { if (!busy.value) editing.value = false }
-function toggle(cap: BICapability, checked: boolean) { if (checked) caps.value = capabilityDependencies([...caps.value, cap]); else { caps.value = caps.value.filter(c => c !== cap); if (cap === 'members:read') caps.value = caps.value.filter(c => c === 'analytics:read'); if (cap === 'reports:read') caps.value = caps.value.filter(c => c !== 'reports:copy') } }
+function openInvite() { void router.push({ path: `${biAccessPath(props.organizationId, props.selfManaged)}/invitations/new`, query: biAccessQuery(route.query.from) }) }
+function openUser(user: BIUserAccess) { void router.push({ path: `${biAccessPath(props.organizationId, props.selfManaged)}/users/${encodeURIComponent(user.bi_user_id)}/edit`, query: biAccessQuery(route.query.from) }) }
 async function secured<T>(g: number, action: () => Promise<T>) { return stepUp.run(() => { if (g !== generation) return Promise.reject(new StepUpCancelledError()); return action() }) }
-async function save() { if (busy.value) return; busy.value = true; editError.value = ''; const g = generation, client = api(), user = selected.value, permissions = [...caps.value], accessStatus = status.value, inviteNote = note.value, alias = organizationAlias.value; try { if (user) await secured(g, () => client.access(user, permissions, accessStatus, alias)); else { const result = await secured(g, () => client.create(permissions, inviteNote, alias)); if (g === generation) issued.value = result } if (g === generation) { editing.value = false; void loadUsers(); void loadInvites() } } catch (cause) { if (g === generation && !isStepUpCancelled(cause)) editError.value = errorMessage(cause) } finally { if (g === generation) busy.value = false } }
 async function confirmRevoke() { const invite = revoking.value; if (invite) { revoking.value = undefined; await revoke(invite.id) } }
-async function revoke(id: string) { if (busy.value) return; busy.value = true; const g = generation, client = api(); try { await secured(g, () => client.revoke(id)); if (g === generation) { if (issued.value?.id === id) issued.value = undefined; await loadInvites() } } catch (cause) { if (g === generation && !isStepUpCancelled(cause)) errors.invites = errorMessage(cause) } finally { if (g === generation) busy.value = false } }
-async function copyInvitation() { try { await navigator.clipboard.writeText(`${issued.value?.token}\n${issued.value?.path}`); copyStatus.value = t('biNative.copied') } catch { copyStatus.value = t('biNative.copyFailed') } }
+async function revoke(id: string) { if (busy.value) return; busy.value = true; const g = generation, client = api(); try { await secured(g, () => client.revoke(id)); if (g === generation) { await loadInvites() } } catch (cause) { if (g === generation && !isStepUpCancelled(cause)) errors.invites = errorMessage(cause) } finally { if (g === generation) busy.value = false } }
 async function checkAvailability() {
   const g = generation, n = ++availabilityLoad
   enabled.value = null; availabilityLoading.value = true; availabilityError.value = ''
@@ -111,6 +82,6 @@ async function checkAvailability() {
   } catch { if (g === generation && n === availabilityLoad) availabilityError.value = t('biNative.availabilityFailed') }
   finally { if (g === generation && n === availabilityLoad) availabilityLoading.value = false }
 }
-watch(() => [props.organizationId, props.selfManaged], () => { stepUp.onCancel(); generation++; users.value = []; invites.value = []; issued.value = undefined; revoking.value = undefined; copyStatus.value = ''; editing.value = false; busy.value = false; errors.users = ''; errors.invites = ''; void checkAvailability() }, { immediate: true })
+watch(() => [props.organizationId, props.selfManaged], () => { stepUp.onCancel(); generation++; users.value = []; invites.value = []; revoking.value = undefined; busy.value = false; errors.users = ''; errors.invites = ''; void checkAvailability() }, { immediate: true })
 onBeforeUnmount(() => { generation++; stepUp.onCancel() })
 </script>

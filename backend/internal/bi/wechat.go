@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 )
 
@@ -15,9 +16,12 @@ type WeChatExchanger interface {
 }
 
 type weChatClient struct {
-	client *http.Client
-	appID  string
-	secret string
+	client         *http.Client
+	appID          string
+	secret         string
+	tokenMu        sync.Mutex
+	accessToken    string
+	tokenExpiresAt time.Time
 }
 
 func newWeChatClient(appID, secret string) *weChatClient {

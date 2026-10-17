@@ -21,6 +21,7 @@ func registerBIManagement(group *gin.RouterGroup, h *bi.Handler, stepUp middlewa
 	group.GET("/users", h.ListAccess)
 	secure := group.Group("", gin.HandlerFunc(stepUp))
 	secure.POST("/invitations", h.CreateInvitation)
+	secure.POST("/invitations/:invitation_id/qrcode", h.RateLimit(middleware.SecurityClientIP), h.InvitationQRCode)
 	secure.POST("/invitations/:invitation_id/revoke", h.RevokeInvitation)
 	secure.PUT("/users/:bi_user_id/access", h.UpdateAccess)
 }

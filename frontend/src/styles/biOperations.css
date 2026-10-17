@@ -52,7 +52,7 @@
   .bi-config { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @container bi-access (min-width: 40rem) {
-  .bi-invite-result { grid-template-columns: minmax(0, 1fr) 12rem; }
+  .bi-invite-result { grid-template-columns: minmax(0, 1fr) 15rem; }
 }
 @container bi-access (min-width: 52rem) {
   .bi-access-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

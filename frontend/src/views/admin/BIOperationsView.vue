@@ -26,7 +26,7 @@
           <div class="bi-filter-bar"><label class="min-w-0 flex-1 sm:max-w-md"><span class="input-label">{{ t('biNative.searchOrganizations') }}</span><input v-model="search" class="input" type="search" /></label><button v-if="search" class="btn btn-secondary" @click="search = ''">{{ t('biNative.clearSearch') }}</button></div>
           <OperationsTable :rows="regions.organizations.rows" :columns="organizationColumns" :loading="regions.organizations.loading" :error="regions.organizations.error" :empty-text="search ? t('biNative.noOrganizationsMatch') : undefined" @retry="load('organizations')">
             <template #cell-features="{ row }"><div class="bi-feature-grid"><span v-for="field in organizationFeatures" :key="field" class="bi-feature" :data-enabled="row[field] === true"><span>{{ t(`biNative.featureLabels.${field}`) }}</span><span>{{ row[field] == null ? '-' : t(row[field] ? 'common.enabled' : 'biNative.notEnabled') }}</span></span></div></template>
-            <template #actions="{ row }"><router-link class="btn btn-secondary" :to="organizationLink(String(row.id))">{{ t('biNative.openOrganization') }}</router-link><button v-if="miniProgramEnabled" class="btn btn-secondary" aria-haspopup="dialog" @click="openAccess(row)">{{ t('biNative.invitations') }}</button></template>
+            <template #actions="{ row }"><router-link class="btn btn-secondary" :to="organizationLink(String(row.id))">{{ t('biNative.openOrganization') }}</router-link><button v-if="miniProgramEnabled" class="btn btn-secondary" @click="openAccess(row)">{{ t('biNative.invitations') }}</button></template>
           </OperationsTable>
           <More path="organizations" />
         </div>
@@ -45,7 +45,7 @@
           <p v-if="!regions.organizations.loading && !regions.organizations.error && !regions.organizations.rows.length" class="bi-empty mt-4">{{ t(search ? 'biNative.noOrganizationsMatch' : 'biNative.noData') }}</p>
           <More path="organizations" />
         </div>
-        <div v-if="selectedOrganization" class="card bi-panel bi-toolbar"><div class="min-w-0"><h2 class="bi-heading break-words">{{ selectedOrganizationName }}</h2><p class="bi-caption mt-2">{{ t('biNative.selectOrganizationHint') }}</p></div><button class="btn btn-primary" aria-haspopup="dialog" @click="accessDialogOpen = true">{{ t('biNative.accessManagement') }}</button></div>
+        <div v-if="selectedOrganization" class="card bi-panel bi-toolbar"><div class="min-w-0"><h2 class="bi-heading break-words">{{ selectedOrganizationName }}</h2><p class="bi-caption mt-2">{{ t('biNative.selectOrganizationHint') }}</p></div><button class="btn btn-primary" @click="openAccess({ id: selectedOrganization })">{{ t('biNative.accessManagement') }}</button></div>
         <div v-for="region in identityRegions" :key="region.path" class="card bi-panel">
           <header class="bi-toolbar"><h2 class="bi-heading">{{ t(`biNative.${region.title}`) }}</h2><button class="btn btn-secondary" :disabled="regions[region.path].loading" @click="load(region.path)">{{ t('common.refresh') }}</button></header>
           <OperationsTable :rows="regions[region.path].rows" :columns="region.columns" :loading="regions[region.path].loading" :error="regions[region.path].error" @retry="load(region.path)"><template v-if="region.path === 'identities/users'" #actions="{ row }"><button class="btn btn-secondary" :disabled="busy" @click="setStatus(String(row.id), row.status === 'active' ? 'disabled' : 'active')">{{ t(row.status === 'active' ? 'biNative.disableUser' : 'biNative.enableUser') }}</button></template></OperationsTable><More :path="region.path" />
@@ -71,10 +71,6 @@
         <dl v-if="overview.config" class="bi-config"><div v-for="field in configKeys" :key="field"><dt class="bi-caption">{{ t(`biNative.config.${field}`) }}</dt><dd><span v-if="typeof overview.config[field] === 'boolean'" class="bi-badge" :data-tone="overview.config[field] ? 'success' : 'warning'">{{ t(overview.config[field] ? 'admin.desktop.configured' : 'admin.desktop.notConfigured') }}</span><bdi v-else>{{ biText(overview.config[field]) }}</bdi></dd></div></dl>
         <h3 class="bi-heading">{{ t('biNative.miniProgramCounts') }}</h3><dl class="bi-metrics"><div v-for="name in miniProgramCountKeys" :key="name" class="bi-metric"><dt class="bi-caption">{{ t(`biNative.counts.${name}`) }}</dt><dd>{{ overview.counts?.[name] == null ? '-' : biNumber(overview.counts[name]) }}</dd></div></dl>
       </div>
-      <BaseDialog :show="accessDialogOpen" :title="t('biNative.organizationAccessTitle', { name: selectedOrganizationName })" :close-label="t('common.close')" width="extra-wide" content-class="bi-access-dialog" :close-on-escape="!accessBusy" :show-close-button="!accessBusy" @close="closeAccess">
-        <BIGrantManagement v-if="accessDialogOpen && selectedOrganization" :key="selectedOrganization" :organization-id="selectedOrganization" @busy-change="accessBusy = $event" />
-        <template #footer><button class="btn btn-secondary" :disabled="accessBusy" @click="closeAccess">{{ t('common.close') }}</button></template>
-      </BaseDialog>
       <ConfirmDialog :show="cleanupConfirm" :title="t('biNative.cleanup')" :message="t('biNative.confirmCleanup')" :confirm-text="t('biNative.cleanup')" :loading="busy" danger content-class="bi-access-dialog" @confirm="cleanup" @cancel="cleanupConfirm = false" />
       <BIStepUpDialog :controller="stepUp" />
       <p v-if="actionError" role="alert" class="bi-error">{{ actionError }}</p>
@@ -86,11 +82,10 @@ import { computed, defineComponent, h, nextTick, onBeforeUnmount, reactive, ref,
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import AppLayout from '@/components/layout/AppLayout.vue'
-import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import BIStepUpDialog from '@/components/bi/BIStepUpDialog.vue'
 import { useStepUp, isStepUpCancelled } from '@/composables/useStepUp'
-import BIGrantManagement from '@/components/bi/BIGrantManagement.vue'
+import { biAccessPath } from '@/components/bi/navigation'
 import OperationsTable from '@/components/bi/OperationsTable.vue'
 import ReportTaskStatistics from '@/components/bi/ReportTaskStatistics.vue'
 import { biNumber, biText } from '@/components/bi/display'
@@ -137,11 +132,10 @@ function tabKey(event: KeyboardEvent, index: number) {
 const overview = ref<BIOverview>(), overviewLoading = ref(false), overviewError = ref(''), search = ref(''), kind = ref(''), selectedOrganization = ref(''), busy = ref(false), actionError = ref(''), policy = ref<BIRetentionPolicy>(), retentionError = ref('')
 const miniProgramEnabled = computed(() => overview.value?.bi_enabled === true)
 const stepUp = useStepUp()
-const accessDialogOpen = ref(false), accessBusy = ref(false), cleanupConfirm = ref(false)
+const cleanupConfirm = ref(false)
 const retentionLoading = ref(false), retentionMessage = ref('')
 const selectedOrganizationName = computed(() => biText(regions.organizations.rows.find(row => String(row.id) === selectedOrganization.value)?.name))
-function openAccess(row: BIOperationRow) { selectedOrganization.value = String(row.id); accessDialogOpen.value = true }
-function closeAccess() { if (!accessBusy.value) accessDialogOpen.value = false }
+function openAccess(row: BIOperationRow) { void router.push({ path: biAccessPath(String(row.id)), query: { from: tab.value === 'onboarding' ? 'onboarding' : 'identities' } }) }
 const paths = ['organizations','identities/users','identities/sessions','report-tasks','report-executions','audit']
 const regions = reactive<Record<string, { rows: BIOperationRow[]; page: number; more: boolean; loading: boolean; error: string; generation: number }>>(Object.fromEntries(paths.map(path => [path, { rows: [], page: 1, more: false, loading: false, error: '', generation: 0 }])))
 const statistics = ref<BIReportStatistics>(), statisticsLoading = ref(false), statisticsError = ref('')
@@ -198,7 +192,7 @@ watch([tab, miniProgramEnabled], ([value, enabled]) => {
   if (value === 'identities') { void load('organizations'); void load('identities/users'); void load('identities/sessions') }
   if (value === 'audit') { void load('audit'); void loadRetention() }
 }, { immediate: true })
-watch(search, () => { clearTimeout(searchTimer); regions.organizations.generation++; regions.organizations.rows = []; regions.organizations.more = false; regions.organizations.loading = true; selectedOrganization.value = ''; accessDialogOpen.value = false; searchTimer = setTimeout(() => { void load('organizations') },300) })
+watch(search, () => { clearTimeout(searchTimer); regions.organizations.generation++; regions.organizations.rows = []; regions.organizations.more = false; regions.organizations.loading = true; selectedOrganization.value = ''; searchTimer = setTimeout(() => { void load('organizations') },300) })
 watch(kind, () => { void loadStatistics(); for (const path of ['report-tasks','report-executions']) { regions[path].generation++; regions[path].rows = []; regions[path].more = false; void load(path) } })
 onBeforeUnmount(() => { alive = false; stepUp.onCancel(); clearTimeout(searchTimer) })
 </script>

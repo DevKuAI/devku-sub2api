@@ -14,6 +14,7 @@ import { useRoutePrefetch } from '@/composables/useRoutePrefetch'
 import { getSetupStatus } from '@/api/setup'
 import { resolveCompletedSetupRedirectPath } from './setupRedirect'
 import { resolveRouteDocumentTitle } from './title'
+import { biRoutes } from './biRoutes'
 
 const accountingKindPattern =
   'receivables|fx-exchanges|transfers|vcc-cards|vcc-transactions|contracts|invoices|vendor-invoices|expenses|expense-payments'
@@ -39,6 +40,7 @@ const financeAccountingPathPattern = new RegExp(
  * Route definitions with lazy loading
  */
 const routes: RouteRecordRaw[] = [
+  ...biRoutes,
   // ==================== Setup Routes ====================
   {
     path: '/setup',

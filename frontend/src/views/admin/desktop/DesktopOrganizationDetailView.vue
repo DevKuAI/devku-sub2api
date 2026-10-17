@@ -179,9 +179,11 @@
       </section>
 
       <section v-else-if="organization && activeTab === 'grants'" :id="panelId('grants')" tabindex="0" role="tabpanel" :aria-labelledby="tabId('grants')">
-        <BIGrantManagement v-if="organization" :key="organizationID" :organization-id="organizationID" :self-managed="selfManaged">
-          <template v-if="!selfManaged" #actions><button class="btn btn-secondary" type="button" @click="router.push({ path: '/admin/desktop/operations', query: { tab: 'identities' } })">{{ t('nav.serviceOperations') }}</button></template>
-        </BIGrantManagement>
+        <div class="card detail-panel space-y-4">
+          <h2 class="detail-section-title">{{ t('biNative.accessManagement') }}</h2>
+          <p class="detail-caption">{{ t('biNative.identityHint') }}</p>
+          <router-link class="btn btn-primary" :to="{ path: biAccessPath(organizationID, selfManaged), query: { from: 'organization' } }">{{ t('biNative.accessManagement') }}</router-link>
+        </div>
       </section>
 
       <section v-else-if="organization" :id="panelId('configuration')" class="min-w-0" tabindex="0" role="tabpanel" :aria-labelledby="tabId('configuration')">
@@ -369,7 +371,7 @@ import DesktopMemberImportDialog from '@/components/desktop/DesktopMemberImportD
 import DesktopOrganizationBusiness from '@/components/desktop/DesktopOrganizationBusiness.vue'
 import type { DesktopAnalyticsRange } from '@/api/desktopOrganizationUsage'
 import DesktopPeriodReports from '@/components/desktop/DesktopPeriodReports.vue'
-import BIGrantManagement from '@/components/bi/BIGrantManagement.vue'
+import { biAccessPath } from '@/components/bi/navigation'
 import { biDate } from '@/components/bi/display'
 import '@/styles/desktopDetail.css'
 

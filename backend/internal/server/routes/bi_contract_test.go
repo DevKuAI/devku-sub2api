@@ -134,7 +134,7 @@ func TestBIAdminInvitationMutationsRequireStepUp(t *testing.T) {
 	admin := r.Group("/api/v1/admin", func(c *gin.Context) { c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: 1}) })
 	h := &handler.Handlers{BI: bi.NewHandler(nil, nil, &config.Config{}, nil, nil)}
 	registerBIAdminRoutes(admin, h, &config.Config{BI: config.BIConfig{Enabled: true}}, middleware.StepUpAuthMiddleware(func(c *gin.Context) { c.AbortWithStatus(423) }))
-	for _, target := range []struct{ method, path string }{{"POST", "/api/v1/admin/desktop/operations/organizations/org/invitations"}, {"POST", "/api/v1/admin/desktop/operations/organizations/org/invitations/inv/revoke"}, {"PUT", "/api/v1/admin/desktop/operations/organizations/org/users/biu/access"}, {"PUT", "/api/v1/admin/desktop/operations/identities/users/biu/status"}, {"PUT", "/api/v1/admin/desktop/operations/retention"}, {"POST", "/api/v1/admin/desktop/operations/cleanup/run"}} {
+	for _, target := range []struct{ method, path string }{{"POST", "/api/v1/admin/desktop/operations/organizations/org/invitations"}, {"POST", "/api/v1/admin/desktop/operations/organizations/org/invitations/inv/qrcode"}, {"POST", "/api/v1/admin/desktop/operations/organizations/org/invitations/inv/revoke"}, {"PUT", "/api/v1/admin/desktop/operations/organizations/org/users/biu/access"}, {"PUT", "/api/v1/admin/desktop/operations/identities/users/biu/status"}, {"PUT", "/api/v1/admin/desktop/operations/retention"}, {"POST", "/api/v1/admin/desktop/operations/cleanup/run"}} {
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, httptest.NewRequest(target.method, target.path, strings.NewReader(`{}`)))
 		require.Equal(t, 423, w.Code, target.path)

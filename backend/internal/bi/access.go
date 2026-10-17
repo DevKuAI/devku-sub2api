@@ -113,6 +113,10 @@ func (s *Service) CreateInvitation(ctx context.Context, org string, caps []strin
 	caps = slices.Compact(caps)
 	raw, _ := json.Marshal(caps)
 	token := randomToken("bii_")
+	scene, err := newInvitationScene()
+	if err != nil {
+		return result, err
+	}
 	id := randomToken("biv_")
 	now := s.now().UTC()
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -129,7 +133,7 @@ func (s *Service) CreateInvitation(ctx context.Context, org string, caps []strin
 	if err != nil {
 		return result, err
 	}
-	_, err = tx.ExecContext(ctx, `INSERT INTO bi_invitations(id,organization_id,token_hash,capabilities,note,expires_at,created_by,recipient_name) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, id, internalID, tokenHash(token), string(raw), strings.TrimSpace(note), now.Add(InvitationTTL), actor, recipient)
+	_, err = tx.ExecContext(ctx, `INSERT INTO bi_invitations(id,organization_id,token_hash,capabilities,note,expires_at,created_by,recipient_name,scene_hash) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`, id, internalID, tokenHash(token), string(raw), strings.TrimSpace(note), now.Add(InvitationTTL), actor, recipient, tokenHash(scene))
 	if err != nil {
 		return result, err
 	}
@@ -141,6 +145,7 @@ func (s *Service) CreateInvitation(ctx context.Context, org string, caps []strin
 	}
 	result.Invitation = Invitation{ID: id, OrganizationID: org, OrganizationName: name, Capabilities: caps, Note: note, RecipientName: recipient, Status: "pending", ExpiresAt: now.Add(InvitationTTL), CreatedAt: now}
 	result.Token = token
+	result.Scene = scene
 	result.Path = "/pages/settings/index?invite=" + token
 	return result, nil
 }
@@ -158,12 +163,17 @@ func scanInvitation(row interface{ Scan(...any) error }) (Invitation, error) {
 const invitationColumns = `i.id,o.public_id,o.name,i.capabilities,i.note,i.status,i.expires_at,i.created_at,i.claimed_by,i.claimed_at,i.recipient_name`
 
 func (s *Service) PreviewInvitation(ctx context.Context, p Principal, token string) (Invitation, error) {
-	if len(token) < 32 || len(token) > 128 {
-		return Invitation{}, ErrNotFound
+	return s.PreviewInvitationCredential(ctx, p, InvitationCredential{Token: &token})
+}
+
+func (s *Service) PreviewInvitationCredential(ctx context.Context, p Principal, credential InvitationCredential) (Invitation, error) {
+	column, hash, err := credential.lookup()
+	if err != nil {
+		return Invitation{}, err
 	}
 	inv, err := scanInvitation(s.db.QueryRowContext(ctx, `SELECT `+invitationColumns+` FROM bi_invitations i JOIN desktop_organizations o ON o.id=i.organization_id
- JOIN users issuer ON issuer.id=i.created_by WHERE i.token_hash=$1 AND o.status='active' AND o.deleted_at IS NULL
- AND issuer.status='active' AND issuer.deleted_at IS NULL AND (issuer.role='admin' OR o.gateway_user_id=issuer.id)`, tokenHash(token)))
+ JOIN users issuer ON issuer.id=i.created_by WHERE `+column+`=$1 AND o.status='active' AND o.deleted_at IS NULL
+ AND issuer.status='active' AND issuer.deleted_at IS NULL AND (issuer.role='admin' OR o.gateway_user_id=issuer.id)`, hash))
 	if errors.Is(err, sql.ErrNoRows) {
 		return inv, ErrNotFound
 	}
@@ -179,8 +189,13 @@ func (s *Service) PreviewInvitation(ctx context.Context, p Principal, token stri
 	return inv, nil
 }
 func (s *Service) AcceptInvitation(ctx context.Context, p Principal, token, requestID string) (Access, error) {
-	if len(token) < 32 || len(token) > 128 {
-		return Access{}, ErrNotFound
+	return s.AcceptInvitationCredential(ctx, p, InvitationCredential{Token: &token}, requestID)
+}
+
+func (s *Service) AcceptInvitationCredential(ctx context.Context, p Principal, credential InvitationCredential, requestID string) (Access, error) {
+	column, hash, err := credential.lookup()
+	if err != nil {
+		return Access{}, err
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -203,8 +218,8 @@ func (s *Service) AcceptInvitation(ctx context.Context, p Principal, token, requ
 	var claimed *string
 	err = tx.QueryRowContext(ctx, `SELECT i.id,i.organization_id,o.public_id,i.capabilities,i.expires_at,i.status,i.claimed_by,i.recipient_name
  FROM bi_invitations i JOIN desktop_organizations o ON o.id=i.organization_id JOIN users issuer ON issuer.id=i.created_by
- WHERE i.token_hash=$1 AND o.status='active' AND o.deleted_at IS NULL AND issuer.status='active' AND issuer.deleted_at IS NULL
- AND (issuer.role='admin' OR o.gateway_user_id=issuer.id) FOR UPDATE OF i FOR SHARE OF o,issuer`, tokenHash(token)).Scan(&id, &orgID, &org, &caps, &expires, &status, &claimed, &recipient)
+ WHERE `+column+`=$1 AND o.status='active' AND o.deleted_at IS NULL AND issuer.status='active' AND issuer.deleted_at IS NULL
+ AND (issuer.role='admin' OR o.gateway_user_id=issuer.id) FOR UPDATE OF i FOR SHARE OF o,issuer`, hash).Scan(&id, &orgID, &org, &caps, &expires, &status, &claimed, &recipient)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Access{}, ErrNotFound
 	}

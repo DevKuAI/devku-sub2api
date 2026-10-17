@@ -198,19 +198,22 @@ func (h *Handler) Organizations(c *gin.Context) {
 	respond(c, 200, v, e)
 }
 func (h *Handler) PreviewInvitation(c *gin.Context) {
-	var in struct {
-		Token string `json:"token"`
-	}
+	var in invitationCredentialInput
 	if !decodeRequest(c, &in) {
 		return
 	}
-	v, e := h.service.PreviewInvitation(c.Request.Context(), principal(c), in.Token)
+	credential, err := in.credential()
+	if err != nil {
+		WriteError(c, err)
+		return
+	}
+	v, e := h.service.PreviewInvitationCredential(c.Request.Context(), principal(c), credential)
 	respond(c, 200, v, e)
 }
 func (h *Handler) AcceptInvitation(c *gin.Context) {
 	var in struct {
-		Token   string `json:"token"`
-		Confirm bool   `json:"confirm_join"`
+		invitationCredentialInput
+		Confirm bool `json:"confirm_join"`
 	}
 	if !decodeRequest(c, &in) {
 		return
@@ -219,7 +222,12 @@ func (h *Handler) AcceptInvitation(c *gin.Context) {
 		WriteError(c, invalid("confirm_join", "Explicit confirmation required"))
 		return
 	}
-	v, e := h.service.AcceptInvitation(c.Request.Context(), principal(c), in.Token, c.GetString("bi.request_id"))
+	credential, err := in.credential()
+	if err != nil {
+		WriteError(c, err)
+		return
+	}
+	v, e := h.service.AcceptInvitationCredential(c.Request.Context(), principal(c), credential, c.GetString("bi.request_id"))
 	respond(c, 200, v, e)
 }
 func queryPage(c *gin.Context) (int, int, bool) {

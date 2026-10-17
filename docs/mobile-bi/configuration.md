@@ -20,3 +20,7 @@ BI 默认关闭。配置模板见 `deploy/config.example.yaml`、`.env.example` 
 新增 migration 259 为邀请预设称呼和企业内称呼增加独立列，不修改历史 migration。称呼不是身份鉴权字段。
 
 Sub2API 的 GitHub Actions 仅验证本仓库，不配置跨仓 BI CI。两端联调使用本地已有的小程序 checkout，命令见 [本地联调与验证](integration-runbook.md)。
+
+## 官方小程序码接入
+
+出码复用已有 BI AppID/AppSecret，不新增密钥配置。服务端须可访问 `api.weixin.qq.com`，并按微信要求配置出口 IP 白名单。migration 265 为邀请增加可空短凭证摘要和唯一索引，保留旧邀请；只对新建邀请返回 scene。正式版使用 `pages/invitation/index` 与 `check_path=true`，需先发布对应小程序页面。开发／体验联调可在出码请求指定 `develop`／`trial`，不会改变默认正式版。出码缓存为进程内微信 access token 缓存，普通模式刷新，不持久化图片或明文邀请凭证。接口及前端接入见 [扫码加入交接](wechat-scan-join-handoff.md)。

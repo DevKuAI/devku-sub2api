@@ -2539,6 +2539,178 @@
         ],
         "description": "按 kind 与 organization_id 筛选全部保留任务和模型执行记录，包含历史版本、重试及任务移除后的保留调用，不受分页影响。仅返回元数据；Token 与费用为精确字符串，缺失值与零值分开统计。"
       }
+    },
+    "/api/v1/admin/desktop/operations/organizations/{organization_id}/invitations/{invitation_id}/qrcode": {
+      "post": {
+        "operationId": "adminInvitationQRCode",
+        "summary": "生成企业邀请的微信官方小程序码",
+        "security": [
+          {
+            "WebBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/InvitationQRCode"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "登录失效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "无功能权限或企业功能未启用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "不可用，不泄露对象信息",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "版本冲突",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务或数据不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "需要原站管理员验证"
+          },
+          "429": {
+            "description": "限流，等待 Retry-After 后再试",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "invitation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "scene"
+                ],
+                "properties": {
+                  "scene": {
+                    "type": "string",
+                    "minLength": 32,
+                    "maxLength": 32,
+                    "pattern": "^[A-Za-z0-9_-]{32}$",
+                    "description": "仅创建邀请时返回的扫码凭证；对应小程序 query.scene。"
+                  },
+                  "env_version": {
+                    "type": "string",
+                    "enum": [
+                      "release",
+                      "trial",
+                      "develop"
+                    ],
+                    "default": "release"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-step-up-required": true,
+        "description": "需要 Web Bearer、企业管理权限和 step-up。邀请须仍待领取且有效；scene 必须属于路径中的邀请及企业。仅生成图片，可对同一请求重试，不创建新邀请。成功响应禁止缓存；失败返回 BI Error。"
+      }
     }
   },
   "components": {
@@ -3001,12 +3173,21 @@
                 "type": "string"
               },
               "path": {
-                "type": "string"
+                "type": "string",
+                "description": "兼容旧客户端的 /pages/settings/index?invite=...，不能用普通二维码生成器替代微信官方小程序码。"
+              },
+              "scene": {
+                "type": "string",
+                "minLength": 32,
+                "maxLength": 32,
+                "pattern": "^[A-Za-z0-9_-]{32}$",
+                "description": "仅创建邀请时返回的扫码凭证；对应小程序 query.scene。"
               }
             },
             "required": [
               "token",
-              "path"
+              "path",
+              "scene"
             ]
           }
         ]
@@ -3488,6 +3669,49 @@
           "execution_statuses",
           "models"
         ]
+      },
+      "InvitationQRCode": {
+        "type": "object",
+        "required": [
+          "image_base64",
+          "mime_type",
+          "page",
+          "env_version",
+          "expires_at"
+        ],
+        "properties": {
+          "image_base64": {
+            "type": "string",
+            "format": "byte",
+            "description": "原始图片的 Base64，不包含 data: 前缀；不可写入日志或公共缓存。"
+          },
+          "mime_type": {
+            "type": "string",
+            "enum": [
+              "image/png",
+              "image/jpeg"
+            ]
+          },
+          "page": {
+            "type": "string",
+            "enum": [
+              "pages/invitation/index"
+            ]
+          },
+          "env_version": {
+            "type": "string",
+            "enum": [
+              "release",
+              "trial",
+              "develop"
+            ]
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "业务邀请有效期，不是微信码有效期。"
+          }
+        }
       }
     }
   }

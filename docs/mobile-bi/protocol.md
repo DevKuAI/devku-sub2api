@@ -8,9 +8,9 @@
 
 ## 邀请与授权
 
-管理员预设整企业功能权限，创建随机邀请码。默认有效 24 小时，单人一次性；服务端仅存凭证摘要，创建时返回邀请码和小程序路径。管理员自行发送，系统不发送消息。
+管理员预设整企业功能权限，创建随机邀请码。默认有效 24 小时，单人一次性；服务端仅存凭证摘要，创建时返回完整邀请码 `token`、兼容旧客户端的 `path` 和 32 字符短凭证 `scene`。两种凭证关联同一邀请；列表不返回凭证，旧邀请仅支持原 token。管理员自行发送，系统不发送消息。
 
-使用者微信登录 → `POST /invitations/preview` 核对企业与权限 → 主动确认 → `POST /invitations/accept`，事务成功后立即开通，无二次审批。凭证放 JSON body，不进入 API URL。接口均需小程序 Bearer。
+使用者微信登录 → `POST /invitations/preview` 核对企业与权限 → 主动确认 → `POST /invitations/accept`，事务成功后立即开通，无二次审批。凭证放 JSON body，不进入 API URL。接口均需小程序 Bearer。预览和领取请求的 `token`、`scene` 二选一，领取仍要求 `confirm_join: true`。
 
 领取事务检查身份、企业、邀请有效期及撤销状态，并确认创建者仍是有效平台管理员或本企业负责人。并发领取仅一人成功；同领取者重放返回当前授权。重复加入不扩权；被企业撤销者不能通过新邀请自行恢复，须管理员修改访问状态。
 
@@ -41,3 +41,7 @@ Access Token 15 分钟，Refresh Token 12 小时；refresh 轮换且客户端单
 限流按 IP、操作和已登录身份分层：IP 外层 600 次／分钟，未登录操作每 IP 120 次／分钟，已登录邀请操作每 IP 300 次／分钟、每 BIUser 30 次／分钟；不同操作分别计数。429 带 Retry-After，客户端等待期间不重复发送同一路径。
 
 领取超时先只读核对邀请是否已由当前身份使用，不自动重发 mutation。已领取但企业内容读取失败单独恢复；退出或切会话后不展示旧操作反馈。
+
+## 微信官方小程序码
+
+管理端新增 `POST <管理前缀>/invitations/{invitation_id}/qrcode`，body 为 `scene` 和可选 `env_version`，要求 Web Bearer、企业管理权限及 step-up。出码不创建邀请，可单独重试；仅对仍有效的待领取邀请返回 PNG/JPEG Base64，响应禁止缓存。官方 page 固定为 `pages/invitation/index`，正式版须先发布该页面。完整请求响应、兼容策略及前端待实施项见 [扫码加入交接](wechat-scan-join-handoff.md)。

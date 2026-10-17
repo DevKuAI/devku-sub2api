@@ -666,6 +666,23 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "限流，等待 Retry-After 后再试",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "requestBody": {
@@ -676,16 +693,46 @@
                 "type": "object",
                 "properties": {
                   "token": {
-                    "type": "string"
+                    "type": "string",
+                    "minLength": 32,
+                    "maxLength": 128
+                  },
+                  "scene": {
+                    "type": "string",
+                    "minLength": 32,
+                    "maxLength": 32,
+                    "pattern": "^[A-Za-z0-9_-]{32}$",
+                    "description": "仅创建邀请时返回的扫码凭证；对应小程序 query.scene。"
                   }
                 },
-                "required": [
-                  "token"
-                ]
+                "oneOf": [
+                  {
+                    "required": [
+                      "token"
+                    ],
+                    "not": {
+                      "required": [
+                        "scene"
+                      ]
+                    }
+                  },
+                  {
+                    "required": [
+                      "scene"
+                    ],
+                    "not": {
+                      "required": [
+                        "token"
+                      ]
+                    }
+                  }
+                ],
+                "additionalProperties": false
               }
             }
           }
-        }
+        },
+        "description": "使用 token 或 scene 二选一，必须持有小程序 Bearer。只读预览，不消费邀请。"
       }
     },
     "/api/bi/v1/invitations/accept": {
@@ -767,6 +814,23 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "限流，等待 Retry-After 后再试",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "requestBody": {
@@ -777,23 +841,55 @@
                 "type": "object",
                 "properties": {
                   "token": {
-                    "type": "string"
+                    "type": "string",
+                    "minLength": 32,
+                    "maxLength": 128
                   },
                   "confirm_join": {
                     "type": "boolean",
                     "enum": [
                       true
                     ]
+                  },
+                  "scene": {
+                    "type": "string",
+                    "minLength": 32,
+                    "maxLength": 32,
+                    "pattern": "^[A-Za-z0-9_-]{32}$",
+                    "description": "仅创建邀请时返回的扫码凭证；对应小程序 query.scene。"
                   }
                 },
                 "required": [
-                  "token",
                   "confirm_join"
-                ]
+                ],
+                "oneOf": [
+                  {
+                    "required": [
+                      "token"
+                    ],
+                    "not": {
+                      "required": [
+                        "scene"
+                      ]
+                    }
+                  },
+                  {
+                    "required": [
+                      "scene"
+                    ],
+                    "not": {
+                      "required": [
+                        "token"
+                      ]
+                    }
+                  }
+                ],
+                "additionalProperties": false
               }
             }
           }
-        }
+        },
+        "description": "使用 token 或 scene 二选一，必须持有小程序 Bearer。只有用户主动确认后才可发送 confirm_join=true；重复领取仍校验当前企业授权。"
       }
     },
     "/api/bi/v1/organizations/{organization_id}/desktop": {

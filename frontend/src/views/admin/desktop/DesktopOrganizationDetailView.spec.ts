@@ -93,6 +93,7 @@ function mountView() {
     global: {
       stubs: {
         AppLayout: { template: '<main><slot /></main>' },
+        RouterLink: { name: 'RouterLink', props: ['to'], template: '<a><slot /></a>' },
         DataTable: true,
         DesktopOrganizationUsageStatistics: true,
         DesktopAnalyticsRangePicker: true,
@@ -117,6 +118,7 @@ function mountManagedView() {
     global: {
       stubs: {
         AppLayout: { template: '<main><slot /></main>' },
+        RouterLink: { name: 'RouterLink', props: ['to'], template: '<a><slot /></a>' },
         DataTable: true,
         DesktopOrganizationUsageStatistics: true,
         DesktopAnalyticsRangePicker: true,
@@ -185,14 +187,13 @@ describe('DesktopOrganizationDetailView', () => {
     wrapper.unmount()
   })
 
-  it('links organization access management to the service operations access tab', async () => {
+  it.each([false, true])('links to standalone access management with selfManaged=%s', async selfManaged => {
     route.query.tab = 'grants'
-    const wrapper = mountView()
+    const wrapper = selfManaged ? mountManagedView() : mountView()
     await flushPromises()
-    const operations = wrapper.get('.bi-access header').findAll('button').find(button => button.text() === 'nav.serviceOperations')!
-    expect(operations.exists()).toBe(true)
-    await operations.trigger('click')
-    expect(router.push).toHaveBeenCalledWith({ path: '/admin/desktop/operations', query: { tab: 'identities' } })
+    const link = wrapper.findAllComponents({ name: 'RouterLink' }).find(item => item.text() === 'biNative.accessManagement')!
+    expect(link.props('to')).toEqual({ path: selfManaged ? '/desktop/organization/bi' : '/admin/desktop/organizations/org_one/bi', query: { from: 'organization' } })
+    expect(wrapper.find('.bi-access').exists()).toBe(false)
     wrapper.unmount()
   })
 

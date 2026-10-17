@@ -6,7 +6,7 @@ vi.mock('@/api/admin/bi', () => ({ default: api }))
 vi.mock('vue-i18n', async original => ({ ...await original<typeof import('vue-i18n')>(), useI18n: () => ({ t: (key: string) => key }) }))
 import BIOperationsView from './BIOperationsView.vue'
 const route = reactive({ query: {} as Record<string, string> })
-const router = { replace: vi.fn(async ({ query }: { query: Record<string, string> }) => { route.query = query }) }
+const router = { push: vi.fn(), replace: vi.fn(async ({ query }: { query: Record<string, string> }) => { route.query = query }) }
 vi.mock('vue-router', () => ({ useRoute: () => route, useRouter: () => router }))
 const global = { stubs: { AppLayout: { template: '<main><slot/></main>' }, BIGrantManagement: true, TotpStepUpDialog: true, RouterLink: { props: ['to'], template: '<a><slot/></a>' } } }
 const page = (items: unknown[] = []) => ({ items, total: items.length, page: 1, page_size: 20, has_more: false })
@@ -98,20 +98,13 @@ describe('BI operations interactions', () => {
     wrapper.unmount()
   })
 
-  it('opens access for the selected organization in a dialog and closes without replacing the list', async () => {
+  it('opens a standalone access route for the selected organization', async () => {
     api.list.mockResolvedValue(page([{ id: 'org-one', name: 'First company' }, { id: 'org-two', name: 'Second company' }]))
     const wrapper = mount(BIOperationsView, { global })
-    await wrapper.findAll('[role="tab"]').find(tab => tab.text() === 'biNative.onboarding')!.trigger('click')
-    await flushPromises()
-    expect(wrapper.findComponent({ name: 'BIGrantManagement' }).exists()).toBe(false)
-    await wrapper.findAll('tbody button')[1].trigger('click')
-    await flushPromises()
-    const dialog = wrapper.findComponent({ name: 'BaseDialog' })
-    expect(dialog.props('show')).toBe(true)
-    expect(wrapper.findComponent({ name: 'BIGrantManagement' }).props('organizationId')).toBe('org-two')
-    dialog.vm.$emit('close')
-    await flushPromises()
-    expect(wrapper.findComponent({ name: 'BIGrantManagement' }).exists()).toBe(false)
+    await wrapper.get('#bi-tab-onboarding').trigger('click'); await flushPromises()
+    await wrapper.findAll('tbody button')[1].trigger('click'); await flushPromises()
+    expect(router.push).toHaveBeenCalledWith({ path: '/admin/desktop/organizations/org-two/bi', query: { from: 'onboarding' } })
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
     expect(wrapper.findAll('tbody tr')).toHaveLength(2)
     wrapper.unmount()
   })
