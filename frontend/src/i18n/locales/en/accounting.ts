@@ -278,6 +278,7 @@ export default {
       upload: 'Upload',
       uploading: 'Uploading…',
       choose: 'Choose file',
+      replace: 'Replace file',
       download: 'Download',
       shared: 'Visible to customer',
       internal: 'Internal',

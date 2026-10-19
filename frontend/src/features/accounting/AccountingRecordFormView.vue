@@ -250,11 +250,11 @@
       </div>
     </FormSection>
 
-    <FormSection v-if="!isEditing && sections.length" :title="t('accounting.form.sections.proof')" :hint="t('accounting.files.hint')">
-      <label class="block sm:col-span-2">
+    <FormSection v-if="!isEditing && sections.length" :title="t('accounting.form.sections.proof')">
+      <div class="sm:col-span-2">
         <span class="input-label">{{ t('accounting.files.choose') }}<span class="accounting-optional">{{ t('accounting.form.optional') }}</span></span>
-        <input type="file" accept=".jpg,.jpeg,.png,.webp,.pdf" class="block w-full text-sm" @change="chooseFile" />
-      </label>
+        <AccountingFileUpload v-model="file" :disabled="busy" />
+      </div>
     </FormSection>
     <datalist id="accounting-currencies">
       <option v-for="code in commonCurrencies" :key="code" :value="code" />
@@ -268,6 +268,7 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import FormPage from './components/FormPage.vue'
 import FormSection from './components/FormSection.vue'
+import AccountingFileUpload from './components/AccountingFileUpload.vue'
 import * as api from './api'
 import { formatMoney } from './format'
 import { addMoney, taxPreview } from './money'
@@ -403,9 +404,6 @@ function setCurrency(field: FieldDef, event: Event) {
 function syncParentCurrency() {
   const parent = (references[kind.value === 'fx-exchanges' ? 'transfers' : 'vcc-cards'] || []).find((record) => record.id === state.parent_id)
   if (parent) state.currency = parent.currency
-}
-function chooseFile(event: Event) {
-  file.value = (event.target as HTMLInputElement).files?.[0] || null
 }
 function contractEnd(start: string, months: number) {
   const [year, month, day] = start.split('-').map(Number)

@@ -2,12 +2,8 @@
   <section class="space-y-3" data-testid="record-files">
     <header class="flex flex-wrap items-center justify-between gap-3">
       <h2 class="accounting-section-title">{{ t('accounting.files.title') }}</h2>
-      <label v-if="!customer && record.status !== 'VOID'" class="btn btn-secondary btn-sm cursor-pointer" :class="{ 'pointer-events-none opacity-60': busy }">
-        <Icon name="upload" size="sm" aria-hidden="true" />
-        {{ t(busy ? 'accounting.files.uploading' : 'accounting.files.upload') }}
-        <input type="file" class="sr-only" accept=".jpg,.jpeg,.png,.webp,.pdf" :disabled="busy" @change="upload" />
-      </label>
     </header>
+    <AccountingFileUpload v-if="!customer && record.status !== 'VOID'" :model-value="selectedFile" :disabled="busy" :busy="uploading" @update:model-value="upload" />
     <p v-if="error" role="alert" class="accounting-error">{{ error }}</p>
     <ul v-if="files.length" class="divide-y divide-gray-100 dark:divide-dark-700">
       <li v-for="file in files" :key="file.id" class="flex flex-wrap items-center justify-between gap-2 py-2.5">
@@ -32,7 +28,6 @@
       </li>
     </ul>
     <p v-else-if="!loading" class="text-sm text-gray-500">{{ t('accounting.files.empty') }}</p>
-    <p v-if="!customer" class="text-xs text-gray-500">{{ t('accounting.files.hint') }}</p>
     <ConfirmDialog
       :show="Boolean(pendingDelete)"
       :title="t('accounting.files.deleteTitle')"
@@ -50,7 +45,7 @@
 import { onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
-import { Icon } from '@/components/icons'
+import AccountingFileUpload from './AccountingFileUpload.vue'
 import * as api from '../api'
 import { errorMessage } from '../shared'
 import type { AccountingAttachment, AccountingKind, AccountingRecord } from '../types'
@@ -61,6 +56,8 @@ const { t, te } = useI18n()
 const files = ref<AccountingAttachment[]>([])
 const loading = ref(false)
 const busy = ref(false)
+const uploading = ref(false)
+const selectedFile = ref<File | null>(null)
 const error = ref('')
 const pendingDelete = ref<AccountingAttachment | null>(null)
 const requestKey = api.stableRequest()
@@ -94,16 +91,18 @@ async function load() {
     loading.value = false
   }
 }
-async function upload(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  input.value = ''
+async function upload(file: File | null) {
+  if (busy.value) return
+  selectedFile.value = file
   if (!file) return
+  uploading.value = true
   await run(async () => {
     await api.upload(file, props.kind, props.record)
     await load()
+    selectedFile.value = null
     emit('changed')
   })
+  uploading.value = false
 }
 async function download(file: AccountingAttachment) {
   await run(async () => {

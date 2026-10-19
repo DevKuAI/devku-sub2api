@@ -138,10 +138,8 @@
           <option value="">{{ t(proofFile ? 'accounting.actionForm.useNewFile' : 'accounting.form.select') }}</option>
           <option v-for="file in files" :key="file.id" :value="file.id">{{ file.filename }}</option>
         </select>
-        <label class="mt-2 flex flex-wrap items-center gap-2 text-sm">
-          <span class="text-gray-500">{{ t(files.length ? 'accounting.actionForm.orUpload' : 'accounting.actionForm.upload') }}</span>
-          <input type="file" accept=".jpg,.jpeg,.png,.webp,.pdf" @change="chooseProof" />
-        </label>
+        <p v-if="files.length" class="mt-3 text-sm text-gray-500 dark:text-dark-400">{{ t('accounting.actionForm.orUpload') }}</p>
+        <AccountingFileUpload class="mt-2" :model-value="proofFile" :disabled="busy" @update:model-value="chooseProof" />
       </div>
 
       <template v-if="action === 'order-edit'">
@@ -206,6 +204,7 @@ import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import FormPage from './components/FormPage.vue'
 import FormSection from './components/FormSection.vue'
+import AccountingFileUpload from './components/AccountingFileUpload.vue'
 import * as api from './api'
 import { formatMoney } from './format'
 import { addMoney, compareMoney, subtractMoney } from './money'
@@ -325,8 +324,8 @@ function optionLabel(item: AccountingRecord, balanceField?: string) {
   const balance = balanceField ? String(item.details[balanceField] ?? item.amount) : effectiveAmount(item)
   return `${recordLabel(item.details, item.id)} · ${formatMoney(balance, item.currency)} · ${item.occurred_at.slice(0, 10)}`
 }
-function chooseProof(event: Event) {
-  proofFile.value = (event.target as HTMLInputElement).files?.[0] || null
+function chooseProof(file: File | null) {
+  proofFile.value = file
   if (proofFile.value) form.attachment_id = ''
 }
 function returnLocation() {

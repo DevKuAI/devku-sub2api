@@ -77,6 +77,7 @@ describe('accounting action page', () => {
     const fileInput = wrapper.get('[data-testid="action-proof"] input[type="file"]')
     Object.defineProperty(fileInput.element, 'files', { value: [proof] })
     await fileInput.trigger('change')
+    expect(wrapper.get('[data-testid="action-proof"]').text()).toContain(proof.name)
     const inputs = wrapper.findAll('input:not([type])')
     await inputs[1]!.setValue('PAY-1')
     await submit(wrapper)

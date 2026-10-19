@@ -278,6 +278,7 @@ export default {
       upload: '上传',
       uploading: '上传中…',
       choose: '选择文件',
+      replace: '更换文件',
       download: '下载',
       shared: '客户可见',
       internal: '仅内部',

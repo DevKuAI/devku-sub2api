@@ -67,6 +67,12 @@ describe('accounting record form', () => {
     expect((wrapper.get('[data-testid="receiving-account-select"]').element as HTMLSelectElement).value).toBe('account-one')
     expect(field(wrapper, 'difference_reason').exists()).toBe(false)
 
+    const proof = new File(['proof'], '到账凭证.pdf', { type: 'application/pdf' })
+    const fileInput = wrapper.get('input[type="file"]')
+    Object.defineProperty(fileInput.element, 'files', { value: [proof] })
+    await fileInput.trigger('change')
+    expect(wrapper.text()).toContain(proof.name)
+
     await wrapper.get('[data-testid="amount-input"]').setValue('106')
     await wrapper.get('[data-testid="detail-bank_reference"]').setValue('BANK-001')
     await wrapper.get('[data-testid="detail-sales_amount"]').setValue('106')
@@ -77,6 +83,7 @@ describe('accounting record form', () => {
     const [path, payload, , method] = (await submit(wrapper))!
     expect(path).toBe('transfers')
     expect(method).toBe('post')
+    expect(api.upload).toHaveBeenCalledWith(proof, 'transfers', expect.objectContaining({ id: 'saved-one', organization_id: 'org-one' }))
     expect(payload).toMatchObject({
       organization_id: 'org-one',
       currency: 'CNY',
