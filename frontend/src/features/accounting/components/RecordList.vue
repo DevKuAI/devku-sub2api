@@ -31,8 +31,12 @@
       </div>
     </div>
     <p v-if="hint" class="text-sm text-gray-500 dark:text-dark-300">{{ hint }}</p>
-    <p v-if="error" role="alert" class="accounting-error">{{ error }}</p>
+    <div v-if="error" role="alert" class="accounting-error flex flex-wrap items-center justify-between gap-3">
+      <p>{{ error }}</p>
+      <button v-if="loadFailed" type="button" class="btn btn-secondary btn-sm" @click="load">{{ t('common.refresh') }}</button>
+    </div>
     <DataTable
+      v-if="!loadFailed"
       :columns="columns"
       :data="rows"
       :loading="loading"
@@ -43,7 +47,8 @@
     >
       <template #cell-record="{ row }">
         <div class="max-w-sm">
-          <p class="break-words font-medium text-gray-900 dark:text-white">{{ recordLabel(row.details, row.id) }}</p>
+          <button v-if="customer" type="button" class="accounting-entry-link" @click.stop="emit('open', row)">{{ recordLabel(row.details, row.id) }}</button>
+          <router-link v-else class="accounting-entry-link" :to="recordRoute(organizationId, kind, row.id)" @click.stop>{{ recordLabel(row.details, row.id) }}</router-link>
           <p v-if="subtitle(row)" class="mt-0.5 break-words text-xs text-gray-500">{{ subtitle(row) }}</p>
         </div>
       </template>
@@ -55,7 +60,7 @@
         <p class="py-6 text-center text-sm text-gray-500">{{ t(hasFilters ? 'accounting.list.noMatches' : 'accounting.list.empty') }}</p>
       </template>
     </DataTable>
-    <Pagination v-if="total > pageSize" v-model:page="page" :total="total" :page-size="pageSize" :show-page-size-selector="false" />
+    <Pagination v-if="!loadFailed && total > pageSize" v-model:page="page" :total="total" :page-size="pageSize" :show-page-size-selector="false" />
   </section>
 </template>
 
@@ -90,6 +95,7 @@ const rows = ref<AccountingRecord[]>([])
 const loading = ref(false)
 const busy = ref(false)
 const error = ref('')
+const loadFailed = ref(false)
 let abort: AbortController | null = null
 let searchTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -100,8 +106,8 @@ const hint = computed(() => (!props.customer && te(`accounting.list.hints.${prop
 const columns = computed(() => [
   { key: 'record', label: t(`accounting.kinds.${props.kind}`) },
   { key: 'occurred_at', label: t('accounting.occurredAt') },
-  { key: 'amount', label: t(props.kind === 'vcc-cards' ? 'accounting.fields.available_balance' : 'accounting.amount') },
-  ...(remaining.value && props.kind !== 'vcc-cards' ? [{ key: 'remaining', label: t(`accounting.fields.${remaining.value}`) }] : []),
+  { key: 'amount', label: t(props.kind === 'vcc-cards' ? 'accounting.fields.available_balance' : 'accounting.amount'), class: 'text-right' },
+  ...(remaining.value && props.kind !== 'vcc-cards' ? [{ key: 'remaining', label: t(`accounting.fields.${remaining.value}`), class: 'text-right' }] : []),
   { key: 'status', label: t('accounting.status') },
 ])
 
@@ -123,17 +129,23 @@ function query(): AccountingFilter {
 }
 async function load() {
   abort?.abort()
-  abort = new AbortController()
+  const controller = new AbortController()
+  abort = controller
   loading.value = true
+  loadFailed.value = false
   error.value = ''
   try {
-    const result = await api.listRecords(props.kind, props.customer, query(), abort.signal)
+    const result = await api.listRecords(props.kind, props.customer, query(), controller.signal)
+    if (controller.signal.aborted) return
     rows.value = result.items
     total.value = result.total
   } catch (cause) {
-    if (!isCanceled(cause)) error.value = errorMessage(cause, t, te)
+    if (!controller.signal.aborted && !isCanceled(cause)) {
+      loadFailed.value = true
+      error.value = errorMessage(cause, t, te)
+    }
   } finally {
-    loading.value = false
+    if (abort === controller) loading.value = false
   }
 }
 function open(row: AccountingRecord) {

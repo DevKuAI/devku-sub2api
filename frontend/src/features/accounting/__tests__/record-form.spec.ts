@@ -35,7 +35,7 @@ async function render(kind: AccountingKind | 'orders', extra: Record<string, str
   route.name = kind === 'orders' ? 'AdminAccountingOrderNew' : 'AdminAccountingRecordNew'
   route.params = kind === 'orders' ? { organizationId: 'org-one' } : { organizationId: 'org-one', kind, ...extra }
   route.query = query
-  const wrapper = mount(AccountingRecordFormView, { global: { plugins: [i18n()], stubs } })
+  const wrapper = mount(AccountingRecordFormView, { attachTo: document.body, global: { plugins: [i18n()], stubs } })
   await flushPromises()
   return wrapper
 }
@@ -57,6 +57,42 @@ describe('accounting record form', () => {
     api.listRecords.mockImplementation(async (kind: AccountingKind) => ({ items: references[kind] || [], total: 0 }))
     api.mutate.mockResolvedValue({ id: 'saved-one', organization_id: 'org-one' })
     api.order.mockResolvedValue({ id: 'order-one', name: 'Q4 席位', organization_id: 'org-one' })
+  })
+
+  it('associates the receiving account selector with its visible label', async () => {
+    const wrapper = await render('transfers')
+    const input = wrapper.get('[data-testid="receiving-account-select"]')
+    expect(wrapper.get(`label[for="${input.attributes('id')}"]`).text()).toBe('收款账户')
+  })
+
+  it('announces and focuses rejected fields, then clears their error when edited', async () => {
+    api.mutate.mockRejectedValueOnce({ reason: 'ACCOUNTING_INVALID', metadata: { field: 'bank_reference' } })
+    const wrapper = await render('transfers')
+    await wrapper.get('[data-testid="amount-input"]').setValue('106')
+    await wrapper.get('[data-testid="detail-bank_reference"]').setValue('INVALID')
+    await wrapper.get('[data-testid="detail-sales_amount"]').setValue('106')
+    await wrapper.get('[data-testid="tax-rate-input"]').setValue('6')
+    await submit(wrapper)
+    const input = wrapper.get('[data-testid="detail-bank_reference"]')
+    expect(input.attributes('aria-invalid')).toBe('true')
+    expect(wrapper.get(`[id="${input.attributes('aria-describedby')}"]`).text()).toContain('银行流水号')
+    expect(document.activeElement).toBe(input.element)
+    await input.setValue('BANK-001')
+    expect(input.attributes('aria-invalid')).toBeUndefined()
+    expect(input.attributes('aria-describedby')).toBeUndefined()
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+  })
+
+  it('focuses the error summary when the server cannot identify an editable field', async () => {
+    api.mutate.mockRejectedValueOnce({ code: 'ERR_NETWORK' })
+    const wrapper = await render('transfers')
+    await wrapper.get('[data-testid="amount-input"]').setValue('106')
+    await wrapper.get('[data-testid="detail-bank_reference"]').setValue('BANK-001')
+    await wrapper.get('[data-testid="detail-sales_amount"]').setValue('106')
+    await wrapper.get('[data-testid="tax-rate-input"]').setValue('6')
+    await submit(wrapper)
+    expect(document.activeElement).toBe(wrapper.get('[role="alert"]').element)
+    expect(wrapper.get('[role="alert"]').text()).toContain('检查网络后重试')
   })
 
   it('records a receipt for the current organization without asking for it again', async () => {

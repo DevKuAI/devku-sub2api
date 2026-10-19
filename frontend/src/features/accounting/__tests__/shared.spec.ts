@@ -12,6 +12,10 @@ describe('accounting shared helpers', () => {
     expect(errorMessage({ message: 'network down' }, t, te)).toBe('network down')
   })
 
+  it.each([{ code: 'ERR_NETWORK' }, { code: 'ECONNABORTED' }, { code: 'ETIMEDOUT' }, { message: 'Network Error' }])('gives a recoverable localized message for connection failures: %o', cause => {
+    expect(errorMessage(cause, t, te)).toBe('网络连接失败。请检查网络后重试。')
+  })
+
   it('shows customers only the public fields of a record', () => {
     const receipt = record({ details: { sales_amount: '106', tax_inclusive: true, tax_rate: '0.06', bank_reference: 'BANK-1', remark: '内部备注' } })
     const admin = detailFields('transfers', receipt, false, t, te).map((field) => field.key)

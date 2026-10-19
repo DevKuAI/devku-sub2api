@@ -52,6 +52,16 @@ describe('accounting attachment uploads', () => {
     expect(wrapper.text()).toContain('未选择文件')
   })
 
+  it('retries an attachment listing failure without saying the record has no attachments', async () => {
+    api.attachments.mockRejectedValueOnce({ code: 'ERR_NETWORK' })
+    const wrapper = await render()
+    expect(wrapper.get('[role="alert"]').text()).toContain('检查网络后重试')
+    expect(wrapper.text()).not.toContain('暂无附件')
+    await wrapper.get('[role="alert"] button').trigger('click'); await flushPromises()
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('暂无附件')
+  })
+
   it.each([{ customer: true }, { record: record({ status: 'VOID' }) }])('keeps read-only records free of upload controls: %o', async props => {
     const wrapper = await render(props)
     expect(wrapper.find('input[type="file"]').exists()).toBe(false)

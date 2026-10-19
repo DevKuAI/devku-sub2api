@@ -27,11 +27,14 @@
     </div>
 
     <input v-model="search" type="search" class="input w-full max-w-md" :placeholder="t('accounting.directory.search')" :aria-label="t('accounting.directory.search')" />
-    <p v-if="error" role="alert" class="accounting-error">{{ error }}</p>
+    <div v-if="error" role="alert" class="accounting-error flex flex-wrap items-center justify-between gap-3">
+      <p>{{ error }}</p>
+      <button type="button" class="btn btn-secondary btn-sm" @click="load">{{ t('common.refresh') }}</button>
+    </div>
 
-    <DataTable :columns="columns" :data="organizations" :loading="loading" row-key="id" clickable-rows class="card" @row-click="open">
+    <DataTable v-else :columns="columns" :data="organizations" :loading="loading" row-key="id" clickable-rows class="card" @row-click="open">
       <template #cell-name="{ row }">
-        <p class="font-medium text-gray-900 dark:text-white">{{ row.name }}</p>
+        <router-link class="accounting-entry-link" :to="workspaceRoute(row.id)" @click.stop>{{ row.name }}</router-link>
       </template>
       <template #cell-unallocated="{ row }">
         <p v-for="entry in row.summary" :key="entry.currency" class="tabular-nums">{{ formatMoney(entry.unallocated, entry.currency) }}</p>
@@ -78,9 +81,9 @@ let timer: ReturnType<typeof setTimeout> | undefined
 
 const columns = computed(() => [
   { key: 'name', label: t('accounting.directory.organization') },
-  { key: 'unallocated', label: t('accounting.metrics.unallocated') },
-  { key: 'balance', label: t('accounting.metrics.balance') },
-  { key: 'received', label: t('accounting.metrics.received') },
+  { key: 'unallocated', label: t('accounting.metrics.unallocated'), class: 'text-right' },
+  { key: 'balance', label: t('accounting.metrics.balance'), class: 'text-right' },
+  { key: 'received', label: t('accounting.metrics.received'), class: 'text-right' },
   { key: 'unmatched', label: t('accounting.metrics.unmatched') },
 ])
 
@@ -92,15 +95,17 @@ function open(row: AccountingOrganization) {
 }
 async function load() {
   abort?.abort()
-  abort = new AbortController()
+  const controller = new AbortController()
+  abort = controller
   loading.value = true
   error.value = ''
   try {
-    organizations.value = await api.organizations(search.value.trim() ? { search: search.value.trim() } : {}, abort.signal)
+    const result = await api.organizations(search.value.trim() ? { search: search.value.trim() } : {}, controller.signal)
+    if (!controller.signal.aborted) organizations.value = result
   } catch (cause) {
-    if (!isCanceled(cause)) error.value = errorMessage(cause, t, te)
+    if (!controller.signal.aborted && !isCanceled(cause)) error.value = errorMessage(cause, t, te)
   } finally {
-    loading.value = false
+    if (abort === controller) loading.value = false
   }
 }
 

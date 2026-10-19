@@ -10,6 +10,11 @@
 .accounting-link {
   @apply font-medium text-primary-600 hover:underline dark:text-primary-400;
 }
+.accounting-entry-link {
+  @apply max-w-full whitespace-normal break-words font-medium text-gray-900 hover:underline dark:text-white;
+  @apply focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 dark:focus-visible:outline-primary-300;
+  text-align: inherit;
+}
 .accounting-error {
   @apply rounded-lg border border-red-200 bg-red-50 p-3 text-sm leading-relaxed text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-200;
 }
@@ -17,7 +22,7 @@
   @apply rounded-lg bg-amber-50 p-3 text-sm leading-relaxed text-amber-800 dark:bg-amber-950/40 dark:text-amber-200;
 }
 .accounting-optional {
-  @apply ms-1.5 text-xs font-normal text-gray-400;
+  @apply ms-1.5 text-xs font-normal text-gray-600 dark:text-dark-300;
 }
 .accounting-field-hint {
   @apply mt-1.5 text-xs leading-5 text-gray-500 dark:text-dark-300;
@@ -75,11 +80,15 @@
 .accounting-fields {
   @apply grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3;
 }
+.accounting-fields > div {
+  min-width: 0;
+}
 .accounting-fields dt {
   @apply text-xs text-gray-500 dark:text-dark-300;
 }
 .accounting-fields dd {
   @apply mt-1 break-words text-sm text-gray-900 dark:text-white;
+  overflow-wrap: anywhere;
 }
 .accounting-preview {
   @apply mt-3 grid gap-3 rounded-lg bg-gray-50 p-3 sm:grid-cols-3 dark:bg-dark-800;

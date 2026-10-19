@@ -12,6 +12,16 @@ describe('ConfirmDialog', () => {
     document.body.classList.remove('modal-open')
   })
 
+  it('uses the active locale for the close button even without a content class', async () => {
+    const wrapper = mount(ConfirmDialog, {
+      props: { show: true, title: 'Delete attachment', message: 'The attachment will no longer be shown.' },
+      global: { stubs: { Icon: true, teleport: true } },
+    })
+    await wrapper.get('button[aria-label="common.close"]').trigger('click')
+    expect(wrapper.emitted('cancel')).toHaveLength(1)
+    wrapper.unmount()
+  })
+
   it('disables cancellation and duplicate confirmation while loading', async () => {
     const wrapper = mount(ConfirmDialog, {
       attachTo: document.body,

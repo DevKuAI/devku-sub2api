@@ -331,6 +331,7 @@ export default {
     },
     errors: {
       generic: 'Something went wrong. Try again.',
+      network: 'The network request failed. Check your connection and try again.',
       invalidField: 'Check "{field}".',
       periodClosed: 'This period is closed. An administrator must reopen it first.',
       adminRequired: 'This action requires an administrator.',

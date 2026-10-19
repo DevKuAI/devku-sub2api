@@ -17,7 +17,7 @@
               <h1 class="break-words text-2xl font-semibold text-gray-950 dark:text-white">{{ recordLabel(record.details, record.id) }}</h1>
               <span class="badge" :class="statusTone(record.status)">{{ t(`accounting.statuses.${record.status}`) }}</span>
             </div>
-            <p class="mt-1 text-sm text-gray-500 dark:text-dark-300">
+            <p class="mt-1 text-sm text-gray-500 [overflow-wrap:anywhere] dark:text-dark-300">
               {{ [subtitle, formatDateTime(record.occurred_at)].filter(Boolean).join(' · ') }}
             </p>
             <p v-if="record.details.order_id" class="mt-1 text-sm">

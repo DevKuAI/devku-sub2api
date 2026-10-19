@@ -20,12 +20,14 @@ const reasonMessages: Record<string, string> = {
 
 // One mapping for every accounting API error so pages show the same wording.
 export function errorMessage(cause: unknown, t: Translate, te: Exists) {
-  const error = cause as { reason?: string; message?: string; metadata?: { field?: string } }
+  const error = cause as { reason?: string; code?: string; message?: string; metadata?: { field?: string } }
   const field = error.metadata?.field
   if (field && te(`accounting.errors.fields.${field}`)) return t(`accounting.errors.fields.${field}`)
   if (error.reason === 'ACCOUNTING_INVALID' && field && te(`accounting.fields.${field}`))
     return t('accounting.errors.invalidField', { field: t(`accounting.fields.${field}`) })
   if (error.reason && reasonMessages[error.reason]) return t(`accounting.${reasonMessages[error.reason]}`)
+  if (['ERR_NETWORK', 'ECONNABORTED', 'ETIMEDOUT'].includes(error.code || '') || error.message === 'Network Error')
+    return t('accounting.errors.network')
   return error.message || t('accounting.errors.generic')
 }
 

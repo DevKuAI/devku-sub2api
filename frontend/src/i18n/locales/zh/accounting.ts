@@ -331,6 +331,7 @@ export default {
     },
     errors: {
       generic: '操作失败，请重试。',
+      network: '网络连接失败。请检查网络后重试。',
       invalidField: '“{field}”填写有误，请检查。',
       periodClosed: '该账期已结账，需管理员重新开账后才能操作。',
       adminRequired: '此操作需要管理员权限。',

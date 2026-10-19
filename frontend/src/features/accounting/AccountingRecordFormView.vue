@@ -35,13 +35,13 @@
         <div class="min-w-0" :class="{ 'sm:col-span-2': field.wide }" :data-field="field.key">
           <!-- Receiving account: chosen from our own accounts by currency, stored as a snapshot. -->
           <template v-if="field.type === 'receiving-account'">
-            <span class="input-label">{{ t('accounting.fields.receiving_account') }}</span>
+            <label class="input-label" :for="!isEditing && matchingAccounts.length ? `${formId}-account` : undefined">{{ t('accounting.fields.receiving_account') }}</label>
             <div v-if="isEditing" class="accounting-snapshot">
               <p class="font-medium">{{ snapshotAccount }}</p>
               <p class="mt-1 text-xs text-gray-500">{{ t('accounting.form.receivingSnapshot') }}</p>
             </div>
             <template v-else-if="matchingAccounts.length">
-              <select v-model="state.details.receiving_account_id" class="input w-full" required data-testid="receiving-account-select">
+              <select :id="`${formId}-account`" v-model="state.details.receiving_account_id" v-bind="fieldErrorAttrs(field)" class="input w-full" required data-testid="receiving-account-select">
                 <option value="">{{ t('accounting.form.select') }}</option>
                 <option v-for="account in matchingAccounts" :key="account.id" :value="account.id">
                   {{ account.account_name }} · {{ account.bank_name }} · {{ account.bank_account }}
@@ -75,6 +75,7 @@
               <div class="relative w-28">
                 <input
                   v-model="taxPercent"
+                  v-bind="fieldErrorAttrs(field)"
                   type="number"
                   class="input w-full pr-8"
                   inputmode="decimal"
@@ -113,7 +114,7 @@
           </template>
 
           <label v-else-if="field.type === 'checkbox'" class="flex min-h-11 items-center gap-3">
-            <input v-model="state.details[field.key]" type="checkbox" class="h-4 w-4" />
+            <input v-model="state.details[field.key]" v-bind="fieldErrorAttrs(field)" type="checkbox" class="h-4 w-4" />
             <span class="text-sm text-gray-800 dark:text-dark-100">{{ label(field) }}</span>
           </label>
 
@@ -138,7 +139,7 @@
             <span class="input-label">
               {{ label(field) }}<span v-if="!isRequired(field) && !locked(field)" class="accounting-optional">{{ t('accounting.form.optional') }}</span>
             </span>
-            <select v-if="field.type === 'select'" v-model="state.details[field.key]" class="input w-full" :required="isRequired(field)">
+            <select v-if="field.type === 'select'" v-model="state.details[field.key]" v-bind="fieldErrorAttrs(field)" class="input w-full" :required="isRequired(field)">
               <option value="">{{ t('accounting.form.select') }}</option>
               <option v-for="option in selectOptions(field)" :key="option" :value="option">
                 {{ te(`accounting.options.${field.key}.${option}`) ? t(`accounting.options.${field.key}.${option}`) : option }}
@@ -147,6 +148,7 @@
             <select
               v-else-if="field.type === 'parent'"
               v-model="state.parent_id"
+              v-bind="fieldErrorAttrs(field)"
               class="input w-full"
               :required="isRequired(field)"
               :disabled="locked(field)"
@@ -155,11 +157,11 @@
               <option value="">{{ t('accounting.form.select') }}</option>
               <option v-for="record in referenceOptions(field)" :key="record.id" :value="record.id">{{ optionLabel(record, field.reference!) }}</option>
             </select>
-            <select v-else-if="field.type === 'reference'" v-model="state.details[field.key]" class="input w-full" :required="isRequired(field)">
+            <select v-else-if="field.type === 'reference'" v-model="state.details[field.key]" v-bind="fieldErrorAttrs(field)" class="input w-full" :required="isRequired(field)">
               <option value="">{{ t(isRequired(field) ? 'accounting.form.select' : 'accounting.form.none') }}</option>
               <option v-for="record in referenceOptions(field)" :key="record.id" :value="record.id">{{ optionLabel(record, field.reference!) }}</option>
             </select>
-            <select v-else-if="field.type === 'contact'" v-model="state.details[field.key]" class="input w-full">
+            <select v-else-if="field.type === 'contact'" v-model="state.details[field.key]" v-bind="fieldErrorAttrs(field)" class="input w-full">
               <option value="">{{ t('accounting.form.none') }}</option>
               <option v-for="contact in contacts" :key="contact.id" :value="contact.id">
                 {{ contact.name }} · {{ t(`accounting.contactRoles.${contact.role}`) }}
@@ -168,6 +170,7 @@
             <textarea
               v-else-if="field.type === 'textarea'"
               :value="String(state.details[field.key] ?? '')"
+              v-bind="fieldErrorAttrs(field)"
               @input="state.details[field.key] = ($event.target as HTMLTextAreaElement).value"
               class="input min-h-20 w-full resize-y"
               maxlength="4000"
@@ -176,6 +179,7 @@
             <input
               v-else-if="field.type === 'currency'"
               :value="currencyValue(field)"
+              v-bind="fieldErrorAttrs(field)"
               class="input w-full uppercase"
               list="accounting-currencies"
               maxlength="3"
@@ -188,6 +192,7 @@
             <input
               v-else-if="field.key === 'amount'"
               v-model="state.amount"
+              v-bind="fieldErrorAttrs(field)"
               type="number"
               class="input w-full"
               inputmode="decimal"
@@ -199,6 +204,7 @@
             <input
               v-else-if="field.key === 'occurred_at'"
               v-model="state.occurred_at"
+              v-bind="fieldErrorAttrs(field)"
               type="datetime-local"
               class="input w-full"
               required
@@ -206,6 +212,7 @@
             <input
               v-else
               v-model="state.details[field.key]"
+              v-bind="fieldErrorAttrs(field)"
               class="input w-full"
               :type="inputType(field)"
               :inputmode="field.type === 'money' || field.type === 'decimal' ? 'decimal' : undefined"
@@ -217,6 +224,8 @@
               @input="field.key === 'exchange_rate' && (rateTouched = true)"
             />
           </label>
+
+          <p v-if="errorField === field.key" :id="`${formId}-${field.key}-error`" class="input-error-text mt-1 text-red-700 dark:text-red-300">{{ error }}</p>
 
           <p v-if="field.type === 'contact' && !relationsLoading && !contacts.length" class="accounting-field-hint">
             {{ t('accounting.form.noContacts') }}
@@ -263,7 +272,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, useId, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import FormPage from './components/FormPage.vue'
@@ -311,6 +320,8 @@ const { organization, loadOrganization } = useOrganization(() => organizationId.
 const loading = ref(true)
 const busy = ref(false)
 const error = ref('')
+const errorField = ref('')
+const formId = useId()
 const relationsLoading = ref(false)
 const file = ref<File | null>(null)
 const original = ref<AccountingRecord | null>(null)
@@ -331,6 +342,23 @@ const taxRates = [0, 1, 3, 6, 9, 13]
 const contractTerms = [6, 12, 24, 36]
 
 const allFields = computed(() => schema.value.sections.flatMap((section) => section.fields))
+function fieldErrorAttrs(field: FieldDef) {
+  const invalid = errorField.value === field.key
+  return {
+    'aria-invalid': invalid ? true : undefined,
+    'aria-describedby': invalid ? `${formId}-${field.key}-error` : undefined,
+  }
+}
+
+watch(() => {
+  const field = errorField.value
+  return [field, baseKeys.has(field) ? state[field as keyof FormState] : state.details[field]] as const
+}, ([field, value], [previousField, previousValue]) => {
+  if (field && field === previousField && value !== previousValue) {
+    errorField.value = ''
+    error.value = ''
+  }
+})
 const sections = computed(() =>
   (blocked.value || (creatingOrder.value && !order.withReceipt) ? [] : schema.value.sections)
     .map((section) => ({ key: section.key, fields: section.fields.filter(visible) }))
@@ -583,6 +611,7 @@ async function createOrder() {
 async function save() {
   busy.value = true
   error.value = ''
+  errorField.value = ''
   try {
     if (creatingOrder.value) return await createOrder()
     const body = payload()
@@ -605,6 +634,8 @@ async function save() {
       true,
     )
   } catch (cause) {
+    const field = (cause as { metadata?: { field?: string } }).metadata?.field
+    errorField.value = field && allFields.value.some(item => item.key === field) ? field : ''
     error.value = errorMessage(cause, t, te)
   } finally {
     busy.value = false

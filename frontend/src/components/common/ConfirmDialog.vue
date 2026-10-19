@@ -6,7 +6,7 @@
     :close-on-escape="!loading"
     :show-close-button="!loading"
     :content-class="contentClass"
-    :close-label="contentClass ? t('common.close') : undefined"
+    :close-label="t('common.close')"
     @close="handleCancel"
   >
     <div class="space-y-4">

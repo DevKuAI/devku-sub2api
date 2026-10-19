@@ -10,8 +10,8 @@
         <p v-if="subtitle" class="mt-1 text-sm text-gray-500 dark:text-dark-300">{{ subtitle }}</p>
       </header>
       <p v-if="loading" role="status" class="py-8 text-sm text-gray-500">{{ t('accounting.loading') }}</p>
-      <form v-else novalidate class="divide-y divide-gray-200 dark:divide-dark-700" @submit.prevent="submit">
-        <p v-if="error" role="alert" class="accounting-error mt-6">{{ error }}</p>
+      <form v-else ref="formRef" novalidate class="divide-y divide-gray-200 dark:divide-dark-700" @submit.prevent="submit">
+        <p v-if="error" ref="errorRef" role="alert" tabindex="-1" class="accounting-error mt-6">{{ error }}</p>
         <slot />
         <div class="flex flex-wrap justify-end gap-3 py-6">
           <button type="button" class="btn btn-secondary" :disabled="busy" @click="emit('cancel')">
@@ -27,12 +27,13 @@
 </template>
 
 <script setup lang="ts">
+import { nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import { Icon } from '@/components/icons'
 import '@/styles/accounting.css'
 
-defineProps<{
+const props = defineProps<{
   title: string
   subtitle?: string
   backLabel: string
@@ -45,6 +46,17 @@ defineProps<{
 }>()
 const emit = defineEmits<{ submit: []; cancel: [] }>()
 const { t } = useI18n()
+const formRef = ref<HTMLFormElement>()
+const errorRef = ref<HTMLElement>()
+
+watch(() => [props.error, props.loading] as const, async ([error, loading]) => {
+  if (!error || loading) return
+  await nextTick()
+  if (props.error !== error) return
+  const target = formRef.value?.querySelector<HTMLElement>('[aria-invalid="true"]:not([disabled])') || errorRef.value
+  target?.focus({ preventScroll: true })
+  target?.scrollIntoView?.({ block: 'center', behavior: 'instant' })
+})
 
 // Native constraint validation still runs; novalidate only lets us focus the first invalid field ourselves.
 function submit(event: Event) {

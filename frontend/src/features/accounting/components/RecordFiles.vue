@@ -4,7 +4,10 @@
       <h2 class="accounting-section-title">{{ t('accounting.files.title') }}</h2>
     </header>
     <AccountingFileUpload v-if="!customer && record.status !== 'VOID'" :model-value="selectedFile" :disabled="busy" :busy="uploading" @update:model-value="upload" />
-    <p v-if="error" role="alert" class="accounting-error">{{ error }}</p>
+    <div v-if="error" role="alert" class="accounting-error flex flex-wrap items-center justify-between gap-3">
+      <p>{{ error }}</p>
+      <button v-if="loadFailed" type="button" class="btn btn-secondary btn-sm" :disabled="loading" @click="load">{{ t('common.refresh') }}</button>
+    </div>
     <ul v-if="files.length" class="divide-y divide-gray-100 dark:divide-dark-700">
       <li v-for="file in files" :key="file.id" class="flex flex-wrap items-center justify-between gap-2 py-2.5">
         <div class="min-w-0">
@@ -27,7 +30,7 @@
         </div>
       </li>
     </ul>
-    <p v-else-if="!loading" class="text-sm text-gray-500">{{ t('accounting.files.empty') }}</p>
+    <p v-else-if="!loading && !loadFailed" class="text-sm text-gray-500">{{ t('accounting.files.empty') }}</p>
     <ConfirmDialog
       :show="Boolean(pendingDelete)"
       :title="t('accounting.files.deleteTitle')"
@@ -55,6 +58,7 @@ const emit = defineEmits<{ changed: [] }>()
 const { t, te } = useI18n()
 const files = ref<AccountingAttachment[]>([])
 const loading = ref(false)
+const loadFailed = ref(false)
 const busy = ref(false)
 const uploading = ref(false)
 const selectedFile = ref<File | null>(null)
@@ -83,9 +87,12 @@ async function run(action: () => Promise<void>) {
 }
 async function load() {
   loading.value = true
+  loadFailed.value = false
+  error.value = ''
   try {
     files.value = (await api.attachments(props.kind, props.record.id, props.customer)).filter((file) => file.status === 'COMPLETE')
   } catch (cause) {
+    loadFailed.value = true
     error.value = errorMessage(cause, t, te)
   } finally {
     loading.value = false

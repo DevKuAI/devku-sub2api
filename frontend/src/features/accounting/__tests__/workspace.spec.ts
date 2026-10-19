@@ -176,6 +176,27 @@ describe('accounting workspace', () => {
     expect(api.listRecords).toHaveBeenCalledWith('transfers', false, expect.objectContaining({ status: 'RECEIVED' }), expect.anything())
   })
 
+  it('keeps customer record names keyboard operable without opening an admin route', async () => {
+    const wrapper = await render(true, { tab: 'transfers' })
+    const button = wrapper.get('[data-testid="row"] button')
+    expect(button.text()).toBe('客户付款')
+    await button.trigger('click'); await flushPromises()
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(true)
+    expect(api.attachments).toHaveBeenCalledTimes(1)
+    expect(router.push).not.toHaveBeenCalled()
+  })
+
+  it('offers a retry after a list failure without presenting it as empty data', async () => {
+    api.listRecords.mockRejectedValueOnce({ code: 'ERR_NETWORK' })
+    const wrapper = await render(false, { tab: 'transfers' })
+    expect(wrapper.get('[role="alert"]').text()).toContain('检查网络后重试')
+    expect(wrapper.find('[data-testid="row"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('暂无记录')
+    await wrapper.get('[role="alert"] button').trigger('click'); await flushPromises()
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="row"]').text()).toContain('客户付款')
+  })
+
   it('does not fall back to other organizations when the organization is missing', async () => {
     api.organizations.mockResolvedValue([])
     const wrapper = await render()
