@@ -32,6 +32,20 @@ beforeEach(() => {
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals() })
 
 describe('DesktopDailyReports', () => {
+  it('renders generated Markdown labels in the enterprise daily summary and copies the original text', async () => {
+    const content = '# 企业管理日报总结\n\n**范围： **1 位成员。\n\n- **重点成果： **完成验证。'
+    api.getDesktopSummaryReport.mockResolvedValue({ ...base, summary: { ...report, content } })
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
+    const wrapper = render(); await flushPromises()
+    expect(wrapper.get('article h1').text()).toBe('企业管理日报总结')
+    expect(wrapper.findAll('article strong').map(node => node.text())).toEqual(['范围：', '重点成果：'])
+    expect(wrapper.get('article').text()).not.toContain('**')
+    await wrapper.findAll('button').find(button => button.text() === '复制')!.trigger('click'); await flushPromises()
+    expect(writeText).toHaveBeenCalledWith(content)
+    wrapper.unmount()
+  })
+
   it('places summary text before model metadata and report coverage', async () => {
     const wrapper = render(); await flushPromises()
     const body = wrapper.get('article')

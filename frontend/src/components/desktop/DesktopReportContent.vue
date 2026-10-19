@@ -5,21 +5,36 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { marked } from 'marked'
+import { Marked, Renderer, Tokenizer } from 'marked'
 import DOMPurify from 'dompurify'
 
 const props = withDefaults(defineProps<{ content: string; sourceDates?: string[] }>(), { sourceDates: () => [] })
 const emit = defineEmits<{ source: [date: string] }>()
 const { t } = useI18n()
+const markdown = new Marked({
+  tokenizer: {
+    emStrong(src, maskedSrc, prevChar) {
+      const token = Tokenizer.prototype.emStrong.call(this, src, maskedSrc, prevChar)
+      if (token) return token
+
+      // Accept generated labels with trailing spaces or punctuation next to CJK text.
+      // Use Marked's masked input so code spans, links and escapes stay intact.
+      const match = /^\*\*(?=\S)([^*\r\n]+)\*\*(?!\*)/.exec(maskedSrc.slice(-src.length))
+      if (!match) return
+      const raw = src.slice(0, match[0].length), text = raw.slice(2, -2)
+      return { type: 'strong', raw, text, tokens: this.lexer.inlineTokens(text) }
+    },
+  },
+})
 const html = computed(() => {
   const linked = props.content.replace(/\[日总结:(\d{4}-\d{2}-\d{2})\]/g, (original, date: string) =>
     (props.sourceDates || []).includes(date) ? `[日总结:${date}](#frozen-source-${date})` : original)
-  const renderer = new marked.Renderer()
+  const renderer = new Renderer()
   renderer.table = function (token) {
     const label = t('admin.desktop.reports.tableScrollHint').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
-    return `<div class="report-content-table" tabindex="0" role="region" aria-label="${label}">${marked.Renderer.prototype.table.call(this, token)}</div>`
+    return `<div class="report-content-table" tabindex="0" role="region" aria-label="${label}">${Renderer.prototype.table.call(this, token)}</div>`
   }
-  return DOMPurify.sanitize(marked.parse(linked, { async: false, gfm: true, breaks: true, renderer }) as string)
+  return DOMPurify.sanitize(markdown.parse(linked, { async: false, gfm: true, breaks: true, renderer }) as string)
 })
 function onReference(event: MouseEvent) {
   const link = event.target instanceof Element ? event.target.closest('a[href^="#frozen-source-"]') : null
@@ -30,11 +45,12 @@ function onReference(event: MouseEvent) {
 
 <style scoped>
 .report-content { @apply min-w-0 text-base text-gray-900 dark:text-gray-100; max-width: 100%; line-height: 1.8; overflow-wrap: anywhere; }
-.report-content :deep(h1), .report-content :deep(h2), .report-content :deep(h3), .report-content :deep(h4) { margin: 1.6em 0 0.65em; font-weight: 600; line-height: 1.4; }
+.report-content :deep(h1), .report-content :deep(h2), .report-content :deep(h3), .report-content :deep(h4), .report-content :deep(h5), .report-content :deep(h6) { margin: 1.6em 0 0.65em; font-weight: 600; line-height: 1.4; }
 .report-content :deep(h1) { font-size: 1.5rem; }
 .report-content :deep(h2) { font-size: 1.25rem; }
 .report-content :deep(h3) { font-size: 1.125rem; }
 .report-content :deep(h4) { font-size: 1rem; }
+.report-content :deep(h5), .report-content :deep(h6) { font-size: 0.875rem; }
 .report-content :deep(> :first-child) { margin-top: 0; }
 .report-content :deep(p), .report-content :deep(ul), .report-content :deep(ol), .report-content :deep(blockquote) { margin: 0.85em 0; }
 .report-content :deep(li) { margin-block: 0.3em; }

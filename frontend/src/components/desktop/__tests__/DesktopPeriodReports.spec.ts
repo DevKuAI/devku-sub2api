@@ -24,8 +24,8 @@ const client = vi.hoisted(() => ({ list: vi.fn(), detail: vi.fn(), sources: vi.f
 vi.mock('@/api/desktopPeriods', async original => ({ ...await original<typeof import('@/api/desktopPeriods')>(), desktopPeriods: () => client }))
 const dates = Array.from({ length: 29 }, (_, index) => `2026-09-${String(index + 1).padStart(2, '0')}`)
 const report = { id: 'period_one', kind: 'month', range: { start_date: '2026-09-01', end_date: '2026-09-30', timezone: 'Asia/Shanghai' }, revision: 1, status: 'partial', reason: '', generated_at: '2026-10-01T02:00:00Z', model: 'snapshot-model', source_changed: false, coverage: { available_dates: ['2026-09-30'], partial_dates: [], missing_dates: dates, no_record_dates: [], reasons: Object.fromEntries(dates.map(date => [date, 'not_generated'])) } }
-function render() {
-  return mount(DesktopPeriodReports, { props: { organizationId: 'org', enabled: true, analysisModel: 'current-model', initialKind: 'month' }, global: { plugins: [createI18n({ legacy: false, locale: 'zh', messages: { zh } })] } })
+function render(overrides = {}) {
+  return mount(DesktopPeriodReports, { props: { organizationId: 'org', enabled: true, analysisModel: 'current-model', initialKind: 'month', ...overrides }, global: { plugins: [createI18n({ legacy: false, locale: 'zh', messages: { zh } })] } })
 }
 beforeEach(() => {
   vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-14T04:00:00Z')); vi.clearAllMocks()
@@ -38,6 +38,21 @@ enableAutoUnmount(afterEach)
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks() })
 
 describe('Period report reading order', () => {
+  it.each(['week', 'month'])('renders generated Markdown in %s summaries and their frozen daily sources', async kind => {
+    const period = { ...report, kind }
+    client.list.mockResolvedValue({ items: [period], has_more: false })
+    client.detail.mockResolvedValue({ report: period, content: '# 企业总结\n\n**范围： **1 位成员。\n\n- **重点成果：**完成验证。\n\n| 项目 | 状态 |\n| --- | --- |\n| 任务 | **状态： **完成 |\n\n[日总结:2026-09-30]', summary_outline: { validated_source_dates: ['2026-09-30'] } })
+    client.source.mockResolvedValue({ date: '2026-09-30', revision: 1, status: 'completed', content: '**来源范围： **1 位成员。' })
+    const wrapper = render({ initialKind: kind }); await flushPromises()
+    expect(client.list).toHaveBeenCalledWith(kind, expect.any(String), 1)
+    expect(wrapper.get('article h1').text()).toBe('企业总结')
+    expect(wrapper.findAll('article strong').map(node => node.text())).toEqual(['范围：', '重点成果：', '状态：'])
+    expect(wrapper.get('article').text()).not.toContain('**')
+    expect(wrapper.get('article .report-content-table').attributes('tabindex')).toBe('0')
+    await wrapper.get('a[href="#frozen-source-2026-09-30"]').trigger('click'); await flushPromises()
+    expect(wrapper.get('.report-source-detail strong').text()).toBe('来源范围：')
+  })
+
   it('renders Markdown before metadata, date coverage and history', async () => {
     const wrapper = render(); await flushPromises()
     const body = wrapper.get('article'), metadata = wrapper.get('[data-testid="period-metadata"]'), coverage = wrapper.get('[data-testid="period-coverage"]')
