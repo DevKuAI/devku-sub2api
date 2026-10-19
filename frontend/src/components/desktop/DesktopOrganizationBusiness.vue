@@ -6,10 +6,10 @@
           <h2 class="detail-section-title">{{ t('admin.desktop.business.contacts') }}</h2>
           <p class="detail-caption mt-1">{{ t('admin.desktop.business.contactsHint') }}</p>
         </div>
-        <router-link class="btn btn-primary" :to="createContactRoute">
+        <button ref="addContactButton" class="btn btn-primary" type="button" @click="creatingContact = true">
           <Icon name="userPlus" size="sm" />
           <span>{{ t('admin.desktop.business.addContact') }}</span>
-        </router-link>
+        </button>
       </header>
 
       <p v-if="error" class="detail-error" role="alert">{{ error }}</p>
@@ -99,14 +99,15 @@
       </div>
       <p v-else-if="!loading" class="py-8 text-center text-sm text-gray-500 dark:text-dark-400">{{ t('admin.desktop.business.noContracts') }}</p>
     </section>
-
+    <OrganizationContactCreateDialog v-if="creatingContact" :key="organizationId" :organization-id="organizationId" @close="closeContact" @saved="contactCreated" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
+import OrganizationContactCreateDialog from '@/features/accounting/components/OrganizationContactCreateDialog.vue'
 import * as accountingAPI from '@/features/accounting/api'
 import { formatMoney } from '@/features/accounting/format'
 import type { AccountingRecord, OrganizationContact } from '@/features/accounting/types'
@@ -117,15 +118,21 @@ const contacts = ref<OrganizationContact[]>([])
 const contracts = ref<AccountingRecord[]>([])
 const loading = ref(false)
 const error = ref('')
+const creatingContact = ref(false)
+const addContactButton = ref<HTMLButtonElement>()
 const contractsRoute = computed(() => ({
   name: 'AdminOrganizationAccounting',
   params: { organizationId: props.organizationId },
   query: { tab: 'contracts' },
 }))
-const createContactRoute = computed(() => ({
-  name: 'AdminAccountingOrganizationContactNew',
-  params: { organizationId: props.organizationId },
-}))
+function contactCreated() {
+  closeContact()
+  void loadBusiness()
+}
+function closeContact() {
+  creatingContact.value = false
+  void nextTick(() => addContactButton.value?.focus())
+}
 function editContactRoute(contact: OrganizationContact) {
   return {
     name: 'AdminAccountingOrganizationContactEdit',
@@ -169,6 +176,9 @@ async function removeContact(contact: OrganizationContact) {
   }
 }
 
-watch(() => props.organizationId, loadBusiness)
+watch(() => props.organizationId, () => {
+  creatingContact.value = false
+  void loadBusiness()
+})
 onMounted(loadBusiness)
 </script>
