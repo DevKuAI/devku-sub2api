@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -669,6 +670,8 @@ type desktopRepositoryFixture struct {
 	suffix       int64
 }
 
+var desktopFixtureSequence atomic.Uint64
+
 func newDesktopRepositoryFixture(t *testing.T, label string, apiKeyLimit int, reporting ...bool) *desktopRepositoryFixture {
 	t.Helper()
 	ctx := context.Background()
@@ -682,7 +685,7 @@ func newDesktopRepositoryFixture(t *testing.T, label string, apiKeyLimit int, re
 	apiKeys := NewAPIKeyRepository(integrationEntClient, integrationDB)
 	repo := NewDesktopRepository(integrationEntClient, apiKeys)
 	organization, err := repo.CreateOrganization(ctx, service.DesktopCreateOrganizationInput{
-		PublicID: fmt.Sprintf("org_%s_%d", label, suffix), Code: fmt.Sprintf("%c%x", label[0], suffix%100000),
+		PublicID: fmt.Sprintf("org_%s_%d", label, suffix), Code: fmt.Sprintf("%c%x", label[0], desktopFixtureSequence.Add(1)),
 		Name: "Desktop " + label, GatewayUserID: user.ID, GroupID: group.ID,
 		ConversationReportingEnabled: len(reporting) > 0 && reporting[0],
 		MemberLimit:                  &apiKeyLimit,
