@@ -1,6 +1,9 @@
 .accounting-back {
   @apply mb-1 inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-950 dark:text-dark-200 dark:hover:text-white;
 }
+.accounting-skeleton {
+  @apply rounded-lg bg-gray-200 dark:bg-dark-700 motion-safe:animate-pulse;
+}
 .accounting-section-title {
   @apply text-base font-semibold text-gray-950 dark:text-white;
 }

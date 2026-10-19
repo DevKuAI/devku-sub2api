@@ -59,6 +59,85 @@ describe('accounting workspace', () => {
     access.refreshDesktopOrganizationAccess.mockResolvedValue({ public_id: 'org-one', name: '上海星海智能科技有限公司' })
   })
 
+  it('keeps the workspace shell visible without flashing the internal organization ID while loading', async () => {
+    let finish!: (value: typeof organization[]) => void
+    api.organizations.mockReturnValueOnce(new Promise(resolve => { finish = resolve }))
+    const wrapper = await render()
+    expect(wrapper.get('h1').text()).not.toContain('org-one')
+    expect(wrapper.findAll('[role="tab"]')).toHaveLength(7)
+    expect(wrapper.find('[role="status"]').exists()).toBe(true)
+    expect(api.workflow).not.toHaveBeenCalled()
+    finish([organization]); await flushPromises()
+    expect(wrapper.get('h1').text()).toBe(organization.name)
+  })
+
+  it('does not flash an empty financial overview before the summary arrives', async () => {
+    let finish!: (value: typeof summary[]) => void
+    api.summary.mockReturnValueOnce(new Promise(resolve => { finish = resolve }))
+    const wrapper = await render()
+    expect(wrapper.text()).not.toContain('还没有已确认的资金记录。')
+    expect(wrapper.find('[role="status"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="accounting-overview"]').exists()).toBe(false)
+    finish([summary]); await flushPromises()
+    expect(wrapper.get('[data-testid="accounting-overview"]').text()).toContain('可用资金')
+  })
+
+  it('shows a retryable error instead of an empty balance when the summary fails', async () => {
+    api.summary.mockRejectedValueOnce({ message: '资金汇总加载失败' })
+    const wrapper = await render()
+    expect(wrapper.get('[role="alert"]').text()).toContain('资金汇总加载失败')
+    expect(wrapper.find('[data-testid="accounting-overview"]').exists()).toBe(false)
+    expect(wrapper.attributes('aria-busy')).toBe('false')
+    await wrapper.get('[role="alert"] button').trigger('click'); await flushPromises()
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="accounting-overview"]').text()).toContain('可用资金')
+  })
+
+  it('shows the real empty state only after a successful empty summary', async () => {
+    api.summary.mockResolvedValueOnce([])
+    const wrapper = await render()
+    expect(wrapper.get('[data-testid="accounting-overview"]').text()).toContain('还没有已确认的资金记录。')
+    expect(wrapper.attributes('aria-busy')).toBe('false')
+  })
+
+  it('keeps the current customer overview mounted when refreshing the same organization', async () => {
+    const wrapper = await render(true)
+    const panel = wrapper.get('[data-testid="accounting-overview"]').element
+    let finish!: (value: typeof summary[]) => void
+    api.summary.mockReturnValueOnce(new Promise(resolve => { finish = resolve }))
+    window.dispatchEvent(new Event('focus')); await flushPromises()
+    expect(wrapper.get('[data-testid="accounting-overview"]').element).toBe(panel)
+    finish([summary]); await flushPromises()
+    expect(wrapper.get('[data-testid="accounting-overview"]').element).toBe(panel)
+    expect(wrapper.attributes('aria-busy')).toBe('false')
+  })
+
+  it('hides the previous customer balance while a changed organization loads', async () => {
+    const wrapper = await render(true)
+    access.refreshDesktopOrganizationAccess.mockResolvedValueOnce({ public_id: 'org-two', name: '另一家企业' })
+    let finish!: (value: typeof summary[]) => void
+    api.summary.mockReturnValueOnce(new Promise(resolve => { finish = resolve }))
+    window.dispatchEvent(new Event('focus')); await flushPromises()
+    expect(wrapper.text()).toContain('另一家企业')
+    expect(wrapper.find('[data-testid="accounting-overview"]').exists()).toBe(false)
+    expect(wrapper.find('[role="status"]').exists()).toBe(true)
+    finish([{ ...summary, balance: '900' }]); await flushPromises()
+    expect(wrapper.get('[data-testid="accounting-overview"]').text()).toContain('900.00')
+  })
+
+  it('ignores an older customer summary that finishes after a newer refresh', async () => {
+    const wrapper = await render(true)
+    let finish!: (value: typeof summary[]) => void
+    api.summary.mockReturnValueOnce(new Promise(resolve => { finish = resolve }))
+    window.dispatchEvent(new Event('focus')); await flushPromises()
+    api.summary.mockResolvedValueOnce([{ ...summary, balance: '900' }])
+    window.dispatchEvent(new Event('focus')); await flushPromises()
+    finish([{ ...summary, balance: '25' }]); await flushPromises()
+    expect(wrapper.get('[data-testid="accounting-overview"]').text()).toContain('900.00')
+    expect(wrapper.get('[data-testid="accounting-overview"]').text()).not.toContain('25.00')
+    expect(wrapper.attributes('aria-busy')).toBe('false')
+  })
+
   it('groups an organization’s books into sections with balances, orders and to-dos first', async () => {
     const wrapper = await render()
 

@@ -2,7 +2,7 @@
   <div class="space-y-5" data-testid="accounting-overview">
     <p v-if="error" role="alert" class="accounting-error">{{ error }}</p>
     <div v-if="summaries.length" class="grid gap-3 lg:grid-cols-2">
-      <section v-for="entry in summaries" :key="entry.currency" class="card p-5" :aria-label="entry.currency">
+      <section v-for="entry in summaries" :key="entry.currency" class="card min-h-48 p-5" :aria-label="entry.currency">
         <h2 class="text-sm font-semibold text-gray-500">{{ entry.currency }}</h2>
         <dl class="mt-3 grid grid-cols-2 gap-4">
           <div v-for="metric in metrics" :key="metric">
@@ -14,14 +14,14 @@
         </dl>
       </section>
     </div>
-    <p v-else class="card p-8 text-center text-sm text-gray-500">{{ t(customer ? 'accounting.overview.emptyCustomer' : 'accounting.overview.empty') }}</p>
+    <p v-else class="card flex min-h-48 items-center justify-center p-8 text-center text-sm text-gray-500">{{ t(customer ? 'accounting.overview.emptyCustomer' : 'accounting.overview.empty') }}</p>
 
-    <section v-if="!customer" class="card space-y-3 p-5" data-testid="overview-orders">
+    <section v-if="!customer" class="card min-h-44 space-y-3 p-5" data-testid="overview-orders">
       <h2 class="accounting-section-title">{{ t('accounting.orders.inProgress') }}</h2>
       <OrdersPanel :organization-id="organizationId" compact />
     </section>
 
-    <section v-if="!customer" class="card space-y-4 p-5" data-testid="accounting-todos">
+    <section v-if="!customer" class="card min-h-40 space-y-4 p-5" data-testid="accounting-todos">
       <header class="flex flex-wrap items-center justify-between gap-3">
         <h2 class="accounting-section-title">{{ t('accounting.overview.todo') }}</h2>
         <div class="flex flex-wrap gap-2">
