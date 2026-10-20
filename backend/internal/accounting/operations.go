@@ -183,12 +183,25 @@ func audit(ctx context.Context, q dbQuery, org int64, kind, id, action string, a
 	_, err = q.ExecContext(ctx, "INSERT INTO accounting_audit_logs(organization_id,object_kind,object_id,action,actor_id,request_id,summary) VALUES($1,$2,$3,$4,$5,$6,$7)", org, kind, id, action, actor, request, body)
 	return err
 }
+
+// duplicateFields names the field behind a uniqueness conflict so the form can point at it.
+var duplicateFields = map[string]string{
+	"idx_accounting_bank_reference":       "duplicate_bank_reference",
+	"idx_accounting_card_reference":       "duplicate_transaction",
+	"idx_accounting_invoice_number":       "duplicate_invoice",
+	"idx_accounting_vcc_card_fingerprint": "card_registered",
+}
+
 func translate(err error) error {
 	var pg *pq.Error
 	if errors.As(err, &pg) {
 		switch pg.Code {
 		case "23505":
-			return ErrState.WithMetadata(map[string]string{"constraint": pg.Constraint})
+			metadata := map[string]string{"constraint": pg.Constraint}
+			if field := duplicateFields[pg.Constraint]; field != "" {
+				metadata["field"] = field
+			}
+			return ErrState.WithMetadata(metadata)
 		case "22P02", "23503", "23514", "22003":
 			return ErrInvalid
 		}

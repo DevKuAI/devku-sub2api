@@ -16,23 +16,14 @@ import { resolveCompletedSetupRedirectPath } from './setupRedirect'
 import { resolveRouteDocumentTitle } from './title'
 import { biRoutes } from './biRoutes'
 
-const accountingKindPattern =
-  'receivables|fx-exchanges|transfers|vcc-cards|vcc-transactions|contracts|invoices|vendor-invoices|expenses|expense-payments'
-const accountingActionPattern =
-  'void|allocate|pay|adjust|match|exclude|settle|cost|fx-allocate|top-up'
-const accountingWorkflowActionPattern =
-  'cost|external|external-exempt|close|reopen|void-cost|void-settlement|order-close|order-edit|order-link'
-
-// Finance users may only reach the accounting pages registered below.
+// Finance users may only reach the accounting pages registered below; older organization paths redirect
+// to these before the guard runs.
 const financeAccountingPathPattern = new RegExp(
   `^/admin/accounting(?:` +
     `/receiving-accounts(?:/new|/[^/]+/edit)?` +
-    `|/organizations/[^/]+(?:` +
-    `/contacts/(?:new|[^/]+/edit)` +
+    `|/cards` +
     `|/orders/[^/]+` +
-    `|/actions/(?:${accountingWorkflowActionPattern})(?:/[^/]+)?` +
-    `|/(?:${accountingKindPattern})/(?:new|[^/]+(?:/edit|/(?:${accountingActionPattern}))?)` +
-    `)?` +
+    `|/organizations/[^/]+(?:/contacts/(?:new|[^/]+/edit)|/orders/[^/]+)?` +
     `)?$`,
 )
 
@@ -333,14 +324,26 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/admin/accounting',
     name: 'AdminAccounting',
-    component: () => import('@/features/accounting/AccountingView.vue'),
+    component: () => import('@/features/accounting/OrdersHomeView.vue'),
     meta: { requiresAuth: true, requiresAdmin: true, title: 'Accounting', titleKey: 'accounting.title' }
   },
   {
-    path: '/admin/accounting/organizations/:organizationId',
-    name: 'AdminOrganizationAccounting',
-    component: () => import('@/features/accounting/AccountingView.vue'),
-    meta: { requiresAuth: true, requiresAdmin: true, title: 'Organization accounting', titleKey: 'accounting.title' }
+    path: '/admin/accounting/orders/new',
+    name: 'AdminAccountingOrderNew',
+    component: () => import('@/features/accounting/OrderCreateView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'New order', titleKey: 'accounting.orders.createTitle' }
+  },
+  {
+    path: '/admin/accounting/orders/:orderId',
+    name: 'AdminAccountingOrder',
+    component: () => import('@/features/accounting/OrderView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Order', titleKey: 'accounting.home.order' }
+  },
+  {
+    path: '/admin/accounting/cards',
+    name: 'AdminAccountingCards',
+    component: () => import('@/features/accounting/CardsView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Cards', titleKey: 'accounting.home.nav.cards' }
   },
   {
     path: '/admin/accounting/organizations/:organizationId/contacts/new',
@@ -354,47 +357,15 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/features/accounting/OrganizationContactFormView.vue'),
     meta: { requiresAuth: true, requiresAdmin: true, title: 'Edit organization contact', titleKey: 'accounting.contactForm.editTitle' }
   },
-  {
-    path: '/admin/accounting/organizations/:organizationId/orders/new',
-    name: 'AdminAccountingOrderNew',
-    component: () => import('@/features/accounting/AccountingRecordFormView.vue'),
-    meta: { requiresAuth: true, requiresAdmin: true, title: 'New order', titleKey: 'accounting.orders.createTitle' }
-  },
+  // Links from before the order-centred books still land somewhere sensible.
   {
     path: '/admin/accounting/organizations/:organizationId/orders/:orderId',
-    name: 'AdminAccountingOrder',
-    component: () => import('@/features/accounting/OrderView.vue'),
-    meta: { requiresAuth: true, requiresAdmin: true, title: 'Order', titleKey: 'accounting.sections.orders' }
+    redirect: (to) => ({ name: 'AdminAccountingOrder', params: { orderId: to.params.orderId } })
   },
   {
-    path: `/admin/accounting/organizations/:organizationId/actions/:action(${accountingWorkflowActionPattern})/:targetId?`,
-    name: 'AdminAccountingWorkflow',
-    component: () => import('@/features/accounting/AccountingActionView.vue'),
-    meta: { requiresAuth: true, requiresAdmin: true, title: 'Accounting action', titleKey: 'accounting.title' }
-  },
-  {
-    path: `/admin/accounting/organizations/:organizationId/:kind(${accountingKindPattern})/new`,
-    name: 'AdminAccountingRecordNew',
-    component: () => import('@/features/accounting/AccountingRecordFormView.vue'),
-    meta: { requiresAuth: true, requiresAdmin: true, title: 'New accounting record', titleKey: 'accounting.title' }
-  },
-  {
-    path: `/admin/accounting/organizations/:organizationId/:kind(${accountingKindPattern})/:id`,
-    name: 'AdminAccountingRecord',
-    component: () => import('@/features/accounting/AccountingRecordView.vue'),
-    meta: { requiresAuth: true, requiresAdmin: true, title: 'Accounting record', titleKey: 'accounting.title' }
-  },
-  {
-    path: `/admin/accounting/organizations/:organizationId/:kind(${accountingKindPattern})/:id/edit`,
-    name: 'AdminAccountingRecordEdit',
-    component: () => import('@/features/accounting/AccountingRecordFormView.vue'),
-    meta: { requiresAuth: true, requiresAdmin: true, title: 'Edit accounting record', titleKey: 'accounting.title' }
-  },
-  {
-    path: `/admin/accounting/organizations/:organizationId/:kind(${accountingKindPattern})/:id/:action(${accountingActionPattern})`,
-    name: 'AdminAccountingRecordAction',
-    component: () => import('@/features/accounting/AccountingActionView.vue'),
-    meta: { requiresAuth: true, requiresAdmin: true, title: 'Accounting action', titleKey: 'accounting.title' }
+    path: '/admin/accounting/organizations/:organizationId/:rest(.*)*',
+    name: 'AdminOrganizationAccounting',
+    redirect: (to) => ({ name: 'AdminAccounting', query: { organization: String(to.params.organizationId) } })
   },
   {
     path: '/admin/accounting/receiving-accounts',

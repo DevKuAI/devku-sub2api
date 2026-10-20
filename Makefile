@@ -4,6 +4,8 @@ FRONTEND_CRITICAL_VITEST := \
 	src/features/accounting/__tests__/api.spec.ts \
 	src/features/accounting/__tests__/format.spec.ts \
 	src/features/accounting/__tests__/workspace.spec.ts \
+	src/features/accounting/__tests__/order-page.spec.ts \
+	src/features/accounting/__tests__/order-entries.spec.ts \
 	src/composables/__tests__/useDesktopOrganizationAccess.spec.ts \
 	src/api/__tests__/desktopResources.spec.ts \
 	src/views/admin/desktop/DesktopResourcesView.spec.ts \

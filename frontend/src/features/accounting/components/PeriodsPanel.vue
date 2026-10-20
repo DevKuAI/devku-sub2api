@@ -1,11 +1,6 @@
 <template>
   <section class="space-y-4" data-testid="accounting-periods">
-    <div class="accounting-toolbar">
-      <p class="text-sm text-gray-500 dark:text-dark-300">{{ t(customer ? 'accounting.periods.customerHint' : 'accounting.periods.hint') }}</p>
-      <router-link v-if="!customer && administrator" class="btn btn-primary" :to="workflowRoute(organizationId, 'close')">
-        {{ t('accounting.actions.closePeriod') }}
-      </router-link>
-    </div>
+    <p class="text-sm text-gray-500 dark:text-dark-300">{{ t('accounting.periods.customerHint') }}</p>
     <p v-if="error" role="alert" class="accounting-error">{{ error }}</p>
     <div class="card overflow-x-auto">
       <table class="accounting-table">
@@ -13,7 +8,6 @@
           <tr>
             <th>{{ t('accounting.periods.month') }}</th>
             <th>{{ t('accounting.status') }}</th>
-            <th v-if="!customer">{{ t('accounting.reason') }}</th>
             <th />
           </tr>
         </thead>
@@ -21,15 +15,11 @@
           <tr v-for="row in rows" :key="row.id">
             <td class="font-medium">{{ row.month }}<span v-if="row.revision > 1" class="ms-2 text-xs text-gray-500">{{ t('accounting.periods.revision', { revision: row.revision }) }}</span></td>
             <td><span class="badge" :class="row.status === 'CLOSED' ? 'badge-success' : 'badge-warning'">{{ t(`accounting.periods.statuses.${row.status}`) }}</span></td>
-            <td v-if="!customer" class="max-w-xs break-words text-gray-500">{{ row.reason }}</td>
             <td class="whitespace-nowrap text-right">
               <template v-if="row.statement_id">
                 <button type="button" class="btn btn-ghost btn-sm" @click="openStatement(row.statement_id)">{{ t('accounting.periods.statement') }}</button>
                 <button type="button" class="btn btn-ghost btn-sm" @click="download(row)">{{ t('accounting.list.export') }}</button>
               </template>
-              <router-link v-if="!customer && administrator && row.status === 'CLOSED'" class="btn btn-ghost btn-sm text-red-600 dark:text-red-400" :to="workflowRoute(organizationId, 'reopen', row.id)">
-                {{ t('accounting.actions.reopen') }}
-              </router-link>
             </td>
           </tr>
         </tbody>
@@ -93,7 +83,7 @@ import BaseDialog from '@/components/common/BaseDialog.vue'
 import * as api from '../api'
 import { formatMoney } from '../format'
 import { customerKinds, effectiveAmount, publicFields, recordLabel } from '../schema'
-import { errorMessage, formatDate, workflowRoute } from '../shared'
+import { errorMessage, formatDate } from '../shared'
 import type { Statement } from '../types'
 
 interface PeriodRow {
@@ -105,10 +95,8 @@ interface PeriodRow {
   statement_id?: string
 }
 
-const props = withDefaults(defineProps<{ organizationId?: string; organizationName?: string; customer?: boolean; administrator?: boolean }>(), {
-  organizationId: '',
-  organizationName: '',
-})
+// Closed months and their statements, as the organization sees them.
+const props = withDefaults(defineProps<{ organizationName?: string }>(), { organizationName: '' })
 const { t, te } = useI18n()
 const sides = ['cash', 'card'] as const
 const rows = ref<PeriodRow[]>([])
@@ -119,24 +107,23 @@ const error = ref('')
 // Customers only see their shareable record kinds and public fields, even inside a statement.
 const statementRows = computed(() =>
   (statement.value?.records || [])
-    .filter((row) => !props.customer || customerKinds.includes(row.kind))
-    .map((row) =>
-      props.customer
-        ? { ...row, record: { ...row.record, details: Object.fromEntries(Object.entries(row.record.details).filter(([key]) => publicFields[row.kind]?.includes(key))) } }
-        : row,
-    ),
+    .filter((row) => customerKinds.includes(row.kind))
+    .map((row) => ({
+      ...row,
+      record: { ...row.record, details: Object.fromEntries(Object.entries(row.record.details).filter(([key]) => publicFields[row.kind]?.includes(key))) },
+    })),
 )
 
 async function openStatement(id: string) {
   try {
-    statement.value = await api.workflow<Statement>(`statements/${id}`, props.organizationId, props.customer)
+    statement.value = await api.workflow<Statement>(`statements/${id}`, '', true)
   } catch (cause) {
     error.value = errorMessage(cause, t, te)
   }
 }
 async function download(row: PeriodRow) {
   try {
-    saveAs(await api.statementCSV(row.statement_id!, props.customer), `${props.organizationName || 'statement'}-${row.month}.csv`)
+    saveAs(await api.statementCSV(row.statement_id!, true), `${props.organizationName || 'statement'}-${row.month}.csv`)
   } catch (cause) {
     error.value = errorMessage(cause, t, te)
   }
@@ -144,7 +131,7 @@ async function download(row: PeriodRow) {
 
 onMounted(async () => {
   try {
-    rows.value = await api.workflow<PeriodRow[]>('periods', props.organizationId, props.customer)
+    rows.value = await api.workflow<PeriodRow[]>('periods', '', true)
   } catch (cause) {
     error.value = errorMessage(cause, t, te)
   } finally {

@@ -66,10 +66,6 @@
           <h2 class="detail-section-title">{{ t('admin.desktop.business.contracts') }}</h2>
           <p class="detail-caption mt-1">{{ t('admin.desktop.business.contractsHint') }}</p>
         </div>
-        <router-link class="btn btn-secondary" :to="contractsRoute">
-          <Icon name="document" size="sm" />
-          <span>{{ t('admin.desktop.business.manageContracts') }}</span>
-        </router-link>
       </header>
 
       <div v-if="contracts.length" class="table-responsive">
@@ -104,7 +100,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { nextTick, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import OrganizationContactCreateDialog from '@/features/accounting/components/OrganizationContactCreateDialog.vue'
@@ -120,11 +116,6 @@ const loading = ref(false)
 const error = ref('')
 const creatingContact = ref(false)
 const addContactButton = ref<HTMLButtonElement>()
-const contractsRoute = computed(() => ({
-  name: 'AdminOrganizationAccounting',
-  params: { organizationId: props.organizationId },
-  query: { tab: 'contracts' },
-}))
 function contactCreated() {
   closeContact()
   void loadBusiness()

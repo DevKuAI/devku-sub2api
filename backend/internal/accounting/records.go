@@ -151,14 +151,16 @@ func validateFields(kind string, r *Record) error {
 		if t == "REFUND" && detail(r, "original_transaction_id") == "" {
 			return invalid("original_transaction_id")
 		}
-		return required(r, "merchant", "provider_transaction_id")
+		// The provider's transaction number is optional; when given it stays unique per card.
+		return required(r, "merchant")
 	case "contracts":
 		return required(r, "name", "contract_number")
 	case "invoices":
 		if detail(r, "invoice_type") != "SALES" && detail(r, "invoice_type") != "PURCHASE" {
 			return invalid("invoice_type")
 		}
-		if err := required(r, "invoice_code", "invoice_number", "issuer_name", "recipient_name"); err != nil {
+		// Fully digital invoices have no invoice code, only a number.
+		if err := required(r, "invoice_number", "issuer_name", "recipient_name"); err != nil {
 			return err
 		}
 		net, err := number(detail(r, "net_amount"), r.Currency, false)
@@ -449,7 +451,7 @@ func (e *Engine) Update(ctx context.Context, tx *sql.Tx, kind string, old *Recor
 
 func computedField(key string) bool {
 	switch key {
-	case "effective_amount", "original_amount", "adjustment_amount", "paid_amount", "unpaid_amount", "overpaid_amount", "unallocated_amount", "settled_amount", "outstanding_amount", "allocated_cost", "unallocated_cost", "target_available", "available_balance", "allocated_amount", "has_difference", "reconciliation_status", "order_id", "order_name":
+	case "effective_amount", "original_amount", "adjustment_amount", "paid_amount", "unpaid_amount", "overpaid_amount", "unallocated_amount", "settled_amount", "outstanding_amount", "allocated_cost", "unallocated_cost", "target_available", "available_balance", "allocated_amount", "has_difference", "reconciliation_status", "order_id", "order_name", "attachment_count":
 		return true
 	}
 	return false

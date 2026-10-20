@@ -14,6 +14,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"github.com/shopspring/decimal"
 )
 
@@ -44,6 +45,7 @@ type OrderTotal struct {
 type Order struct {
 	ID             string               `json:"id"`
 	OrganizationID string               `json:"organization_id"`
+	Organization   string               `json:"organization_name"`
 	Name           string               `json:"name"`
 	Remark         string               `json:"remark"`
 	Status         string               `json:"status"`
@@ -339,11 +341,11 @@ func (e *Engine) afterOrderChange(ctx context.Context, tx *sql.Tx, kind string, 
 
 // --- Reading orders -----------------------------------------------------------
 
-const orderColumns = "a.id::text,o.public_id,a.name,a.remark,a.status,a.close_reason,a.closed_at,a.created_at,a.version,a.organization_id"
+const orderColumns = "a.id::text,o.public_id,o.name,a.name,a.remark,a.status,a.close_reason,a.closed_at,a.created_at,a.version,a.organization_id"
 
 func scanOrder(row interface{ Scan(...any) error }) (*Order, error) {
 	o := &Order{}
-	err := row.Scan(&o.ID, &o.OrganizationID, &o.Name, &o.Remark, &o.Status, &o.CloseReason, &o.ClosedAt, &o.CreatedAt, &o.Version, &o.Org)
+	err := row.Scan(&o.ID, &o.OrganizationID, &o.Organization, &o.Name, &o.Remark, &o.Status, &o.CloseReason, &o.ClosedAt, &o.CreatedAt, &o.Version, &o.Org)
 	if err == sql.ErrNoRows {
 		return nil, ErrNotFound
 	}
@@ -443,9 +445,41 @@ func (e *Engine) summarizeOrder(ctx context.Context, q dbQuery, o *Order, withIt
 		o.Totals = append(o.Totals, OrderTotal{Currency: currency, Received: v.received.String(), Invoiced: v.invoiced.String(), Spent: v.spent.String(), AICost: v.aiCost.String()})
 	}
 	if withItems {
+		if err := countAttachments(ctx, q, items); err != nil {
+			return err
+		}
 		o.Items = items
 	}
 	return nil
+}
+
+// countAttachments notes how many completed files each entry has, so the order page can flag missing proof.
+func countAttachments(ctx context.Context, q dbQuery, items map[string][]*Record) error {
+	byID := map[string]*Record{}
+	ids := []string{}
+	for _, records := range items {
+		for _, r := range records {
+			byID[r.ID] = r
+			ids = append(ids, r.ID)
+			r.Details["attachment_count"] = "0"
+		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	rows, err := q.QueryContext(ctx, "SELECT object_id::text,COUNT(*)::text FROM accounting_attachments WHERE object_id::text=ANY($1) AND status='COMPLETE' AND deleted_at IS NULL GROUP BY object_id", pq.Array(ids))
+	if err != nil {
+		return err
+	}
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var id, count string
+		if err = rows.Scan(&id, &count); err != nil {
+			return err
+		}
+		byID[id].Details["attachment_count"] = count
+	}
+	return rows.Err()
 }
 
 // --- HTTP handlers ------------------------------------------------------------
@@ -480,13 +514,18 @@ func (h *Handler) orderRecord(c *gin.Context) *Order {
 	return o
 }
 
+// listOrders lists one organization's orders, or every organization's when none is given.
 func (h *Handler) listOrders(c *gin.Context) {
-	org, ok := h.workflowOrg(c, c.Query("organization_id"))
-	if !ok {
-		return
+	org := orgScope(c)
+	if org == 0 && c.Query("organization_id") != "" {
+		var ok bool
+		if org, ok = h.workflowOrg(c, c.Query("organization_id")); !ok {
+			return
+		}
 	}
+	search := "%" + strings.NewReplacer("\\", "\\\\", "%", "\\%", "_", "\\_").Replace(strings.TrimSpace(c.Query("search"))) + "%"
 	ctx := c.Request.Context()
-	rows, err := h.engine.db.QueryContext(ctx, "SELECT "+orderColumns+" FROM accounting_orders a JOIN desktop_organizations o ON o.id=a.organization_id WHERE a.organization_id=$1 ORDER BY a.created_at DESC,a.id LIMIT 500", org)
+	rows, err := h.engine.db.QueryContext(ctx, "SELECT "+orderColumns+" FROM accounting_orders a JOIN desktop_organizations o ON o.id=a.organization_id WHERE o.deleted_at IS NULL AND ($1::bigint=0 OR a.organization_id=$1) AND (a.name ILIKE $2 OR o.name ILIKE $2) ORDER BY a.created_at DESC,a.id LIMIT 500", org, search)
 	if response.ErrorFrom(c, err) {
 		return
 	}

@@ -33,7 +33,7 @@ func (e *Engine) requireVendorInvoice(ctx context.Context, tx dbQuery, r *Record
 	if invoice.Status != "CONFIRMED" {
 		return ErrProof
 	}
-	return e.requireProof(ctx, tx, "vendor-invoices", invoice)
+	return nil
 }
 func (e *Engine) Confirm(ctx context.Context, tx *sql.Tx, kind string, r *Record, actors ...int64) error {
 	actor := int64(0)
@@ -43,6 +43,7 @@ func (e *Engine) Confirm(ctx context.Context, tx *sql.Tx, kind string, r *Record
 	if r.Status != "DRAFT" {
 		return ErrState
 	}
+	// Supporting files are optional: a record counts once saved and its proof can be attached later.
 	switch kind {
 	case "receivables", "fx-exchanges":
 		return e.confirmWorkflow(ctx, tx, kind, r, actor)
@@ -52,24 +53,12 @@ func (e *Engine) Confirm(ctx context.Context, tx *sql.Tx, kind string, r *Record
 		}
 		r.Status = "UNPAID"
 	case "transfers":
-		if err := e.requireProof(ctx, tx, kind, r); err != nil {
-			return err
-		}
 		r.Status = "RECEIVED"
 	case "contracts":
-		if err := e.requireProof(ctx, tx, kind, r); err != nil {
-			return err
-		}
 		r.Status = "SIGNED"
 	case "invoices":
-		if err := e.requireProof(ctx, tx, kind, r); err != nil {
-			return err
-		}
 		r.Status = "VERIFIED"
 	case "vendor-invoices":
-		if err := e.requireProof(ctx, tx, kind, r); err != nil {
-			return err
-		}
 		r.Status = "CONFIRMED"
 	case "vcc-transactions":
 		if err := e.checkRelations(ctx, tx, kind, r, r); err != nil {

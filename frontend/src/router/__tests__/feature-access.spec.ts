@@ -147,17 +147,13 @@ describe('feature route guard', () => {
   })
 
   it.each([
-    '/admin/accounting/organizations/org_one/vcc-cards/new',
-    '/admin/accounting/organizations/org_one/transfers/record-one',
-    '/admin/accounting/organizations/org_one/transfers/record-one/edit',
-    '/admin/accounting/organizations/org_one/expenses/record-one/pay',
-    '/admin/accounting/organizations/org_one/actions/close',
-    '/admin/accounting/organizations/org_one/actions/reopen/period-one',
+    '/admin/accounting/orders/new',
+    '/admin/accounting/orders/order-one',
+    '/admin/accounting/cards',
     '/admin/accounting/organizations/org_one/contacts/new',
-    '/admin/accounting/organizations/org_one/orders/new',
+    '/admin/accounting/organizations/org_one/contacts/contact-one/edit',
     '/admin/accounting/organizations/org_one/orders/order-one',
-    '/admin/accounting/organizations/org_one/actions/order-link/order-one',
-    '/admin/accounting/organizations/org_one/vcc-cards/card-one/top-up',
+    '/admin/accounting/receiving-accounts',
     '/admin/accounting/receiving-accounts/new',
   ])('allows finance users to open accounting page %s', async (path) => {
     authStore.isFinance = true

@@ -478,7 +478,6 @@ export default {
       deleteContact: 'Delete “{name}”? Contact snapshots on historical records will remain unchanged.',
       contracts: 'Sales contracts',
       contractsHint: 'Contracts belong to this organization. Accounting manages their status, proof and financial links.',
-      manageContracts: 'Manage contracts',
       noContracts: 'No sales contracts',
       contract: 'Contract',
       contact: 'Contract contact',

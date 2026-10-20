@@ -13,7 +13,7 @@
           <p v-if="organization" class="mt-1 break-all font-mono text-sm text-gray-500 dark:text-dark-400">{{ organization.code }}</p>
         </div>
         <div v-if="organization" class="detail-page-actions flex flex-wrap justify-end gap-3">
-        <router-link class="detail-page-accounting btn btn-secondary" :to="selfManaged ? '/organization/accounting' : { path: `/admin/accounting/organizations/${encodeURIComponent(organizationID)}`, query: { from: 'enterprise' } }">{{ t('accounting.customerTitle') }}</router-link>
+        <router-link class="detail-page-accounting btn btn-secondary" :to="selfManaged ? '/organization/accounting' : { name: 'AdminAccounting', query: { organization: organizationID } }">{{ t('accounting.customerTitle') }}</router-link>
         <button v-if="organization && !selfManaged" class="btn btn-secondary shrink-0" type="button" :title="t('common.edit')" :aria-label="t('common.edit')" @click="openEditOrganization">
           <Icon name="edit" size="sm" /><span>{{ t('common.edit') }}</span>
         </button>

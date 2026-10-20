@@ -219,6 +219,7 @@ export interface OrderTotal {
 export interface AccountingOrder {
   id: string
   organization_id: string
+  organization_name: string
   name: string
   remark: string
   status: 'OPEN' | 'CLOSED'
@@ -230,4 +231,21 @@ export interface AccountingOrder {
   progress: Record<OrderStep, boolean>
   totals: OrderTotal[]
   items?: Partial<Record<OrderItemKind, AccountingRecord[]>>
+}
+export interface OrderFilter {
+  organization_id?: string
+  state?: string
+  search?: string
+  page?: number
+  page_size?: number
+}
+// One order entry as sent to the order page endpoints; the order sets the organization.
+export interface OrderEntryInput {
+  kind?: OrderItemKind
+  parent_id?: string
+  currency?: string
+  amount?: string
+  occurred_at?: string
+  details: AccountingDetails
+  version?: number
 }

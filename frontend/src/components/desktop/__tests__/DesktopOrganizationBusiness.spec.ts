@@ -102,14 +102,8 @@ describe('DesktopOrganizationBusiness', () => {
     expect(wrapper.text()).toContain('年度服务合同')
     expect(wrapper.text()).toContain('HT-2026-001')
     expect(wrapper.text()).not.toContain('企业收款账户')
-    const contractLink = wrapper
-      .findAllComponents({ name: 'RouterLink' })
-      .find((link) => link.text().includes('管理合同'))!
-    expect(contractLink.props('to')).toEqual({
-      name: 'AdminOrganizationAccounting',
-      params: { organizationId: 'org_one' },
-      query: { tab: 'contracts' },
-    })
+    // Contracts are listed for reference only; the books no longer have a contracts page.
+    expect(wrapper.findAllComponents({ name: 'RouterLink' }).some((link) => link.text().includes('管理合同'))).toBe(false)
   })
 
   it('keeps contact editing on its dedicated page and delete as confirmation', async () => {

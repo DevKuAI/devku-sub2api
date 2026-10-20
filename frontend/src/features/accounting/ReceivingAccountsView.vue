@@ -1,11 +1,7 @@
 <template>
   <AppLayout>
-    <main class="accounting-page mx-auto w-full max-w-5xl space-y-5 pb-10" data-testid="receiving-accounts-page">
-      <PageHeader
-        :title="t('accounting.receivingAccounts.title')"
-        :subtitle="t('accounting.receivingAccounts.description')"
-        :back="{ to: { name: 'AdminAccounting' }, label: t('accounting.directory.title') }"
-      >
+    <main class="accounting-page mx-auto w-full max-w-6xl space-y-5 pb-10" data-testid="receiving-accounts-page">
+      <PageHeader :title="t('accounting.title')" :subtitle="t('accounting.receivingAccounts.description')">
         <template #actions>
           <router-link class="btn btn-primary" :to="{ name: 'AdminAccountingReceivingAccountNew' }">
             <Icon name="plus" size="sm" aria-hidden="true" />
@@ -13,6 +9,7 @@
           </router-link>
         </template>
       </PageHeader>
+      <AccountingNav current="AdminAccountingReceivingAccounts" />
 
       <p v-if="error" role="alert" class="accounting-error">{{ error }}</p>
       <p v-if="loading" role="status" class="card p-6 text-sm text-gray-500">{{ t('accounting.loading') }}</p>
@@ -66,6 +63,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import { Icon } from '@/components/icons'
+import AccountingNav from './components/AccountingNav.vue'
 import PageHeader from './components/PageHeader.vue'
 import * as api from './api'
 import type { ReceivingAccount } from './types'

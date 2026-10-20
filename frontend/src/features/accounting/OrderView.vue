@@ -1,192 +1,279 @@
 <template>
   <AppLayout>
     <main class="accounting-page mx-auto w-full max-w-5xl space-y-5 pb-10" data-testid="accounting-order-page">
-      <PageHeader :back="{ to: workspaceRoute(organizationId, 'orders'), label: organization?.name || t('accounting.sections.orders') }">
-        <template #title>{{ order?.name || t('accounting.sections.orders') }}</template>
+      <PageHeader :back="{ to: ordersRoute(), label: t('accounting.home.title') }">
+        <template #title>{{ order?.name || t('accounting.home.order') }}</template>
         <template v-if="order" #badge>
-          <span class="badge" :class="stateTone">{{ t(`accounting.orders.states.${order.state}`) }}</span>
+          <span class="badge" :class="stateTone" data-testid="order-state">{{ t(`accounting.orders.states.${order.state}`) }}</span>
         </template>
-        <template v-if="order" #subtitle>{{ [t('accounting.orders.createdOn', { date: formatDate(order.created_at) }), order.remark].filter(Boolean).join(' · ') }}</template>
-        <template v-if="order" #actions>
-          <router-link class="btn btn-secondary" :to="workflowRoute(organizationId, 'order-edit', order.id)">{{ t('accounting.actions.edit') }}</router-link>
-          <router-link v-if="order.status === 'OPEN' && order.state !== 'COMPLETED'" class="btn btn-ghost" :to="workflowRoute(organizationId, 'order-close', order.id)">
-            {{ t('accounting.actions.orderClose') }}
-          </router-link>
-          <button v-if="order.status === 'CLOSED'" type="button" class="btn btn-secondary" :disabled="busy" @click="reopening = true">
-            {{ t('accounting.actions.orderReopen') }}
-          </button>
+        <template v-if="order" #subtitle>
+          <router-link class="accounting-link" :to="ordersRoute({ organization: order.organization_id })">{{ order.organization_name }}</router-link>
+          · {{ t('accounting.orders.createdOn', { date: formatDate(order.created_at) }) }}
+          <template v-if="order.remark"> · {{ order.remark }}</template>
+        </template>
+        <template v-if="order && !panel" #actions>
+          <template v-if="open">
+            <button type="button" class="btn btn-secondary" data-testid="order-edit" @click="startPanel('edit')">{{ t('common.edit') }}</button>
+            <button v-if="order.state === 'OPEN'" type="button" class="btn btn-secondary" data-testid="order-close" @click="startPanel('close')">{{ t('accounting.home.closeOrder') }}</button>
+          </template>
+          <button v-else type="button" class="btn btn-secondary" data-testid="order-reopen" @click="reopening = true">{{ t('accounting.home.reopenOrder') }}</button>
         </template>
       </PageHeader>
 
-      <p v-if="loading && !order" role="status" class="text-sm text-gray-500">{{ t('accounting.loading') }}</p>
       <p v-if="error" role="alert" class="accounting-error">{{ error }}</p>
-      <p v-if="route.query.upload_failed" role="status" class="accounting-warning">{{ t('accounting.files.uploadFailed') }}</p>
+      <p v-if="notice" role="status" class="accounting-warning">{{ notice }}</p>
+      <p v-if="loading && !order" role="status" class="card p-6 text-sm text-gray-500">{{ t('accounting.loading') }}</p>
 
       <template v-if="order">
-        <section class="accounting-order-summary" data-testid="order-summary">
-          <div class="min-w-0">
-            <p class="text-xs font-medium text-gray-500 dark:text-dark-300">{{ t('accounting.orders.nextStep') }}</p>
-            <p class="mt-1 text-base font-semibold text-gray-950 dark:text-white" data-testid="order-next-step">
-              {{ order.status === 'CLOSED' ? t('accounting.orders.closedReason', { reason: order.close_reason }) : nextStep ? t(`accounting.orders.next.${nextStep.key}`) : t('accounting.orders.allDone') }}
-            </p>
+        <form v-if="panel === 'edit'" class="card accounting-entry-form p-5" data-testid="order-edit-form" @submit.prevent="saveOrder">
+          <label class="block min-w-0 sm:col-span-2 lg:col-span-3">
+            <span class="input-label">{{ t('accounting.orders.name') }}</span>
+            <input v-model="orderForm.name" class="input w-full" maxlength="200" required />
+          </label>
+          <label class="block min-w-0 sm:col-span-2 lg:col-span-3">
+            <span class="input-label">{{ t('accounting.entries.fields.remark') }}<span class="accounting-optional">{{ t('accounting.form.optional') }}</span></span>
+            <textarea v-model="orderForm.remark" class="input min-h-16 w-full resize-y" maxlength="4000" />
+          </label>
+          <div class="accounting-entry-actions sm:col-span-2 lg:col-span-3">
+            <button type="button" class="btn btn-secondary btn-sm" :disabled="busy" @click="panel = ''">{{ t('common.cancel') }}</button>
+            <button type="submit" class="btn btn-primary btn-sm" :disabled="busy">{{ t('common.save') }}</button>
           </div>
-          <router-link v-if="open && nextStep" class="btn btn-primary" :to="nextStep.to" data-testid="order-next-action">
-            {{ t(`accounting.orders.nextAction.${nextStep.key}`) }}
-          </router-link>
+        </form>
+        <form v-if="panel === 'close'" class="card accounting-entry-form p-5" data-testid="order-close-form" @submit.prevent="closeOrder">
+          <p class="text-sm text-gray-600 dark:text-dark-200 sm:col-span-2 lg:col-span-3">{{ t('accounting.home.closeHint') }}</p>
+          <label class="block min-w-0 sm:col-span-2 lg:col-span-3">
+            <span class="input-label">{{ t('accounting.home.closeReason') }}</span>
+            <textarea v-model="orderForm.reason" class="input min-h-16 w-full resize-y" maxlength="4000" required />
+          </label>
+          <div class="accounting-entry-actions sm:col-span-2 lg:col-span-3">
+            <button type="button" class="btn btn-secondary btn-sm" :disabled="busy" @click="panel = ''">{{ t('common.cancel') }}</button>
+            <button type="submit" class="btn btn-danger btn-sm" :disabled="busy">{{ t('accounting.home.closeOrder') }}</button>
+          </div>
+        </form>
+        <p v-if="order.status === 'CLOSED' && order.close_reason" class="accounting-warning">{{ t('accounting.orders.closedReason', { reason: order.close_reason }) }}</p>
+
+        <section class="card accounting-order-summary" data-testid="order-summary">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="min-w-0">
+              <p class="text-xs text-gray-500 dark:text-dark-300">{{ t('accounting.orders.nextStep') }}</p>
+              <p class="mt-0.5 font-semibold text-gray-950 dark:text-white" data-testid="order-next-step">
+                {{ nextStep ? t(`accounting.entries.next.${nextStep.key}`) : t(order.status === 'CLOSED' ? 'accounting.entries.next.closed' : 'accounting.orders.allDone') }}
+              </p>
+            </div>
+            <button v-if="nextStep && open && !editor" type="button" class="btn btn-primary" data-testid="order-next-action" @click="nextStep.run()">
+              {{ t(`accounting.entries.nextAction.${nextStep.key}`) }}
+            </button>
+          </div>
           <dl v-if="totals.length" class="accounting-order-totals" data-testid="order-totals">
-            <div v-for="entry in totals" :key="entry.key">
-              <dt>{{ t(`accounting.orders.totals.${entry.metric}`) }}</dt>
-              <dd>{{ entry.values.join(' + ') }}</dd>
+            <div v-for="total in totals" :key="total.metric">
+              <dt>{{ t(`accounting.orders.totals.${total.metric}`) }}</dt>
+              <dd v-for="value in total.values" :key="value">{{ value }}</dd>
             </div>
           </dl>
         </section>
 
         <section
-          v-for="(step, index) in steps"
-          :key="step"
+          v-for="(block, index) in blocks"
+          :key="block.step"
           class="card accounting-order-step"
-          :data-testid="`order-section-${stepSections[step]}`"
-          :data-step="step"
-          :data-done="order.progress[step]"
+          :data-testid="`order-section-${block.step}`"
+          :data-done="order.progress[block.step]"
         >
           <header class="accounting-order-step-header">
-            <div class="flex min-w-0 items-center gap-3">
-              <span class="accounting-step-marker" :data-state="stepState(step)" aria-hidden="true">
-                <Icon v-if="order.progress[step]" name="check" size="sm" :stroke-width="2.5" />
-                <template v-else>{{ index + 1 }}</template>
-              </span>
-              <div class="min-w-0">
-                <h2 class="accounting-section-title">{{ t(`accounting.orders.steps.${step}`) }}</h2>
-                <p class="text-xs text-gray-500 dark:text-dark-300">{{ t(`accounting.orders.stepHints.${step}`) }}</p>
-              </div>
-            </div>
-            <div v-if="open" class="flex flex-wrap gap-2">
-              <template v-if="step === 'purchase'">
-                <router-link class="btn btn-ghost btn-sm" :to="addRoute('vcc-cards')"><Icon name="plus" size="sm" aria-hidden="true" />{{ t('accounting.orders.add.vcc-cards') }}</router-link>
-                <router-link v-if="activeCards.length" class="btn btn-secondary btn-sm" :to="addRoute('vcc-transactions')">
-                  <Icon name="plus" size="sm" aria-hidden="true" />{{ t('accounting.orders.add.vcc-transactions') }}
-                </router-link>
-              </template>
-              <template v-else>
-                <router-link class="btn btn-ghost btn-sm" :to="linkRoute(stepKinds[step])">{{ t('accounting.orders.linkExisting') }}</router-link>
-                <router-link class="btn btn-secondary btn-sm" :to="addRoute(stepKinds[step])">
-                  <Icon name="plus" size="sm" aria-hidden="true" />{{ t(`accounting.orders.add.${stepKinds[step]}`) }}
-                </router-link>
-              </template>
+            <span class="accounting-step-marker" :data-state="stepState(block.step)" aria-hidden="true">
+              <Icon v-if="order.progress[block.step]" name="check" size="sm" />
+              <template v-else>{{ index + 1 }}</template>
+            </span>
+            <div class="min-w-0">
+              <h2 class="accounting-section-title">{{ t(`accounting.orders.steps.${block.step}`) }}</h2>
+              <p class="text-xs text-gray-500 dark:text-dark-300">{{ t(`accounting.orders.stepHints.${block.step}`) }}</p>
             </div>
           </header>
 
-          <template v-if="step === 'purchase'">
-            <ul v-if="items['vcc-cards'].length" class="accounting-card-list">
-              <li v-for="card in items['vcc-cards']" :key="card.id" :data-card="card.id">
-                <router-link class="min-w-0 hover:text-primary-600" :to="recordRoute(organizationId, 'vcc-cards', card.id)">
-                  <span class="font-medium">{{ recordLabel(card.details, card.id) }}</span>
-                  <span class="text-gray-500"> •••• {{ card.details.last_four }} · {{ card.currency }}</span>
-                </router-link>
-                <span class="flex items-center gap-3">
-                  <span class="text-sm tabular-nums" :class="{ 'font-medium text-amber-700 dark:text-amber-300': Number(card.details.available_balance) < 0 }">
-                    {{ t('accounting.fields.available_balance') }} {{ formatMoney(String(card.details.available_balance || '0'), card.currency) }}
-                  </span>
-                  <router-link v-if="card.status === 'ACTIVE'" class="btn btn-ghost btn-sm" :to="topUpRoute(card)">{{ t('accounting.actions.topUp') }}</router-link>
-                </span>
-              </li>
+          <template v-for="kind in block.kinds" :key="kind">
+            <p v-if="kind === 'vcc-cards' && negativeCards" class="accounting-warning">{{ t('accounting.orders.negativeCardHint') }}</p>
+            <ul v-if="rows[kind].length" class="accounting-entries" :data-kind="kind">
+              <template v-for="record in rows[kind]" :key="record.id">
+                <li v-if="editor?.recordId === record.id" class="accounting-entry">
+                  <EntryForm :kind="kind" :context="context" :record="record" @saved="saved" @cancel="closeEditor" @dirty="dirty = $event" />
+                </li>
+                <EntryRow
+                  v-else
+                  :kind="kind"
+                  :record="record"
+                  :cards="items['vcc-cards']"
+                  :editable="open && !editor"
+                  @edit="startEdit(kind, record)"
+                  @remove="pendingRemoval = { kind, record }"
+                  @confirm="confirmDraft(kind, record)"
+                  @refund="startRefund(record)"
+                  @changed="load"
+                />
+              </template>
             </ul>
-            <p v-if="negativeCards" class="accounting-warning">{{ t('accounting.orders.negativeCardHint') }}</p>
-            <OrderRecordRows kind="vcc-transactions" :records="items['vcc-transactions']" :organization-id="organizationId" />
+            <div v-if="editor && !editor.recordId && editor.kind === kind" class="accounting-entry-new">
+              <h3 class="text-sm font-semibold">{{ t(editor.preset?.transaction_type === 'REFUND' ? 'accounting.entries.addRefund' : `accounting.entries.add.${kind}`) }}</h3>
+              <EntryForm :kind="kind" :context="context" :preset="editor.preset" @saved="saved" @cancel="closeEditor" @dirty="dirty = $event" />
+            </div>
           </template>
-          <OrderRecordRows v-else :kind="stepKinds[step]" :records="items[stepKinds[step]]" :organization-id="organizationId" />
-          <p v-if="step === 'ai_invoice' && order.progress.purchase && !order.progress.ai_invoice && items['vendor-invoices'].length" class="accounting-field-hint">
-            {{ t('accounting.orders.aiInvoiceHint') }}
+          <p v-if="!block.kinds.some((kind) => rows[kind].length) && !(editor && block.kinds.includes(editor.kind))" class="text-sm text-gray-500">
+            {{ t(`accounting.entries.empty.${block.step}`) }}
           </p>
+
+          <div v-if="open && !editor" class="accounting-step-actions">
+            <button
+              v-for="kind in block.kinds"
+              :key="kind"
+              type="button"
+              class="btn btn-secondary btn-sm"
+              :disabled="kind === 'vcc-transactions' && !cardsReady"
+              :title="kind === 'vcc-transactions' && !cardsReady ? t('accounting.entries.cardFirst') : undefined"
+              :data-testid="`add-${kind}`"
+              @click="startAdd(kind)"
+            >
+              <Icon name="plus" size="sm" aria-hidden="true" />{{ t(`accounting.entries.add.${kind}`) }}
+            </button>
+            <template v-if="block.link">
+              <button v-if="linking !== block.link" type="button" class="btn btn-ghost btn-sm" :data-testid="`link-${block.link}`" @click="startLink(block.link)">
+                {{ t('accounting.orders.linkExisting') }}
+              </button>
+              <form v-else class="flex flex-wrap items-center gap-2" @submit.prevent="link">
+                <select v-model="linkTarget" class="input w-auto max-w-full" required :aria-label="t('accounting.orders.linkExisting')">
+                  <option value="">{{ t(linkOptions.length ? 'accounting.form.select' : 'accounting.entries.nothingToLink') }}</option>
+                  <option v-for="record in linkOptions" :key="record.id" :value="record.id">
+                    {{ recordLabel(record.details, record.id) }} · {{ formatMoney(record.details.effective_amount ? String(record.details.effective_amount) : record.amount, record.currency) }}
+                  </option>
+                </select>
+                <button type="submit" class="btn btn-primary btn-sm" :disabled="busy || !linkTarget">{{ t('accounting.entries.link') }}</button>
+                <button type="button" class="btn btn-ghost btn-sm" @click="linking = ''">{{ t('common.cancel') }}</button>
+              </form>
+            </template>
+          </div>
         </section>
       </template>
 
       <ConfirmDialog
         :show="reopening"
-        :title="t('accounting.actions.orderReopen')"
+        :title="t('accounting.home.reopenOrder')"
         :message="t('accounting.confirmations.orderReopen')"
-        :confirm-text="t('accounting.actions.orderReopen')"
+        :confirm-text="t('accounting.home.reopenOrder')"
         :loading="busy"
         @confirm="reopen"
         @cancel="reopening = false"
+      />
+      <ConfirmDialog
+        :show="Boolean(pendingRemoval)"
+        :title="t(pendingRemoval?.kind === 'vcc-cards' ? 'accounting.entries.closeCardTitle' : 'accounting.entries.removeTitle')"
+        :message="t(pendingRemoval?.kind === 'vcc-cards' ? 'accounting.entries.closeCardMessage' : 'accounting.entries.removeMessage')"
+        :confirm-text="t(pendingRemoval?.kind === 'vcc-cards' ? 'accounting.entries.closeCard' : 'common.delete')"
+        :loading="busy"
+        danger
+        @confirm="remove"
+        @cancel="pendingRemoval = null"
       />
     </main>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { onBeforeRouteLeave, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import { Icon } from '@/components/icons'
-import OrderRecordRows from './components/OrderRecordRows.vue'
+import EntryForm from './components/order/EntryForm.vue'
+import EntryRow from './components/order/EntryRow.vue'
 import PageHeader from './components/PageHeader.vue'
 import * as api from './api'
 import { formatMoney } from './format'
+import { activeCards, type EntryContext, type EntryValues } from './orderEntries'
 import { recordLabel } from './schema'
-import { createRoute, errorMessage, formatDate, recordActionRoute, recordRoute, workflowRoute, workspaceRoute } from './shared'
-import { useOrganization } from './useOrganization'
-import type { AccountingKind, AccountingOrder, AccountingRecord, OrderItemKind, OrderStep, OrderTotal } from './types'
+import { errorMessage, formatDate, ordersRoute } from './shared'
+import type { AccountingOrder, AccountingRecord, OrderItemKind, OrderStep, OrderTotal, ReceivingAccount } from './types'
 import '@/styles/accounting.css'
+
+type LinkKind = 'transfers' | 'invoices' | 'vendor-invoices'
+interface Block {
+  step: OrderStep
+  kinds: OrderItemKind[]
+  link?: LinkKind
+}
+interface Editor {
+  kind: OrderItemKind
+  recordId?: string
+  preset?: EntryValues
+}
 
 const { t, te } = useI18n()
 const route = useRoute()
-const organizationId = computed(() => String(route.params.organizationId))
 const orderId = computed(() => String(route.params.orderId))
-const { organization, loadOrganization } = useOrganization(() => organizationId.value)
 const order = ref<AccountingOrder | null>(null)
+const receivingAccounts = ref<ReceivingAccount[]>([])
 const loading = ref(true)
 const busy = ref(false)
 const error = ref('')
+const notice = ref('')
+const panel = ref<'' | 'edit' | 'close'>('')
+const orderForm = reactive({ name: '', remark: '', reason: '' })
 const reopening = ref(false)
+const editor = ref<Editor | null>(null)
+const dirty = ref(false)
+const pendingRemoval = ref<{ kind: OrderItemKind; record: AccountingRecord } | null>(null)
+const linking = ref<LinkKind | ''>('')
+const linkTarget = ref('')
+const linkOptions = ref<AccountingRecord[]>([])
 const requestKey = api.stableRequest()
+
 const steps: OrderStep[] = ['receipt', 'invoice', 'purchase', 'ai_invoice']
-const stepKinds: Record<OrderStep, OrderItemKind> = {
-  receipt: 'transfers',
-  invoice: 'invoices',
-  purchase: 'vcc-transactions',
-  ai_invoice: 'vendor-invoices',
-}
-const stepSections: Record<OrderStep, string> = { receipt: 'receipt', invoice: 'invoice', purchase: 'purchase', ai_invoice: 'ai-invoice' }
-const totalMetrics: (keyof Omit<OrderTotal, 'currency'>)[] = ['received', 'invoiced', 'spent', 'ai_cost']
+const blocks: Block[] = [
+  { step: 'receipt', kinds: ['transfers'], link: 'transfers' },
+  { step: 'invoice', kinds: ['invoices'], link: 'invoices' },
+  { step: 'purchase', kinds: ['vcc-cards', 'vcc-transactions'] },
+  { step: 'ai_invoice', kinds: ['vendor-invoices'], link: 'vendor-invoices' },
+]
 const itemKinds: OrderItemKind[] = ['transfers', 'invoices', 'vcc-cards', 'vcc-transactions', 'vendor-invoices']
+const totalMetrics: (keyof Omit<OrderTotal, 'currency'>)[] = ['received', 'invoiced', 'spent', 'ai_cost']
 
 const open = computed(() => order.value?.status === 'OPEN')
 const items = computed(
   () => Object.fromEntries(itemKinds.map((kind) => [kind, order.value?.items?.[kind] || []])) as Record<OrderItemKind, AccountingRecord[]>,
 )
-const activeCards = computed(() => items.value['vcc-cards'].filter((card) => card.status === 'ACTIVE'))
-const negativeCards = computed(() => items.value['vcc-cards'].some((card) => Number(card.details.available_balance) < 0))
-// Only the amounts the order actually has, per metric and currency.
+// Removed entries stay in the books as void records but leave the order page.
+const rows = computed(
+  () => Object.fromEntries(itemKinds.map((kind) => [kind, items.value[kind].filter((record) => record.status !== 'VOID')])) as Record<OrderItemKind, AccountingRecord[]>,
+)
+const context = computed<EntryContext>(() => ({ order: order.value!, items: rows.value, receivingAccounts: receivingAccounts.value }))
+const cardsReady = computed(() => Boolean(order.value) && activeCards(context.value).length > 0)
+const negativeCards = computed(() => rows.value['vcc-cards'].some((card) => Number(card.details.available_balance) < 0))
+const stateTone = computed(() => ({ OPEN: 'badge-warning', COMPLETED: 'badge-success', CLOSED: 'badge-gray' })[order.value?.state || 'OPEN'])
 const totals = computed(() =>
   totalMetrics
     .map((metric) => ({
-      key: metric,
       metric,
       values: (order.value?.totals || []).filter((total) => Number(total[metric]) !== 0).map((total) => formatMoney(total[metric], total.currency)),
     }))
     .filter((entry) => entry.values.length),
 )
-// The first thing still missing, with a direct link to finish it.
+// The first step still missing, and the one action that finishes it.
 const nextStep = computed(() => {
   const current = order.value
-  if (!current) return null
-  const draft = (kind: OrderItemKind) => items.value[kind].find((record) => record.status === 'DRAFT')
-  const review = (kind: OrderItemKind, key: string) => {
-    const pending = draft(kind)
-    return pending ? { key, to: recordRoute(organizationId.value, kind, pending.id) } : null
+  if (!current || current.status === 'CLOSED') return null
+  const draft = (kind: OrderItemKind) => rows.value[kind].find((record) => record.status === 'DRAFT')
+  const pending = (kind: OrderItemKind, key: string) => {
+    const record = draft(kind)
+    return record ? { key, run: () => void confirmDraft(kind, record) } : null
   }
-  if (!current.progress.receipt) return review('transfers', 'confirmReceipt') || { key: 'receipt', to: addRoute('transfers') }
-  if (!current.progress.invoice) return review('invoices', 'confirmInvoice') || { key: 'invoice', to: addRoute('invoices') }
+  const add = (key: string, kind: OrderItemKind) => ({ key, run: () => startAdd(kind) })
+  if (!current.progress.receipt) return pending('transfers', 'confirmReceipt') || add('receipt', 'transfers')
+  if (!current.progress.invoice) return pending('invoices', 'confirmInvoice') || add('invoice', 'invoices')
   if (!current.progress.purchase) {
-    if (!activeCards.value.length) return { key: 'card', to: addRoute('vcc-cards') }
-    return review('vcc-transactions', 'confirmSpend') || { key: 'spend', to: addRoute('vcc-transactions') }
+    if (!cardsReady.value) return add('card', 'vcc-cards')
+    return pending('vcc-transactions', 'confirmSpend') || add('spend', 'vcc-transactions')
   }
   if (!current.progress.ai_invoice) {
-    const covered = items.value['vendor-invoices'].some((record) => record.status === 'CONFIRMED')
-    return review('vendor-invoices', 'confirmAiInvoice') || { key: covered ? 'aiInvoiceMore' : 'aiInvoice', to: addRoute('vendor-invoices') }
+    const some = rows.value['vendor-invoices'].some((record) => record.status === 'CONFIRMED')
+    return pending('vendor-invoices', 'confirmAiInvoice') || add(some ? 'aiInvoiceMore' : 'aiInvoice', 'vendor-invoices')
   }
   return null
 })
@@ -194,46 +281,113 @@ function stepState(step: OrderStep) {
   if (order.value?.progress[step]) return 'done'
   return steps.find((item) => !order.value?.progress[item]) === step ? 'current' : 'pending'
 }
-const stateTone = computed(() => ({ OPEN: 'badge-warning', COMPLETED: 'badge-success', CLOSED: 'badge-gray' })[order.value?.state || 'OPEN'])
 
-// Every record added from here belongs to this order and returns here once saved.
-function addRoute(kind: AccountingKind) {
-  return createRoute(organizationId.value, kind, { order_id: orderId.value, return_to: route.path })
+function discardEditor() {
+  return !editor.value || !dirty.value || window.confirm(t('accounting.form.discardChanges'))
 }
-function linkRoute(kind: AccountingKind) {
-  return workflowRoute(organizationId.value, 'order-link', orderId.value, { kind })
+function openEditor(next: Editor) {
+  if (!discardEditor()) return
+  notice.value = ''
+  dirty.value = false
+  linking.value = ''
+  editor.value = next
 }
-function topUpRoute(card: AccountingRecord) {
-  return { ...(recordActionRoute(organizationId.value, 'vcc-cards', card.id, 'top-up') as object), query: { return_to: route.path } }
+function startAdd(kind: OrderItemKind) {
+  openEditor({ kind })
+}
+function startEdit(kind: OrderItemKind, record: AccountingRecord) {
+  openEditor({ kind, recordId: record.id })
+}
+// A refund goes back to the card the purchase was paid with.
+function startRefund(record: AccountingRecord) {
+  openEditor({
+    kind: 'vcc-transactions',
+    preset: { parent_id: record.parent_id || '', merchant: String(record.details.merchant || ''), transaction_type: 'REFUND', original_transaction_id: record.id, amount: '' },
+  })
+}
+function closeEditor() {
+  editor.value = null
+  dirty.value = false
+}
+async function saved(_record: AccountingRecord, uploadFailed: boolean) {
+  closeEditor()
+  await load()
+  if (uploadFailed) notice.value = t('accounting.entries.uploadFailed')
+}
+function startPanel(next: 'edit' | 'close') {
+  if (!order.value) return
+  Object.assign(orderForm, { name: order.value.name, remark: order.value.remark, reason: '' })
+  panel.value = next
+}
+
+async function run(path: string, payload: unknown, method: 'post' | 'patch' | 'delete' = 'post') {
+  busy.value = true
+  error.value = ''
+  try {
+    await api.mutate(path, payload, requestKey(`${method}:${path}`, payload), method)
+    requestKey.reset()
+    await load()
+    return true
+  } catch (cause) {
+    error.value = errorMessage(cause, t, te)
+    return false
+  } finally {
+    busy.value = false
+  }
+}
+async function saveOrder() {
+  if (await run(`orders/${orderId.value}`, { name: orderForm.name.trim(), remark: orderForm.remark.trim(), version: order.value?.version }, 'patch')) panel.value = ''
+}
+async function closeOrder() {
+  if (await run(`orders/${orderId.value}/close`, { reason: orderForm.reason.trim() })) panel.value = ''
+}
+async function reopen() {
+  if (await run(`orders/${orderId.value}/reopen`, {})) reopening.value = false
+}
+async function confirmDraft(kind: OrderItemKind, record: AccountingRecord) {
+  await run(`${kind}/${record.id}/confirm`, {})
+}
+async function remove() {
+  const target = pendingRemoval.value
+  if (!target) return
+  await run(`orders/${orderId.value}/entries/${target.kind}/${target.record.id}`, {}, 'delete')
+  pendingRemoval.value = null
+}
+
+// Records entered before orders existed can be brought into this one.
+async function startLink(kind: LinkKind) {
+  if (!discardEditor()) return
+  closeEditor()
+  linking.value = kind
+  linkTarget.value = ''
+  linkOptions.value = []
+  try {
+    const result = await api.listRecords(kind, false, { organization_id: order.value?.organization_id, page_size: 100 })
+    linkOptions.value = result.items.filter(
+      (record) => record.status !== 'VOID' && !record.details.order_id && !record.details.funding_type && (kind !== 'invoices' || record.details.invoice_type === 'SALES'),
+    )
+  } catch (cause) {
+    error.value = errorMessage(cause, t, te)
+  }
+}
+async function link() {
+  if (await run(`orders/${orderId.value}/links`, { object_kind: linking.value, object_id: linkTarget.value })) linking.value = ''
 }
 
 async function load() {
   loading.value = true
   error.value = ''
   try {
-    const [current] = await Promise.all([api.order(orderId.value), organization.value ? null : loadOrganization()])
-    if (current.organization_id !== organizationId.value) throw new Error(t('accounting.errors.organizationUnavailable'))
+    const [current, accounts] = await Promise.all([api.order(orderId.value), receivingAccounts.value.length ? receivingAccounts.value : api.receivingAccounts()])
     order.value = current
+    receivingAccounts.value = accounts
   } catch (cause) {
     error.value = errorMessage(cause, t, te)
   } finally {
     loading.value = false
   }
 }
-async function reopen() {
-  busy.value = true
-  try {
-    const path = `orders/${orderId.value}/reopen`
-    await api.mutate(path, {}, requestKey(path, {}))
-    requestKey.reset()
-    reopening.value = false
-    await load()
-  } catch (cause) {
-    error.value = errorMessage(cause, t, te)
-  } finally {
-    busy.value = false
-  }
-}
 
+onBeforeRouteLeave(discardEditor)
 onMounted(load)
 </script>

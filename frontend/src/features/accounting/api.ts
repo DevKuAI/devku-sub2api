@@ -11,6 +11,9 @@ import type {
   AuditRow,
   AllocationRow,
   AccountingOrder,
+  OrderEntryInput,
+  OrderFilter,
+  OrderItemKind,
   OrganizationContact,
   OrganizationContactInput,
   OrganizationContactRole,
@@ -378,13 +381,22 @@ export async function statementCSV(id: string, customer = false) {
   ).data
 }
 
-export async function orders(organizationId: string, filter: { state?: string; page?: number; page_size?: number } = {}) {
-  return (
-    await apiClient.get<PaginatedResponse<AccountingOrder>>(`${adminBase}/orders`, {
-      params: { organization_id: organizationId, ...filter },
-    })
-  ).data
+export async function orders(filter: OrderFilter = {}, signal?: AbortSignal) {
+  return (await apiClient.get<PaginatedResponse<AccountingOrder>>(`${adminBase}/orders`, { params: filter, signal })).data
 }
 export async function order(id: string) {
   return (await apiClient.get<AccountingOrder>(`${adminBase}/orders/${encodeURIComponent(id)}`)).data
+}
+function entryPath(orderId: string, kind: OrderItemKind, id: string) {
+  return `orders/${encodeURIComponent(orderId)}/entries/${kind}/${encodeURIComponent(id)}`
+}
+// Entries saved on the order page take effect at once.
+export async function addEntry(orderId: string, kind: OrderItemKind, input: OrderEntryInput, idempotencyKey: string = key()) {
+  return (await mutate(`orders/${encodeURIComponent(orderId)}/entries`, { ...input, kind }, idempotencyKey)) as AccountingRecord
+}
+export async function updateEntry(orderId: string, kind: OrderItemKind, id: string, input: OrderEntryInput, idempotencyKey: string = key()) {
+  return (await mutate(entryPath(orderId, kind, id), input, idempotencyKey, 'patch')) as AccountingRecord
+}
+export async function removeEntry(orderId: string, kind: OrderItemKind, id: string, idempotencyKey: string = key()) {
+  return (await mutate(entryPath(orderId, kind, id), {}, idempotencyKey, 'delete')) as AccountingRecord
 }

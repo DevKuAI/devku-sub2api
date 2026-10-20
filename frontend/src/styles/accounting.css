@@ -24,34 +24,21 @@
 .accounting-optional {
   @apply ms-1.5 text-xs font-normal text-gray-600 dark:text-dark-300;
 }
-.accounting-field-hint {
-  @apply mt-1.5 text-xs leading-5 text-gray-500 dark:text-dark-300;
-}
 .accounting-field-warning {
   @apply mt-1 text-sm text-amber-800 dark:text-amber-200;
 }
-.accounting-snapshot {
-  @apply rounded-lg bg-gray-50 p-3 text-sm dark:bg-dark-800;
-}
 
-/* Workspace navigation: top-level sections plus a segmented control for record types. */
+/* Page navigation tabs. */
 .accounting-tabs {
   @apply flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-dark-700;
 }
-.accounting-tabs > button {
+.accounting-tabs > button,
+.accounting-tabs > a {
   @apply -mb-px whitespace-nowrap border-b-2 border-transparent px-3 py-2.5 text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-dark-300 dark:hover:text-white;
 }
-.accounting-tabs > button[aria-selected='true'] {
+.accounting-tabs > button[aria-selected='true'],
+.accounting-tabs > a[aria-current='location'] {
   @apply border-primary-600 text-primary-700 dark:text-primary-300;
-}
-.accounting-segmented {
-  @apply inline-flex max-w-full flex-wrap gap-1 rounded-lg bg-gray-100 p-1 dark:bg-dark-800;
-}
-.accounting-segmented > button {
-  @apply rounded-md px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-60 dark:text-dark-300 dark:hover:text-white;
-}
-.accounting-segmented > button[aria-pressed='true'] {
-  @apply bg-white text-gray-950 shadow-sm dark:bg-dark-600 dark:text-white;
 }
 .accounting-chip {
   @apply inline-flex min-h-8 items-center gap-1 rounded-full border border-gray-200 px-3 text-xs font-medium text-gray-600 hover:border-gray-300 dark:border-dark-600 dark:text-dark-200;
@@ -61,7 +48,7 @@
 }
 @media (forced-colors: active) {
   .accounting-tabs > button[aria-selected='true'],
-  .accounting-segmented > button[aria-pressed='true'],
+  .accounting-tabs > a[aria-current='location'],
   .accounting-chip[aria-pressed='true'] {
     outline: 2px solid Highlight;
   }
@@ -76,6 +63,9 @@
 .accounting-filters .input {
   @apply w-auto;
 }
+.accounting-filters select.input {
+  @apply max-w-xs;
+}
 
 .accounting-fields {
   @apply grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3;
@@ -89,15 +79,6 @@
 .accounting-fields dd {
   @apply mt-1 break-words text-sm text-gray-900 dark:text-white;
   overflow-wrap: anywhere;
-}
-.accounting-preview {
-  @apply mt-3 grid gap-3 rounded-lg bg-gray-50 p-3 sm:grid-cols-3 dark:bg-dark-800;
-}
-.accounting-preview dt {
-  @apply text-xs text-gray-500 dark:text-dark-300;
-}
-.accounting-preview dd {
-  @apply mt-0.5 font-medium tabular-nums;
 }
 
 .accounting-table {
@@ -174,7 +155,7 @@
   @apply space-y-3 p-5;
 }
 .accounting-order-step-header {
-  @apply flex flex-wrap items-center justify-between gap-3;
+  @apply flex items-center gap-3;
 }
 .accounting-step-marker {
   @apply flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gray-300 text-sm font-semibold text-gray-500 dark:border-dark-500 dark:text-dark-300;
@@ -185,11 +166,53 @@
 .accounting-step-marker[data-state='done'] {
   @apply border-emerald-500 bg-emerald-500 text-white;
 }
-.accounting-card-list {
-  @apply divide-y divide-gray-100 rounded-lg bg-gray-50 px-4 dark:divide-dark-700 dark:bg-dark-800/60;
+/* Order entries: compact rows edited in place. */
+.accounting-entries {
+  @apply divide-y divide-gray-100 rounded-lg border border-gray-100 dark:divide-dark-800 dark:border-dark-800;
 }
-.accounting-card-list > li {
-  @apply flex flex-wrap items-center justify-between gap-2 py-2.5 text-sm;
+.accounting-entry {
+  @apply px-4 py-3;
+}
+.accounting-entry-main {
+  @apply flex flex-wrap items-start justify-between gap-x-4 gap-y-1;
+}
+.accounting-entry-title {
+  @apply break-words text-sm font-medium text-gray-900 dark:text-white;
+}
+.accounting-entry-subtitle {
+  @apply mt-0.5 break-words text-xs text-gray-500 dark:text-dark-300;
+}
+.accounting-entry-amount {
+  @apply text-right text-sm font-semibold tabular-nums text-gray-950 dark:text-white;
+}
+.accounting-entry-tools {
+  @apply mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs;
+}
+.accounting-entry-panel {
+  @apply mt-3 rounded-lg bg-gray-50 p-4 dark:bg-dark-800/60;
+}
+.accounting-entry-new {
+  @apply space-y-3 rounded-lg border border-primary-100 bg-primary-50/40 p-4 dark:border-primary-900/50 dark:bg-primary-900/10;
+}
+.accounting-entry-form {
+  @apply grid gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-3;
+}
+.accounting-entry-form .input-label {
+  @apply mb-1 block text-xs font-medium text-gray-600 dark:text-dark-200;
+}
+.accounting-entry-form label:has(> [required]) > .input-label::after,
+.accounting-entry-form label:has(> .accounting-money-input > [required]) > .input-label::after {
+  content: ' *';
+  @apply text-red-500;
+}
+.accounting-entry-form.was-validated .input:invalid {
+  @apply border-red-400;
+}
+.accounting-entry-actions {
+  @apply flex flex-wrap justify-end gap-2 pt-1;
+}
+.accounting-step-actions {
+  @apply flex flex-wrap items-center gap-2 pt-1;
 }
 
 /* Forms */

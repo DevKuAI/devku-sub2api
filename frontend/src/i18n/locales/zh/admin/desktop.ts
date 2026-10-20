@@ -478,7 +478,6 @@ export default {
       deleteContact: '确认删除联系人「{name}」？历史单据中的联系人快照不会改变。',
       contracts: '销售合同',
       contractsHint: '合同归属于当前企业，账目页负责合同状态、凭证和后续财务关联。',
-      manageContracts: '管理合同',
       noContracts: '暂无销售合同',
       contract: '合同',
       contact: '合同联系人',

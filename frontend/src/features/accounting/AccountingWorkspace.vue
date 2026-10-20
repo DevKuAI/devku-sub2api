@@ -1,90 +1,46 @@
 <template>
   <div class="accounting-page min-w-0 space-y-5" data-testid="accounting-workspace" :aria-busy="loading">
-    <PageHeader :back="back">
-      <template #title>
-        <template v-if="customer || organizationName || !loading">{{ customer ? t('accounting.customerTitle') : organizationName || t('accounting.title') }}</template>
-        <span v-else class="accounting-skeleton block h-8 w-64 max-w-full"><span class="sr-only">{{ t('accounting.loading') }}</span></span>
-      </template>
-      <template v-if="customer && organizationName" #subtitle>{{ organizationName }}</template>
-      <template v-if="!customer && ready" #actions>
-        <router-link class="btn btn-primary" :to="{ name: 'AdminAccountingOrderNew', params: { organizationId } }" data-testid="workspace-new-order">
-          <Icon name="plus" size="sm" aria-hidden="true" />{{ t('accounting.orders.create') }}
-        </router-link>
-      </template>
-    </PageHeader>
+    <PageHeader :title="t('accounting.customerTitle')" :subtitle="organization?.name" />
 
     <div v-if="error" role="alert" class="accounting-error flex flex-wrap items-center justify-between gap-3">
       <p>{{ error }}</p>
       <button type="button" class="btn btn-secondary btn-sm" :disabled="loading" @click="load">{{ t('common.refresh') }}</button>
     </div>
 
-    <nav v-if="ready || loading" class="accounting-tabs" role="tablist" :aria-label="t('accounting.title')">
+    <nav v-if="ready || loading" class="accounting-tabs" role="tablist" :aria-label="t('accounting.customerTitle')">
       <button
         v-for="section in sections"
-        :id="`${uid}-${section.key}`"
-        :key="section.key"
+        :id="`${uid}-${section}`"
+        :key="section"
         type="button"
         role="tab"
-        :aria-selected="activeSection.key === section.key"
-        :tabindex="activeSection.key === section.key ? 0 : -1"
+        :aria-selected="view === section"
+        :tabindex="view === section ? 0 : -1"
         :disabled="!ready"
-        @click="select(section.views[0]!)"
-        @keydown="tabKey($event, section.key)"
+        @click="select(section)"
+        @keydown="tabKey($event, section)"
       >
-        {{ t(`accounting.sections.${section.key}`) }}
+        {{ t(`accounting.sections.${section}`) }}
       </button>
     </nav>
 
-    <div v-if="loading && !ready" :id="`${uid}-panel`" role="tabpanel" :aria-labelledby="`${uid}-${activeSection.key}`">
-      <AccountingWorkspaceSkeleton :customer="customer" :overview="view === 'overview'" />
+    <div v-if="loading && !ready" :id="`${uid}-panel`" role="tabpanel" :aria-labelledby="`${uid}-${view}`">
+      <AccountingWorkspaceSkeleton customer :overview="view === 'overview'" />
     </div>
-    <div v-else-if="ready" :id="`${uid}-panel`" role="tabpanel" :aria-labelledby="`${uid}-${activeSection.key}`" class="min-w-0 space-y-4">
-      <div v-if="activeSection.views.length > 1" class="flex flex-wrap items-center justify-between gap-3">
-        <div class="accounting-segmented" role="group" :aria-label="t(`accounting.sections.${activeSection.key}`)">
-          <button v-for="item in activeSection.views" :key="item" type="button" :aria-pressed="view === item" @click="select(item)">
-            {{ t(`accounting.kinds.${item}`) }}
-          </button>
-        </div>
-        <router-link v-if="!customer && createKind" class="btn btn-primary" :to="createRoute(organizationId, createKind)" data-testid="workspace-create-record">
-          <Icon name="plus" size="sm" aria-hidden="true" />{{ t('accounting.list.create', { kind: t(`accounting.kinds.${createKind}`) }) }}
-        </router-link>
-      </div>
-
-      <OverviewPanel v-if="view === 'overview'" :key="panelKey" :summaries="summaries" :organization-id="organizationId" :customer="customer" />
-      <RecordList
-        v-else-if="isRecordKind(view)"
-        :key="`${panelKey}-list`"
-        :kind="view"
-        :organization-id="organizationId"
-        :customer="customer"
-        :currencies="currencies"
-        :show-create="false"
-        @open="openCustomerRecord"
-      />
-      <OrdersPanel v-else-if="view === 'orders'" :key="`${panelKey}-orders`" :organization-id="organizationId" />
-      <CostsPanel v-else-if="view === 'costs'" :key="`${panelKey}-costs`" :organization-id="organizationId" />
-      <ExternalPanel v-else-if="view === 'external'" :key="`${panelKey}-external`" :organization-id="organizationId" :administrator="administrator" />
-      <PeriodsPanel
-        v-else-if="view === 'periods'"
-        :key="`${panelKey}-periods`"
-        :organization-id="organizationId"
-        :organization-name="organizationName"
-        :customer="customer"
-        :administrator="administrator"
-      />
-      <ReconciliationPanel v-else-if="view === 'reconciliation'" :key="`${panelKey}-reconciliation`" :organization-id="organizationId" />
-      <AuditPanel v-else-if="view === 'audit'" :key="`${panelKey}-audit`" :organization-id="organizationId" />
+    <div v-else-if="ready" :id="`${uid}-panel`" role="tabpanel" :aria-labelledby="`${uid}-${view}`" class="min-w-0 space-y-4">
+      <OverviewPanel v-if="view === 'overview'" :key="panelKey" :summaries="summaries" />
+      <PeriodsPanel v-else-if="view === 'periods'" :key="`${panelKey}-periods`" :organization-name="organization?.name" />
+      <RecordList v-else-if="isRecordKind(view)" :key="`${panelKey}-${view}`" :kind="view" :currencies="currencies" @open="openRecord" />
     </div>
 
-    <!-- Customers get a read-only record view; admins open the full record page instead. -->
-    <BaseDialog v-if="customer" :show="Boolean(customerRecord)" :title="customerRecord ? customerLabel(customerRecord.kind, customerRecord.record) : ''" width="wide" @close="customerRecord = null">
-      <div v-if="customerRecord" class="space-y-5">
+    <BaseDialog :show="Boolean(record)" :title="record ? customerLabel(record.kind, record.record) : ''" width="wide" @close="record = null">
+      <div v-if="record" class="space-y-5">
         <div class="flex flex-wrap items-center justify-between gap-2">
-          <span class="badge" :class="statusTone(customerRecord.record.status)">{{ t(`accounting.statuses.${customerRecord.record.status}`) }}</span>
-          <span class="text-xl font-semibold tabular-nums">{{ formatMoney(displayAmount(customerRecord.kind, customerRecord.record), customerRecord.record.currency) }}</span>
+          <span class="badge" :class="statusTone(record.record.status)">{{ t(`accounting.statuses.${record.record.status}`) }}</span>
+          <span class="text-xl font-semibold tabular-nums">{{ formatMoney(displayAmount(record.kind, record.record), record.record.currency) }}</span>
         </div>
-        <RecordFields :kind="customerRecord.kind" :record="customerRecord.record" customer />
-        <RecordFiles v-if="customerRecord.kind !== 'vcc-cards'" :kind="customerRecord.kind" :record="customerRecord.record" customer />
+        <RecordFields :kind="record.kind" :record="record.record" customer />
+        <RecordFiles v-if="record.kind !== 'vcc-cards'" :kind="record.kind" :record="record.record" customer />
       </div>
     </BaseDialog>
   </div>
@@ -95,104 +51,61 @@ import { computed, onMounted, onUnmounted, ref, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import BaseDialog from '@/components/common/BaseDialog.vue'
-import { Icon } from '@/components/icons'
 import { useDesktopOrganizationAccess } from '@/composables/useDesktopOrganizationAccess'
-import AuditPanel from './components/AuditPanel.vue'
-import PageHeader from './components/PageHeader.vue'
-import CostsPanel from './components/CostsPanel.vue'
-import ExternalPanel from './components/ExternalPanel.vue'
-import OrdersPanel from './components/OrdersPanel.vue'
-import OverviewPanel from './components/OverviewPanel.vue'
 import AccountingWorkspaceSkeleton from './components/AccountingWorkspaceSkeleton.vue'
+import OverviewPanel from './components/OverviewPanel.vue'
+import PageHeader from './components/PageHeader.vue'
 import PeriodsPanel from './components/PeriodsPanel.vue'
-import ReconciliationPanel from './components/ReconciliationPanel.vue'
 import RecordFields from './components/RecordFields.vue'
 import RecordFiles from './components/RecordFiles.vue'
 import RecordList from './components/RecordList.vue'
 import * as api from './api'
 import { statusTone } from './actions'
 import { formatMoney } from './format'
-import { creatableKinds, customerLabel, displayAmount, isRecordKind, orderOnlyKinds } from './schema'
-import { createRoute, errorMessage, isCanceled } from './shared'
-import { useOrganization } from './useOrganization'
-import { cameFromEnterprise, rememberEnterpriseEntry } from './entry'
+import { customerLabel, displayAmount, isRecordKind } from './schema'
+import { errorMessage, isCanceled } from './shared'
 import type { AccountingKind, AccountingRecord, CurrencySummary } from './types'
 import '@/styles/accounting.css'
 
-const props = withDefaults(defineProps<{ customer?: boolean; organizationId?: string; administrator?: boolean }>(), {
-  customer: false,
-  organizationId: '',
-  administrator: false,
-})
+// The organization's read-only view of its own books.
 const { t, te } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const uid = useId()
-
-const adminSections = [
-  { key: 'overview', views: ['overview'] },
-  { key: 'orders', views: ['orders'] },
-  { key: 'receipts', views: ['transfers', 'receivables', 'fx-exchanges'] },
-  { key: 'cards', views: ['vcc-cards', 'vcc-transactions'] },
-  { key: 'documents', views: ['contracts', 'invoices', 'vendor-invoices', 'costs'] },
-  { key: 'expenses', views: ['expenses', 'expense-payments'] },
-  { key: 'closing', views: ['reconciliation', 'external', 'periods', 'audit'] },
-]
-const customerSections = ['overview', 'transfers', 'vcc-cards', 'vcc-transactions', 'contracts', 'invoices', 'periods'].map((key) => ({ key, views: [key] }))
-const legacyTabs: Record<string, string> = { workbench: 'overview' }
-
-const sections = computed(() => (props.customer ? customerSections : adminSections))
-const views = computed(() => sections.value.flatMap((section) => section.views))
+const sections = ['overview', 'transfers', 'vcc-cards', 'vcc-transactions', 'contracts', 'invoices', 'periods']
 const view = computed(() => {
   const requested = String(route.query.tab || '')
-  const normalized = legacyTabs[requested] || requested
-  return views.value.includes(normalized) ? normalized : 'overview'
+  return sections.includes(requested) ? requested : 'overview'
 })
-const activeSection = computed(() => sections.value.find((section) => section.views.includes(view.value)) || sections.value[0]!)
 
 const access = useDesktopOrganizationAccess()
-const { organization, missing, loadOrganization } = useOrganization(() => props.organizationId)
-const customerOrganization = ref<{ id: string; name: string } | null>(null)
+const organization = ref<{ id: string; name: string } | null>(null)
 const summaries = ref<CurrencySummary[]>([])
 const loading = ref(true)
 const initialized = ref(false)
 const error = ref('')
-const customerRecord = ref<{ kind: AccountingKind; record: AccountingRecord } | null>(null)
+const record = ref<{ kind: AccountingKind; record: AccountingRecord } | null>(null)
 let abort: AbortController | null = null
 
-const ready = computed(() => initialized.value && (props.customer ? Boolean(customerOrganization.value) : Boolean(organization.value)))
-const organizationName = computed(() => (props.customer ? customerOrganization.value?.name : organization.value?.name) || '')
+const ready = computed(() => initialized.value && Boolean(organization.value))
 // Panels remount when the bound organization changes so no stale rows survive a switch.
-const panelKey = computed(() => (props.customer ? customerOrganization.value?.id : props.organizationId) || '')
+const panelKey = computed(() => organization.value?.id || '')
 const currencies = computed(() => summaries.value.map((entry) => entry.currency))
-// Records that can be added straight from their list; cards and card spend are added inside orders.
-const createKind = computed(() =>
-  isRecordKind(view.value) && creatableKinds.includes(view.value) && !orderOnlyKinds.includes(view.value) ? view.value : null,
-)
-const fromEnterprise = ref(false)
-const back = computed(() => {
-  if (props.customer) return undefined
-  return fromEnterprise.value
-    ? { to: { name: 'AdminDesktopOrganizationDetail', params: { organizationId: props.organizationId } }, label: t('accounting.navigation.backToEnterprise') }
-    : { to: '/admin/accounting', label: t('accounting.directory.title') }
-})
 
 function select(next: string) {
-  if (!ready.value) return
-  if (next !== view.value) void router.replace({ query: { ...route.query, tab: next } })
+  if (ready.value && next !== view.value) void router.replace({ query: { ...route.query, tab: next } })
 }
 function tabKey(event: KeyboardEvent, key: string) {
-  const index = sections.value.findIndex((section) => section.key === key)
+  const index = sections.indexOf(key)
   const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key]
-  const target = event.key === 'Home' ? 0 : event.key === 'End' ? sections.value.length - 1 : step ? (index + step + sections.value.length) % sections.value.length : -1
+  const target = event.key === 'Home' ? 0 : event.key === 'End' ? sections.length - 1 : step ? (index + step + sections.length) % sections.length : -1
   if (target < 0) return
   event.preventDefault()
-  const section = sections.value[target]!
-  select(section.views[0]!)
-  document.getElementById(`${uid}-${section.key}`)?.focus()
+  select(sections[target]!)
+  document.getElementById(`${uid}-${sections[target]}`)?.focus()
 }
-function openCustomerRecord(record: AccountingRecord) {
-  if (isRecordKind(view.value)) customerRecord.value = { kind: view.value, record }
+function openRecord(row: AccountingRecord) {
+  if (isRecordKind(view.value)) record.value = { kind: view.value, record: row }
 }
 
 async function load() {
@@ -202,25 +115,19 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    if (props.customer) {
-      const bound = await access.refreshDesktopOrganizationAccess(true)
-      if (controller.signal.aborted) return
-      if (!bound) {
-        customerOrganization.value = null
-        throw new Error(t('accounting.errors.generic'))
-      }
-      if (customerOrganization.value?.id !== bound.public_id) {
-        customerRecord.value = null
-        initialized.value = false
-        summaries.value = []
-      }
-      customerOrganization.value = { id: bound.public_id, name: bound.name || bound.public_id }
-    } else {
-      await loadOrganization(controller.signal)
-      if (controller.signal.aborted) return
-      if (missing.value) throw new Error(t('accounting.errors.organizationUnavailable'))
+    const bound = await access.refreshDesktopOrganizationAccess(true)
+    if (controller.signal.aborted) return
+    if (!bound) {
+      organization.value = null
+      throw new Error(t('accounting.errors.generic'))
     }
-    const result = await api.summary(props.customer, props.customer ? {} : { organization_id: props.organizationId }, controller.signal)
+    if (organization.value?.id !== bound.public_id) {
+      record.value = null
+      initialized.value = false
+      summaries.value = []
+    }
+    organization.value = { id: bound.public_id, name: bound.name || bound.public_id }
+    const result = await api.summary(true, {}, controller.signal)
     if (controller.signal.aborted) return
     summaries.value = result
     initialized.value = true
@@ -230,18 +137,13 @@ async function load() {
     if (abort === controller) loading.value = false
   }
 }
-// The organization binding can change in another tab; customers re-check it when returning.
+// The organization binding can change in another tab, so it is checked again when the window regains focus.
 function onFocus() {
-  if (props.customer) void load()
+  void load()
 }
 
-watch(view, () => (customerRecord.value = null))
+watch(view, () => (record.value = null))
 onMounted(() => {
-  if (!props.customer && route.query.from === 'enterprise') {
-    rememberEnterpriseEntry(props.organizationId)
-    void router.replace({ query: Object.fromEntries(Object.entries(route.query).filter(([key]) => key !== 'from')) })
-  }
-  fromEnterprise.value = !props.customer && cameFromEnterprise(props.organizationId)
   void load()
   window.addEventListener('focus', onFocus)
 })

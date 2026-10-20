@@ -72,7 +72,7 @@ func (e *Engine) Intent(ctx context.Context, tx *sql.Tx, a Attachment, actor int
 	if err != nil {
 		return nil, err
 	}
-	if record.Status == "VOID" || (a.ObjectKind == "vendor-invoices" && record.Status != "DRAFT") {
+	if record.Status == "VOID" {
 		return nil, ErrState
 	}
 	if a.Purpose == "" || (a.ObjectKind == "vendor-invoices" && a.Purpose != "INVOICE") {

@@ -35,6 +35,7 @@ type workflowInput struct {
 
 func (h *Handler) registerWorkflows(g *gin.RouterGroup) {
 	h.registerOrders(g)
+	h.registerEntries(g)
 	g.GET("/workbench", h.workbench)
 	g.GET("/activity/:kind/:id", h.activity)
 	g.GET("/related/:kind/:id", h.related)

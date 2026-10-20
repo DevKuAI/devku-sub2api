@@ -79,32 +79,12 @@ export const commonCurrencies = ['CNY', 'USD', 'HKD', 'EUR', 'GBP', 'JPY', 'SGD'
 
 // --- Routes ---------------------------------------------------------------
 
-export function workspaceRoute(organizationId: string, tab?: string): RouteLocationRaw {
-  return { name: 'AdminOrganizationAccounting', params: { organizationId }, query: tab ? { tab } : {} }
+export function ordersRoute(query: Record<string, string> = {}): RouteLocationRaw {
+  return { name: 'AdminAccounting', query }
 }
 
-export function recordRoute(organizationId: string, kind: AccountingKind, id: string): RouteLocationRaw {
-  return { name: 'AdminAccountingRecord', params: { organizationId, kind, id } }
-}
-
-export function createRoute(organizationId: string, kind: AccountingKind, query: Record<string, string> = {}): RouteLocationRaw {
-  return { name: 'AdminAccountingRecordNew', params: { organizationId, kind }, query }
-}
-
-export function editRoute(organizationId: string, kind: AccountingKind, id: string): RouteLocationRaw {
-  return { name: 'AdminAccountingRecordEdit', params: { organizationId, kind, id } }
-}
-
-export function recordActionRoute(organizationId: string, kind: AccountingKind, id: string, action: string): RouteLocationRaw {
-  return { name: 'AdminAccountingRecordAction', params: { organizationId, kind, id, action } }
-}
-
-export function orderRoute(organizationId: string, orderId: string): RouteLocationRaw {
-  return { name: 'AdminAccountingOrder', params: { organizationId, orderId } }
-}
-
-export function workflowRoute(organizationId: string, action: string, targetId?: string, query: Record<string, string> = {}): RouteLocationRaw {
-  return { name: 'AdminAccountingWorkflow', params: { organizationId, action, ...(targetId ? { targetId } : {}) }, query }
+export function orderRoute(orderId: string): RouteLocationRaw {
+  return { name: 'AdminAccountingOrder', params: { orderId } }
 }
 
 // Only same-app accounting paths are accepted as return targets.
