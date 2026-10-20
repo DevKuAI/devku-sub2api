@@ -1,6 +1,6 @@
 <template>
   <AppLayout>
-    <main class="accounting-page mx-auto w-full max-w-4xl space-y-5 pb-10" data-testid="accounting-form-page">
+    <main class="accounting-page min-w-0 space-y-6" data-testid="accounting-form-page">
       <PageHeader :title="title" :subtitle="subtitle" :back="{ label: backLabel }" @back="emit('cancel')" />
       <p v-if="loading" role="status" class="card p-6 text-sm text-gray-500">{{ t('accounting.loading') }}</p>
       <form v-else ref="formRef" novalidate class="accounting-form card" :aria-busy="busy || undefined" @submit.prevent="submit">

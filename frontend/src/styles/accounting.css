@@ -55,7 +55,7 @@
 }
 
 .accounting-toolbar {
-  @apply flex flex-wrap items-center justify-between gap-3;
+  @apply flex flex-wrap items-center gap-3;
 }
 .accounting-filters {
   @apply flex min-w-0 flex-1 flex-wrap items-center gap-2;
@@ -84,11 +84,14 @@
 .accounting-table {
   @apply w-full min-w-[36rem] text-start text-sm;
 }
+.accounting-table thead {
+  @apply bg-gray-50/80 dark:bg-dark-800/80;
+}
 .accounting-table th {
-  @apply border-b border-gray-200 px-4 py-2.5 text-start text-xs font-medium text-gray-500 dark:border-dark-700 dark:text-dark-300;
+  @apply border-b border-gray-200 px-5 py-4 text-start text-sm font-medium text-gray-600 dark:border-dark-700 dark:text-dark-300;
 }
 .accounting-table td {
-  @apply border-b border-gray-100 px-4 py-3 align-top last:border-b-0 dark:border-dark-800;
+  @apply border-b border-gray-100 px-5 py-4 align-top text-sm text-gray-700 dark:border-dark-800 dark:text-gray-300;
 }
 .accounting-table tbody tr:last-child td {
   @apply border-b-0;
@@ -106,7 +109,7 @@
   @apply flex flex-wrap items-start justify-between gap-x-6 gap-y-3;
 }
 .accounting-page-heading h1 {
-  @apply break-words text-2xl font-semibold text-gray-950 dark:text-white;
+  @apply break-words text-balance text-xl font-semibold text-gray-900 dark:text-white;
 }
 .accounting-page-subtitle {
   @apply mt-1 break-words text-sm text-gray-500 dark:text-dark-300;

@@ -1,20 +1,19 @@
 <template>
   <AppLayout>
-    <main class="accounting-page mx-auto w-full max-w-6xl space-y-5 pb-10" data-testid="accounting-cards">
-      <PageHeader :title="t('accounting.title')" :subtitle="t('accounting.home.cardsDescription')" />
+    <div class="accounting-page min-w-0 space-y-6" data-testid="accounting-cards">
       <AccountingNav current="AdminAccountingCards" />
 
       <div class="accounting-toolbar">
-        <div class="accounting-filters">
+        <div class="w-full sm:w-56">
           <select v-model="filters.organization" class="input" :aria-label="t('accounting.home.organization')">
             <option value="">{{ t('accounting.home.allOrganizations') }}</option>
             <option v-for="organization in organizations" :key="organization.id" :value="organization.id">{{ organization.name }}</option>
           </select>
-          <div class="flex flex-wrap gap-1.5" role="group" :aria-label="t('accounting.status')">
-            <button v-for="option in states" :key="option" type="button" class="accounting-chip" :aria-pressed="filters.status === option" @click="filters.status = option">
-              {{ t(option ? `accounting.home.cardStates.${option}` : 'accounting.orders.allStates') }}
-            </button>
-          </div>
+        </div>
+        <div class="flex flex-wrap gap-1.5" role="group" :aria-label="t('accounting.status')">
+          <button v-for="option in states" :key="option" type="button" class="accounting-chip" :aria-pressed="filters.status === option" @click="filters.status = option">
+            {{ t(option ? `accounting.home.cardStates.${option}` : 'accounting.orders.allStates') }}
+          </button>
         </div>
       </div>
 
@@ -82,7 +81,7 @@
         @confirm="closeCard"
         @cancel="closing = null"
       />
-    </main>
+    </div>
   </AppLayout>
 </template>
 
@@ -94,7 +93,6 @@ import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import AccountingNav from './components/AccountingNav.vue'
 import CardTopUpForm from './components/order/CardTopUpForm.vue'
-import PageHeader from './components/PageHeader.vue'
 import * as api from './api'
 import { formatMoney } from './format'
 import { compareMoney } from './money'

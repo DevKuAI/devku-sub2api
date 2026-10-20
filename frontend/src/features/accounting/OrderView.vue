@@ -1,6 +1,6 @@
 <template>
   <AppLayout>
-    <main class="accounting-page mx-auto w-full max-w-5xl space-y-5 pb-10" data-testid="accounting-order-page">
+    <main class="accounting-page min-w-0 space-y-6" data-testid="accounting-order-page">
       <PageHeader :back="{ to: ordersRoute(), label: t('accounting.home.title') }">
         <template #title>{{ order?.name || t('accounting.home.order') }}</template>
         <template v-if="order" #badge>

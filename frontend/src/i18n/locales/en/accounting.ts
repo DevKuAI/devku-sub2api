@@ -335,7 +335,6 @@ export default {
       notFound: 'The receiving account does not exist.',
     },
     receivingAccounts: {
-      title: 'Receiving accounts',
       description: 'Our bank accounts that receive customer payments.',
       create: 'New account',
       empty: 'No receiving accounts',

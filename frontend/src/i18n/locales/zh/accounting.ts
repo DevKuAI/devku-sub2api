@@ -335,7 +335,6 @@ export default {
       notFound: '收款账户不存在。',
     },
     receivingAccounts: {
-      title: '收款账户',
       description: '我方用于接收客户付款的银行账户。',
       create: '新增账户',
       empty: '暂无收款账户',

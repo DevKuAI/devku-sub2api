@@ -1,15 +1,13 @@
 <template>
   <AppLayout>
-    <main class="accounting-page mx-auto w-full max-w-6xl space-y-5 pb-10" data-testid="receiving-accounts-page">
-      <PageHeader :title="t('accounting.title')" :subtitle="t('accounting.receivingAccounts.description')">
-        <template #actions>
-          <router-link class="btn btn-primary" :to="{ name: 'AdminAccountingReceivingAccountNew' }">
-            <Icon name="plus" size="sm" aria-hidden="true" />
-            {{ t('accounting.receivingAccounts.create') }}
-          </router-link>
-        </template>
-      </PageHeader>
+    <div class="accounting-page min-w-0 space-y-6" data-testid="receiving-accounts-page">
       <AccountingNav current="AdminAccountingReceivingAccounts" />
+
+      <div class="accounting-toolbar">
+        <router-link class="btn btn-primary ml-auto" :to="{ name: 'AdminAccountingReceivingAccountNew' }">
+          <Icon name="plus" size="md" class="mr-1" aria-hidden="true" />{{ t('accounting.receivingAccounts.create') }}
+        </router-link>
+      </div>
 
       <p v-if="error" role="alert" class="accounting-error">{{ error }}</p>
       <p v-if="loading" role="status" class="card p-6 text-sm text-gray-500">{{ t('accounting.loading') }}</p>
@@ -53,7 +51,7 @@
         <p class="font-medium text-gray-900 dark:text-white">{{ t('accounting.receivingAccounts.empty') }}</p>
         <p class="mt-2 text-sm text-gray-500 dark:text-dark-300">{{ t('accounting.receivingAccounts.emptyHint') }}</p>
       </div>
-    </main>
+    </div>
   </AppLayout>
 </template>
 
@@ -64,7 +62,6 @@ import { useRouter } from 'vue-router'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import { Icon } from '@/components/icons'
 import AccountingNav from './components/AccountingNav.vue'
-import PageHeader from './components/PageHeader.vue'
 import * as api from './api'
 import type { ReceivingAccount } from './types'
 import '@/styles/accounting.css'

@@ -325,7 +325,7 @@ const routes: RouteRecordRaw[] = [
     path: '/admin/accounting',
     name: 'AdminAccounting',
     component: () => import('@/features/accounting/OrdersHomeView.vue'),
-    meta: { requiresAuth: true, requiresAdmin: true, title: 'Accounting', titleKey: 'accounting.title' }
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Accounting', titleKey: 'accounting.title', descriptionKey: 'accounting.home.description' }
   },
   {
     path: '/admin/accounting/orders/new',
@@ -343,7 +343,7 @@ const routes: RouteRecordRaw[] = [
     path: '/admin/accounting/cards',
     name: 'AdminAccountingCards',
     component: () => import('@/features/accounting/CardsView.vue'),
-    meta: { requiresAuth: true, requiresAdmin: true, title: 'Cards', titleKey: 'accounting.home.nav.cards' }
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Cards', titleKey: 'accounting.title', descriptionKey: 'accounting.home.cardsDescription' }
   },
   {
     path: '/admin/accounting/organizations/:organizationId/contacts/new',
@@ -371,7 +371,7 @@ const routes: RouteRecordRaw[] = [
     path: '/admin/accounting/receiving-accounts',
     name: 'AdminAccountingReceivingAccounts',
     component: () => import('@/features/accounting/ReceivingAccountsView.vue'),
-    meta: { requiresAuth: true, requiresAdmin: true, title: 'Receiving accounts', titleKey: 'accounting.receivingAccounts.title' }
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Receiving accounts', titleKey: 'accounting.title', descriptionKey: 'accounting.receivingAccounts.description' }
   },
   {
     path: '/admin/accounting/receiving-accounts/new',

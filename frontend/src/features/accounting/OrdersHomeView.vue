@@ -1,28 +1,26 @@
 <template>
   <AppLayout>
-    <main class="accounting-page mx-auto w-full max-w-6xl space-y-5 pb-10" data-testid="accounting-orders-home">
-      <PageHeader :title="t('accounting.title')" :subtitle="t('accounting.home.description')">
-        <template #actions>
-          <router-link class="btn btn-primary" :to="{ name: 'AdminAccountingOrderNew', query: filters.organization ? { organization: filters.organization } : {} }" data-testid="orders-new">
-            <Icon name="plus" size="sm" aria-hidden="true" />{{ t('accounting.orders.create') }}
-          </router-link>
-        </template>
-      </PageHeader>
+    <div class="accounting-page min-w-0 space-y-6" data-testid="accounting-orders-home">
       <AccountingNav current="AdminAccounting" />
 
       <div class="accounting-toolbar">
-        <div class="accounting-filters">
+        <div class="min-w-0 flex-1 sm:max-w-72">
+          <input v-model="search" type="search" class="input" :placeholder="t('accounting.home.search')" :aria-label="t('accounting.home.search')" />
+        </div>
+        <div class="w-full sm:w-56">
           <select v-model="filters.organization" class="input" :aria-label="t('accounting.home.organization')" data-testid="orders-organization">
             <option value="">{{ t('accounting.home.allOrganizations') }}</option>
             <option v-for="organization in organizations" :key="organization.id" :value="organization.id">{{ organization.name }}</option>
           </select>
-          <div class="flex flex-wrap gap-1.5" role="group" :aria-label="t('accounting.status')">
-            <button v-for="option in states" :key="option" type="button" class="accounting-chip" :aria-pressed="filters.state === option" @click="filters.state = option">
-              {{ t(option ? `accounting.orders.states.${option}` : 'accounting.orders.allStates') }}
-            </button>
-          </div>
-          <input v-model="search" type="search" class="input min-w-48 flex-1" :placeholder="t('accounting.home.search')" :aria-label="t('accounting.home.search')" />
         </div>
+        <div class="flex flex-wrap gap-1.5" role="group" :aria-label="t('accounting.status')">
+          <button v-for="option in states" :key="option" type="button" class="accounting-chip" :aria-pressed="filters.state === option" @click="filters.state = option">
+            {{ t(option ? `accounting.orders.states.${option}` : 'accounting.orders.allStates') }}
+          </button>
+        </div>
+        <router-link class="btn btn-primary ml-auto" :to="{ name: 'AdminAccountingOrderNew', query: filters.organization ? { organization: filters.organization } : {} }" data-testid="orders-new">
+          <Icon name="plus" size="md" class="mr-1" aria-hidden="true" />{{ t('accounting.orders.create') }}
+        </router-link>
       </div>
 
       <p v-if="error" role="alert" class="accounting-error">{{ error }}</p>
@@ -67,7 +65,7 @@
       </div>
       <p v-else role="status" class="card p-6 text-sm text-gray-500">{{ t('accounting.loading') }}</p>
       <Pagination v-if="total > pageSize" v-model:page="page" :total="total" :page-size="pageSize" :show-page-size-selector="false" />
-    </main>
+    </div>
   </AppLayout>
 </template>
 
@@ -79,7 +77,6 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import { Icon } from '@/components/icons'
 import AccountingNav from './components/AccountingNav.vue'
-import PageHeader from './components/PageHeader.vue'
 import * as api from './api'
 import { formatMoney } from './format'
 import { errorMessage, formatDate, isCanceled, orderRoute } from './shared'
