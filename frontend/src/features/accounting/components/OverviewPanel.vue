@@ -16,12 +16,12 @@
     </div>
     <p v-else class="card flex min-h-48 items-center justify-center p-8 text-center text-sm text-gray-500">{{ t(customer ? 'accounting.overview.emptyCustomer' : 'accounting.overview.empty') }}</p>
 
-    <section v-if="!customer" class="card min-h-44 space-y-3 p-5" data-testid="overview-orders">
+    <section v-if="!customer" class="card space-y-3 p-5" data-testid="overview-orders">
       <h2 class="accounting-section-title">{{ t('accounting.orders.inProgress') }}</h2>
       <OrdersPanel :organization-id="organizationId" compact />
     </section>
 
-    <section v-if="!customer" class="card min-h-40 space-y-4 p-5" data-testid="accounting-todos">
+    <section v-if="!customer" class="card space-y-4 p-5" data-testid="accounting-todos">
       <header class="flex flex-wrap items-center justify-between gap-3">
         <h2 class="accounting-section-title">{{ t('accounting.overview.todo') }}</h2>
         <div class="flex flex-wrap gap-2">

@@ -10,8 +10,15 @@
           <option value="">{{ t('accounting.list.allCurrencies') }}</option>
           <option v-for="code in currencies" :key="code" :value="code">{{ code }}</option>
         </select>
-        <input v-model="filters.from" type="date" class="input" :aria-label="t('accounting.list.from')" :title="t('accounting.list.from')" />
-        <input v-model="filters.to" type="date" class="input" :aria-label="t('accounting.list.to')" :title="t('accounting.list.to')" />
+        <div class="accounting-date-range" role="group" :aria-label="t('accounting.list.dateRange')">
+          <span class="text-gray-400">{{ t('accounting.list.dateRange') }}</span>
+          <input v-model="filters.from" type="date" :max="filters.to || undefined" :aria-label="t('accounting.list.from')" />
+          <span aria-hidden="true" class="text-gray-400">–</span>
+          <input v-model="filters.to" type="date" :min="filters.from || undefined" :aria-label="t('accounting.list.to')" />
+          <button v-if="filters.from || filters.to" type="button" class="accounting-date-clear" :aria-label="t('accounting.list.clearDates')" @click="clearDates">
+            <Icon name="x" size="xs" aria-hidden="true" />
+          </button>
+        </div>
         <input
           v-if="!customer"
           v-model="filters.search"
@@ -25,7 +32,7 @@
         <button type="button" class="btn btn-secondary" :disabled="busy" @click="exportCSV">
           <Icon name="download" size="sm" aria-hidden="true" />{{ t('accounting.list.export') }}
         </button>
-        <router-link v-if="creatableKinds.includes(kind) && !orderOnlyKinds.includes(kind)" class="btn btn-primary" :to="createRoute(organizationId, kind)">
+        <router-link v-if="showCreate && creatableKinds.includes(kind) && !orderOnlyKinds.includes(kind)" class="btn btn-primary" :to="createRoute(organizationId, kind)">
           <Icon name="plus" size="sm" aria-hidden="true" />{{ t('accounting.list.create', { kind: t(`accounting.kinds.${kind}`) }) }}
         </router-link>
       </div>
@@ -47,7 +54,7 @@
     >
       <template #cell-record="{ row }">
         <div class="max-w-sm">
-          <button v-if="customer" type="button" class="accounting-entry-link" @click.stop="emit('open', row)">{{ recordLabel(row.details, row.id) }}</button>
+          <button v-if="customer" type="button" class="accounting-entry-link" @click.stop="emit('open', row)">{{ customerLabel(kind, row) }}</button>
           <router-link v-else class="accounting-entry-link" :to="recordRoute(organizationId, kind, row.id)" @click.stop>{{ recordLabel(row.details, row.id) }}</router-link>
           <p v-if="subtitle(row)" class="mt-0.5 break-words text-xs text-gray-500">{{ subtitle(row) }}</p>
         </div>
@@ -75,14 +82,16 @@ import { Icon } from '@/components/icons'
 import * as api from '../api'
 import { statusTone } from '../actions'
 import { formatMoney } from '../format'
-import { creatableKinds, customerStatusOptions, displayAmount, orderOnlyKinds, recordLabel, recordSubtitle, schemas, statusOptions } from '../schema'
+import { creatableKinds, customerLabel, customerStatusOptions, displayAmount, orderOnlyKinds, recordLabel, recordSubtitle, schemas, statusOptions } from '../schema'
 import { createRoute, errorMessage, formatDate, isCanceled, recordRoute } from '../shared'
 import type { AccountingFilter, AccountingKind, AccountingRecord } from '../types'
 
-const props = withDefaults(defineProps<{ kind: AccountingKind; organizationId?: string; customer?: boolean; currencies?: string[] }>(), {
+// The workspace shows its own Create button next to the record-type switch.
+const props = withDefaults(defineProps<{ kind: AccountingKind; organizationId?: string; customer?: boolean; currencies?: string[]; showCreate?: boolean }>(), {
   organizationId: '',
   customer: false,
   currencies: () => [],
+  showCreate: true,
 })
 const emit = defineEmits<{ open: [AccountingRecord] }>()
 const { t, te } = useI18n()
@@ -111,6 +120,10 @@ const columns = computed(() => [
   { key: 'status', label: t('accounting.status') },
 ])
 
+function clearDates() {
+  filters.from = ''
+  filters.to = ''
+}
 function subtitle(row: AccountingRecord) {
   return recordSubtitle(props.kind, row).join(' · ')
 }

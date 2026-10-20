@@ -1,24 +1,18 @@
 <template>
   <AppLayout>
-    <main class="mx-auto w-full max-w-4xl pb-10" data-testid="accounting-form-page">
-      <button type="button" class="accounting-back" @click="emit('cancel')">
-        <Icon name="arrowLeft" size="sm" aria-hidden="true" />
-        {{ backLabel }}
-      </button>
-      <header class="border-b border-gray-200 pb-5 dark:border-dark-700">
-        <h1 class="text-2xl font-semibold text-gray-950 dark:text-white">{{ title }}</h1>
-        <p v-if="subtitle" class="mt-1 text-sm text-gray-500 dark:text-dark-300">{{ subtitle }}</p>
-      </header>
-      <p v-if="loading" role="status" class="py-8 text-sm text-gray-500">{{ t('accounting.loading') }}</p>
-      <form v-else ref="formRef" novalidate class="divide-y divide-gray-200 dark:divide-dark-700" @submit.prevent="submit">
-        <p v-if="error" ref="errorRef" role="alert" tabindex="-1" class="accounting-error mt-6">{{ error }}</p>
+    <main class="accounting-page mx-auto w-full max-w-4xl space-y-5 pb-10" data-testid="accounting-form-page">
+      <PageHeader :title="title" :subtitle="subtitle" :back="{ label: backLabel }" @back="emit('cancel')" />
+      <p v-if="loading" role="status" class="card p-6 text-sm text-gray-500">{{ t('accounting.loading') }}</p>
+      <form v-else ref="formRef" novalidate class="accounting-form card" :aria-busy="busy || undefined" @submit.prevent="submit">
+        <p v-if="error" ref="errorRef" role="alert" tabindex="-1" class="accounting-error mx-6 mt-6">{{ error }}</p>
         <slot />
-        <div class="flex flex-wrap justify-end gap-3 py-6">
+        <div class="accounting-form-footer">
           <button type="button" class="btn btn-secondary" :disabled="busy" @click="emit('cancel')">
             {{ t('common.cancel') }}
           </button>
           <button type="submit" class="btn" :class="danger ? 'btn-danger' : 'btn-primary'" :disabled="busy || submitDisabled">
-            {{ submitLabel || t('common.save') }}
+            <span v-if="busy" class="accounting-spinner" aria-hidden="true" />
+            {{ busy ? t('accounting.form.submitting') : submitLabel || t('common.save') }}
           </button>
         </div>
       </form>
@@ -30,7 +24,7 @@
 import { nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
-import { Icon } from '@/components/icons'
+import PageHeader from './PageHeader.vue'
 import '@/styles/accounting.css'
 
 const props = defineProps<{

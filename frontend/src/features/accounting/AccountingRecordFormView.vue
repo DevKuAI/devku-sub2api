@@ -1,6 +1,6 @@
 <template>
   <FormPage
-    :title="creatingOrder ? t('accounting.orders.createTitle') : t(isEditing ? 'accounting.form.editTitle' : 'accounting.form.createTitle', { kind: t(`accounting.kinds.${kind}`) })"
+    :title="pageTitle"
     :subtitle="[organization?.name, orderName].filter(Boolean).join(' · ')"
     :back-label="t(orderId || creatingOrder ? 'accounting.orders.back' : isEditing ? 'accounting.form.backToRecord' : 'accounting.form.backToList')"
     :loading="loading"
@@ -24,7 +24,7 @@
         <span class="text-sm">{{ t('accounting.orders.withReceipt') }}</span>
       </label>
     </FormSection>
-    <p v-if="blocked" role="alert" class="accounting-warning mt-6" data-testid="order-required">{{ t('accounting.form.orderRequired') }}</p>
+    <p v-if="blocked" role="alert" class="accounting-warning" data-testid="order-required">{{ t('accounting.form.orderRequired') }}</p>
     <FormSection
       v-for="section in sections"
       :key="section.key"
@@ -136,7 +136,8 @@
           </template>
 
           <label v-else class="block">
-            <span class="input-label">
+            <!-- A section holding just its namesake field (notes) already names it. -->
+            <span class="input-label" :class="{ 'sr-only': section.fields.length === 1 && label(field) === t(`accounting.form.sections.${section.key}`) }">
               {{ label(field) }}<span v-if="!isRequired(field) && !locked(field)" class="accounting-optional">{{ t('accounting.form.optional') }}</span>
             </span>
             <select v-if="field.type === 'select'" v-model="state.details[field.key]" v-bind="fieldErrorAttrs(field)" class="input w-full" :required="isRequired(field)">
@@ -189,18 +190,20 @@
               :disabled="locked(field)"
               @input="setCurrency(field, $event)"
             />
-            <input
-              v-else-if="field.key === 'amount'"
-              v-model="state.amount"
-              v-bind="fieldErrorAttrs(field)"
-              type="number"
-              class="input w-full"
-              inputmode="decimal"
-              :min="moneyStep(state.currency)"
-              :step="moneyStep(state.currency)"
-              required
-              data-testid="amount-input"
-            />
+            <span v-else-if="field.key === 'amount'" class="accounting-money-input">
+              <input
+                v-model="state.amount"
+                v-bind="fieldErrorAttrs(field)"
+                type="number"
+                class="input w-full"
+                inputmode="decimal"
+                :min="moneyStep(state.currency)"
+                :step="moneyStep(state.currency)"
+                required
+                data-testid="amount-input"
+              />
+              <span aria-hidden="true">{{ state.currency }}</span>
+            </span>
             <input
               v-else-if="field.key === 'occurred_at'"
               v-model="state.occurred_at"
@@ -209,15 +212,30 @@
               class="input w-full"
               required
             />
+            <span v-else-if="field.type === 'money'" class="accounting-money-input">
+              <input
+                v-model="state.details[field.key]"
+                v-bind="fieldErrorAttrs(field)"
+                class="input w-full"
+                type="number"
+                inputmode="decimal"
+                :step="moneyStep(state.currency)"
+                min="0"
+                autocomplete="off"
+                :required="isRequired(field)"
+                :data-testid="`detail-${field.key}`"
+              />
+              <span aria-hidden="true">{{ state.currency }}</span>
+            </span>
             <input
               v-else
               v-model="state.details[field.key]"
               v-bind="fieldErrorAttrs(field)"
               class="input w-full"
               :type="inputType(field)"
-              :inputmode="field.type === 'money' || field.type === 'decimal' ? 'decimal' : undefined"
-              :step="field.type === 'money' ? moneyStep(state.currency) : field.type === 'decimal' ? 'any' : undefined"
-              :min="field.type === 'money' || field.type === 'decimal' ? '0' : undefined"
+              :inputmode="field.type === 'decimal' ? 'decimal' : undefined"
+              :step="field.type === 'decimal' ? 'any' : undefined"
+              :min="field.type === 'decimal' ? '0' : undefined"
               :autocomplete="field.type === 'secret' ? 'new-password' : 'off'"
               :required="isRequired(field)"
               :data-testid="`detail-${field.key}`"
@@ -359,11 +377,19 @@ watch(() => {
     error.value = ''
   }
 })
+// Inside an order, AI costs are matched by the order's AI invoices, so the per-spend AI flag is not asked.
 const sections = computed(() =>
   (blocked.value || (creatingOrder.value && !order.withReceipt) ? [] : schema.value.sections)
+    .filter((section) => !(orderId.value && section.key === 'aiCost'))
     .map((section) => ({ key: section.key, fields: section.fields.filter(visible) }))
     .filter((section) => section.fields.length),
 )
+// Titles match the button that opened the form, e.g. "登记卡消费" from an order.
+const pageTitle = computed(() => {
+  if (creatingOrder.value) return t('accounting.orders.createTitle')
+  if (!isEditing.value && orderId.value && te(`accounting.orders.add.${kind.value}`)) return t(`accounting.orders.add.${kind.value}`)
+  return t(isEditing.value ? 'accounting.form.editTitle' : 'accounting.form.createTitle', { kind: t(`accounting.kinds.${kind.value}`) })
+})
 const matchingAccounts = computed(() => accounts.value.filter((account) => account.currency === state.currency))
 const snapshotAccount = computed(() =>
   [original.value?.details.receiving_account_name, original.value?.details.receiving_bank_name, original.value?.details.receiving_account]
@@ -419,6 +445,9 @@ function optionLabel(record: AccountingRecord, referenceKind: AccountingKind) {
       : referenceKind === 'vcc-cards'
         ? String(record.details.available_balance || '0')
         : String(record.details.effective_amount || record.amount)
+  // Cards are recognised by name and last digits; their opening date says nothing useful here.
+  if (referenceKind === 'vcc-cards')
+    return `${recordLabel(record.details, record.id)} •••• ${record.details.last_four || ''} · ${t('accounting.fields.available_balance')} ${formatMoney(balance, record.currency)}`
   return `${recordLabel(record.details, record.id)} · ${formatMoney(balance, record.currency)} · ${record.occurred_at.slice(0, 10)}`
 }
 function currencyValue(field: FieldDef) {
@@ -532,6 +561,9 @@ async function load() {
     original.value = record
     initialize(record)
     await loadRelations()
+    // Card spend recorded from an order defaults to the order's only active card.
+    const orderCards = (parentOrder?.items?.['vcc-cards'] || []).filter((card) => card.status === 'ACTIVE')
+    if (kind.value === 'vcc-transactions' && !isEditing.value && !state.parent_id && orderCards.length === 1) state.parent_id = orderCards[0]!.id
     if (!isEditing.value) syncParentCurrency()
     await nextTick()
     markClean()

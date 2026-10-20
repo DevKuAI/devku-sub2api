@@ -1,20 +1,17 @@
 <template>
   <div class="accounting-page min-w-0 space-y-5" data-testid="accounting-workspace" :aria-busy="loading">
-    <router-link v-if="!customer" class="accounting-back" to="/admin/accounting">
-      <Icon name="arrowLeft" size="sm" aria-hidden="true" />{{ t('accounting.directory.title') }}
-    </router-link>
-    <header class="flex flex-wrap items-end justify-between gap-3">
-      <div class="min-w-0">
-        <h1 class="min-h-16 break-words text-2xl font-semibold text-gray-950 dark:text-white sm:min-h-8">
-          <template v-if="customer || organizationName || !loading">{{ customer ? t('accounting.customerTitle') : organizationName || t('accounting.title') }}</template>
-          <span v-else class="accounting-skeleton block h-8 w-64 max-w-full"><span class="sr-only">{{ t('accounting.loading') }}</span></span>
-        </h1>
-        <p v-if="customer" class="mt-1 min-h-5 text-sm text-gray-500 dark:text-dark-300">
-          <span v-if="organizationName">{{ organizationName }}</span>
-          <span v-else-if="loading" class="accounting-skeleton block h-5 w-48 max-w-full" aria-hidden="true" />
-        </p>
-      </div>
-    </header>
+    <PageHeader :back="back">
+      <template #title>
+        <template v-if="customer || organizationName || !loading">{{ customer ? t('accounting.customerTitle') : organizationName || t('accounting.title') }}</template>
+        <span v-else class="accounting-skeleton block h-8 w-64 max-w-full"><span class="sr-only">{{ t('accounting.loading') }}</span></span>
+      </template>
+      <template v-if="customer && organizationName" #subtitle>{{ organizationName }}</template>
+      <template v-if="!customer && ready" #actions>
+        <router-link class="btn btn-primary" :to="{ name: 'AdminAccountingOrderNew', params: { organizationId } }" data-testid="workspace-new-order">
+          <Icon name="plus" size="sm" aria-hidden="true" />{{ t('accounting.orders.create') }}
+        </router-link>
+      </template>
+    </PageHeader>
 
     <div v-if="error" role="alert" class="accounting-error flex flex-wrap items-center justify-between gap-3">
       <p>{{ error }}</p>
@@ -42,10 +39,15 @@
       <AccountingWorkspaceSkeleton :customer="customer" :overview="view === 'overview'" />
     </div>
     <div v-else-if="ready" :id="`${uid}-panel`" role="tabpanel" :aria-labelledby="`${uid}-${activeSection.key}`" class="min-w-0 space-y-4">
-      <div v-if="activeSection.views.length > 1" class="accounting-segmented" role="group" :aria-label="t(`accounting.sections.${activeSection.key}`)">
-        <button v-for="item in activeSection.views" :key="item" type="button" :aria-pressed="view === item" @click="select(item)">
-          {{ t(`accounting.kinds.${item}`) }}
-        </button>
+      <div v-if="activeSection.views.length > 1" class="flex flex-wrap items-center justify-between gap-3">
+        <div class="accounting-segmented" role="group" :aria-label="t(`accounting.sections.${activeSection.key}`)">
+          <button v-for="item in activeSection.views" :key="item" type="button" :aria-pressed="view === item" @click="select(item)">
+            {{ t(`accounting.kinds.${item}`) }}
+          </button>
+        </div>
+        <router-link v-if="!customer && createKind" class="btn btn-primary" :to="createRoute(organizationId, createKind)" data-testid="workspace-create-record">
+          <Icon name="plus" size="sm" aria-hidden="true" />{{ t('accounting.list.create', { kind: t(`accounting.kinds.${createKind}`) }) }}
+        </router-link>
       </div>
 
       <OverviewPanel v-if="view === 'overview'" :key="panelKey" :summaries="summaries" :organization-id="organizationId" :customer="customer" />
@@ -56,6 +58,7 @@
         :organization-id="organizationId"
         :customer="customer"
         :currencies="currencies"
+        :show-create="false"
         @open="openCustomerRecord"
       />
       <OrdersPanel v-else-if="view === 'orders'" :key="`${panelKey}-orders`" :organization-id="organizationId" />
@@ -74,7 +77,7 @@
     </div>
 
     <!-- Customers get a read-only record view; admins open the full record page instead. -->
-    <BaseDialog v-if="customer" :show="Boolean(customerRecord)" :title="customerRecord ? recordLabel(customerRecord.record.details, customerRecord.record.id) : ''" width="wide" @close="customerRecord = null">
+    <BaseDialog v-if="customer" :show="Boolean(customerRecord)" :title="customerRecord ? customerLabel(customerRecord.kind, customerRecord.record) : ''" width="wide" @close="customerRecord = null">
       <div v-if="customerRecord" class="space-y-5">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <span class="badge" :class="statusTone(customerRecord.record.status)">{{ t(`accounting.statuses.${customerRecord.record.status}`) }}</span>
@@ -95,6 +98,7 @@ import BaseDialog from '@/components/common/BaseDialog.vue'
 import { Icon } from '@/components/icons'
 import { useDesktopOrganizationAccess } from '@/composables/useDesktopOrganizationAccess'
 import AuditPanel from './components/AuditPanel.vue'
+import PageHeader from './components/PageHeader.vue'
 import CostsPanel from './components/CostsPanel.vue'
 import ExternalPanel from './components/ExternalPanel.vue'
 import OrdersPanel from './components/OrdersPanel.vue'
@@ -108,9 +112,10 @@ import RecordList from './components/RecordList.vue'
 import * as api from './api'
 import { statusTone } from './actions'
 import { formatMoney } from './format'
-import { displayAmount, isRecordKind, recordLabel } from './schema'
-import { errorMessage, isCanceled } from './shared'
+import { creatableKinds, customerLabel, displayAmount, isRecordKind, orderOnlyKinds } from './schema'
+import { createRoute, errorMessage, isCanceled } from './shared'
 import { useOrganization } from './useOrganization'
+import { cameFromEnterprise, rememberEnterpriseEntry } from './entry'
 import type { AccountingKind, AccountingRecord, CurrencySummary } from './types'
 import '@/styles/accounting.css'
 
@@ -160,6 +165,17 @@ const organizationName = computed(() => (props.customer ? customerOrganization.v
 // Panels remount when the bound organization changes so no stale rows survive a switch.
 const panelKey = computed(() => (props.customer ? customerOrganization.value?.id : props.organizationId) || '')
 const currencies = computed(() => summaries.value.map((entry) => entry.currency))
+// Records that can be added straight from their list; cards and card spend are added inside orders.
+const createKind = computed(() =>
+  isRecordKind(view.value) && creatableKinds.includes(view.value) && !orderOnlyKinds.includes(view.value) ? view.value : null,
+)
+const fromEnterprise = ref(false)
+const back = computed(() => {
+  if (props.customer) return undefined
+  return fromEnterprise.value
+    ? { to: { name: 'AdminDesktopOrganizationDetail', params: { organizationId: props.organizationId } }, label: t('accounting.navigation.backToEnterprise') }
+    : { to: '/admin/accounting', label: t('accounting.directory.title') }
+})
 
 function select(next: string) {
   if (!ready.value) return
@@ -221,6 +237,11 @@ function onFocus() {
 
 watch(view, () => (customerRecord.value = null))
 onMounted(() => {
+  if (!props.customer && route.query.from === 'enterprise') {
+    rememberEnterpriseEntry(props.organizationId)
+    void router.replace({ query: Object.fromEntries(Object.entries(route.query).filter(([key]) => key !== 'from')) })
+  }
+  fromEnterprise.value = !props.customer && cameFromEnterprise(props.organizationId)
   void load()
   window.addEventListener('focus', onFocus)
 })

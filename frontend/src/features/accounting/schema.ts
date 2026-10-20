@@ -97,7 +97,7 @@ export const schemas: Record<AccountingKind, KindSchema> = {
     ],
     metrics: ['unallocated_amount', 'sales_amount', 'tax_rate', 'tax_amount', 'net_sales_amount', 'receivable_amount'],
     remaining: 'unallocated_amount',
-    subtitle: (r) => [String(r.details.bank_reference || '')],
+    subtitle: (r) => [String(r.details.order_name || '')],
   },
   receivables: {
     sections: [
@@ -408,17 +408,19 @@ export const customerStatusOptions: Partial<Record<AccountingKind, string[]>> = 
 // Fields the organization-facing API returns; the admin UI never shows more to customers.
 export const customerKinds: AccountingKind[] = ['transfers', 'vcc-cards', 'vcc-transactions', 'contracts', 'invoices']
 export const publicFields: Partial<Record<AccountingKind, string[]>> = {
-  transfers: ['sales_amount', 'tax_inclusive', 'tax_rate', 'tax_amount', 'net_sales_amount', 'receivable_amount', 'received_amount', 'original_amount', 'adjustment_amount'],
+  transfers: ['payer_name', 'sales_amount', 'tax_inclusive', 'tax_rate', 'tax_amount', 'net_sales_amount', 'receivable_amount', 'received_amount', 'original_amount', 'adjustment_amount'],
   'vcc-cards': ['alias', 'last_four', 'allocated_amount', 'available_balance'],
   'vcc-transactions': ['transaction_type', 'merchant'],
   contracts: ['name', 'contract_number', 'contact_name', 'tax_inclusive', 'tax_rate', 'signed_at', 'effective_at', 'expires_at'],
   invoices: ['invoice_type', 'invoice_code', 'invoice_number', 'issue_date', 'issuer_name', 'issuer_tax_id', 'recipient_name', 'recipient_tax_id', 'net_amount', 'tax_amount', 'total_amount'],
 }
 
+// A record's name. Receipts are told apart by their bank reference: within one organization the payer is always the same.
 export function recordLabel(details: Record<string, unknown>, fallback: string) {
   return String(
     details.alias ||
       details.name ||
+      details.bank_reference ||
       details.payer_name ||
       details.merchant ||
       details.vendor ||
@@ -428,6 +430,12 @@ export function recordLabel(details: Record<string, unknown>, fallback: string) 
       details.reference ||
       fallback,
   )
+}
+
+// A record's name as an organization sees it: built only from the fields shared with customers.
+export function customerLabel(kind: AccountingKind, record: AccountingRecord) {
+  const shared = Object.fromEntries(Object.entries(record.details).filter(([key]) => publicFields[kind]?.includes(key)))
+  return recordLabel(shared, record.id)
 }
 
 // Secondary line under a record's name; parts repeating the name itself are dropped.

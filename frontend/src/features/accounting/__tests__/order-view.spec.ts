@@ -101,4 +101,34 @@ describe('accounting order page', () => {
     expect(links(wrapper).some((link) => link.text.includes('登记'))).toBe(false)
     expect(wrapper.text()).toContain('重新打开订单')
   })
+
+  it('names the next missing step and links straight to it', async () => {
+    const wrapper = await render(order())
+    expect(wrapper.get('[data-testid="order-next-step"]').text()).toBe('给企业开具销项发票')
+    const next = wrapper.findAllComponents({ name: 'RouterLink' }).find((link) => link.attributes('data-testid') === 'order-next-action')!
+    expect(next.text()).toBe('开具发票')
+    expect(next.props('to')).toMatchObject({ params: { kind: 'invoices' }, query: { order_id: 'order-one' } })
+    expect(wrapper.find('[data-step="receipt"] .accounting-step-marker').attributes('data-state')).toBe('done')
+    expect(wrapper.find('[data-step="invoice"] .accounting-step-marker').attributes('data-state')).toBe('current')
+    expect(wrapper.find('[data-step="ai_invoice"] .accounting-step-marker').attributes('data-state')).toBe('pending')
+  })
+
+  it('points a draft step at the record that needs confirming', async () => {
+    const draft = order({ progress: { receipt: false, invoice: false, purchase: false, ai_invoice: false } })
+    draft.items!.transfers = [record({ id: 'draft-receipt', status: 'DRAFT', details: { bank_reference: 'BANK-9' } })]
+    const wrapper = await render(draft)
+    expect(wrapper.get('[data-testid="order-next-step"]').text()).toContain('上传凭证并确认到账')
+    const next = wrapper.findAllComponents({ name: 'RouterLink' }).find((link) => link.attributes('data-testid') === 'order-next-action')!
+    expect(next.props('to')).toEqual({ name: 'AdminAccountingRecord', params: { organizationId: 'org-one', kind: 'transfers', id: 'draft-receipt' } })
+  })
+
+  it('summarizes only the amounts the order actually has', async () => {
+    const wrapper = await render(order())
+    const totals = wrapper.get('[data-testid="order-totals"]').text()
+    expect(totals).toContain('收入')
+    expect(totals).toContain('卡消费')
+    expect(totals).not.toContain('已开票')
+    expect(totals).not.toContain('AI 成本')
+    expect(totals).not.toContain('US$0.00')
+  })
 })

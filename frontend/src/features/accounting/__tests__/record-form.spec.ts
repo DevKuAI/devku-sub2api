@@ -178,8 +178,9 @@ describe('accounting record form', () => {
     expect(field(wrapper, 'original_transaction_id').get('select').attributes('required')).toBeUndefined()
 
     await wrapper.get('[data-testid="transaction_type-CONSUME"]').trigger('click')
-    await field(wrapper, 'ai_vendor').get('input').setValue(true)
-    expect(field(wrapper, 'vendor_invoice_id').exists()).toBe(true)
+    // Inside an order, AI costs are matched by the order's AI invoices instead of a per-spend flag.
+    expect(field(wrapper, 'ai_vendor').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="amount-input"]').element.parentElement!.textContent).toContain('USD')
     await wrapper.get('[data-testid="amount-input"]').setValue('12.5')
     await wrapper.get('[data-testid="detail-merchant"]').setValue('Anthropic')
     await wrapper.get('[data-testid="detail-provider_transaction_id"]').setValue('TX-9')
@@ -190,7 +191,7 @@ describe('accounting record form', () => {
       parent_id: 'card-one',
       order_id: 'order-one',
       currency: 'USD',
-      details: { transaction_type: 'CONSUME', direction: '', original_transaction_id: '', ai_vendor: true },
+      details: { transaction_type: 'CONSUME', direction: '', original_transaction_id: '', ai_vendor: false },
     })
   })
 
@@ -296,5 +297,13 @@ describe('accounting record form', () => {
     expect(wrapper.find('[data-testid="form-section-receipt"]').exists()).toBe(false)
     const [, body] = (await submit(wrapper))!
     expect(body).not.toHaveProperty('transfer')
+  })
+
+  it('opens card spend from an order on that order’s card, titled like the button', async () => {
+    api.order.mockResolvedValue({ id: 'order-one', name: 'Q4 席位', organization_id: 'org-one', items: { 'vcc-cards': [card] } })
+    const wrapper = await render('vcc-transactions', {}, { order_id: 'order-one' })
+    expect(wrapper.text()).toContain('登记卡消费')
+    expect((field(wrapper, 'parent_id').get('select').element as HTMLSelectElement).value).toBe('card-one')
+    expect(field(wrapper, 'parent_id').get('select').text()).toContain('研发卡 ••••')
   })
 })

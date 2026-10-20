@@ -17,7 +17,7 @@ func recordUnion() string {
 	return strings.Join(parts, " UNION ALL ")
 }
 func recordNameSQL(prefix string) string {
-	return "COALESCE(NULLIF(" + prefix + ".details->>'alias',''),NULLIF(" + prefix + ".details->>'name',''),NULLIF(" + prefix + ".details->>'payer_name',''),NULLIF(" + prefix + ".details->>'merchant',''),NULLIF(" + prefix + ".details->>'vendor',''),NULLIF(" + prefix + ".details->>'supplier',''),NULLIF(" + prefix + ".details->>'invoice_number',''),NULLIF(" + prefix + ".details->>'reference','')," + prefix + ".id::text)"
+	return "COALESCE(NULLIF(" + prefix + ".details->>'alias',''),NULLIF(" + prefix + ".details->>'name',''),NULLIF(" + prefix + ".details->>'bank_reference',''),NULLIF(" + prefix + ".details->>'payer_name',''),NULLIF(" + prefix + ".details->>'merchant',''),NULLIF(" + prefix + ".details->>'vendor',''),NULLIF(" + prefix + ".details->>'supplier',''),NULLIF(" + prefix + ".details->>'invoice_number',''),NULLIF(" + prefix + ".details->>'reference','')," + prefix + ".id::text)"
 }
 func (h *Handler) workbench(c *gin.Context) {
 	org, ok := h.workflowOrg(c, c.Query("organization_id"))

@@ -194,7 +194,7 @@ describe('accounting workspace', () => {
     expect(wrapper.text()).not.toContain('暂无记录')
     await wrapper.get('[role="alert"] button').trigger('click'); await flushPromises()
     expect(wrapper.find('[role="alert"]').exists()).toBe(false)
-    expect(wrapper.get('[data-testid="row"]').text()).toContain('客户付款')
+    expect(wrapper.get('[data-testid="row"]').text()).toContain('BANK-1')
   })
 
   it('does not fall back to other organizations when the organization is missing', async () => {
@@ -221,5 +221,26 @@ describe('accounting workspace', () => {
     expect(dialog.text()).not.toContain('BANK-1')
     expect(api.attachments).toHaveBeenCalledWith('transfers', 'record-one', true)
     expect(router.push).not.toHaveBeenCalled()
+  })
+
+  it('keeps the way back to the enterprise page when the books were opened from it', async () => {
+    sessionStorage.clear()
+    const fromEnterprise = await render(false, { from: 'enterprise' })
+    expect(fromEnterprise.findComponent({ name: 'RouterLink' }).props('to')).toEqual({ name: 'AdminDesktopOrganizationDetail', params: { organizationId: 'org-one' } })
+    expect(router.replace).toHaveBeenCalledWith({ query: {} })
+    fromEnterprise.unmount()
+
+    // Coming back from an order or record keeps the enterprise path.
+    const returned = await render(false, { tab: 'orders' })
+    expect(returned.get('[data-testid="page-back"]').text()).toBe('返回企业')
+    sessionStorage.clear()
+  })
+
+  it('puts New order in the page header and Create next to the record type switch', async () => {
+    const wrapper = await render(false, { tab: 'transfers' })
+    expect(wrapper.find('[data-testid="workspace-new-order"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="workspace-create-record"]').text()).toContain('新增到账')
+    const cards = await render(false, { tab: 'vcc-cards' })
+    expect(cards.find('[data-testid="workspace-create-record"]').exists()).toBe(false)
   })
 })

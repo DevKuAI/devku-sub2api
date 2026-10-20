@@ -140,4 +140,13 @@ describe('accounting record page', () => {
     expect(actions(wrapper)).toEqual(['top-up', 'edit', 'close'])
     expect(wrapper.get('[data-testid="record-order"]').text()).toBe('Q4 席位')
   })
+
+  it('goes back to the order a record belongs to', async () => {
+    const wrapper = await render(record({ details: { bank_reference: 'BANK-7', order_id: 'order-one', order_name: 'Q4 席位' } }))
+    expect(wrapper.get('h1').text()).toBe('BANK-7')
+    const back = wrapper.findAllComponents({ name: 'RouterLink' }).find((link) => link.attributes('data-testid') === 'page-back')!
+    expect(back.text()).toBe('Q4 席位')
+    expect(back.props('to')).toEqual({ name: 'AdminAccountingOrder', params: { organizationId: 'org-one', orderId: 'order-one' } })
+    expect(wrapper.text().match(/Q4 席位/g)!.length).toBe(2)
+  })
 })

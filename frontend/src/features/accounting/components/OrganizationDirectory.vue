@@ -1,14 +1,12 @@
 <template>
   <div class="accounting-page min-w-0 space-y-5" data-testid="accounting-directory">
-    <header class="flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <h1 class="text-2xl font-semibold text-gray-950 dark:text-white">{{ t('accounting.title') }}</h1>
-        <p class="mt-1 text-sm text-gray-500 dark:text-dark-300">{{ t('accounting.directory.description') }}</p>
-      </div>
-      <router-link class="btn btn-secondary" :to="{ name: 'AdminAccountingReceivingAccounts' }">
-        {{ t('accounting.receivingAccounts.title') }}
-      </router-link>
-    </header>
+    <PageHeader :title="t('accounting.title')" :subtitle="t('accounting.directory.description')">
+      <template #actions>
+        <router-link class="btn btn-secondary" :to="{ name: 'AdminAccountingReceivingAccounts' }">
+          {{ t('accounting.receivingAccounts.title') }}
+        </router-link>
+      </template>
+    </PageHeader>
 
     <div v-if="totals.length" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       <section v-for="entry in totals" :key="entry.currency" class="card p-4">
@@ -67,6 +65,8 @@ import DataTable from '@/components/common/DataTable.vue'
 import * as api from '../api'
 import { formatMoney } from '../format'
 import { errorMessage, isCanceled, workspaceRoute } from '../shared'
+import { forgetEnterpriseEntries } from '../entry'
+import PageHeader from './PageHeader.vue'
 import type { AccountingOrganization, CurrencySummary } from '../types'
 
 const { t, te } = useI18n()
@@ -114,6 +114,7 @@ watch(search, () => {
   timer = setTimeout(load, 300)
 })
 onMounted(async () => {
+  forgetEnterpriseEntries()
   void load()
   try {
     totals.value = await api.summary(false, {})

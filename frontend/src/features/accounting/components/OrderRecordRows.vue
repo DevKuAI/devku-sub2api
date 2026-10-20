@@ -32,7 +32,8 @@ const props = defineProps<{ kind: AccountingKind; records: AccountingRecord[]; o
 const { t, te } = useI18n()
 
 function subtitle(record: AccountingRecord) {
-  const parts = recordSubtitle(props.kind, record)
+  // Rows already sit inside their order, so the order's own name is not repeated.
+  const parts = recordSubtitle(props.kind, record).filter((part) => part !== record.details.order_name)
   const type = record.details.transaction_type
   if (props.kind === 'vcc-transactions' && type && te(`accounting.options.transaction_type.${type}`)) parts.unshift(t(`accounting.options.transaction_type.${type}`))
   return parts.join(' · ')

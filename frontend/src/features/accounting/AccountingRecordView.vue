@@ -1,54 +1,46 @@
 <template>
   <AppLayout>
     <main class="accounting-page mx-auto w-full max-w-5xl space-y-5 pb-10" data-testid="accounting-record-page">
-      <router-link class="accounting-back" :to="workspaceRoute(organizationId, kind)">
-        <Icon name="arrowLeft" size="sm" aria-hidden="true" />
-        {{ organization?.name || t('accounting.title') }} · {{ t(`accounting.kinds.${kind}`) }}
-      </router-link>
+      <PageHeader :back="back">
+        <template #title>{{ record ? recordLabel(record.details, record.id) : t(`accounting.kinds.${kind}`) }}</template>
+        <template v-if="record" #badge>
+          <span class="badge" :class="statusTone(record.status)">{{ t(`accounting.statuses.${record.status}`) }}</span>
+        </template>
+        <template v-if="record" #subtitle>
+          {{ [t(`accounting.kinds.${kind}`), subtitle, formatDateTime(record.occurred_at)].filter(Boolean).join(' · ') }}
+          <template v-if="record.details.order_id">
+            · {{ t('accounting.orders.belongsTo') }}
+            <router-link class="accounting-link" :to="orderRoute(organizationId, String(record.details.order_id))" data-testid="record-order">{{ record.details.order_name }}</router-link>
+          </template>
+        </template>
+        <template v-if="actions.length" #actions>
+          <div class="contents" data-testid="record-actions">
+            <button
+              v-for="action in actions"
+              :key="action.key"
+              type="button"
+              class="btn"
+              :class="action.tone === 'primary' ? 'btn-primary' : action.tone === 'danger' ? 'btn-ghost text-red-600 dark:text-red-400' : 'btn-secondary'"
+              :disabled="busy"
+              :data-action="action.key"
+              @click="run(action)"
+            >
+              {{ t(`accounting.actions.${action.key}`) }}
+            </button>
+          </div>
+        </template>
+      </PageHeader>
 
       <p v-if="loading && !record" role="status" class="text-sm text-gray-500">{{ t('accounting.loading') }}</p>
       <p v-if="error" role="alert" class="accounting-error">{{ error }}</p>
       <p v-if="route.query.upload_failed" role="status" class="accounting-warning">{{ t('accounting.files.uploadFailed') }}</p>
 
       <template v-if="record">
-        <header class="flex flex-wrap items-start justify-between gap-4">
-          <div class="min-w-0">
-            <div class="flex flex-wrap items-center gap-2">
-              <h1 class="break-words text-2xl font-semibold text-gray-950 dark:text-white">{{ recordLabel(record.details, record.id) }}</h1>
-              <span class="badge" :class="statusTone(record.status)">{{ t(`accounting.statuses.${record.status}`) }}</span>
-            </div>
-            <p class="mt-1 text-sm text-gray-500 [overflow-wrap:anywhere] dark:text-dark-300">
-              {{ [subtitle, formatDateTime(record.occurred_at)].filter(Boolean).join(' · ') }}
-            </p>
-            <p v-if="record.details.order_id" class="mt-1 text-sm">
-              {{ t('accounting.orders.belongsTo') }}
-              <router-link class="accounting-link" :to="orderRoute(organizationId, String(record.details.order_id))" data-testid="record-order">
-                {{ record.details.order_name }}
-              </router-link>
-            </p>
-          </div>
-          <div class="text-right">
-            <p class="text-xs text-gray-500">{{ t(kind === 'vcc-cards' ? 'accounting.fields.available_balance' : 'accounting.amount') }}</p>
-            <p class="text-2xl font-semibold tabular-nums" data-testid="record-amount">{{ formatMoney(displayAmount(kind, record), record.currency) }}</p>
-          </div>
-        </header>
-
-        <div v-if="actions.length" class="flex flex-wrap gap-2" data-testid="record-actions">
-          <button
-            v-for="action in actions"
-            :key="action.key"
-            type="button"
-            class="btn"
-            :class="action.tone === 'primary' ? 'btn-primary' : action.tone === 'danger' ? 'btn-ghost text-red-600 dark:text-red-400' : 'btn-secondary'"
-            :disabled="busy"
-            :data-action="action.key"
-            @click="run(action)"
-          >
-            {{ t(`accounting.actions.${action.key}`) }}
-          </button>
-        </div>
-
         <section class="card p-5">
+          <div class="mb-5 border-b border-gray-100 pb-4 dark:border-dark-700">
+            <p class="text-xs text-gray-500">{{ t(kind === 'vcc-cards' ? 'accounting.fields.available_balance' : 'accounting.amount') }}</p>
+            <p class="mt-1 text-2xl font-semibold tabular-nums" data-testid="record-amount">{{ formatMoney(displayAmount(kind, record), record.currency) }}</p>
+          </div>
           <RecordFields :kind="kind" :record="record" />
           <p v-if="record.details.has_difference" class="accounting-warning mt-4">{{ t('accounting.overdraft') }}</p>
         </section>
@@ -156,8 +148,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
-import { Icon } from '@/components/icons'
 import { useAuthStore } from '@/stores/auth'
+import PageHeader from './components/PageHeader.vue'
 import RecordFields from './components/RecordFields.vue'
 import RecordFiles from './components/RecordFiles.vue'
 import * as api from './api'
@@ -200,7 +192,16 @@ const pending = ref<RecordAction | null>(null)
 const requestKey = api.stableRequest()
 
 const actions = computed(() => (record.value ? recordActions(kind.value, record.value, auth.isAdmin) : []))
-const subtitle = computed(() => (record.value ? recordSubtitle(kind.value, record.value).join(' · ') : ''))
+// Records reached from an order go back to it; others go back to their list.
+const back = computed(() =>
+  record.value?.details.order_id
+    ? { to: orderRoute(organizationId.value, String(record.value.details.order_id)), label: String(record.value.details.order_name || t('accounting.sections.orders')) }
+    : { to: workspaceRoute(organizationId.value, kind.value), label: `${organization.value?.name || t('accounting.title')} · ${t(`accounting.kinds.${kind.value}`)}` },
+)
+// The order is linked separately in the header, so it is not repeated as plain text.
+const subtitle = computed(() =>
+  record.value ? recordSubtitle(kind.value, record.value).filter((part) => part !== record.value?.details.order_name).join(' · ') : '',
+)
 
 function activityText(row: ActivityRow) {
   const summary = (row.summary || {}) as Record<string, unknown>

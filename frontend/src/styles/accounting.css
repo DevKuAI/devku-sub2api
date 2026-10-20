@@ -116,3 +116,147 @@
 .accounting-table td.text-right {
   text-align: end;
 }
+
+/* Page header shared by every accounting page. */
+.accounting-page-header {
+  @apply space-y-2;
+}
+.accounting-page-heading {
+  @apply flex flex-wrap items-start justify-between gap-x-6 gap-y-3;
+}
+.accounting-page-heading h1 {
+  @apply break-words text-2xl font-semibold text-gray-950 dark:text-white;
+}
+.accounting-page-subtitle {
+  @apply mt-1 break-words text-sm text-gray-500 dark:text-dark-300;
+}
+.accounting-page-actions {
+  @apply flex flex-wrap items-center gap-2;
+}
+
+/* Lists */
+.accounting-clickable-row {
+  @apply cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-dark-800/60;
+}
+.accounting-date-range {
+  @apply flex min-h-10 items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 text-sm dark:border-dark-600 dark:bg-dark-800;
+}
+.accounting-date-range input {
+  @apply w-[8.5rem] border-0 bg-transparent p-0 text-sm text-gray-900 focus:outline-none focus:ring-0 dark:text-dark-100;
+}
+.accounting-date-clear {
+  @apply ms-1 flex h-5 w-5 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-dark-700;
+}
+.accounting-steps {
+  @apply flex flex-wrap gap-1;
+}
+.accounting-steps > li {
+  @apply rounded px-1.5 py-0.5 text-xs text-gray-400 ring-1 ring-inset ring-gray-200 dark:text-dark-400 dark:ring-dark-600;
+}
+.accounting-steps > li[data-done='true'] {
+  @apply bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-900;
+}
+
+/* Order page */
+.accounting-order-summary {
+  @apply grid gap-4 rounded-xl border border-primary-100 bg-primary-50/60 p-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center dark:border-primary-900/50 dark:bg-primary-900/10;
+}
+.accounting-order-totals {
+  @apply flex flex-wrap gap-x-8 gap-y-2 border-t border-primary-100 pt-4 sm:col-span-2 dark:border-primary-900/50;
+}
+.accounting-order-totals dt {
+  @apply text-xs text-gray-500 dark:text-dark-300;
+}
+.accounting-order-totals dd {
+  @apply mt-0.5 font-semibold tabular-nums text-gray-950 dark:text-white;
+}
+.accounting-order-step {
+  @apply space-y-3 p-5;
+}
+.accounting-order-step-header {
+  @apply flex flex-wrap items-center justify-between gap-3;
+}
+.accounting-step-marker {
+  @apply flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gray-300 text-sm font-semibold text-gray-500 dark:border-dark-500 dark:text-dark-300;
+}
+.accounting-step-marker[data-state='current'] {
+  @apply border-primary-500 bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-200;
+}
+.accounting-step-marker[data-state='done'] {
+  @apply border-emerald-500 bg-emerald-500 text-white;
+}
+.accounting-card-list {
+  @apply divide-y divide-gray-100 rounded-lg bg-gray-50 px-4 dark:divide-dark-700 dark:bg-dark-800/60;
+}
+.accounting-card-list > li {
+  @apply flex flex-wrap items-center justify-between gap-2 py-2.5 text-sm;
+}
+
+/* Forms */
+.accounting-form label:has(> [required]:not(:disabled)) > .input-label::after,
+.accounting-form label:has(> .accounting-money-input > [required]) > .input-label::after,
+.accounting-form [data-field]:has(> select[required]) > .input-label::after {
+  content: ' *';
+  @apply text-red-500;
+}
+.accounting-money-input {
+  @apply relative block;
+}
+.accounting-money-input > .input {
+  @apply pr-14;
+}
+.accounting-money-input > span {
+  @apply pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-medium text-gray-400;
+}
+/* Forms: one card with titled sections and the actions at its foot, matching the cards on every other page. */
+.accounting-form {
+  @apply overflow-hidden p-0;
+}
+.accounting-form-section {
+  @apply grid gap-x-8 gap-y-4 border-b border-gray-100 px-6 py-6 last-of-type:border-b-0 md:grid-cols-[160px_minmax(0,1fr)] dark:border-dark-800;
+}
+.accounting-form-section h2 {
+  @apply text-sm font-semibold text-gray-900 md:pt-1 dark:text-white;
+}
+.accounting-form-section h2 + p {
+  @apply mt-1 text-xs leading-5 text-gray-500 dark:text-dark-300;
+}
+.accounting-form-footer {
+  @apply flex flex-wrap justify-end gap-3 border-t border-gray-100 bg-gray-50/80 px-6 py-4 dark:border-dark-800 dark:bg-dark-800/40;
+}
+.accounting-form > .accounting-warning {
+  @apply mx-6 mt-6;
+}
+.accounting-spinner {
+  @apply inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent;
+}
+
+/* On phones the orders table stacks each order into a block instead of scrolling sideways. */
+@media (max-width: 639px) {
+  .accounting-orders-table {
+    @apply min-w-0;
+  }
+  .accounting-orders-table thead {
+    @apply sr-only;
+  }
+  .accounting-orders-table tr {
+    @apply grid grid-cols-2 gap-x-4 gap-y-2 border-b border-gray-100 px-4 py-3 last:border-b-0 dark:border-dark-800;
+  }
+  .accounting-orders-table td {
+    @apply border-0 p-0;
+  }
+  .accounting-orders-table td:first-child,
+  .accounting-orders-table td:nth-child(2) {
+    @apply col-span-2;
+  }
+  .accounting-orders-table td.text-right {
+    text-align: start;
+  }
+  .accounting-orders-table td[data-label]::before {
+    content: attr(data-label);
+    @apply block text-xs text-gray-500 dark:text-dark-300;
+  }
+  .accounting-orders-table td:last-child {
+    @apply col-span-2;
+  }
+}
