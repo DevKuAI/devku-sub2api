@@ -2,17 +2,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { reactive } from 'vue'
 
-const api = vi.hoisted(() => ({ organization: vi.fn(), all: vi.fn(), member: vi.fn(), assign: vi.fn(), history: vi.fn(), unit: vi.fn(), save: vi.fn(), members: { createMember: vi.fn(), updateMember: vi.fn() } }))
-const navigation = vi.hoisted(() => ({ push: vi.fn(), guards: [] as Array<() => boolean> }))
+const api = vi.hoisted(() => ({ organization: vi.fn(), all: vi.fn(), member: vi.fn(), assign: vi.fn(), history: vi.fn(), unit: vi.fn(), save: vi.fn(), status: vi.fn(), list: vi.fn(), members: { createMember: vi.fn(), updateMember: vi.fn() } }))
+const navigation = vi.hoisted(() => ({ push: vi.fn(), resolve: vi.fn(), guards: [] as Array<() => boolean> }))
 const route = reactive({ path: '/admin/desktop/organizations/org_one/members/new', fullPath: '/admin/desktop/organizations/org_one/members/new', params: { organizationId: 'org_one', memberId: '', unitId: '' }, query: {} as Record<string, string> })
 vi.mock('@/api/desktopStructure', async original => ({ ...await original<typeof import('@/api/desktopStructure')>(), desktopStructure: () => api }))
 vi.mock('@/stores/auth', () => ({ useAuthStore: () => ({ user: { id: 42 } }) }))
 vi.mock('vue-router', () => ({ useRoute: () => route, useRouter: () => navigation, onBeforeRouteLeave: (guard: () => boolean) => navigation.guards.push(guard), onBeforeRouteUpdate: vi.fn() }))
-vi.mock('vue-i18n', async original => ({ ...await original<typeof import('vue-i18n')>(), useI18n: () => ({ t: (key: string) => key }) }))
+vi.mock('vue-i18n', async original => ({ ...await original<typeof import('vue-i18n')>(), useI18n: () => ({ t: (key: string) => key, locale: { value: 'zh' } }) }))
 
 import MemberForm from './DesktopMemberFormView.vue'
 import PositionForm from './DesktopMemberPositionView.vue'
 import UnitForm from './DesktopUnitFormView.vue'
+import StructureList from './DesktopStructureView.vue'
 
 const department = { public_id: 'dep_one', name: 'Delivery', status: 'active', revision: 1 }
 const position = { public_id: 'pos_one', name: 'Engineer', status: 'active', revision: 1, department }
@@ -22,6 +23,9 @@ const options = { global: { stubs: { AppLayout: { template: '<main><slot /></mai
 describe('Desktop structure routed forms', () => {
   beforeEach(() => {
     vi.clearAllMocks(); navigation.guards.length = 0
+    navigation.resolve.mockImplementation(({ path, query }) => ({ fullPath: path + '?' + new URLSearchParams(Object.entries(query).filter(([, value]) => value !== undefined) as [string, string][]).toString() }))
+    api.status.mockResolvedValue({ unassigned_members: 0, inconsistent_members: 0 })
+    api.list.mockResolvedValue({ items: [department], total: 1 })
     route.params = { organizationId: 'org_one', memberId: '', unitId: '' }; route.query = {}
     route.path = route.fullPath = '/admin/desktop/organizations/org_one/members/new'
     api.organization.mockResolvedValue({ public_id: 'org_one', name: 'Enterprise', status: 'active', member_count: 1, member_limit: 10 })
@@ -97,4 +101,88 @@ describe('Desktop structure routed forms', () => {
     expect(wrapper.get('select').attributes('disabled')).toBeDefined()
     wrapper.unmount()
   })
+  it('keeps the search field mounted and focused while filtered results load', async () => {
+    vi.useFakeTimers()
+    const wrapper = mount(StructureList, { ...options, attachTo: document.body }); await flushPromises()
+    const input = wrapper.get('input[type="search"]')
+    let resolve!: (value: object) => void
+    api.list.mockReturnValueOnce(new Promise(done => { resolve = done }))
+    ;(input.element as HTMLInputElement).focus()
+    await input.setValue('Delivery')
+    await vi.advanceTimersByTimeAsync(300)
+    expect(wrapper.get('input[type="search"]').element).toBe(input.element)
+    expect(document.activeElement).toBe(input.element)
+    resolve({ items: [], total: 0 }); await flushPromises()
+    expect(wrapper.text()).toContain('desktopStructure.noResultsHint')
+    expect((input.element as HTMLInputElement).value).toBe('Delivery')
+    wrapper.unmount(); vi.useRealTimers()
+  })
+
+  it('keeps filters in links back to the organization structure list', async () => {
+    route.path = '/admin/desktop/organizations/org_one/structure'
+    route.query = { kind: 'positions', search: 'Engineer', department_id: 'dep_one', status: 'active' }
+    const wrapper = mount(StructureList, options); await flushPromises()
+    expect(navigation.resolve).toHaveBeenCalledWith({ path: route.path, query: route.query })
+    expect(api.list).toHaveBeenCalledWith('positions', expect.objectContaining({ search: 'Engineer', department_id: 'dep_one', status: 'active' }))
+    wrapper.unmount()
+  })
+
+  it('does not present incomplete assignments as fully confirmed', async () => {
+    api.status.mockResolvedValue({ unassigned_members: 0, inconsistent_members: 1 })
+    const wrapper = mount(StructureList, options); await flushPromises()
+    expect(wrapper.text()).toContain('desktopStructure.inconsistent')
+    expect(wrapper.text()).not.toContain('desktopStructure.ready')
+    wrapper.unmount()
+  })
+
+  it('retries an initial load failure without asking to discard input that does not exist', async () => {
+    api.organization.mockRejectedValueOnce(new Error('Network unavailable'))
+    const wrapper = mount(MemberForm, options); await flushPromises()
+    await wrapper.get('[role="alert"] button').trigger('click'); await flushPromises()
+    expect(window.confirm).not.toHaveBeenCalled()
+    expect(wrapper.find('form').exists()).toBe(true)
+    expect(wrapper.findAll('main')).toHaveLength(1)
+    wrapper.unmount()
+  })
+
+  it('retries history without replacing a drafted reassignment', async () => {
+    route.params.memberId = 'mem_one'
+    api.history.mockResolvedValue({ items: [], total: 21 })
+    const wrapper = mount(PositionForm, options); await flushPromises()
+    await wrapper.get('textarea').setValue('Keep this explanation')
+    api.history.mockRejectedValueOnce(new Error('History unavailable'))
+    wrapper.findComponent({ name: 'Pagination' }).vm.$emit('update:page', 2)
+    await flushPromises()
+    expect(wrapper.get('[role="alert"]').text()).toContain('desktopStructure.historyLoadFailed')
+    await wrapper.get('[role="alert"] button').trigger('click'); await flushPromises()
+    expect(api.history).toHaveBeenLastCalledWith('mem_one', 2)
+    expect((wrapper.get('textarea').element as HTMLTextAreaElement).value).toBe('Keep this explanation')
+    expect(navigation.guards[0]()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('keeps submit focus during a pending save and rejects repeated submissions', async () => {
+    let finish!: (value: object) => void
+    api.members.createMember.mockReturnValueOnce(new Promise(resolve => { finish = resolve }))
+    const wrapper = mount(MemberForm, { ...options, attachTo: document.body }); await flushPromises()
+    const submit = wrapper.get('button[type="submit"]')
+    ;(submit.element as HTMLButtonElement).focus()
+    await wrapper.get('form').trigger('submit')
+    await wrapper.get('form').trigger('submit')
+    expect(api.members.createMember).toHaveBeenCalledTimes(1)
+    expect(submit.attributes('aria-disabled')).toBe('true')
+    expect(document.activeElement).toBe(submit.element)
+    finish({}); await flushPromises()
+    wrapper.unmount()
+  })
+
+  it('focuses the new page heading when nested creation reuses the route component', async () => {
+    const wrapper = mount(UnitForm, { ...options, attachTo: document.body, props: { kind: 'positions' as const } }); await flushPromises()
+    ;(wrapper.get('input').element as HTMLInputElement).focus()
+    route.path = '/admin/desktop/organizations/org_one/departments/new'
+    await wrapper.setProps({ kind: 'departments' }); await flushPromises()
+    expect(document.activeElement).toBe(wrapper.get('h1').element)
+    wrapper.unmount()
+  })
+
 })

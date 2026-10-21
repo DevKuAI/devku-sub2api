@@ -1,18 +1,42 @@
 <template>
-  <StructurePage :title="t(id ? 'admin.desktop.editMember' : 'admin.desktop.createMember')" :subtitle="organization?.name" :loading="loading" :error="error" :busy="busy" @back="guard.leave(returnTo)" @retry="reload">
-    <form v-if="organization" class="card max-w-2xl space-y-5 p-6" :aria-busy="busy" @submit.prevent="save">
-      <label class="block space-y-1"><span class="block">{{ t('admin.desktop.memberName') }}</span><input v-model="form.name" class="input w-full" required maxlength="100" :disabled="busy" /></label>
-      <label class="block space-y-1"><span class="block">{{ t('admin.desktop.phone') }}</span><input v-model="form.phone" class="input w-full" type="tel" required :disabled="busy" /></label>
-      <template v-if="!id">
-        <label class="block space-y-1"><span class="block">{{ t('desktopStructure.department') }}</span><select v-model="form.department_id" class="input w-full" required :disabled="busy" @change="form.position_id = ''"><option value="">{{ t('desktopStructure.selectDepartment') }}</option><option v-for="d in departments" :key="d.public_id" :value="d.public_id">{{ d.name }}</option></select></label>
-        <label class="block space-y-1"><span class="block">{{ t('desktopStructure.position') }}</span><select v-model="form.position_id" class="input w-full" required :disabled="busy || !form.department_id"><option value="">{{ t('desktopStructure.selectPosition') }}</option><option v-for="p in availablePositions" :key="p.public_id" :value="p.public_id">{{ p.name }}</option></select></label>
-        <button type="button" class="text-primary-600 hover:underline" :disabled="busy" @click="createPosition">{{ t('desktopStructure.createPosition') }}</button>
-      </template>
-      <p v-else>{{ t('desktopStructure.current') }}: {{ member?.department?.name || '—' }} / {{ member?.position?.name || t('desktopStructure.unassigned') }} <router-link class="ml-3 text-primary-600 hover:underline" :to="{ path: `${base}/members/${id}/position`, query: { return_to: route.fullPath } }">{{ t('desktopStructure.assign') }}</router-link></p>
-      <fieldset class="space-y-3"><legend>{{ t('admin.desktop.budget.title') }}</legend><p class="text-sm text-gray-500">{{ t('admin.desktop.budget.hint') }}</p><label v-for="field in budgetFields" :key="field" class="block space-y-1"><span class="block">{{ t(`admin.desktop.budget.${field}`) }}</span><input v-model.number="form.budget[field]" type="number" min="0" step="0.01" class="input w-full" :disabled="busy" /></label></fieldset>
-      <label class="block space-y-1"><span class="block">{{ t('admin.desktop.memberRemark') }}</span><textarea v-model="form.remark" class="input w-full" rows="3" maxlength="500" :disabled="busy" /></label>
-      <div class="flex flex-wrap gap-3"><button type="button" class="btn btn-secondary" :disabled="busy" @click="guard.leave(returnTo)">{{ t('common.cancel') }}</button><button type="submit" class="btn btn-primary" :disabled="busy || organization.status !== 'active'">{{ t(busy ? 'common.saving' : 'common.save') }}</button></div>
-    </form>
+  <StructurePage :title="t(id ? 'admin.desktop.editMember' : 'admin.desktop.createMember')" :subtitle="organization?.name" :description="t(id ? 'desktopStructure.memberEditHint' : 'desktopStructure.memberDetails')" :loading="loading" :error="error" :busy="busy" :dirty="guard.dirty.value" @back="guard.leave(returnTo)" @retry="reload">
+    <template v-if="organization">
+      <p v-if="organization.status !== 'active'" class="structure-notice" role="status">{{ t('desktopStructure.readonly') }}</p>
+      <form class="structure-panel structure-form" :aria-busy="busy" @submit.prevent="save">
+        <p class="structure-caption">{{ t('desktopStructure.requiredHint') }}</p>
+        <fieldset class="structure-section" :disabled="busy || organization.status !== 'active'">
+          <legend class="structure-section-title mb-4">{{ t('desktopStructure.basicInfo') }}</legend>
+          <div class="structure-grid">
+            <label class="structure-field"><span>{{ t('admin.desktop.memberName') }} <span aria-hidden="true">*</span></span><input v-model="form.name" name="member-name" autocomplete="section-member name" class="input" required maxlength="100" /></label>
+            <label class="structure-field"><span>{{ t('admin.desktop.phone') }} <span aria-hidden="true">*</span></span><input v-model="form.phone" name="member-phone" autocomplete="section-member tel" class="input" type="tel" required /></label>
+          </div>
+        </fieldset>
+        <fieldset class="structure-section" :disabled="busy || organization.status !== 'active'">
+          <legend class="structure-section-title mb-4">{{ t('desktopStructure.assignmentInfo') }}</legend>
+          <p class="structure-caption">{{ t('desktopStructure.assignmentHint') }}</p>
+          <template v-if="!id">
+            <div class="structure-grid">
+              <label class="structure-field"><span>{{ t('desktopStructure.department') }} <span aria-hidden="true">*</span></span><select v-model="form.department_id" name="department" class="input" required aria-describedby="member-department-hint" @change="form.position_id = ''"><option value="">{{ t('desktopStructure.selectDepartment') }}</option><option v-for="d in departments" :key="d.public_id" :value="d.public_id">{{ d.name }}</option></select><p id="member-department-hint" class="structure-caption">{{ departments.find(d => d.public_id === form.department_id)?.name || t(departments.length ? 'desktopStructure.selectDepartmentFirst' : 'desktopStructure.noDepartments') }}</p></label>
+              <label class="structure-field"><span>{{ t('desktopStructure.position') }} <span aria-hidden="true">*</span></span><select v-model="form.position_id" name="position" class="input" required :disabled="!form.department_id" aria-describedby="member-position-hint"><option value="">{{ t('desktopStructure.selectPosition') }}</option><option v-for="p in availablePositions" :key="p.public_id" :value="p.public_id">{{ p.name }}</option></select><p id="member-position-hint" class="structure-caption">{{ selectedPosition?.name || t(!form.department_id ? 'desktopStructure.selectDepartmentFirst' : !availablePositions.length ? 'desktopStructure.noPositions' : 'desktopStructure.selectPosition') }}</p></label>
+            </div>
+            <button type="button" class="structure-link" @click="createPosition"><Icon name="plus" size="sm" aria-hidden="true" />{{ t('desktopStructure.createPosition') }}</button>
+          </template>
+          <div v-else class="structure-assignment space-y-3">
+            <p class="font-medium"><bdi>{{ member?.department?.name || '—' }}</bdi> / <bdi>{{ member?.position?.name || t('desktopStructure.unassigned') }}</bdi></p>
+            <router-link v-if="organization.status === 'active'" class="structure-link" :to="{ path: `${base}/members/${id}/position`, query: { return_to: route.fullPath } }">{{ t('desktopStructure.assign') }}<Icon name="arrowRight" size="sm" aria-hidden="true" /></router-link>
+          </div>
+        </fieldset>
+        <fieldset class="structure-section" :disabled="busy || organization.status !== 'active'">
+          <legend class="structure-section-title mb-4">{{ t('admin.desktop.budget.title') }}</legend>
+          <p id="member-budget-hint" class="structure-caption">{{ t('admin.desktop.budget.hint') }}</p>
+          <div class="structure-grid">
+            <label v-for="field in budgetFields" :key="field" class="structure-field"><span>{{ t(`admin.desktop.budget.${field}`) }} <span class="font-normal">(USD)</span></span><input v-model.number="form.budget[field]" :name="field" type="number" inputmode="decimal" min="0" step="0.01" class="input tabular-nums" aria-describedby="member-budget-hint" /></label>
+          </div>
+        </fieldset>
+        <label class="structure-field"><span>{{ t('admin.desktop.memberRemark') }} <span class="font-normal">· {{ t('desktopStructure.optional') }}</span></span><textarea v-model="form.remark" name="member-remark" class="input" rows="3" maxlength="500" :disabled="busy || organization.status !== 'active'" /></label>
+        <div class="structure-actions"><button type="button" class="btn btn-secondary" :disabled="busy" @click="guard.leave(returnTo)">{{ t('common.cancel') }}</button><button type="submit" class="btn btn-primary" :disabled="organization.status !== 'active'" :aria-disabled="busy || undefined"><Icon v-if="busy" name="clock" size="sm" aria-hidden="true" />{{ t('common.save') }}</button></div>
+      </form>
+    </template>
   </StructurePage>
 </template>
 <script setup lang="ts">
@@ -20,6 +44,7 @@ import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import StructurePage from './StructurePage.vue'
+import Icon from '@/components/icons/Icon.vue'
 import { useDesktopForm } from './useDesktopForm'
 import { desktopStructure, desktopStructureError, desktopOrganizationPath, safeDesktopReturn, structureIdempotencyKey, type OrganizationUnit } from '@/api/desktopStructure'
 import type { DesktopOrganization, DesktopMember } from '@/api/admin/desktop'
@@ -31,6 +56,7 @@ const returnTo = computed(() => safeDesktopReturn(route.query.return_to, base.va
 const blank = () => ({ name: '', phone: '', remark: '', department_id: '', position_id: '', budget: { quota: 0, limit_1d: 0, limit_7d: 0 } })
 const form = reactive(blank()), organization = ref<DesktopOrganization | null>(null), member = ref<DesktopMember>(), departments = ref<OrganizationUnit[]>([]), positions = ref<OrganizationUnit[]>([])
 const availablePositions = computed(() => positions.value.filter(p => p.department?.public_id === form.department_id))
+const selectedPosition = computed(() => positions.value.find(p => p.public_id === form.position_id))
 const budgetFields = ['quota', 'limit_1d', 'limit_7d'] as const
 const loading = ref(true), busy = ref(false), error = ref('')
 const guard = useDesktopForm(() => form, () => busy.value, () => organization.value?.public_id || orgId.value)
@@ -46,7 +72,7 @@ async function load() {
   } catch (e) { if (g === generation) error.value = desktopStructureError(e, t) }
   finally { if (g === generation) loading.value = false }
 }
-async function reload() { if (window.confirm(t('desktopStructure.reload'))) await load() }
+async function reload() { if (!guard.dirty.value || window.confirm(t('desktopStructure.reload'))) await load() }
 async function createPosition() { await guard.child(`${base.value}/positions/new?return_to=${encodeURIComponent(route.fullPath)}&department_id=${encodeURIComponent(form.department_id)}`) }
 async function save() {
   if (busy.value) return

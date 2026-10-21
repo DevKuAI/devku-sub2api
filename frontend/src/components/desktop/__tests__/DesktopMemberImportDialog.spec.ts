@@ -151,4 +151,19 @@ describe('Desktop member import page content', () => {
     expect(admin.createMember).not.toHaveBeenCalled()
     wrapper.unmount()
   })
+  it('recovers structure loading without discarding the selected file', async () => {
+    structure.all.mockRejectedValueOnce(new Error('Network unavailable'))
+    const wrapper = view()
+    await upload(wrapper)
+    expect(wrapper.get('[data-testid="confirm-member-import"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.text()).toContain('desktopStructure.failed')
+    expect(wrapper.text()).not.toContain('desktopStructure.noDepartments')
+    const retry = wrapper.findAll('button').find(button => button.text().includes('desktopStructure.reloadAction'))!
+    await retry.trigger('click'); await flushPromises()
+    expect(wrapper.get('#member-import-file-name').text()).toBe('members.xlsx')
+    expect(wrapper.text()).toContain('Member 0')
+    expect(wrapper.get('[data-testid="confirm-member-import"]').attributes('disabled')).toBeUndefined()
+    wrapper.unmount()
+  })
+
 })

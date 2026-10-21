@@ -1,5 +1,6 @@
 <template>
-  <StructurePage :title="t('admin.desktop.memberImport.button')" :subtitle="organization?.name" :loading="loading" :error="error" :busy="busy" @back="leave" @retry="load">
+  <StructurePage :title="t('admin.desktop.memberImport.button')" :subtitle="organization?.name" :description="t('desktopStructure.importStartHint')" :loading="loading" :error="error" :busy="busy" @back="leave" @retry="load">
+    <p v-if="organization?.status !== 'active' && organization" class="structure-notice" role="status">{{ t('desktopStructure.readonly') }}</p>
     <DesktopMemberImportDialog v-if="organization" :show="true" :organization-id="organization.public_id" :self-managed="!!selfManaged" :available-slots="Math.max(0, organization.member_limit - organization.member_count)" :organization-active="organization.status === 'active'" @close="leave" @imported="load" @busy="busy = $event" @dirty="dirty = $event" />
   </StructurePage>
 </template>

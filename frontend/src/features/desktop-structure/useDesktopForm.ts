@@ -20,6 +20,7 @@ export function useDesktopForm(snapshot: () => unknown, busy: () => boolean, org
   onMounted(() => window.addEventListener('beforeunload', beforeUnload))
   onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
   return {
+    dirty,
     restore: () => drafts.get(key()),
     clean() { baseline.value = JSON.stringify(snapshot()); ready.value = true; allow = false },
     async leave(path: string, force = false) {

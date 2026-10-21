@@ -1,0 +1,77 @@
+/* Keep organization structure pages within the existing application surfaces. */
+.desktop-structure { container: desktop-structure / inline-size; width: 100%; min-width: 0; line-height: 1.5; @apply text-gray-900 dark:text-gray-100; }
+.desktop-structure :where(h1, h2, h3, p, li, dd, td, a, label) { overflow-wrap: anywhere; }
+.desktop-structure .structure-page-header { @apply flex flex-wrap items-start gap-4; }
+.desktop-structure .structure-back { @apply shrink-0; }
+.desktop-structure .structure-page-title { @apply text-xl font-semibold; line-height: 1.3; text-wrap: balance; }
+.desktop-structure .structure-caption { @apply text-sm text-gray-600 dark:text-dark-300; line-height: 1.6; max-width: 75ch; }
+.desktop-structure .structure-caption:empty { display: none; }
+.desktop-structure .structure-panel { @apply card min-w-0 p-4 sm:p-6; transition: none; }
+.desktop-structure .structure-form { @apply max-w-3xl space-y-8; }
+.desktop-structure .structure-section { @apply min-w-0 space-y-4; }
+.desktop-structure .structure-section-title { @apply text-base font-semibold; line-height: 1.5; }
+.desktop-structure .structure-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
+.desktop-structure .structure-field { @apply block min-w-0 space-y-1.5; }
+.desktop-structure .structure-field > span:first-child { @apply block text-sm font-medium text-gray-700 dark:text-dark-200; }
+.desktop-structure .structure-actions { @apply flex flex-wrap justify-end gap-3 border-t border-gray-200 pt-5 dark:border-dark-700; }
+.desktop-structure .structure-notice { @apply flex flex-wrap items-start gap-3 rounded-xl bg-gray-100 p-4 text-sm text-gray-700 dark:bg-dark-800 dark:text-dark-200; line-height: 1.6; }
+.desktop-structure .structure-notice-warning { @apply bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200; }
+.desktop-structure .structure-error { @apply flex flex-wrap items-start gap-4 rounded-xl bg-red-50 p-4 text-sm text-red-800 dark:bg-red-950 dark:text-red-200; line-height: 1.6; }
+.desktop-structure .structure-link { @apply inline-flex min-h-9 items-center gap-2 rounded-lg text-sm font-medium text-primary-700 underline decoration-primary-300 underline-offset-4 dark:text-primary-300; }
+.desktop-structure .structure-tabs { @apply inline-flex max-w-full flex-wrap gap-1 rounded-xl bg-gray-100 p-1 dark:bg-dark-800; }
+.desktop-structure .structure-tab { @apply inline-flex min-h-10 items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-gray-600 dark:text-dark-300; }
+.desktop-structure .structure-tab[aria-pressed='true'] { @apply bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white; }
+.desktop-structure .structure-filters { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.desktop-structure .structure-table { @apply w-full text-start text-sm; }
+.desktop-structure .structure-table th { @apply bg-gray-50 px-5 py-3 text-start font-medium text-gray-600 dark:bg-dark-900 dark:text-dark-300; }
+.desktop-structure .structure-table td { @apply border-t border-gray-100 px-5 py-4 align-top dark:border-dark-700; }
+.desktop-structure .structure-table th:first-child { width: 36%; }
+.desktop-structure .structure-status { @apply inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700 dark:bg-dark-700 dark:text-dark-200; }
+.desktop-structure .structure-status-active { @apply bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200; }
+.desktop-structure .structure-empty { @apply flex flex-col items-center gap-3 p-6 text-center sm:p-10; }
+.desktop-structure .structure-empty-icon { @apply flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-dark-200; }
+.desktop-structure .structure-desktop-list { display: none; }
+.desktop-structure .structure-mobile-list { @apply divide-y divide-gray-100 dark:divide-dark-700; }
+.desktop-structure .structure-mobile-list > li { @apply min-w-0 space-y-3 p-4; }
+.desktop-structure .structure-assignment { @apply rounded-xl bg-gray-50 p-4 dark:bg-dark-900; }
+.desktop-structure .structure-history { @apply space-y-5; }
+.desktop-structure .structure-history > li { @apply relative min-w-0 border-s-2 border-gray-200 ps-5 dark:border-dark-600; }
+.desktop-structure .structure-history > li::before { content: ''; position: absolute; inset-inline-start: -5px; top: 7px; width: 8px; height: 8px; border-radius: 50%; @apply bg-gray-500 dark:bg-dark-300; }
+.desktop-structure .structure-history > li:first-child::before { @apply bg-primary-600 dark:bg-primary-300; }
+.desktop-structure .input { @apply border-gray-500 dark:border-dark-500; min-width: 0; transition: none; }
+.desktop-structure .input::placeholder { @apply text-gray-500 dark:text-dark-400; }
+.desktop-structure :where(button, input, select, textarea, a, [tabindex]):focus-visible { outline: 2px solid theme('colors.primary.600'); outline-offset: 3px; }
+html.dark .desktop-structure :where(button, input, select, textarea, a, [tabindex]):focus-visible { outline-color: theme('colors.primary.300'); }
+.desktop-structure h1:focus { outline: none; }
+.desktop-structure .btn { white-space: normal; text-align: center; max-width: 100%; transition: none; }
+.desktop-structure .table-wrapper { max-width: 100%; overscroll-behavior-inline: contain; }
+.desktop-structure .detail-table-hint { @apply text-sm text-gray-600 dark:text-dark-300; }
+@container desktop-structure (min-width: 36rem) {
+  .desktop-structure .structure-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .desktop-structure .structure-filters { grid-template-columns: minmax(0, 1fr) minmax(0, 12rem); }
+  .desktop-structure .structure-filters:has(> :nth-child(3)) { grid-template-columns: minmax(0, 1fr) repeat(2, minmax(0, 12rem)); }
+  .desktop-structure .structure-desktop-list { display: block; }
+  .desktop-structure .structure-mobile-list { display: none; }
+}
+@container desktop-structure (max-width: 35.999rem) {
+  .desktop-structure .structure-page-header { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .desktop-structure .structure-back { justify-self: start; }
+  .desktop-structure .structure-actions > .btn { flex: 1 1 auto; }
+}
+@media (hover: hover) {
+  .desktop-structure .structure-tab:hover { @apply bg-white dark:bg-dark-700; }
+  .desktop-structure .structure-link:hover { @apply text-primary-800 dark:text-primary-200; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .desktop-structure .btn { transition: transform 150ms ease-out; }
+  .desktop-structure .btn:not(:disabled):not([aria-disabled='true']):active { transform: scale(0.96); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .desktop-structure *, .desktop-structure *::before { animation: none !important; transition: none !important; transform: none !important; }
+}
+@media (forced-colors: active) {
+  .desktop-structure :where(button, input, select, textarea, a, [tabindex]):focus-visible { outline-color: Highlight; }
+  .desktop-structure .structure-tab[aria-pressed='true'] { outline: 2px solid Highlight; outline-offset: -2px; }
+}
+
+.desktop-structure .structure-field > span:first-child, .desktop-structure .structure-table, .desktop-structure .structure-link, .desktop-structure .structure-tab, .desktop-structure .structure-status, .desktop-structure .btn, .desktop-structure .input { line-height: 1.5; }
