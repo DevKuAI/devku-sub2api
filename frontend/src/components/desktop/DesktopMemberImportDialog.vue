@@ -1,5 +1,5 @@
 <template>
-  <BaseDialog content-class="desktop-detail" :close-label="t('common.close')" :show="show" :title="t('admin.desktop.memberImport.button')" width="wide" :show-close-button="!importing" :close-on-escape="!importing" @close="close">
+  <section class="card space-y-5 p-6">
     <div class="space-y-4" :aria-busy="loading || importing">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <p class="min-w-0 flex-1 basis-full text-sm leading-relaxed text-gray-600 dark:text-dark-300 sm:basis-0">{{ t('admin.desktop.memberImport.hint') }}</p>
@@ -13,6 +13,8 @@
         </div>
         <input ref="fileInput" type="file" accept=".xlsx,.csv" class="hidden" :disabled="loading || importing" aria-labelledby="member-import-file-label" data-testid="member-import-file" @change="selectFile" />
       </div>
+      <p class="text-sm text-gray-500">{{ t('desktopStructure.importHint') }}</p>
+      <fieldset class="space-y-3" :disabled="importing"><legend>{{ t('desktopStructure.importFallback') }}</legend><div class="flex flex-wrap gap-3"><label><span class="block">{{ t('desktopStructure.department') }}</span><select v-model="fallbackDepartment" class="input" @change="fallbackPosition = ''"><option value="">{{ t('desktopStructure.selectDepartment') }}</option><option v-for="d in departments" :key="d.public_id" :value="d.public_id">{{ d.name }}</option></select></label><label><span class="block">{{ t('desktopStructure.position') }}</span><select v-model="fallbackPosition" class="input" :disabled="!fallbackDepartment"><option value="">{{ t('desktopStructure.selectPosition') }}</option><option v-for="p in positions.filter(p => p.department?.public_id === fallbackDepartment)" :key="p.public_id" :value="p.public_id">{{ p.name }}</option></select></label></div></fieldset>
       <p v-if="loading" class="text-sm text-gray-500 dark:text-dark-400" role="status">{{ t('common.loading') }}</p>
       <p v-if="fileError" class="text-sm text-red-600 dark:text-red-400" role="alert">{{ fileError }}</p>
       <template v-if="rows.length">
@@ -22,28 +24,31 @@
         <DataTable tabindex="0" :aria-label="t('admin.desktop.memberImport.button')" :columns="columns" :data="pageRows" row-key="rowNumber">
           <template #cell-name="{ row }"><span class="block max-w-40 whitespace-normal break-words">{{ row.input.name }}</span></template>
           <template #cell-phone="{ row }">{{ row.input.phone }}</template>
+          <template #cell-department="{ row }">{{ positions.find(p => p.public_id === row.input.position_id)?.department?.name || row.departmentName || '—' }}</template>
+          <template #cell-position="{ row }">{{ positions.find(p => p.public_id === row.input.position_id)?.name || row.positionName || '—' }}</template>
           <template #cell-remark="{ row }"><span class="block max-w-56 whitespace-pre-wrap break-words">{{ row.input.remark || '—' }}</span></template>
-          <template #cell-status="{ row }"><span class="block max-w-64 whitespace-normal break-words" :class="row.errors.length || row.status === 'failed' ? 'text-red-600 dark:text-red-400' : row.status === 'success' ? 'text-emerald-700 dark:text-emerald-300' : 'text-gray-500 dark:text-dark-400'">{{ row.errors.length ? row.errors.map((key: string) => t(`admin.desktop.memberImport.${key}`)).join('；') : row.error || t(`admin.desktop.memberImport.${row.status}`) }}</span></template>
+          <template #cell-status="{ row }"><span class="block max-w-64 whitespace-normal break-words" :class="row.errors.length || row.status === 'failed' ? 'text-red-600 dark:text-red-400' : row.status === 'success' ? 'text-emerald-700 dark:text-emerald-300' : 'text-gray-500 dark:text-dark-400'">{{ row.errors.length ? row.errors.map((key: string) => t(key === 'invalidDepartment' || key === 'invalidPosition' ? `desktopStructure.${key}` : `admin.desktop.memberImport.${key}`)).join('；') : row.error || t(`admin.desktop.memberImport.${row.status}`) }}</span></template>
         </DataTable>
         <Pagination dropdown-class="desktop-detail-select" v-if="rows.length > pageSize" v-model:page="page" :page-size="pageSize" :total="rows.length" :show-page-size-selector="false" />
       </template>
     </div>
-    <template #footer>
+    <footer>
       <div class="flex flex-wrap justify-end gap-3">
         <button class="btn btn-secondary" type="button" :disabled="importing" @click="close">{{ t('common.close') }}</button>
         <button class="btn btn-primary" type="button" :disabled="!canImport" data-testid="confirm-member-import" @click="runImport">{{ importing ? t('admin.desktop.memberImport.importing') : t(failedCount ? 'admin.desktop.memberImport.retry' : 'admin.desktop.memberImport.confirm', { count: pendingRows.length }) }}</button>
       </div>
-    </template>
-  </BaseDialog>
+    </footer>
+  </section>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { desktopStructure, type OrganizationUnit } from '@/api/desktopStructure'
+import { normalizeDesktopStructureName as normalized } from '@/utils/desktopStructureName'
 import { useI18n } from 'vue-i18n'
 import { saveAs } from 'file-saver'
 import * as adminDesktopAPI from '@/api/admin/desktop'
 import managedDesktopAPI from '@/api/desktopOrganization'
-import BaseDialog from '@/components/common/BaseDialog.vue'
 import DataTable from '@/components/common/DataTable.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import Icon from '@/components/icons/Icon.vue'
@@ -55,14 +60,19 @@ interface ImportRow extends DesktopMemberImportRow {
   status: 'ready' | 'success' | 'failed'
   error: string
   idempotencyKey: string
+  baseErrors: string[]
 }
 const props = defineProps<{ show: boolean; organizationId: string; selfManaged: boolean; availableSlots: number; organizationActive: boolean }>()
-const emit = defineEmits<{ close: []; imported: [] }>()
+const emit = defineEmits<{ close: []; imported: []; busy: [value: boolean]; dirty: [value: boolean] }>()
 const { t, te } = useI18n()
 const rows = ref<ImportRow[]>([])
 const loading = ref(false)
 const importing = ref(false)
 const templateLoading = ref(false)
+const departments = ref<OrganizationUnit[]>([])
+const positions = ref<OrganizationUnit[]>([])
+const fallbackDepartment = ref('')
+const fallbackPosition = ref('')
 const attempted = ref(false)
 const fileError = ref('')
 const fileName = ref('')
@@ -81,6 +91,8 @@ const columns = computed<Column[]>(() => [
   { key: 'rowNumber', label: t('admin.desktop.memberImport.row') },
   { key: 'name', label: t('admin.desktop.memberName') },
   { key: 'phone', label: t('admin.desktop.phone') },
+  { key: 'department', label: t('desktopStructure.department') },
+  { key: 'position', label: t('desktopStructure.position') },
   { key: 'remark', label: t('admin.desktop.memberRemark') },
   { key: 'status', label: t('admin.desktop.memberImport.result') },
 ])
@@ -116,7 +128,8 @@ async function selectFile(event: Event) {
     const parsed = await parseDesktopMemberImportFile(file)
     if (current !== generation) return
     const sessionID = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
-    rows.value = parsed.map(row => ({ ...row, status: 'ready', error: '', idempotencyKey: `desktop-member-import-${sessionID}-${row.rowNumber}` }))
+    rows.value = parsed.map(row => ({ ...row, baseErrors: [...row.errors], status: 'ready', error: '', idempotencyKey: `desktop-member-import-${sessionID}-${row.rowNumber}` }))
+    resolvePositions()
   } catch (error) {
     if (current === generation) {
       const key = `admin.desktop.memberImport.${(error as Error).message}`
@@ -136,7 +149,7 @@ async function runImport() {
     for (const row of pending) {
       if (current !== generation) break
       try {
-        await api.createMember(organizationID, row.input, row.idempotencyKey)
+        await api.createMember(organizationID, { ...row.input, position_id: row.input.position_id! }, row.idempotencyKey)
         if (current !== generation) break
         row.status = 'success'
         row.error = ''
@@ -156,5 +169,40 @@ async function runImport() {
   }
 }
 watch(() => [props.show, props.organizationId, props.selfManaged], reset, { flush: 'sync' })
+
+function resolvePositions() {
+  for (const row of rows.value) {
+    if (row.status === 'success') continue
+    row.errors = [...row.baseErrors]
+    let position = fallbackPosition.value
+    if (row.departmentName || row.positionName) {
+      const ds = departments.value.filter(d => normalized(d.name) === normalized(row.departmentName || ''))
+      if (ds.length !== 1) { row.errors.push('invalidDepartment'); position = '' }
+      else {
+        const ps = positions.value.filter(p => p.department?.public_id === ds[0].public_id && normalized(p.name) === normalized(row.positionName || ''))
+        if (ps.length !== 1) { row.errors.push('invalidPosition'); position = '' }
+        else position = ps[0].public_id
+      }
+    } else if (!position) row.errors.push('invalidPosition')
+    if (position !== (row.input.position_id || '')) {
+      row.input.position_id = position
+      row.idempotencyKey = `desktop-member-import-${crypto.randomUUID()}`
+      row.status = 'ready'; row.error = ''
+    }
+  }
+}
+watch(fallbackPosition, resolvePositions)
+watch(importing, value => emit('busy', value))
+watch(() => rows.value.some(row => row.status !== 'success'), value => emit('dirty', value))
+watch(() => [props.organizationId, props.selfManaged], async () => {
+  const id = props.organizationId
+  departments.value = []; positions.value = []
+  try {
+    const api = desktopStructure(id, props.selfManaged)
+    const [ds, ps] = await Promise.all([api.all('departments', { status: 'active' }), api.all('positions', { status: 'active' })])
+    if (id === props.organizationId) { departments.value = ds; positions.value = ps; resolvePositions() }
+  } catch { fileError.value = t('desktopStructure.failed') }
+}, { immediate: true })
+
 onBeforeUnmount(() => { generation++ })
 </script>

@@ -30,8 +30,12 @@ const managedDesktopAPI = vi.hoisted(() => ({
   updateModelConfiguration: vi.fn(),
 }))
 
-const router = vi.hoisted(() => ({ replace: vi.fn(), push: vi.fn() }))
+const router = vi.hoisted(() => ({ replace: vi.fn(), push: vi.fn(), resolve: vi.fn((input: { path: string; query: Record<string, unknown> }) => ({ fullPath: input.path + '?' + new URLSearchParams(Object.fromEntries(Object.entries(input.query).filter(([,value]) => value !== undefined).map(([key,value]) => [key,String(value)]))).toString() })) }))
+vi.mock('@/api/desktopStructure', async original => ({ ...await original<typeof import('@/api/desktopStructure')>(), desktopStructure: () => ({ all: vi.fn().mockResolvedValue([]) }) }))
+
 const route = vi.hoisted(() => ({
+  path: '/admin/desktop/organizations/org_one',
+  fullPath: '/admin/desktop/organizations/org_one?tab=members',
   params: { organizationId: 'org_one' },
   query: { tab: 'members' },
 }))
@@ -197,41 +201,18 @@ describe('DesktopOrganizationDetailView', () => {
     wrapper.unmount()
   })
 
-  it.each([false, true])('shows import and optional remarks in create and edit forms with selfManaged=%s', async (selfManaged) => {
-    const wrapper = selfManaged ? mountManagedView() : mountView()
-    const api = selfManaged ? managedDesktopAPI : desktopAPI
-    await flushPromises()
+  it.each([false, true])('navigates to standalone member forms and import with selfManaged=%s', async selfManaged => {
+    const wrapper = selfManaged ? mountManagedView() : mountView(); await flushPromises()
     const vm = wrapper.vm as any
-    const keys = vm.memberColumns.map((column: { key: string }) => column.key)
-    expect(keys.slice(0, 3)).toEqual(['name', 'remark', 'phone'])
+    const base = selfManaged ? '/desktop/organization' : '/admin/desktop/organizations/org_one'
+    expect(vm.memberColumns.map((column: { key: string }) => column.key)).toContain('assignment')
     await wrapper.get('[data-testid="import-members"]').trigger('click')
-    expect(vm.showMemberImport).toBe(true)
+    expect(router.push).toHaveBeenLastCalledWith(expect.objectContaining({ path: `${base}/members/import` }))
     vm.openCreateMember()
-    Object.assign(vm.memberForm, { name: 'Created', phone: '13800138000', remark: '' })
-    await vm.saveMember()
-    expect(api.createMember).toHaveBeenCalledWith('org_one', { name: 'Created', phone: '13800138000', remark: '' })
-    vm.openCreateMember()
-    Object.assign(vm.memberForm, { name: 'Noted', phone: '13900138000', remark: ' 财务部 ' })
-    await vm.saveMember()
-    expect(api.createMember).toHaveBeenLastCalledWith('org_one', { name: 'Noted', phone: '13900138000', remark: '财务部' })
-    vm.openEditMember({ ...member, remark: '财务部' })
-    expect(vm.memberForm.remark).toBe('财务部')
-    vm.memberForm.remark = ''
-    await vm.saveMember()
-    expect(api.updateMember).toHaveBeenLastCalledWith('org_one', 'mem_one', { remark: '' })
-    wrapper.unmount()
-  })
-
-  it('renders an optional remark textarea in the real member form', async () => {
-    const wrapper = mountViewWithRealMemberForm()
-    await flushPromises()
-    ;(wrapper.vm as any).openCreateMember()
-    await flushPromises()
-    const textarea = wrapper.get('[data-testid="member-remark"]')
-    expect(textarea.attributes('required')).toBeUndefined()
-    expect(textarea.attributes('maxlength')).toBe('500')
-    await textarea.setValue('财务部')
-    expect((wrapper.vm as any).memberForm.remark).toBe('财务部')
+    expect(router.push).toHaveBeenLastCalledWith(expect.objectContaining({ path: `${base}/members/new`, query: { return_to: expect.stringContaining('tab=members') } }))
+    vm.openEditMember(member)
+    expect(router.push).toHaveBeenLastCalledWith(expect.objectContaining({ path: `${base}/members/mem_one/edit` }))
+    expect(wrapper.find('#desktop-member-form').exists()).toBe(false)
     wrapper.unmount()
   })
 
@@ -579,26 +560,16 @@ describe('DesktopOrganizationDetailView', () => {
     wrapper.unmount()
 	})
 
-	it('shows the full phone and only submits it when edited', async () => {
-		const wrapper = mountView()
-		await flushPromises()
-		const vm = wrapper.vm as any
-
-		expect(vm.memberColumns.map((column: { key: string }) => column.key)).toContain('phone')
-		expect(vm.memberColumns.map((column: { key: string }) => column.key)).not.toContain('masked_phone')
-		vm.openEditMember(member)
-		expect(vm.memberForm.phone).toBe('+8613800000000')
-
-		await vm.saveMember()
-		expect(desktopAPI.updateMember).not.toHaveBeenCalled()
-
-		vm.memberForm.phone = '13800000000'
-		await vm.saveMember()
-		expect(desktopAPI.updateMember).toHaveBeenLastCalledWith('org_one', 'mem_one', {
-			phone: '13800000000',
-		})
-		wrapper.unmount()
-	})
+  it('keeps full-phone member data on the list and routes editing to the member page', async () => {
+    const wrapper = mountView(); await flushPromises()
+    const vm = wrapper.vm as any
+    expect(vm.members[0].phone).toBe('+8613800000000')
+    expect(vm.memberColumns.map((column: { key: string }) => column.key)).not.toContain('masked_phone')
+    vm.openEditMember(member)
+    expect(router.push).toHaveBeenLastCalledWith(expect.objectContaining({ path: '/admin/desktop/organizations/org_one/members/mem_one/edit' }))
+    expect(desktopAPI.updateMember).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
 
 	it('shows member cost and token usage in separate columns', async () => {
 		const wrapper = mountView()
@@ -612,17 +583,6 @@ describe('DesktopOrganizationDetailView', () => {
 		expect(vm.formatUsageTokensFull(member.usage.last_30_days_tokens)).toBe('2,500,000')
 		expect(vm.formatUsageTokensFull(member.usage.total_tokens)).toBe('4,000,000,000')
 		expect(vm.formatUsageTokensFull(member.usage.today_tokens)).toContain('1,250')
-		wrapper.unmount()
-	})
-
-	it('prefills the full phone in the real edit input', async () => {
-		const wrapper = mountViewWithRealMemberForm()
-		await flushPromises()
-
-		;(wrapper.vm as any).openEditMember(member)
-		await flushPromises()
-
-		expect(wrapper.get<HTMLInputElement>('input[type="tel"]').element.value).toBe('+8613800000000')
 		wrapper.unmount()
 	})
 
@@ -827,8 +787,7 @@ describe('DesktopOrganizationDetailView', () => {
     const button = wrapper.findAll('button').find((item) => item.text().includes('admin.desktop.createMember'))
     expect(button?.attributes('disabled')).toBeDefined()
     const vm = wrapper.vm as any
-    Object.assign(vm.memberForm, { name: 'Extra', phone: '13800138001' })
-    await vm.saveMember()
+    vm.openCreateMember()
 
     expect(api.createMember).not.toHaveBeenCalled()
     expect(appStore.showError).toHaveBeenCalledWith('admin.desktop.errors.MEMBER_LIMIT_REACHED')

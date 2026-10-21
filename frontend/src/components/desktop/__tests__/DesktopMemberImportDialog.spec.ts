@@ -9,11 +9,13 @@ const files = vi.hoisted(() => ({ parseDesktopMemberImportFile: vi.fn(), createD
 vi.mock('@/api/admin/desktop', () => admin)
 vi.mock('@/api/desktopOrganization', () => ({ default: managed }))
 vi.mock('@/utils/desktopMemberImport', () => files)
+const structure = vi.hoisted(() => ({ all: vi.fn() }))
+vi.mock('@/api/desktopStructure', () => ({ desktopStructure: () => structure }))
 vi.mock('file-saver', () => ({ saveAs: vi.fn() }))
 vi.mock('vue-i18n', async (original) => ({ ...await original<typeof import('vue-i18n')>(), useI18n: () => ({ t: (key: string) => key, te: () => true }) }))
 import DesktopMemberImportDialog from '../DesktopMemberImportDialog.vue'
 
-const record = (index: number): DesktopMemberImportRow => ({ rowNumber: index + 3, input: { name: `Member ${index}`, phone: `+861380013800${index}`, remark: 'Team' }, errors: [] })
+const record = (index: number): DesktopMemberImportRow => ({ rowNumber: index + 3, input: { name: `Member ${index}`, phone: `+861380013800${index}`, remark: 'Team' }, departmentName: 'Delivery', positionName: 'Engineer', errors: [] })
 const view = (selfManaged = false, availableSlots = 10) => mount(DesktopMemberImportDialog, {
   props: { show: true, organizationId: 'org_one', selfManaged, availableSlots, organizationActive: true },
   global: { stubs: { BaseDialog: { template: '<div v-if="show"><slot /><slot name="footer" /></div>', props: ['show'] }, Icon: true } },
@@ -25,9 +27,10 @@ async function upload(wrapper: ReturnType<typeof view>) {
   await flushPromises()
 }
 
-describe('Desktop member import dialog', () => {
+describe('Desktop member import page content', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    structure.all.mockImplementation(async (kind: string) => kind === 'departments' ? [{ public_id: 'dep_one', name: 'Delivery', status: 'active' }] : [{ public_id: 'pos_one', name: 'Engineer', status: 'active', department: { public_id: 'dep_one', name: 'Delivery' } }])
     admin.createMember.mockReset().mockResolvedValue({})
     managed.createMember.mockReset().mockResolvedValue({})
     files.parseDesktopMemberImportFile.mockReset().mockResolvedValue([record(0), record(1)])
@@ -85,7 +88,7 @@ describe('Desktop member import dialog', () => {
     await flushPromises()
     const api = selfManaged ? managed : admin
     expect(api.createMember).toHaveBeenCalledOnce()
-    expect(api.createMember).toHaveBeenCalledWith('org_one', record(0).input, expect.stringMatching(/^desktop-member-import-/))
+    expect(api.createMember).toHaveBeenCalledWith('org_one', { ...record(0).input, position_id: 'pos_one' }, expect.stringMatching(/^desktop-member-import-/))
     expect(wrapper.emitted('imported')).toHaveLength(1)
     expect(wrapper.text()).toContain('memberImport.success')
     expect(wrapper.get('[data-testid="confirm-member-import"]').attributes('disabled')).toBeDefined()
@@ -105,7 +108,7 @@ describe('Desktop member import dialog', () => {
     await wrapper.get('[data-testid="confirm-member-import"]').trigger('click')
     await flushPromises()
     expect(admin.createMember).toHaveBeenCalledTimes(3)
-    expect(admin.createMember).toHaveBeenLastCalledWith('org_one', record(0).input, firstKey)
+    expect(admin.createMember).toHaveBeenLastCalledWith('org_one', { ...record(0).input, position_id: 'pos_one' }, firstKey)
     wrapper.unmount()
   })
 

@@ -103,7 +103,8 @@ func TestDesktopReportPersistenceLeaseSourcesAndBilling(t *testing.T) {
 	lease.Payload.Snapshots[0].Member.Content = "old report"
 	lease.Payload.Snapshots[0].Member.Status = "completed"
 	require.NoError(t, repo.Save(ctx, lease, time.Now(), false))
-	_, err = integrationDB.ExecContext(ctx, `UPDATE desktop_daily_report_tasks SET lease_until=NOW()-INTERVAL '1 second' WHERE id=$1`, task.ID)
+	// Use the database clock for both reclaim conditions across host/container clocks.
+	_, err = integrationDB.ExecContext(ctx, `UPDATE desktop_daily_report_tasks SET lease_until=NOW()-INTERVAL '1 second',next_run_at=NOW()-INTERVAL '1 second' WHERE id=$1`, task.ID)
 	require.NoError(t, err)
 	resumed, err := repo.Claim(ctx)
 	require.NoError(t, err)

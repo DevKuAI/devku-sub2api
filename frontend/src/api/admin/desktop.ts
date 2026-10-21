@@ -108,6 +108,10 @@ export interface DesktopOrganization {
 }
 
 export interface DesktopMember {
+  department?: { public_id: string; name: string } | null
+  position?: { public_id: string; name: string } | null
+  position_revision?: number
+  assignment_status?: string
  usage_as_of?: string
  usage_timezone?: string
  budget?: DesktopMemberBudget
@@ -159,6 +163,7 @@ export interface UpdateDesktopOrganizationRequest {
 }
 
 export interface CreateDesktopMemberRequest {
+  position_id: string
  budget?: DesktopMemberBudget
   name: string
   phone: string
@@ -219,7 +224,7 @@ export async function listMembers(
   organizationID: string,
   page: number,
   pageSize: number,
-  filters: { search?: string; status?: DesktopStatus | ''; as_of?: string },
+  filters: { search?: string; status?: DesktopStatus | ''; as_of?: string; department_id?: string; position_id?: string; unassigned?: boolean },
   signal?: AbortSignal,
 ): Promise<PaginatedResponse<DesktopMember>> {
   const { data } = await apiClient.get<PaginatedResponse<DesktopMember>>(

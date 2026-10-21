@@ -24,7 +24,7 @@ export async function listMembers(
   _organizationID: string,
   page: number,
   pageSize: number,
-  filters: { search?: string; status?: DesktopStatus | ''; as_of?: string },
+  filters: { search?: string; status?: DesktopStatus | ''; as_of?: string; department_id?: string; position_id?: string; unassigned?: boolean },
   signal?: AbortSignal,
 ): Promise<PaginatedResponse<DesktopMember>> {
   const { data } = await apiClient.get<PaginatedResponse<DesktopMember>>(`${basePath}/members`, {

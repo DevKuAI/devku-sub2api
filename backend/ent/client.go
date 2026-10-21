@@ -31,9 +31,12 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
 	"github.com/Wei-Shaw/sub2api/ent/compositemodelroute"
 	"github.com/Wei-Shaw/sub2api/ent/desktopconversationrecord"
+	"github.com/Wei-Shaw/sub2api/ent/desktopdepartment"
 	"github.com/Wei-Shaw/sub2api/ent/desktopmember"
 	"github.com/Wei-Shaw/sub2api/ent/desktopmemberapikey"
+	"github.com/Wei-Shaw/sub2api/ent/desktopmemberpositionhistory"
 	"github.com/Wei-Shaw/sub2api/ent/desktoporganization"
+	"github.com/Wei-Shaw/sub2api/ent/desktopposition"
 	"github.com/Wei-Shaw/sub2api/ent/desktopupdaterelease"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
@@ -100,12 +103,18 @@ type Client struct {
 	CompositeModelRoute *CompositeModelRouteClient
 	// DesktopConversationRecord is the client for interacting with the DesktopConversationRecord builders.
 	DesktopConversationRecord *DesktopConversationRecordClient
+	// DesktopDepartment is the client for interacting with the DesktopDepartment builders.
+	DesktopDepartment *DesktopDepartmentClient
 	// DesktopMember is the client for interacting with the DesktopMember builders.
 	DesktopMember *DesktopMemberClient
 	// DesktopMemberAPIKey is the client for interacting with the DesktopMemberAPIKey builders.
 	DesktopMemberAPIKey *DesktopMemberAPIKeyClient
+	// DesktopMemberPositionHistory is the client for interacting with the DesktopMemberPositionHistory builders.
+	DesktopMemberPositionHistory *DesktopMemberPositionHistoryClient
 	// DesktopOrganization is the client for interacting with the DesktopOrganization builders.
 	DesktopOrganization *DesktopOrganizationClient
+	// DesktopPosition is the client for interacting with the DesktopPosition builders.
+	DesktopPosition *DesktopPositionClient
 	// DesktopUpdateRelease is the client for interacting with the DesktopUpdateRelease builders.
 	DesktopUpdateRelease *DesktopUpdateReleaseClient
 	// ErrorPassthroughRule is the client for interacting with the ErrorPassthroughRule builders.
@@ -183,9 +192,12 @@ func (c *Client) init() {
 	c.ChannelMonitorRequestTemplate = NewChannelMonitorRequestTemplateClient(c.config)
 	c.CompositeModelRoute = NewCompositeModelRouteClient(c.config)
 	c.DesktopConversationRecord = NewDesktopConversationRecordClient(c.config)
+	c.DesktopDepartment = NewDesktopDepartmentClient(c.config)
 	c.DesktopMember = NewDesktopMemberClient(c.config)
 	c.DesktopMemberAPIKey = NewDesktopMemberAPIKeyClient(c.config)
+	c.DesktopMemberPositionHistory = NewDesktopMemberPositionHistoryClient(c.config)
 	c.DesktopOrganization = NewDesktopOrganizationClient(c.config)
+	c.DesktopPosition = NewDesktopPositionClient(c.config)
 	c.DesktopUpdateRelease = NewDesktopUpdateReleaseClient(c.config)
 	c.ErrorPassthroughRule = NewErrorPassthroughRuleClient(c.config)
 	c.Group = NewGroupClient(c.config)
@@ -319,9 +331,12 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		ChannelMonitorRequestTemplate: NewChannelMonitorRequestTemplateClient(cfg),
 		CompositeModelRoute:           NewCompositeModelRouteClient(cfg),
 		DesktopConversationRecord:     NewDesktopConversationRecordClient(cfg),
+		DesktopDepartment:             NewDesktopDepartmentClient(cfg),
 		DesktopMember:                 NewDesktopMemberClient(cfg),
 		DesktopMemberAPIKey:           NewDesktopMemberAPIKeyClient(cfg),
+		DesktopMemberPositionHistory:  NewDesktopMemberPositionHistoryClient(cfg),
 		DesktopOrganization:           NewDesktopOrganizationClient(cfg),
+		DesktopPosition:               NewDesktopPositionClient(cfg),
 		DesktopUpdateRelease:          NewDesktopUpdateReleaseClient(cfg),
 		ErrorPassthroughRule:          NewErrorPassthroughRuleClient(cfg),
 		Group:                         NewGroupClient(cfg),
@@ -382,9 +397,12 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		ChannelMonitorRequestTemplate: NewChannelMonitorRequestTemplateClient(cfg),
 		CompositeModelRoute:           NewCompositeModelRouteClient(cfg),
 		DesktopConversationRecord:     NewDesktopConversationRecordClient(cfg),
+		DesktopDepartment:             NewDesktopDepartmentClient(cfg),
 		DesktopMember:                 NewDesktopMemberClient(cfg),
 		DesktopMemberAPIKey:           NewDesktopMemberAPIKeyClient(cfg),
+		DesktopMemberPositionHistory:  NewDesktopMemberPositionHistoryClient(cfg),
 		DesktopOrganization:           NewDesktopOrganizationClient(cfg),
+		DesktopPosition:               NewDesktopPositionClient(cfg),
 		DesktopUpdateRelease:          NewDesktopUpdateReleaseClient(cfg),
 		ErrorPassthroughRule:          NewErrorPassthroughRuleClient(cfg),
 		Group:                         NewGroupClient(cfg),
@@ -443,8 +461,9 @@ func (c *Client) Use(hooks ...Hook) {
 		c.AuthIdentity, c.AuthIdentityChannel, c.BatchImageEvent, c.BatchImageItem,
 		c.BatchImageJob, c.ChannelMonitor, c.ChannelMonitorDailyRollup,
 		c.ChannelMonitorHistory, c.ChannelMonitorRequestTemplate,
-		c.CompositeModelRoute, c.DesktopConversationRecord, c.DesktopMember,
-		c.DesktopMemberAPIKey, c.DesktopOrganization, c.DesktopUpdateRelease,
+		c.CompositeModelRoute, c.DesktopConversationRecord, c.DesktopDepartment,
+		c.DesktopMember, c.DesktopMemberAPIKey, c.DesktopMemberPositionHistory,
+		c.DesktopOrganization, c.DesktopPosition, c.DesktopUpdateRelease,
 		c.ErrorPassthroughRule, c.Group, c.IdempotencyRecord,
 		c.IdentityAdoptionDecision, c.PaymentAuditLog, c.PaymentOrder,
 		c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage,
@@ -465,8 +484,9 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.AuthIdentity, c.AuthIdentityChannel, c.BatchImageEvent, c.BatchImageItem,
 		c.BatchImageJob, c.ChannelMonitor, c.ChannelMonitorDailyRollup,
 		c.ChannelMonitorHistory, c.ChannelMonitorRequestTemplate,
-		c.CompositeModelRoute, c.DesktopConversationRecord, c.DesktopMember,
-		c.DesktopMemberAPIKey, c.DesktopOrganization, c.DesktopUpdateRelease,
+		c.CompositeModelRoute, c.DesktopConversationRecord, c.DesktopDepartment,
+		c.DesktopMember, c.DesktopMemberAPIKey, c.DesktopMemberPositionHistory,
+		c.DesktopOrganization, c.DesktopPosition, c.DesktopUpdateRelease,
 		c.ErrorPassthroughRule, c.Group, c.IdempotencyRecord,
 		c.IdentityAdoptionDecision, c.PaymentAuditLog, c.PaymentOrder,
 		c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage,
@@ -514,12 +534,18 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.CompositeModelRoute.mutate(ctx, m)
 	case *DesktopConversationRecordMutation:
 		return c.DesktopConversationRecord.mutate(ctx, m)
+	case *DesktopDepartmentMutation:
+		return c.DesktopDepartment.mutate(ctx, m)
 	case *DesktopMemberMutation:
 		return c.DesktopMember.mutate(ctx, m)
 	case *DesktopMemberAPIKeyMutation:
 		return c.DesktopMemberAPIKey.mutate(ctx, m)
+	case *DesktopMemberPositionHistoryMutation:
+		return c.DesktopMemberPositionHistory.mutate(ctx, m)
 	case *DesktopOrganizationMutation:
 		return c.DesktopOrganization.mutate(ctx, m)
+	case *DesktopPositionMutation:
+		return c.DesktopPosition.mutate(ctx, m)
 	case *DesktopUpdateReleaseMutation:
 		return c.DesktopUpdateRelease.mutate(ctx, m)
 	case *ErrorPassthroughRuleMutation:
@@ -3124,6 +3150,171 @@ func (c *DesktopConversationRecordClient) mutate(ctx context.Context, m *Desktop
 	}
 }
 
+// DesktopDepartmentClient is a client for the DesktopDepartment schema.
+type DesktopDepartmentClient struct {
+	config
+}
+
+// NewDesktopDepartmentClient returns a client for the DesktopDepartment from the given config.
+func NewDesktopDepartmentClient(c config) *DesktopDepartmentClient {
+	return &DesktopDepartmentClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `desktopdepartment.Hooks(f(g(h())))`.
+func (c *DesktopDepartmentClient) Use(hooks ...Hook) {
+	c.hooks.DesktopDepartment = append(c.hooks.DesktopDepartment, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `desktopdepartment.Intercept(f(g(h())))`.
+func (c *DesktopDepartmentClient) Intercept(interceptors ...Interceptor) {
+	c.inters.DesktopDepartment = append(c.inters.DesktopDepartment, interceptors...)
+}
+
+// Create returns a builder for creating a DesktopDepartment entity.
+func (c *DesktopDepartmentClient) Create() *DesktopDepartmentCreate {
+	mutation := newDesktopDepartmentMutation(c.config, OpCreate)
+	return &DesktopDepartmentCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of DesktopDepartment entities.
+func (c *DesktopDepartmentClient) CreateBulk(builders ...*DesktopDepartmentCreate) *DesktopDepartmentCreateBulk {
+	return &DesktopDepartmentCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *DesktopDepartmentClient) MapCreateBulk(slice any, setFunc func(*DesktopDepartmentCreate, int)) *DesktopDepartmentCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &DesktopDepartmentCreateBulk{err: fmt.Errorf("calling to DesktopDepartmentClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*DesktopDepartmentCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &DesktopDepartmentCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for DesktopDepartment.
+func (c *DesktopDepartmentClient) Update() *DesktopDepartmentUpdate {
+	mutation := newDesktopDepartmentMutation(c.config, OpUpdate)
+	return &DesktopDepartmentUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *DesktopDepartmentClient) UpdateOne(_m *DesktopDepartment) *DesktopDepartmentUpdateOne {
+	mutation := newDesktopDepartmentMutation(c.config, OpUpdateOne, withDesktopDepartment(_m))
+	return &DesktopDepartmentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *DesktopDepartmentClient) UpdateOneID(id int64) *DesktopDepartmentUpdateOne {
+	mutation := newDesktopDepartmentMutation(c.config, OpUpdateOne, withDesktopDepartmentID(id))
+	return &DesktopDepartmentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for DesktopDepartment.
+func (c *DesktopDepartmentClient) Delete() *DesktopDepartmentDelete {
+	mutation := newDesktopDepartmentMutation(c.config, OpDelete)
+	return &DesktopDepartmentDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *DesktopDepartmentClient) DeleteOne(_m *DesktopDepartment) *DesktopDepartmentDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *DesktopDepartmentClient) DeleteOneID(id int64) *DesktopDepartmentDeleteOne {
+	builder := c.Delete().Where(desktopdepartment.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &DesktopDepartmentDeleteOne{builder}
+}
+
+// Query returns a query builder for DesktopDepartment.
+func (c *DesktopDepartmentClient) Query() *DesktopDepartmentQuery {
+	return &DesktopDepartmentQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeDesktopDepartment},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a DesktopDepartment entity by its id.
+func (c *DesktopDepartmentClient) Get(ctx context.Context, id int64) (*DesktopDepartment, error) {
+	return c.Query().Where(desktopdepartment.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *DesktopDepartmentClient) GetX(ctx context.Context, id int64) *DesktopDepartment {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryOrganization queries the organization edge of a DesktopDepartment.
+func (c *DesktopDepartmentClient) QueryOrganization(_m *DesktopDepartment) *DesktopOrganizationQuery {
+	query := (&DesktopOrganizationClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(desktopdepartment.Table, desktopdepartment.FieldID, id),
+			sqlgraph.To(desktoporganization.Table, desktoporganization.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, desktopdepartment.OrganizationTable, desktopdepartment.OrganizationColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryPositions queries the positions edge of a DesktopDepartment.
+func (c *DesktopDepartmentClient) QueryPositions(_m *DesktopDepartment) *DesktopPositionQuery {
+	query := (&DesktopPositionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(desktopdepartment.Table, desktopdepartment.FieldID, id),
+			sqlgraph.To(desktopposition.Table, desktopposition.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, desktopdepartment.PositionsTable, desktopdepartment.PositionsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *DesktopDepartmentClient) Hooks() []Hook {
+	return c.hooks.DesktopDepartment
+}
+
+// Interceptors returns the client interceptors.
+func (c *DesktopDepartmentClient) Interceptors() []Interceptor {
+	return c.inters.DesktopDepartment
+}
+
+func (c *DesktopDepartmentClient) mutate(ctx context.Context, m *DesktopDepartmentMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&DesktopDepartmentCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&DesktopDepartmentUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&DesktopDepartmentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&DesktopDepartmentDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown DesktopDepartment mutation op: %q", m.Op())
+	}
+}
+
 // DesktopMemberClient is a client for the DesktopMember schema.
 type DesktopMemberClient struct {
 	config
@@ -3257,6 +3448,22 @@ func (c *DesktopMemberClient) QueryAPIKeyAssignments(_m *DesktopMember) *Desktop
 			sqlgraph.From(desktopmember.Table, desktopmember.FieldID, id),
 			sqlgraph.To(desktopmemberapikey.Table, desktopmemberapikey.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, desktopmember.APIKeyAssignmentsTable, desktopmember.APIKeyAssignmentsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryPosition queries the position edge of a DesktopMember.
+func (c *DesktopMemberClient) QueryPosition(_m *DesktopMember) *DesktopPositionQuery {
+	query := (&DesktopPositionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(desktopmember.Table, desktopmember.FieldID, id),
+			sqlgraph.To(desktopposition.Table, desktopposition.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, desktopmember.PositionTable, desktopmember.PositionColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -3456,6 +3663,139 @@ func (c *DesktopMemberAPIKeyClient) mutate(ctx context.Context, m *DesktopMember
 	}
 }
 
+// DesktopMemberPositionHistoryClient is a client for the DesktopMemberPositionHistory schema.
+type DesktopMemberPositionHistoryClient struct {
+	config
+}
+
+// NewDesktopMemberPositionHistoryClient returns a client for the DesktopMemberPositionHistory from the given config.
+func NewDesktopMemberPositionHistoryClient(c config) *DesktopMemberPositionHistoryClient {
+	return &DesktopMemberPositionHistoryClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `desktopmemberpositionhistory.Hooks(f(g(h())))`.
+func (c *DesktopMemberPositionHistoryClient) Use(hooks ...Hook) {
+	c.hooks.DesktopMemberPositionHistory = append(c.hooks.DesktopMemberPositionHistory, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `desktopmemberpositionhistory.Intercept(f(g(h())))`.
+func (c *DesktopMemberPositionHistoryClient) Intercept(interceptors ...Interceptor) {
+	c.inters.DesktopMemberPositionHistory = append(c.inters.DesktopMemberPositionHistory, interceptors...)
+}
+
+// Create returns a builder for creating a DesktopMemberPositionHistory entity.
+func (c *DesktopMemberPositionHistoryClient) Create() *DesktopMemberPositionHistoryCreate {
+	mutation := newDesktopMemberPositionHistoryMutation(c.config, OpCreate)
+	return &DesktopMemberPositionHistoryCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of DesktopMemberPositionHistory entities.
+func (c *DesktopMemberPositionHistoryClient) CreateBulk(builders ...*DesktopMemberPositionHistoryCreate) *DesktopMemberPositionHistoryCreateBulk {
+	return &DesktopMemberPositionHistoryCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *DesktopMemberPositionHistoryClient) MapCreateBulk(slice any, setFunc func(*DesktopMemberPositionHistoryCreate, int)) *DesktopMemberPositionHistoryCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &DesktopMemberPositionHistoryCreateBulk{err: fmt.Errorf("calling to DesktopMemberPositionHistoryClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*DesktopMemberPositionHistoryCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &DesktopMemberPositionHistoryCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for DesktopMemberPositionHistory.
+func (c *DesktopMemberPositionHistoryClient) Update() *DesktopMemberPositionHistoryUpdate {
+	mutation := newDesktopMemberPositionHistoryMutation(c.config, OpUpdate)
+	return &DesktopMemberPositionHistoryUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *DesktopMemberPositionHistoryClient) UpdateOne(_m *DesktopMemberPositionHistory) *DesktopMemberPositionHistoryUpdateOne {
+	mutation := newDesktopMemberPositionHistoryMutation(c.config, OpUpdateOne, withDesktopMemberPositionHistory(_m))
+	return &DesktopMemberPositionHistoryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *DesktopMemberPositionHistoryClient) UpdateOneID(id int64) *DesktopMemberPositionHistoryUpdateOne {
+	mutation := newDesktopMemberPositionHistoryMutation(c.config, OpUpdateOne, withDesktopMemberPositionHistoryID(id))
+	return &DesktopMemberPositionHistoryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for DesktopMemberPositionHistory.
+func (c *DesktopMemberPositionHistoryClient) Delete() *DesktopMemberPositionHistoryDelete {
+	mutation := newDesktopMemberPositionHistoryMutation(c.config, OpDelete)
+	return &DesktopMemberPositionHistoryDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *DesktopMemberPositionHistoryClient) DeleteOne(_m *DesktopMemberPositionHistory) *DesktopMemberPositionHistoryDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *DesktopMemberPositionHistoryClient) DeleteOneID(id int64) *DesktopMemberPositionHistoryDeleteOne {
+	builder := c.Delete().Where(desktopmemberpositionhistory.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &DesktopMemberPositionHistoryDeleteOne{builder}
+}
+
+// Query returns a query builder for DesktopMemberPositionHistory.
+func (c *DesktopMemberPositionHistoryClient) Query() *DesktopMemberPositionHistoryQuery {
+	return &DesktopMemberPositionHistoryQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeDesktopMemberPositionHistory},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a DesktopMemberPositionHistory entity by its id.
+func (c *DesktopMemberPositionHistoryClient) Get(ctx context.Context, id int64) (*DesktopMemberPositionHistory, error) {
+	return c.Query().Where(desktopmemberpositionhistory.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *DesktopMemberPositionHistoryClient) GetX(ctx context.Context, id int64) *DesktopMemberPositionHistory {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *DesktopMemberPositionHistoryClient) Hooks() []Hook {
+	return c.hooks.DesktopMemberPositionHistory
+}
+
+// Interceptors returns the client interceptors.
+func (c *DesktopMemberPositionHistoryClient) Interceptors() []Interceptor {
+	return c.inters.DesktopMemberPositionHistory
+}
+
+func (c *DesktopMemberPositionHistoryClient) mutate(ctx context.Context, m *DesktopMemberPositionHistoryMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&DesktopMemberPositionHistoryCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&DesktopMemberPositionHistoryUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&DesktopMemberPositionHistoryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&DesktopMemberPositionHistoryDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown DesktopMemberPositionHistory mutation op: %q", m.Op())
+	}
+}
+
 // DesktopOrganizationClient is a client for the DesktopOrganization schema.
 type DesktopOrganizationClient struct {
 	config
@@ -3636,6 +3976,187 @@ func (c *DesktopOrganizationClient) mutate(ctx context.Context, m *DesktopOrgani
 		return (&DesktopOrganizationDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown DesktopOrganization mutation op: %q", m.Op())
+	}
+}
+
+// DesktopPositionClient is a client for the DesktopPosition schema.
+type DesktopPositionClient struct {
+	config
+}
+
+// NewDesktopPositionClient returns a client for the DesktopPosition from the given config.
+func NewDesktopPositionClient(c config) *DesktopPositionClient {
+	return &DesktopPositionClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `desktopposition.Hooks(f(g(h())))`.
+func (c *DesktopPositionClient) Use(hooks ...Hook) {
+	c.hooks.DesktopPosition = append(c.hooks.DesktopPosition, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `desktopposition.Intercept(f(g(h())))`.
+func (c *DesktopPositionClient) Intercept(interceptors ...Interceptor) {
+	c.inters.DesktopPosition = append(c.inters.DesktopPosition, interceptors...)
+}
+
+// Create returns a builder for creating a DesktopPosition entity.
+func (c *DesktopPositionClient) Create() *DesktopPositionCreate {
+	mutation := newDesktopPositionMutation(c.config, OpCreate)
+	return &DesktopPositionCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of DesktopPosition entities.
+func (c *DesktopPositionClient) CreateBulk(builders ...*DesktopPositionCreate) *DesktopPositionCreateBulk {
+	return &DesktopPositionCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *DesktopPositionClient) MapCreateBulk(slice any, setFunc func(*DesktopPositionCreate, int)) *DesktopPositionCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &DesktopPositionCreateBulk{err: fmt.Errorf("calling to DesktopPositionClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*DesktopPositionCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &DesktopPositionCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for DesktopPosition.
+func (c *DesktopPositionClient) Update() *DesktopPositionUpdate {
+	mutation := newDesktopPositionMutation(c.config, OpUpdate)
+	return &DesktopPositionUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *DesktopPositionClient) UpdateOne(_m *DesktopPosition) *DesktopPositionUpdateOne {
+	mutation := newDesktopPositionMutation(c.config, OpUpdateOne, withDesktopPosition(_m))
+	return &DesktopPositionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *DesktopPositionClient) UpdateOneID(id int64) *DesktopPositionUpdateOne {
+	mutation := newDesktopPositionMutation(c.config, OpUpdateOne, withDesktopPositionID(id))
+	return &DesktopPositionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for DesktopPosition.
+func (c *DesktopPositionClient) Delete() *DesktopPositionDelete {
+	mutation := newDesktopPositionMutation(c.config, OpDelete)
+	return &DesktopPositionDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *DesktopPositionClient) DeleteOne(_m *DesktopPosition) *DesktopPositionDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *DesktopPositionClient) DeleteOneID(id int64) *DesktopPositionDeleteOne {
+	builder := c.Delete().Where(desktopposition.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &DesktopPositionDeleteOne{builder}
+}
+
+// Query returns a query builder for DesktopPosition.
+func (c *DesktopPositionClient) Query() *DesktopPositionQuery {
+	return &DesktopPositionQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeDesktopPosition},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a DesktopPosition entity by its id.
+func (c *DesktopPositionClient) Get(ctx context.Context, id int64) (*DesktopPosition, error) {
+	return c.Query().Where(desktopposition.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *DesktopPositionClient) GetX(ctx context.Context, id int64) *DesktopPosition {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryOrganization queries the organization edge of a DesktopPosition.
+func (c *DesktopPositionClient) QueryOrganization(_m *DesktopPosition) *DesktopOrganizationQuery {
+	query := (&DesktopOrganizationClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(desktopposition.Table, desktopposition.FieldID, id),
+			sqlgraph.To(desktoporganization.Table, desktoporganization.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, desktopposition.OrganizationTable, desktopposition.OrganizationColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryDepartment queries the department edge of a DesktopPosition.
+func (c *DesktopPositionClient) QueryDepartment(_m *DesktopPosition) *DesktopDepartmentQuery {
+	query := (&DesktopDepartmentClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(desktopposition.Table, desktopposition.FieldID, id),
+			sqlgraph.To(desktopdepartment.Table, desktopdepartment.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, desktopposition.DepartmentTable, desktopposition.DepartmentColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryMembers queries the members edge of a DesktopPosition.
+func (c *DesktopPositionClient) QueryMembers(_m *DesktopPosition) *DesktopMemberQuery {
+	query := (&DesktopMemberClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(desktopposition.Table, desktopposition.FieldID, id),
+			sqlgraph.To(desktopmember.Table, desktopmember.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, desktopposition.MembersTable, desktopposition.MembersColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *DesktopPositionClient) Hooks() []Hook {
+	return c.hooks.DesktopPosition
+}
+
+// Interceptors returns the client interceptors.
+func (c *DesktopPositionClient) Interceptors() []Interceptor {
+	return c.inters.DesktopPosition
+}
+
+func (c *DesktopPositionClient) mutate(ctx context.Context, m *DesktopPositionMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&DesktopPositionCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&DesktopPositionUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&DesktopPositionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&DesktopPositionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown DesktopPosition mutation op: %q", m.Op())
 	}
 }
 
@@ -7782,26 +8303,28 @@ type (
 		AuthIdentityChannel, BatchImageEvent, BatchImageItem, BatchImageJob,
 		ChannelMonitor, ChannelMonitorDailyRollup, ChannelMonitorHistory,
 		ChannelMonitorRequestTemplate, CompositeModelRoute, DesktopConversationRecord,
-		DesktopMember, DesktopMemberAPIKey, DesktopOrganization, DesktopUpdateRelease,
-		ErrorPassthroughRule, Group, IdempotencyRecord, IdentityAdoptionDecision,
-		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
-		PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
-		SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
-		UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
-		UserPlatformQuota, UserSubscription []ent.Hook
+		DesktopDepartment, DesktopMember, DesktopMemberAPIKey,
+		DesktopMemberPositionHistory, DesktopOrganization, DesktopPosition,
+		DesktopUpdateRelease, ErrorPassthroughRule, Group, IdempotencyRecord,
+		IdentityAdoptionDecision, PaymentAuditLog, PaymentOrder,
+		PaymentProviderInstance, PendingAuthSession, PromoCode, PromoCodeUsage, Proxy,
+		RedeemCode, SecuritySecret, Setting, SubscriptionPlan, TLSFingerprintProfile,
+		UsageCleanupTask, UsageLog, User, UserAllowedGroup, UserAttributeDefinition,
+		UserAttributeValue, UserPlatformQuota, UserSubscription []ent.Hook
 	}
 	inters struct {
 		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
 		AuthIdentityChannel, BatchImageEvent, BatchImageItem, BatchImageJob,
 		ChannelMonitor, ChannelMonitorDailyRollup, ChannelMonitorHistory,
 		ChannelMonitorRequestTemplate, CompositeModelRoute, DesktopConversationRecord,
-		DesktopMember, DesktopMemberAPIKey, DesktopOrganization, DesktopUpdateRelease,
-		ErrorPassthroughRule, Group, IdempotencyRecord, IdentityAdoptionDecision,
-		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
-		PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
-		SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
-		UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
-		UserPlatformQuota, UserSubscription []ent.Interceptor
+		DesktopDepartment, DesktopMember, DesktopMemberAPIKey,
+		DesktopMemberPositionHistory, DesktopOrganization, DesktopPosition,
+		DesktopUpdateRelease, ErrorPassthroughRule, Group, IdempotencyRecord,
+		IdentityAdoptionDecision, PaymentAuditLog, PaymentOrder,
+		PaymentProviderInstance, PendingAuthSession, PromoCode, PromoCodeUsage, Proxy,
+		RedeemCode, SecuritySecret, Setting, SubscriptionPlan, TLSFingerprintProfile,
+		UsageCleanupTask, UsageLog, User, UserAllowedGroup, UserAttributeDefinition,
+		UserAttributeValue, UserPlatformQuota, UserSubscription []ent.Interceptor
 	}
 )
 

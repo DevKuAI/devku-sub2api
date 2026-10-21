@@ -62,10 +62,11 @@ type desktopTargetConfigRequest struct {
 }
 
 type desktopCreateMemberRequest struct {
-	Budget *service.DesktopMemberBudget `json:"budget"`
-	Name   string                       `json:"name" binding:"required"`
-	Phone  string                       `json:"phone" binding:"required"`
-	Remark string                       `json:"remark"`
+	PositionID string                       `json:"position_id"`
+	Budget     *service.DesktopMemberBudget `json:"budget"`
+	Name       string                       `json:"name" binding:"required"`
+	Phone      string                       `json:"phone" binding:"required"`
+	Remark     string                       `json:"remark"`
 }
 
 type desktopUpdateMemberRequest struct {
@@ -109,6 +110,7 @@ type desktopGroupDTO struct {
 }
 
 type desktopMemberDTO struct {
+	service.DesktopMemberAssignment
 	UsageAsOf        *time.Time                   `json:"usage_as_of,omitempty"`
 	UsageTimezone    string                       `json:"usage_timezone,omitempty"`
 	Budget           *service.DesktopMemberBudget `json:"budget,omitempty"`
@@ -203,17 +205,25 @@ func (h *DesktopHandler) UpdateModelConfiguration(c *gin.Context) {
 
 func (h *DesktopHandler) CreateMember(c *gin.Context) {
 	var req desktopCreateMemberRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := handlerdto.BindDesktopWrite(c, &req); err != nil {
 		adminDesktopBindingError(c, err)
 		return
 	}
 	organizationID := c.Param("organization_id")
+	organization, scopeErr := h.desktop.GetOrganization(c.Request.Context(), organizationID)
+	if response.ErrorFrom(c, scopeErr) {
+		return
+	}
+	if organization.Status != service.DesktopStatusActive {
+		response.ErrorFrom(c, service.ErrDesktopOrganizationDisabled)
+		return
+	}
 	payload := struct {
 		OrganizationID string                     `json:"organization_id"`
 		Member         desktopCreateMemberRequest `json:"member"`
 	}{OrganizationID: organizationID, Member: req}
 	result, err := executeAdminIdempotent(c, desktopMemberCreateIdempotencyScope, payload, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
-		member, execErr := h.desktop.CreateMember(ctx, organizationID, req.Name, req.Phone, req.Remark, req.Budget)
+		member, execErr := h.desktop.CreateMember(ctx, organizationID, service.DesktopMemberCreateInput{Name: req.Name, Phone: req.Phone, Remark: req.Remark, PositionID: req.PositionID, Budget: req.Budget, ActorID: desktopActorID(c), RequestID: handlerdto.DesktopRequestID(c)})
 		if execErr != nil {
 			return nil, execErr
 		}
@@ -232,7 +242,7 @@ func (h *DesktopHandler) ListMembers(c *gin.Context) {
 	}
 	page, pageSize := response.ParsePagination(c)
 	items, result, err := h.desktop.ListMembersWithUsage(c.Request.Context(), c.Param("organization_id"), pagination.PaginationParams{Page: page, PageSize: pageSize}, service.DesktopMemberListFilters{
-		Search: c.Query("search"), Status: c.Query("status"),
+		Search: c.Query("search"), Status: c.Query("status"), DepartmentID: c.Query("department_id"), PositionID: c.Query("position_id"), Unassigned: c.Query("unassigned") == "true",
 	}, asOf)
 	if response.ErrorFrom(c, err) {
 		return
@@ -246,7 +256,7 @@ func (h *DesktopHandler) ListMembers(c *gin.Context) {
 
 func (h *DesktopHandler) UpdateMember(c *gin.Context) {
 	var req desktopUpdateMemberRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := handlerdto.BindDesktopWrite(c, &req); err != nil {
 		adminDesktopBindingError(c, err)
 		return
 	}
@@ -324,12 +334,17 @@ func desktopOrganizationFromService(value *service.DesktopOrganization, includeC
 
 func desktopMemberFromService(value *service.DesktopMember) desktopMemberDTO {
 	return desktopMemberDTO{
-		PublicID: value.PublicID, Name: value.Name, Remark: value.Remark, Phone: value.Phone, Status: value.Status,
+		DesktopMemberAssignment: service.DesktopAssignmentView(value),
+		PublicID:                value.PublicID, Name: value.Name, Remark: value.Remark, Phone: value.Phone, Status: value.Status,
 		ModelTokenStatus: value.ModelTokenStatus(), Usage: value.Usage, UsageAsOf: value.UsageAsOf, UsageTimezone: value.UsageTimezone, Budget: value.Budget, CreatedAt: value.CreatedAt, UpdatedAt: value.UpdatedAt,
 	}
 }
 
 func adminDesktopBindingError(c *gin.Context, err error) {
+	if infraerrors.Code(err) == http.StatusRequestEntityTooLarge {
+		response.ErrorFrom(c, err)
+		return
+	}
 	if middleware.IsBodyTooLarge(err) {
 		response.ErrorFrom(c, infraerrors.New(http.StatusRequestEntityTooLarge, "PAYLOAD_TOO_LARGE", "request body is too large"))
 		return
@@ -349,3 +364,12 @@ func (h *DesktopHandler) OrganizationUsageStatistics(c *gin.Context) {
 	}
 	response.Success(c, result)
 }
+
+func desktopActorID(c *gin.Context) int64 {
+	if subject, ok := middleware.GetAuthSubjectFromContext(c); ok {
+		return subject.UserID
+	}
+	return 0
+}
+
+func (h *DesktopHandler) Service() *service.DesktopService { return h.desktop }

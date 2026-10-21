@@ -940,6 +940,44 @@ var (
 			},
 		},
 	}
+	// DesktopDepartmentsColumns holds the columns for the "desktop_departments" table.
+	DesktopDepartmentsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "public_id", Type: field.TypeString, Unique: true, Size: 40},
+		{Name: "name", Type: field.TypeString, Size: 100},
+		{Name: "name_normalized", Type: field.TypeString, Size: 400},
+		{Name: "status", Type: field.TypeString, Size: 20, Default: "active"},
+		{Name: "revision", Type: field.TypeInt64, Default: 1},
+		{Name: "organization_id", Type: field.TypeInt64},
+	}
+	// DesktopDepartmentsTable holds the schema information for the "desktop_departments" table.
+	DesktopDepartmentsTable = &schema.Table{
+		Name:       "desktop_departments",
+		Columns:    DesktopDepartmentsColumns,
+		PrimaryKey: []*schema.Column{DesktopDepartmentsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "desktop_departments_desktop_organizations_organization",
+				Columns:    []*schema.Column{DesktopDepartmentsColumns[8]},
+				RefColumns: []*schema.Column{DesktopOrganizationsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "idx_desktop_departments_name",
+				Unique:  true,
+				Columns: []*schema.Column{DesktopDepartmentsColumns[8], DesktopDepartmentsColumns[5]},
+			},
+			{
+				Name:    "idx_desktop_departments_org_id",
+				Unique:  true,
+				Columns: []*schema.Column{DesktopDepartmentsColumns[8], DesktopDepartmentsColumns[0]},
+			},
+		},
+	}
 	// DesktopMembersColumns holds the columns for the "desktop_members" table.
 	DesktopMembersColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -947,6 +985,7 @@ var (
 		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "deleted_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "public_id", Type: field.TypeString, Unique: true, Size: 40},
+		{Name: "position_revision", Type: field.TypeInt64, Default: 0},
 		{Name: "name", Type: field.TypeString, Size: 100},
 		{Name: "name_normalized", Type: field.TypeString, Size: 100},
 		{Name: "remark", Type: field.TypeString, Size: 500, Default: ""},
@@ -955,6 +994,7 @@ var (
 		{Name: "auth_version", Type: field.TypeInt64, Default: 1},
 		{Name: "api_key_suspended_by_organization", Type: field.TypeBool, Default: false},
 		{Name: "organization_id", Type: field.TypeInt64},
+		{Name: "position_id", Type: field.TypeInt64, Nullable: true},
 	}
 	// DesktopMembersTable holds the schema information for the "desktop_members" table.
 	DesktopMembersTable = &schema.Table{
@@ -964,16 +1004,32 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "desktop_members_desktop_organizations_members",
-				Columns:    []*schema.Column{DesktopMembersColumns[12]},
+				Columns:    []*schema.Column{DesktopMembersColumns[13]},
 				RefColumns: []*schema.Column{DesktopOrganizationsColumns[0]},
 				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "desktop_members_desktop_positions_members",
+				Columns:    []*schema.Column{DesktopMembersColumns[14]},
+				RefColumns: []*schema.Column{DesktopPositionsColumns[0]},
+				OnDelete:   schema.SetNull,
 			},
 		},
 		Indexes: []*schema.Index{
 			{
+				Name:    "idx_desktop_members_org_id",
+				Unique:  true,
+				Columns: []*schema.Column{DesktopMembersColumns[13], DesktopMembersColumns[0]},
+			},
+			{
+				Name:    "idx_desktop_members_position",
+				Unique:  false,
+				Columns: []*schema.Column{DesktopMembersColumns[13], DesktopMembersColumns[14], DesktopMembersColumns[0]},
+			},
+			{
 				Name:    "idx_desktop_members_org_phone_active",
 				Unique:  true,
-				Columns: []*schema.Column{DesktopMembersColumns[12], DesktopMembersColumns[8]},
+				Columns: []*schema.Column{DesktopMembersColumns[13], DesktopMembersColumns[9]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "deleted_at IS NULL",
 				},
@@ -981,7 +1037,7 @@ var (
 			{
 				Name:    "idx_desktop_members_org_status_active",
 				Unique:  false,
-				Columns: []*schema.Column{DesktopMembersColumns[12], DesktopMembersColumns[9]},
+				Columns: []*schema.Column{DesktopMembersColumns[13], DesktopMembersColumns[10]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "deleted_at IS NULL",
 				},
@@ -1028,6 +1084,43 @@ var (
 				Name:    "idx_desktop_member_api_keys_history",
 				Unique:  false,
 				Columns: []*schema.Column{DesktopMemberAPIKeysColumns[4], DesktopMemberAPIKeysColumns[1]},
+			},
+		},
+	}
+	// DesktopMemberPositionHistoryColumns holds the columns for the "desktop_member_position_history" table.
+	DesktopMemberPositionHistoryColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "organization_id", Type: field.TypeInt64},
+		{Name: "member_id", Type: field.TypeInt64},
+		{Name: "position_id", Type: field.TypeInt64},
+		{Name: "position_revision", Type: field.TypeInt64},
+		{Name: "department_name_snapshot", Type: field.TypeString, Size: 100},
+		{Name: "position_name_snapshot", Type: field.TypeString, Size: 100},
+		{Name: "started_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "ended_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "source", Type: field.TypeString, Size: 32},
+		{Name: "changed_by_user_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "request_id", Type: field.TypeString, Size: 128, Default: ""},
+		{Name: "reason", Type: field.TypeString, Size: 500, Default: ""},
+	}
+	// DesktopMemberPositionHistoryTable holds the schema information for the "desktop_member_position_history" table.
+	DesktopMemberPositionHistoryTable = &schema.Table{
+		Name:       "desktop_member_position_history",
+		Columns:    DesktopMemberPositionHistoryColumns,
+		PrimaryKey: []*schema.Column{DesktopMemberPositionHistoryColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "idx_desktop_position_history_revision",
+				Unique:  true,
+				Columns: []*schema.Column{DesktopMemberPositionHistoryColumns[2], DesktopMemberPositionHistoryColumns[4]},
+			},
+			{
+				Name:    "idx_desktop_position_history_current",
+				Unique:  true,
+				Columns: []*schema.Column{DesktopMemberPositionHistoryColumns[2]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "ended_at IS NULL",
+				},
 			},
 		},
 	}
@@ -1105,6 +1198,51 @@ var (
 				Annotation: &entsql.IndexAnnotation{
 					Where: "deleted_at IS NULL",
 				},
+			},
+		},
+	}
+	// DesktopPositionsColumns holds the columns for the "desktop_positions" table.
+	DesktopPositionsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "public_id", Type: field.TypeString, Unique: true, Size: 40},
+		{Name: "name", Type: field.TypeString, Size: 100},
+		{Name: "name_normalized", Type: field.TypeString, Size: 400},
+		{Name: "status", Type: field.TypeString, Size: 20, Default: "active"},
+		{Name: "revision", Type: field.TypeInt64, Default: 1},
+		{Name: "department_id", Type: field.TypeInt64},
+		{Name: "organization_id", Type: field.TypeInt64},
+	}
+	// DesktopPositionsTable holds the schema information for the "desktop_positions" table.
+	DesktopPositionsTable = &schema.Table{
+		Name:       "desktop_positions",
+		Columns:    DesktopPositionsColumns,
+		PrimaryKey: []*schema.Column{DesktopPositionsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "desktop_positions_desktop_departments_positions",
+				Columns:    []*schema.Column{DesktopPositionsColumns[8]},
+				RefColumns: []*schema.Column{DesktopDepartmentsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "desktop_positions_desktop_organizations_organization",
+				Columns:    []*schema.Column{DesktopPositionsColumns[9]},
+				RefColumns: []*schema.Column{DesktopOrganizationsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "idx_desktop_positions_name",
+				Unique:  true,
+				Columns: []*schema.Column{DesktopPositionsColumns[9], DesktopPositionsColumns[8], DesktopPositionsColumns[5]},
+			},
+			{
+				Name:    "idx_desktop_positions_org_id",
+				Unique:  true,
+				Columns: []*schema.Column{DesktopPositionsColumns[9], DesktopPositionsColumns[0]},
 			},
 		},
 	}
@@ -2390,9 +2528,12 @@ var (
 		ChannelMonitorRequestTemplatesTable,
 		CompositeModelRoutesTable,
 		DesktopConversationRecordsTable,
+		DesktopDepartmentsTable,
 		DesktopMembersTable,
 		DesktopMemberAPIKeysTable,
+		DesktopMemberPositionHistoryTable,
 		DesktopOrganizationsTable,
+		DesktopPositionsTable,
 		DesktopUpdateReleasesTable,
 		ErrorPassthroughRulesTable,
 		GroupsTable,
@@ -2487,7 +2628,12 @@ func init() {
 	DesktopConversationRecordsTable.Annotation = &entsql.Annotation{
 		Table: "desktop_conversation_records",
 	}
+	DesktopDepartmentsTable.ForeignKeys[0].RefTable = DesktopOrganizationsTable
+	DesktopDepartmentsTable.Annotation = &entsql.Annotation{
+		Table: "desktop_departments",
+	}
 	DesktopMembersTable.ForeignKeys[0].RefTable = DesktopOrganizationsTable
+	DesktopMembersTable.ForeignKeys[1].RefTable = DesktopPositionsTable
 	DesktopMembersTable.Annotation = &entsql.Annotation{
 		Table: "desktop_members",
 	}
@@ -2496,10 +2642,18 @@ func init() {
 	DesktopMemberAPIKeysTable.Annotation = &entsql.Annotation{
 		Table: "desktop_member_api_keys",
 	}
+	DesktopMemberPositionHistoryTable.Annotation = &entsql.Annotation{
+		Table: "desktop_member_position_history",
+	}
 	DesktopOrganizationsTable.ForeignKeys[0].RefTable = GroupsTable
 	DesktopOrganizationsTable.ForeignKeys[1].RefTable = UsersTable
 	DesktopOrganizationsTable.Annotation = &entsql.Annotation{
 		Table: "desktop_organizations",
+	}
+	DesktopPositionsTable.ForeignKeys[0].RefTable = DesktopDepartmentsTable
+	DesktopPositionsTable.ForeignKeys[1].RefTable = DesktopOrganizationsTable
+	DesktopPositionsTable.Annotation = &entsql.Annotation{
+		Table: "desktop_positions",
 	}
 	DesktopUpdateReleasesTable.Annotation = &entsql.Annotation{
 		Table: "desktop_update_releases",

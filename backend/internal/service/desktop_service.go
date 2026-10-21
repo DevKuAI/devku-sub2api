@@ -98,12 +98,12 @@ func (s *DesktopService) GetManagedOrganization(ctx context.Context, userID int6
 	return organization, nil
 }
 
-func (s *DesktopService) CreateManagedMember(ctx context.Context, userID int64, name, phone, remark string, budgets ...*DesktopMemberBudget) (*DesktopMember, error) {
+func (s *DesktopService) CreateManagedMember(ctx context.Context, userID int64, input DesktopMemberCreateInput) (*DesktopMember, error) {
 	managed, organization, err := s.managedService(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-	return managed.CreateMember(ctx, organization.PublicID, name, phone, remark, budgets...)
+	return managed.CreateMember(ctx, organization.PublicID, input)
 }
 
 func (s *DesktopService) ListManagedMembersWithUsage(ctx context.Context, userID int64, params pagination.PaginationParams, filters DesktopMemberListFilters, asOf ...time.Time) ([]DesktopMember, *pagination.PaginationResult, error) {
@@ -207,7 +207,10 @@ func (s *DesktopService) UpdateTargetConfig(ctx context.Context, publicID string
 	return s.repo.UpdateTargetConfig(ctx, publicID, target)
 }
 
-func (s *DesktopService) CreateMember(ctx context.Context, organizationPublicID, name, phone, remark string, budgets ...*DesktopMemberBudget) (*DesktopMember, error) {
+func (s *DesktopService) CreateMember(ctx context.Context, organizationPublicID string, input DesktopMemberCreateInput) (*DesktopMember, error) {
+	if strings.TrimSpace(input.PositionID) == "" {
+		return nil, ErrDesktopValidation.WithMetadata(map[string]string{"field": "position_id"})
+	}
 	organization, err := s.repo.GetOrganization(ctx, organizationPublicID)
 	if err != nil {
 		return nil, err
@@ -215,11 +218,11 @@ func (s *DesktopService) CreateMember(ctx context.Context, organizationPublicID,
 	if organization.Status != DesktopStatusActive {
 		return nil, ErrDesktopOrganizationDisabled
 	}
-	member, err := s.buildDesktopMember(organizationPublicID, name, phone)
+	member, err := s.buildDesktopMember(organizationPublicID, input.Name, input.Phone)
 	if err != nil {
 		return nil, err
 	}
-	member.Remark, err = NormalizeDesktopRemark(remark)
+	member.Remark, err = NormalizeDesktopRemark(input.Remark)
 	if err != nil {
 		return nil, err
 	}
@@ -227,13 +230,13 @@ func (s *DesktopService) CreateMember(ctx context.Context, organizationPublicID,
 	if err != nil {
 		return nil, err
 	}
-	if len(budgets) > 0 && budgets[0] != nil {
-		if err := budgets[0].Validate(); err != nil {
+	if input.Budget != nil {
+		if err := input.Budget.Validate(); err != nil {
 			return nil, err
 		}
-		budgets[0].Apply(key)
+		input.Budget.Apply(key)
 	}
-	return s.repo.CreateMember(ctx, organizationPublicID, DesktopCreateMemberInput{Member: member, APIKey: key})
+	return s.repo.CreateMember(ctx, organizationPublicID, DesktopCreateMemberInput{Member: member, APIKey: key, PositionID: input.PositionID, ActorID: input.ActorID, RequestID: input.RequestID})
 }
 
 func (s *DesktopService) ListMembers(ctx context.Context, organizationPublicID string, params pagination.PaginationParams, filters DesktopMemberListFilters) ([]DesktopMember, *pagination.PaginationResult, error) {

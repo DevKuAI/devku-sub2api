@@ -1,3 +1,4 @@
+import { normalizeDesktopStructureName } from '../desktopStructureName'
 import { describe, expect, it } from 'vitest'
 import { readSheet } from 'read-excel-file/browser'
 import * as XLSX from 'xlsx'
@@ -11,9 +12,12 @@ const buffer = (blob: Blob): Promise<ArrayBuffer> => new Promise((resolve, rejec
 })
 
 describe('Desktop member import', () => {
+  it('matches server name normalization for composed accents and simple Unicode lowercasing', () => {
+    for (const [name, expected] of [[' CAFE\u0301 ', 'café'], ['ΟΣ', 'οσ'], ['İT', 'it']]) expect(normalizeDesktopStructureName(name)).toBe(expected)
+  })
   it('recognizes a title row and Chinese headers, keeps remarks, and ignores serial-only blank rows', () => {
     const rows = parseDesktopMemberImportRows([
-      ['公司内部通讯录'], ['序号', '姓名', '联系电话', '备注'],
+      ['公司内部通讯录'], ['序号', '姓名', '联系电话', '备注', '部门', '岗位'],
       [1, ' 张明 ', 13800138000, '  财务部\n主管  '], [2], [3, '李明', '+8613900138000'],
     ])
     expect(rows).toEqual([
@@ -62,7 +66,7 @@ describe('Desktop member import', () => {
     expect(template.type).toBe('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     const rows = await readSheet(await buffer(template), 1)
     expect(rows[0][0]).toBe('公司内部通讯录')
-    expect(rows[1]).toEqual(['序号', '姓名', '联系电话', '备注'])
+    expect(rows[1]).toEqual(['序号', '姓名', '联系电话', '备注', '部门', '岗位'])
     expect(() => parseDesktopMemberImportRows(rows)).toThrow('noRows')
     rows[2] = [1, '王明', '13800138000', '产品部']
     const workbook = XLSX.utils.book_new()

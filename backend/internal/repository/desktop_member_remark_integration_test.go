@@ -19,8 +19,9 @@ func TestDesktopMemberRemarkPersistenceAndIsolation(t *testing.T) {
 	publicID, err := service.GenerateDesktopPublicID("mem")
 	require.NoError(t, err)
 	member, err := fixture.repo.CreateMember(ctx, fixture.organization.PublicID, service.DesktopCreateMemberInput{
-		Member: &service.DesktopMember{PublicID: publicID, Name: "Member", NameNormalized: "Member", Phone: desktopTestPhone(fixture.suffix), Remark: strings.Repeat("字", 500)},
-		APIKey: &service.APIKey{Key: "sk-remark-" + fixture.organization.PublicID, Name: "Remark", Status: service.StatusAPIKeyActive},
+		PositionID: fixture.position.PublicID,
+		Member:     &service.DesktopMember{PublicID: publicID, Name: "Member", NameNormalized: "Member", Phone: desktopTestPhone(fixture.suffix), Remark: strings.Repeat("字", 500)},
+		APIKey:     &service.APIKey{Key: "sk-remark-" + fixture.organization.PublicID, Name: "Remark", Status: service.StatusAPIKeyActive},
 	})
 	require.NoError(t, err)
 	require.Equal(t, strings.Repeat("字", 500), member.Remark)

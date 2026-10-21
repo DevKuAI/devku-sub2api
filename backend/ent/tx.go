@@ -46,12 +46,18 @@ type Tx struct {
 	CompositeModelRoute *CompositeModelRouteClient
 	// DesktopConversationRecord is the client for interacting with the DesktopConversationRecord builders.
 	DesktopConversationRecord *DesktopConversationRecordClient
+	// DesktopDepartment is the client for interacting with the DesktopDepartment builders.
+	DesktopDepartment *DesktopDepartmentClient
 	// DesktopMember is the client for interacting with the DesktopMember builders.
 	DesktopMember *DesktopMemberClient
 	// DesktopMemberAPIKey is the client for interacting with the DesktopMemberAPIKey builders.
 	DesktopMemberAPIKey *DesktopMemberAPIKeyClient
+	// DesktopMemberPositionHistory is the client for interacting with the DesktopMemberPositionHistory builders.
+	DesktopMemberPositionHistory *DesktopMemberPositionHistoryClient
 	// DesktopOrganization is the client for interacting with the DesktopOrganization builders.
 	DesktopOrganization *DesktopOrganizationClient
+	// DesktopPosition is the client for interacting with the DesktopPosition builders.
+	DesktopPosition *DesktopPositionClient
 	// DesktopUpdateRelease is the client for interacting with the DesktopUpdateRelease builders.
 	DesktopUpdateRelease *DesktopUpdateReleaseClient
 	// ErrorPassthroughRule is the client for interacting with the ErrorPassthroughRule builders.
@@ -249,9 +255,12 @@ func (tx *Tx) init() {
 	tx.ChannelMonitorRequestTemplate = NewChannelMonitorRequestTemplateClient(tx.config)
 	tx.CompositeModelRoute = NewCompositeModelRouteClient(tx.config)
 	tx.DesktopConversationRecord = NewDesktopConversationRecordClient(tx.config)
+	tx.DesktopDepartment = NewDesktopDepartmentClient(tx.config)
 	tx.DesktopMember = NewDesktopMemberClient(tx.config)
 	tx.DesktopMemberAPIKey = NewDesktopMemberAPIKeyClient(tx.config)
+	tx.DesktopMemberPositionHistory = NewDesktopMemberPositionHistoryClient(tx.config)
 	tx.DesktopOrganization = NewDesktopOrganizationClient(tx.config)
+	tx.DesktopPosition = NewDesktopPositionClient(tx.config)
 	tx.DesktopUpdateRelease = NewDesktopUpdateReleaseClient(tx.config)
 	tx.ErrorPassthroughRule = NewErrorPassthroughRuleClient(tx.config)
 	tx.Group = NewGroupClient(tx.config)

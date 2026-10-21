@@ -97,12 +97,15 @@
 
       <section v-else-if="organization && activeTab === 'members'" :id="panelId('members')" class="min-w-0 space-y-4" tabindex="0" role="tabpanel" :aria-labelledby="tabId('members')">
         <DesktopOrganizationUsageStatistics v-if="organization" :organization-id="organizationID" :self-managed="selfManaged" />
-        <header class="detail-tab-heading"><div><h2 class="detail-section-title">{{ t('admin.desktop.members') }}</h2><p class="detail-caption mt-1">{{ t('admin.desktop.detail.membersHint') }}</p></div></header>
+        <header class="detail-tab-heading"><div><h2 class="detail-section-title">{{ t('admin.desktop.members') }}</h2><p class="detail-caption mt-1">{{ t('admin.desktop.detail.membersHint') }}</p></div><router-link class="btn btn-secondary" :to="{ path: `${structureBase}/structure`, query: memberReturnQuery() }">{{ t('desktopStructure.title') }}</router-link></header>
         <div v-if="organization" class="detail-toolbar">
           <label class="w-full min-w-0 space-y-1 sm:max-w-72 sm:flex-1"><span class="block text-xs font-medium text-gray-600 dark:text-gray-300">{{ t('admin.desktop.memberSearchLabel') }}</span><input v-model="memberSearch" class="input" type="search" :placeholder="t('admin.desktop.searchMembers')" @input="scheduleMembers" /></label>
           <div class="w-40 space-y-1"><span class="block text-xs font-medium text-gray-600 dark:text-gray-300">{{ t('common.status') }}</span><Select dropdown-class="desktop-detail-select" v-model="memberStatus" :options="statusOptions" :aria-label="t('common.status')" @change="resetMembers" /></div>
+          <label class="space-y-1"><span class="block text-xs">{{ t('desktopStructure.department') }}</span><select v-model="memberDepartment" class="input" @change="memberPosition = ''; resetMembers()"><option value="">{{ t('common.all') }}</option><option v-for="d in departmentChoices" :key="d.public_id" :value="d.public_id">{{ d.name }}</option></select></label>
+          <label class="space-y-1"><span class="block text-xs">{{ t('desktopStructure.position') }}</span><select v-model="memberPosition" class="input" @change="resetMembers"><option value="">{{ t('common.all') }}</option><option v-for="p in positionChoices.filter(p => !memberDepartment || p.department?.public_id === memberDepartment)" :key="p.public_id" :value="p.public_id">{{ p.name }}</option></select></label>
+          <label class="flex items-center gap-2"><input v-model="memberUnassigned" type="checkbox" @change="resetMembers" />{{ t('desktopStructure.unassigned') }}</label>
           <div class="ms-auto flex w-full flex-wrap items-center gap-3 sm:w-auto">
-            <button class="btn btn-secondary shrink-0 whitespace-nowrap" type="button" data-testid="import-members" :disabled="!canCreateMember" @click="showMemberImport = true"><Icon name="upload" size="md" class="mr-1" />{{ t('admin.desktop.memberImport.button') }}</button>
+            <button class="btn btn-secondary shrink-0 whitespace-nowrap" type="button" data-testid="import-members" :disabled="!canCreateMember" @click="router.push({ path: `${structureBase}/members/import`, query: memberReturnQuery() })"><Icon name="upload" size="md" class="mr-1" />{{ t('admin.desktop.memberImport.button') }}</button>
             <button class="btn btn-secondary shrink-0 whitespace-nowrap" type="button" data-testid="export-member-usage" :disabled="membersExporting || !organization || organization.public_id !== organizationID" :aria-busy="membersExporting" :title="t('admin.desktop.memberUsageExport.hint')" @click="exportMemberUsage">
               <Icon :name="membersExporting ? 'refresh' : 'download'" size="md" class="mr-1" :class="{ 'animate-spin': membersExporting }" />{{ t(membersExporting ? 'admin.desktop.memberUsageExport.exporting' : 'admin.desktop.memberUsageExport.button') }}
             </button>
@@ -110,6 +113,7 @@
             <button class="btn btn-primary w-full shrink-0 whitespace-nowrap sm:w-auto" type="button" :disabled="!canCreateMember" @click="openCreateMember"><Icon name="plus" size="md" class="mr-1" />{{ t('admin.desktop.createMember') }}</button>
           </div>
         </div>
+        <p class="detail-caption">{{ t('desktopStructure.currentExportHint') }}</p>
         <p v-if="organization && (organization.status !== 'active' || memberLimitReached)" class="text-sm text-amber-700 dark:text-amber-300" role="status">{{ t(organization.status !== 'active' ? 'admin.desktop.errors.ORGANIZATION_DISABLED' : 'admin.desktop.errors.MEMBER_LIMIT_REACHED') }}</p>
         <div v-if="membersError" class="detail-error" role="alert"><p>{{ membersError }}</p><button class="btn btn-secondary mt-3" type="button" :disabled="membersLoading" @click="loadMembers">{{ t('admin.desktop.conversations.retry') }}</button></div>
         <p class="detail-caption" role="status">{{ membersLoading ? t('common.loading') : '' }}</p>
@@ -118,6 +122,7 @@
           <div v-if="members.some(member => !member.usage) && !membersLoading" class="detail-warning flex flex-wrap items-center justify-between gap-3" role="status"><span>{{ t('admin.desktop.usageUnavailableHint') }}</span><button class="btn btn-secondary" type="button" @click="loadMembers">{{ t('common.refresh') }}</button></div>
           <DataTable class="card overflow-hidden" tabindex="0" :aria-label="t('admin.desktop.members')" :columns="memberColumns" :data="members" :loading="membersLoading" row-key="public_id">
             <template #cell-name="{ row }"><div class="min-w-0 max-w-64"><div class="break-words font-medium text-gray-900 dark:text-white">{{ row.name }}</div><div class="mt-1 break-all font-mono text-xs text-gray-500 dark:text-dark-400">{{ row.public_id }}</div></div></template>
+            <template #cell-assignment="{ row }"><span class="block max-w-56 break-words">{{ row.department?.name || '—' }} / {{ row.position?.name || t('desktopStructure.unassigned') }}</span><router-link class="text-primary-600 hover:underline" :to="{ path: `${structureBase}/members/${row.public_id}/position`, query: memberReturnQuery() }">{{ t('desktopStructure.changePosition') }}</router-link></template>
             <template #cell-remark="{ row }"><span class="block max-w-64 whitespace-pre-wrap break-words">{{ row.remark || '—' }}</span></template>
             <template #cell-status="{ row }"><StatusBadge :status="row.status" :label="statusLabel(row.status)" /></template>
             <template #cell-model_token_status="{ row }"><span :class="['badge', tokenBadge(row.model_token_status)]">{{ tokenStatusLabel(row.model_token_status) }}</span><span v-if="budgetWarning(row)" class="mt-1 block text-xs text-amber-700 dark:text-amber-300">{{ t(budgetWarning(row)) }}</span></template>
@@ -317,20 +322,6 @@
       <template #footer><div class="flex justify-end gap-3"><button class="btn btn-secondary" type="button" @click="closeOrganizationEdit">{{ t('common.cancel') }}</button><button class="btn btn-primary" type="submit" form="desktop-organization-edit" :disabled="organizationSaving">{{ organizationSaving ? t('common.saving') : t('common.save') }}</button></div></template>
     </BaseDialog>
 
-    <BaseDialog content-class="desktop-detail" :close-label="t('common.close')" :show="showMemberDialog" :title="editingMember ? t('admin.desktop.editMember') : t('admin.desktop.createMember')" width="narrow" @close="closeMemberDialog">
-      <form id="desktop-member-form" class="space-y-4" @submit.prevent="saveMember">
-        <p v-if="memberEditError" class="detail-error" role="alert">{{ memberEditError }} {{ t('admin.desktop.detail.saveRetryHint') }}</p>
-        <Input v-model="memberForm.name" :label="t('admin.desktop.memberName')" required />
-		<Input v-model="memberForm.phone" type="tel" :label="t('admin.desktop.phone')" required placeholder="13800138000" :hint="t('admin.desktop.phoneHint')" />
-        <fieldset class="space-y-3"><legend class="input-label">{{ t('admin.desktop.budget.title') }}</legend><p class="detail-caption">{{ t('admin.desktop.budget.hint') }}</p>
-          <Input v-for="field in budgetFields" :key="field" v-model.number="memberForm.budget[field]" type="number" min="0" step="0.01" :label="t(`admin.desktop.budget.${field}`)" />
-        </fieldset>
-        <label class="block space-y-1.5"><span class="input-label block">{{ t('admin.desktop.memberRemark') }}</span><textarea v-model="memberForm.remark" class="input w-full" rows="3" maxlength="500" :placeholder="t('admin.desktop.memberRemarkHint')" data-testid="member-remark" /></label>
-      </form>
-      <template #footer><div class="flex justify-end gap-3"><button class="btn btn-secondary" type="button" @click="closeMemberDialog">{{ t('common.cancel') }}</button><button class="btn btn-primary" type="submit" form="desktop-member-form" :disabled="memberSaving">{{ memberSaving ? t('common.saving') : t('common.save') }}</button></div></template>
-    </BaseDialog>
-
-    <DesktopMemberImportDialog v-if="organization" :show="showMemberImport" :organization-id="organizationID" :self-managed="selfManaged" :available-slots="Math.max(0, organization.member_limit - organization.member_count)" :organization-active="organization.status === 'active'" @close="showMemberImport = false" @imported="reloadAfterMemberImport" />
     <ConfirmDialog content-class="desktop-detail" :show="confirmState.show" :title="confirmState.title" :message="confirmState.message" :confirm-text="confirmState.confirmText" :loading="confirmPending" danger @confirm="runConfirmedAction" @cancel="closeConfirm">
       <div v-if="confirmError" class="detail-error space-y-3" role="alert"><p>{{ confirmError }}</p><p>{{ t('admin.desktop.detail.confirmRetryHint') }}</p><button class="btn btn-secondary" type="button" :disabled="confirmPending" @click="closeConfirm(); retryOrganization()">{{ t('admin.desktop.detail.refreshOrganization') }}</button></div>
     </ConfirmDialog>
@@ -367,7 +358,7 @@ import DesktopConversationRecords from '@/components/desktop/DesktopConversation
 import DesktopConversationStatistics from '@/components/desktop/DesktopConversationStatistics.vue'
 import DesktopAnalyticsRangePicker from '@/components/desktop/DesktopAnalyticsRangePicker.vue'
 import DesktopOrganizationUsageStatistics from '@/components/desktop/DesktopOrganizationUsageStatistics.vue'
-import DesktopMemberImportDialog from '@/components/desktop/DesktopMemberImportDialog.vue'
+import { desktopOrganizationPath, desktopStructure, type OrganizationUnit } from '@/api/desktopStructure'
 import DesktopOrganizationBusiness from '@/components/desktop/DesktopOrganizationBusiness.vue'
 import type { DesktopAnalyticsRange } from '@/api/desktopOrganizationUsage'
 import DesktopPeriodReports from '@/components/desktop/DesktopPeriodReports.vue'
@@ -387,7 +378,6 @@ const organizationError = ref(false)
 const organizationLoading = ref(false)
 const membersError = ref('')
 const organizationEditError = ref('')
-const memberEditError = ref('')
 const configurationError = ref('')
 const configurationTargets = computed(() => [
   { name: 'ChatGPT Codex', config: organization.value?.target_config?.targets.chatgpt_codex },
@@ -414,10 +404,15 @@ const activeTab = computed<DetailTab>(() => tabs.value.find(tab => tab.value ===
 const members = ref<DesktopMember[]>([])
 const membersLoading = ref(false)
 const membersExporting = ref(false)
-const memberSearch = ref('')
-const memberStatus = ref<DesktopStatus | ''>('')
-const hasMemberFilters = computed(() => Boolean(memberSearch.value.trim() || memberStatus.value))
-const memberPagination = reactive({ page: 1, page_size: getPersistedPageSize(), total: 0 })
+const memberSearch = ref(String(route.query.member_search || ''))
+const memberStatus = ref<DesktopStatus | ''>(route.query.member_status === 'active' || route.query.member_status === 'disabled' ? route.query.member_status : '')
+const memberDepartment = ref(String(route.query.department_id || ''))
+const memberPosition = ref(String(route.query.position_id || ''))
+const memberUnassigned = ref(route.query.unassigned === 'true')
+const departmentChoices = ref<OrganizationUnit[]>([])
+const positionChoices = ref<OrganizationUnit[]>([])
+const hasMemberFilters = computed(() => Boolean(memberSearch.value.trim() || memberStatus.value || memberDepartment.value || memberPosition.value || memberUnassigned.value))
+const memberPagination = reactive({ page: Math.max(1, Number(route.query.member_page) || 1), page_size: getPersistedPageSize(), total: 0 })
 const showOrganizationEdit = ref(false)
 const organizationSaving = ref(false)
 const currentGatewayUser = ref<AdminUser | null>(null)
@@ -427,10 +422,6 @@ const groups = ref<AdminGroup[]>([])
 const groupsLoading = ref(false)
 const blankPolicy = () => ({ analysis_limit_1d: 0, conversation_retention_days: 0, report_retention_days: 0, execution_retention_days: 0 })
 const organizationForm = reactive({ management_policy: blankPolicy(), name: '', status: 'active' as DesktopStatus, gateway_user_id: null as number | null, group_id: null as number | null, member_limit: 10, conversation_reporting_enabled: false, conversation_summary_enabled: false, weekly_summary_enabled: false, monthly_summary_enabled: false, analysis_model: '' })
-const showMemberDialog = ref(false)
-const showMemberImport = ref(false)
-const editingMember = ref<DesktopMember | null>(null)
-const memberSaving = ref(false)
 const retentionFields = ['conversation_retention_days', 'report_retention_days', 'execution_retention_days'] as const
 const reportingFields = [
   { field: 'conversation_reporting_enabled', label: 'admin.desktop.conversationReporting' },
@@ -438,9 +429,6 @@ const reportingFields = [
   { field: 'weekly_summary_enabled', label: 'biNative.weeklyAuto' },
   { field: 'monthly_summary_enabled', label: 'biNative.monthlyAuto' },
 ] as const
-const budgetFields = ['quota', 'limit_1d', 'limit_7d'] as const
-const blankBudget = () => ({ quota: 0, limit_1d: 0, limit_7d: 0 })
-const memberForm = reactive({ name: '', phone: '', remark: '', budget: blankBudget() })
 const configSaving = ref(false)
 const blankTarget = () => ({ enabled: false, provider_id: '', display_name: '', requested_model: '', minimum_app_version: '', restart_required: false })
 const configForm = reactive({ chat: { ...blankTarget(), enabled: true }, work: blankTarget(), includeWorkbuddy: false })
@@ -471,7 +459,7 @@ const statusOptions = computed(() => [{ value: '', label: t('common.all') }, { v
 const editableStatusOptions = computed(() => statusOptions.value.slice(1))
 const memberColumns = computed<Column[]>(() => [
 	{ key: 'name', label: t('admin.desktop.member') }, { key: 'remark', label: t('admin.desktop.memberRemark') }, { key: 'phone', label: t('admin.desktop.phone') },
-  { key: 'status', label: t('common.status') }, { key: 'model_token_status', label: t('admin.desktop.modelToken') },
+  { key: 'assignment', label: t('desktopStructure.position') }, { key: 'status', label: t('common.status') }, { key: 'model_token_status', label: t('admin.desktop.modelToken') },
   { key: 'usage_cost', label: t('admin.desktop.usageCost') },
   { key: 'usage_tokens', label: t('admin.desktop.usageTokens') },
   { key: 'updated_at', label: t('admin.desktop.updatedAt') },
@@ -553,7 +541,7 @@ async function loadMembers() {
   membersLoading.value = true
   membersError.value = ''
   try {
-    const result = await organizationAPI.value.listMembers(organizationID.value, memberPagination.page, memberPagination.page_size, { search: memberSearch.value.trim(), status: memberStatus.value }, request.signal)
+    const result = await organizationAPI.value.listMembers(organizationID.value, memberPagination.page, memberPagination.page_size, { search: memberSearch.value.trim(), status: memberStatus.value, ...(memberDepartment.value ? { department_id: memberDepartment.value } : {}), ...(memberPosition.value ? { position_id: memberPosition.value } : {}), ...(memberUnassigned.value ? { unassigned: true } : {}) }, request.signal)
     if (!request.signal.aborted) { members.value = result.items; memberPagination.total = result.total }
   } catch (error) {
     if (!request.signal.aborted && (error as { code?: string })?.code !== 'ERR_CANCELED') {
@@ -564,7 +552,7 @@ async function loadMembers() {
 }
 function scheduleMembers() { clearTimeout(memberTimer); memberTimer = setTimeout(resetMembers, 300) }
 function resetMembers() { memberPagination.page = 1; void loadMembers() }
-function clearMemberFilters() { memberSearch.value = ''; memberStatus.value = ''; resetMembers() }
+function clearMemberFilters() { memberSearch.value = ''; memberStatus.value = ''; memberDepartment.value = ''; memberPosition.value = ''; memberUnassigned.value = false; resetMembers() }
 function changeMemberPage(page: number) { memberPagination.page = page; void loadMembers() }
 function changeMemberPageSize(size: number) { memberPagination.page_size = size; memberPagination.page = 1; void loadMembers() }
 
@@ -581,7 +569,7 @@ async function exportMemberUsage() {
   membersExporting.value = true
   const selectedOrganization = organization.value
   const api = organizationAPI.value
-  const filters: { search: string; status: DesktopStatus | ''; as_of?: string } = { search: memberSearch.value.trim(), status: memberStatus.value }
+  const filters: { search: string; status: DesktopStatus | ''; as_of?: string; department_id?: string; position_id?: string; unassigned?: boolean } = { search: memberSearch.value.trim(), status: memberStatus.value, ...(memberDepartment.value ? { department_id: memberDepartment.value } : {}), ...(memberPosition.value ? { position_id: memberPosition.value } : {}), ...(memberUnassigned.value ? { unassigned: true } : {}) }
   try {
     const allMembers: DesktopMember[] = []
     let pages = 1
@@ -666,29 +654,15 @@ async function saveOrganization() {
   } catch (error) { organizationEditError.value = errorMessage(error); if (confirmState.show) confirmError.value = organizationEditError.value; appStore.showError(organizationEditError.value) } finally { organizationSaving.value = false }
 }
 
-async function reloadAfterMemberImport() { await Promise.all([loadMembers(), loadOrganization()]) }
-function openCreateMember() { memberEditError.value = ''; editingMember.value = null; Object.assign(memberForm, { name: '', phone: '', remark: '', budget: blankBudget() }); showMemberDialog.value = true }
-function openEditMember(member: DesktopMember) { memberEditError.value = ''; editingMember.value = member; Object.assign(memberForm, { name: member.name, phone: member.phone, remark: member.remark || '', budget: { quota: member.budget?.quota || 0, limit_1d: member.budget?.limit_1d || 0, limit_7d: member.budget?.limit_7d || 0 } }); showMemberDialog.value = true }
-function closeMemberDialog() { if (!memberSaving.value) showMemberDialog.value = false }
-async function saveMember() {
-	if (!editingMember.value && memberLimitReached.value) { memberEditError.value = t('admin.desktop.errors.MEMBER_LIMIT_REACHED'); appStore.showError(memberEditError.value); return }
-	if (!memberForm.name.trim() || !memberForm.phone.trim() || Array.from(memberForm.remark.trim()).length > 500) { memberEditError.value = t('admin.desktop.errors.VALIDATION_FAILED'); appStore.showError(memberEditError.value); return }
-	memberEditError.value = ''
-	memberSaving.value = true
-	try {
-    if (editingMember.value) {
-      const input = {
-        ...(JSON.stringify(memberForm.budget) !== JSON.stringify({ quota: editingMember.value.budget?.quota || 0, limit_1d: editingMember.value.budget?.limit_1d || 0, limit_7d: editingMember.value.budget?.limit_7d || 0 }) ? { budget: { ...memberForm.budget } } : {}),
-        ...(memberForm.name.trim() !== editingMember.value.name ? { name: memberForm.name.trim() } : {}),
-        ...(memberForm.remark.trim() !== (editingMember.value.remark || '') ? { remark: memberForm.remark.trim() } : {}),
-        ...(memberForm.phone.trim() !== editingMember.value.phone ? { phone: memberForm.phone.trim() } : {}),
-      }
-      if (Object.keys(input).length) await organizationAPI.value.updateMember(organizationID.value, editingMember.value.public_id, input)
-    }
-    else await organizationAPI.value.createMember(organizationID.value, { name: memberForm.name.trim(), phone: memberForm.phone.trim(), remark: memberForm.remark.trim(), ...(Object.values(memberForm.budget).some(value => value > 0) ? { budget: { ...memberForm.budget } } : {}) })
-    appStore.showSuccess(t(editingMember.value ? 'admin.desktop.memberUpdated' : 'admin.desktop.memberCreated')); showMemberDialog.value = false; await Promise.all([loadMembers(), loadOrganization()])
-  } catch (error) { memberEditError.value = errorMessage(error); appStore.showError(memberEditError.value) } finally { memberSaving.value = false }
-}
+const structureBase = computed(() => desktopOrganizationPath(organizationID.value, selfManaged))
+watch(organizationID, async id => {
+  departmentChoices.value = []; positionChoices.value = []
+  if (!id) return
+  try { const api = desktopStructure(id, selfManaged); const [ds, ps] = await Promise.all([api.all('departments'), api.all('positions')]); if (id === organizationID.value) { departmentChoices.value = ds; positionChoices.value = ps } } catch { /* The member list remains available when structure options fail to load. */ }
+}, { immediate: true })
+function memberReturnQuery() { return { return_to: router.resolve({ path: route.path, query: { ...route.query, tab: 'members', member_search: memberSearch.value || undefined, member_status: memberStatus.value || undefined, department_id: memberDepartment.value || undefined, position_id: memberPosition.value || undefined, unassigned: memberUnassigned.value ? 'true' : undefined, member_page: String(memberPagination.page) } }).fullPath } }
+function openCreateMember() { if (!canCreateMember.value) { appStore.showError(t(memberLimitReached.value ? 'admin.desktop.errors.MEMBER_LIMIT_REACHED' : 'admin.desktop.errors.ORGANIZATION_DISABLED')); return } void router.push({ path: `${structureBase.value}/members/new`, query: memberReturnQuery() }) }
+function openEditMember(member: DesktopMember) { void router.push({ path: `${structureBase.value}/members/${member.public_id}/edit`, query: memberReturnQuery() }) }
 function toggleMember(member: DesktopMember) {
   const action = async () => { try { await organizationAPI.value.updateMember(organizationID.value, member.public_id, { status: member.status === 'active' ? 'disabled' : 'active' }); appStore.showSuccess(t('admin.desktop.memberUpdated')); closeConfirm(); await loadMembers() } catch (error) { confirmError.value = errorMessage(error); appStore.showError(confirmError.value) } }
   if (member.status === 'active') openConfirm(t('admin.desktop.disableMember'), t('admin.desktop.disableMemberImpact', { name: member.name }), t('common.disable'), action)
@@ -757,7 +731,7 @@ useResizeObserver(tabScroll, keepActiveTabVisible)
 
 watch(() => route.params.organizationId, async () => {
   if (!selfManaged) {
-    showOrganizationEdit.value = false; showMemberDialog.value = false; showMemberImport.value = false; closeConfirm()
+    showOrganizationEdit.value = false; closeConfirm()
     configurationError.value = ''; members.value = []
     await Promise.all([loadOrganization(), loadMembers()])
   }

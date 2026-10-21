@@ -11,7 +11,7 @@ info:
     - Desktop 企业和客户端接口仅在 `DESKTOP_ENABLED=true` 时注册。
     - 软件更新检查和更新发布管理接口不受 `DESKTOP_ENABLED` 影响。
     - Admin 接口使用面板 Admin Bearer Token。
-    - 企业承载用户接口使用普通面板 User Bearer Token，并且只作用于当前账号关联的企业。企业信息和模型配置只读，成员仍可管理。
+    - 企业承载用户接口使用普通面板 User Bearer Token，并且只作用于当前账号关联的企业。企业信息和模型配置只读，部门、岗位和成员可管理。
     - Desktop 受保护接口使用登录或刷新接口返回的 Desktop Access Token。
     - Admin 成功响应使用 `{code, message, data}`，Desktop 成功响应使用 `{data}`。
 
@@ -245,6 +245,7 @@ paths:
             example:
               name: 张明
               phone: '13800000000'
+              position_id: pos_example
       responses:
         '201':
           description: 成员及其托管 Model Token 已创建；响应不返回 raw Model Token
@@ -276,6 +277,20 @@ paths:
       security:
         - AdminBearer: []
       parameters:
+        - name: department_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: position_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: unassigned
+          in: query
+          schema:
+            type: boolean
         - name: as_of
           in: query
           description: 首批返回的 usage_as_of；后续分页可复用同一截止时刻，最多回溯 24 小时。
@@ -313,6 +328,45 @@ paths:
     parameters:
       - $ref: '#/components/parameters/OrganizationId'
       - $ref: '#/components/parameters/MemberId'
+    get:
+      tags:
+      - Desktop Organization Structure
+      operationId: getAdminDesktopMember
+      summary: 读取安全员工详情
+      security:
+      - AdminBearer: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - code
+                - message
+                - data
+                properties:
+                  code:
+                    type: integer
+                    enum:
+                    - 0
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/DesktopMember'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '413':
+          $ref: '#/components/responses/AdminError'
+        '422':
+          $ref: '#/components/responses/AdminError'
+        '503':
+          $ref: '#/components/responses/AdminError'
     patch:
       tags: [Desktop Admin - Organizations]
       operationId: updateDesktopMember
@@ -469,6 +523,20 @@ paths:
       security:
         - UserBearer: []
       parameters:
+        - name: department_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: position_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: unassigned
+          in: query
+          schema:
+            type: boolean
         - name: as_of
           in: query
           description: 首批返回的 usage_as_of；后续分页可复用同一截止时刻，最多回溯 24 小时。
@@ -524,6 +592,7 @@ paths:
             example:
               name: 张明
               phone: '13800000000'
+              position_id: pos_example
       responses:
         '200':
           description: 成员及其托管 Model Token 已创建；响应不返回 raw Model Token
@@ -552,6 +621,45 @@ paths:
   /api/v1/desktop/organization/members/{member_id}:
     parameters:
       - $ref: '#/components/parameters/MemberId'
+    get:
+      tags:
+      - Desktop Organization Structure
+      operationId: getManagedDesktopMember
+      summary: 读取安全员工详情
+      security:
+      - UserBearer: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - code
+                - message
+                - data
+                properties:
+                  code:
+                    type: integer
+                    enum:
+                    - 0
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/DesktopMember'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '413':
+          $ref: '#/components/responses/AdminError'
+        '422':
+          $ref: '#/components/responses/AdminError'
+        '503':
+          $ref: '#/components/responses/AdminError'
     patch:
       tags: [Desktop User - Organization]
       operationId: updateManagedDesktopMember
@@ -1181,6 +1289,7 @@ paths:
               organization_code: dhjy
               name: 张明
               phone: '13800000000'
+              position_id: pos_example
       responses:
         '200':
           description: 登录成功
@@ -1929,6 +2038,1158 @@ paths:
         '422':
           $ref: '#/components/responses/AdminError'
 
+  /api/v1/admin/desktop/organizations/{organization_id}/departments:
+    parameters: &id002
+    - &id001
+      $ref: '#/components/parameters/OrganizationId'
+    get:
+      tags:
+      - Desktop Organization Structure
+      operationId: listAdminDesktopDepartments
+      summary: 查询企业部门
+      security:
+      - AdminBearer: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - code
+                - message
+                - data
+                properties:
+                  code:
+                    type: integer
+                    enum:
+                    - 0
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/DesktopOrganizationUnit'
+                      total:
+                        type: integer
+                        format: int64
+                      page:
+                        type: integer
+                      page_size:
+                        type: integer
+                      pages:
+                        type: integer
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '413':
+          $ref: '#/components/responses/AdminError'
+        '422':
+          $ref: '#/components/responses/AdminError'
+        '503':
+          $ref: '#/components/responses/AdminError'
+      parameters:
+      - &id003
+        name: page
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - &id004
+        name: page_size
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: search
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+    post:
+      tags:
+      - Desktop Organization Structure
+      operationId: createAdminDesktopDepartments
+      summary: 创建企业部门
+      security:
+      - AdminBearer: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - code
+                - message
+                - data
+                properties:
+                  code:
+                    type: integer
+                    enum:
+                    - 0
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/DesktopOrganizationUnit'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '413':
+          $ref: '#/components/responses/AdminError'
+        '422':
+          $ref: '#/components/responses/AdminError'
+        '503':
+          $ref: '#/components/responses/AdminError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DesktopCreateDepartment'
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+  /api/v1/admin/desktop/organizations/{organization_id}/departments/{unit_id}:
+    parameters:
+    - *id001
+    - name: unit_id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - Desktop Organization Structure
+      operationId: getAdminDesktopDepartments
+      summary: 读取企业部门
+      security:
+      - AdminBearer: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - code
+                - message
+                - data
+                properties:
+                  code:
+                    type: integer
+                    enum:
+                    - 0
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/DesktopOrganizationUnit'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '413':
+          $ref: '#/components/responses/AdminError'
+        '422':
+          $ref: '#/components/responses/AdminError'
+        '503':
+          $ref: '#/components/responses/AdminError'
+    patch:
+      tags:
+      - Desktop Organization Structure
+      operationId: updateAdminDesktopDepartments
+      summary: 修改企业部门
+      security:
+      - AdminBearer: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - code
+                - message
+                - data
+                properties:
+                  code:
+                    type: integer
+                    enum:
+                    - 0
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/DesktopOrganizationUnit'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '413':
+          $ref: '#/components/responses/AdminError'
+        '422':
+          $ref: '#/components/responses/AdminError'
+        '503':
+          $ref: '#/components/responses/AdminError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DesktopUpdateOrganizationUnit'
+  /api/v1/admin/desktop/organizations/{organization_id}/positions:
+    parameters: *id002
+    get:
+      tags:
+      - Desktop Organization Structure
+      operationId: listAdminDesktopPositions
+      summary: 查询企业岗位
+      security:
+      - AdminBearer: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - code
+                - message
+                - data
+                properties:
+                  code:
+                    type: integer
+                    enum:
+                    - 0
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/DesktopOrganizationUnit'
+                      total:
+                        type: integer
+                        format: int64
+                      page:
+                        type: integer
+                      page_size:
+                        type: integer
+                      pages:
+                        type: integer
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '413':
+          $ref: '#/components/responses/AdminError'
+        '422':
+          $ref: '#/components/responses/AdminError'
+        '503':
+          $ref: '#/components/responses/AdminError'
+      parameters:
+      - *id003
+      - *id004
+      - name: search
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: department_id
+        in: query
+        required: false
+        schema:
+          type: string
+    post:
+      tags:
+      - Desktop Organization Structure
+      operationId: createAdminDesktopPositions
+      summary: 创建企业岗位
+      security:
+      - AdminBearer: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - code
+                - message
+                - data
+                properties:
+                  code:
+                    type: integer
+                    enum:
+                    - 0
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/DesktopOrganizationUnit'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '413':
+          $ref: '#/components/responses/AdminError'
+        '422':
+          $ref: '#/components/responses/AdminError'
+        '503':
+          $ref: '#/components/responses/AdminError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DesktopCreatePosition'
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+  /api/v1/admin/desktop/organizations/{organization_id}/positions/{unit_id}:
+    parameters:
+    - *id001
+    - name: unit_id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - Desktop Organization Structure
+      operationId: getAdminDesktopPositions
+      summary: 读取企业岗位
+      security:
+      - AdminBearer: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - code
+                - message
+                - data
+                properties:
+                  code:
+                    type: integer
+                    enum:
+                    - 0
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/DesktopOrganizationUnit'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '413':
+          $ref: '#/components/responses/AdminError'
+        '422':
+          $ref: '#/components/responses/AdminError'
+        '503':
+          $ref: '#/components/responses/AdminError'
+    patch:
+      tags:
+      - Desktop Organization Structure
+      operationId: updateAdminDesktopPositions
+      summary: 修改企业岗位
+      security:
+      - AdminBearer: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - code
+                - message
+                - data
+                properties:
+                  code:
+                    type: integer
+                    enum:
+                    - 0
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/DesktopOrganizationUnit'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '413':
+          $ref: '#/components/responses/AdminError'
+        '422':
+          $ref: '#/components/responses/AdminError'
+        '503':
+          $ref: '#/components/responses/AdminError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DesktopUpdateOrganizationUnit'
+  /api/v1/admin/desktop/organizations/{organization_id}/organization-structure/status:
+    parameters: *id002
+    get:
+      tags:
+      - Desktop Organization Structure
+      operationId: getAdminDesktopStructureStatus
+      summary: 读取组织归属补齐状态
+      security:
+      - AdminBearer: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - code
+                - message
+                - data
+                properties:
+                  code:
+                    type: integer
+                    enum:
+                    - 0
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/DesktopOrganizationStructureStatus'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '413':
+          $ref: '#/components/responses/AdminError'
+        '422':
+          $ref: '#/components/responses/AdminError'
+        '503':
+          $ref: '#/components/responses/AdminError'
+  /api/v1/admin/desktop/organizations/{organization_id}/members/{member_id}/position:
+    parameters:
+    - *id001
+    - $ref: '#/components/parameters/MemberId'
+    put:
+      tags:
+      - Desktop Organization Structure
+      operationId: assignAdminDesktopMemberPosition
+      summary: 初次分配或变更员工岗位
+      security:
+      - AdminBearer: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - code
+                - message
+                - data
+                properties:
+                  code:
+                    type: integer
+                    enum:
+                    - 0
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/DesktopMember'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '413':
+          $ref: '#/components/responses/AdminError'
+        '422':
+          $ref: '#/components/responses/AdminError'
+        '503':
+          $ref: '#/components/responses/AdminError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DesktopAssignPosition'
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+  /api/v1/admin/desktop/organizations/{organization_id}/members/{member_id}/position-history:
+    parameters:
+    - *id001
+    - $ref: '#/components/parameters/MemberId'
+    get:
+      tags:
+      - Desktop Organization Structure
+      operationId: listAdminDesktopMemberPositionHistory
+      summary: 查询员工岗位变更记录
+      security:
+      - AdminBearer: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - code
+                - message
+                - data
+                properties:
+                  code:
+                    type: integer
+                    enum:
+                    - 0
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/DesktopPositionHistory'
+                      total:
+                        type: integer
+                        format: int64
+                      page:
+                        type: integer
+                      page_size:
+                        type: integer
+                      pages:
+                        type: integer
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '413':
+          $ref: '#/components/responses/AdminError'
+        '422':
+          $ref: '#/components/responses/AdminError'
+        '503':
+          $ref: '#/components/responses/AdminError'
+      parameters: &id006
+      - *id003
+      - *id004
+  /api/v1/desktop/organization/departments:
+    parameters: &id005 []
+    get:
+      tags:
+      - Desktop Organization Structure
+      operationId: listManagedDesktopDepartments
+      summary: 查询企业部门
+      security:
+      - UserBearer: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - code
+                - message
+                - data
+                properties:
+                  code:
+                    type: integer
+                    enum:
+                    - 0
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/DesktopOrganizationUnit'
+                      total:
+                        type: integer
+                        format: int64
+                      page:
+                        type: integer
+                      page_size:
+                        type: integer
+                      pages:
+                        type: integer
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '413':
+          $ref: '#/components/responses/AdminError'
+        '422':
+          $ref: '#/components/responses/AdminError'
+        '503':
+          $ref: '#/components/responses/AdminError'
+      parameters:
+      - *id003
+      - *id004
+      - name: search
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+    post:
+      tags:
+      - Desktop Organization Structure
+      operationId: createManagedDesktopDepartments
+      summary: 创建企业部门
+      security:
+      - UserBearer: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - code
+                - message
+                - data
+                properties:
+                  code:
+                    type: integer
+                    enum:
+                    - 0
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/DesktopOrganizationUnit'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '413':
+          $ref: '#/components/responses/AdminError'
+        '422':
+          $ref: '#/components/responses/AdminError'
+        '503':
+          $ref: '#/components/responses/AdminError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DesktopCreateDepartment'
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+  /api/v1/desktop/organization/departments/{unit_id}:
+    parameters:
+    - name: unit_id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - Desktop Organization Structure
+      operationId: getManagedDesktopDepartments
+      summary: 读取企业部门
+      security:
+      - UserBearer: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - code
+                - message
+                - data
+                properties:
+                  code:
+                    type: integer
+                    enum:
+                    - 0
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/DesktopOrganizationUnit'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '413':
+          $ref: '#/components/responses/AdminError'
+        '422':
+          $ref: '#/components/responses/AdminError'
+        '503':
+          $ref: '#/components/responses/AdminError'
+    patch:
+      tags:
+      - Desktop Organization Structure
+      operationId: updateManagedDesktopDepartments
+      summary: 修改企业部门
+      security:
+      - UserBearer: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - code
+                - message
+                - data
+                properties:
+                  code:
+                    type: integer
+                    enum:
+                    - 0
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/DesktopOrganizationUnit'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '413':
+          $ref: '#/components/responses/AdminError'
+        '422':
+          $ref: '#/components/responses/AdminError'
+        '503':
+          $ref: '#/components/responses/AdminError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DesktopUpdateOrganizationUnit'
+  /api/v1/desktop/organization/positions:
+    parameters: *id005
+    get:
+      tags:
+      - Desktop Organization Structure
+      operationId: listManagedDesktopPositions
+      summary: 查询企业岗位
+      security:
+      - UserBearer: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - code
+                - message
+                - data
+                properties:
+                  code:
+                    type: integer
+                    enum:
+                    - 0
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/DesktopOrganizationUnit'
+                      total:
+                        type: integer
+                        format: int64
+                      page:
+                        type: integer
+                      page_size:
+                        type: integer
+                      pages:
+                        type: integer
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '413':
+          $ref: '#/components/responses/AdminError'
+        '422':
+          $ref: '#/components/responses/AdminError'
+        '503':
+          $ref: '#/components/responses/AdminError'
+      parameters:
+      - *id003
+      - *id004
+      - name: search
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: department_id
+        in: query
+        required: false
+        schema:
+          type: string
+    post:
+      tags:
+      - Desktop Organization Structure
+      operationId: createManagedDesktopPositions
+      summary: 创建企业岗位
+      security:
+      - UserBearer: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - code
+                - message
+                - data
+                properties:
+                  code:
+                    type: integer
+                    enum:
+                    - 0
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/DesktopOrganizationUnit'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '413':
+          $ref: '#/components/responses/AdminError'
+        '422':
+          $ref: '#/components/responses/AdminError'
+        '503':
+          $ref: '#/components/responses/AdminError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DesktopCreatePosition'
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+  /api/v1/desktop/organization/positions/{unit_id}:
+    parameters:
+    - name: unit_id
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      tags:
+      - Desktop Organization Structure
+      operationId: getManagedDesktopPositions
+      summary: 读取企业岗位
+      security:
+      - UserBearer: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - code
+                - message
+                - data
+                properties:
+                  code:
+                    type: integer
+                    enum:
+                    - 0
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/DesktopOrganizationUnit'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '413':
+          $ref: '#/components/responses/AdminError'
+        '422':
+          $ref: '#/components/responses/AdminError'
+        '503':
+          $ref: '#/components/responses/AdminError'
+    patch:
+      tags:
+      - Desktop Organization Structure
+      operationId: updateManagedDesktopPositions
+      summary: 修改企业岗位
+      security:
+      - UserBearer: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - code
+                - message
+                - data
+                properties:
+                  code:
+                    type: integer
+                    enum:
+                    - 0
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/DesktopOrganizationUnit'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '413':
+          $ref: '#/components/responses/AdminError'
+        '422':
+          $ref: '#/components/responses/AdminError'
+        '503':
+          $ref: '#/components/responses/AdminError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DesktopUpdateOrganizationUnit'
+  /api/v1/desktop/organization/organization-structure/status:
+    parameters: *id005
+    get:
+      tags:
+      - Desktop Organization Structure
+      operationId: getManagedDesktopStructureStatus
+      summary: 读取组织归属补齐状态
+      security:
+      - UserBearer: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - code
+                - message
+                - data
+                properties:
+                  code:
+                    type: integer
+                    enum:
+                    - 0
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/DesktopOrganizationStructureStatus'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '413':
+          $ref: '#/components/responses/AdminError'
+        '422':
+          $ref: '#/components/responses/AdminError'
+        '503':
+          $ref: '#/components/responses/AdminError'
+  /api/v1/desktop/organization/members/{member_id}/position:
+    parameters:
+    - $ref: '#/components/parameters/MemberId'
+    put:
+      tags:
+      - Desktop Organization Structure
+      operationId: assignManagedDesktopMemberPosition
+      summary: 初次分配或变更员工岗位
+      security:
+      - UserBearer: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - code
+                - message
+                - data
+                properties:
+                  code:
+                    type: integer
+                    enum:
+                    - 0
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/DesktopMember'
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '413':
+          $ref: '#/components/responses/AdminError'
+        '422':
+          $ref: '#/components/responses/AdminError'
+        '503':
+          $ref: '#/components/responses/AdminError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DesktopAssignPosition'
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+  /api/v1/desktop/organization/members/{member_id}/position-history:
+    parameters:
+    - $ref: '#/components/parameters/MemberId'
+    get:
+      tags:
+      - Desktop Organization Structure
+      operationId: listManagedDesktopMemberPositionHistory
+      summary: 查询员工岗位变更记录
+      security:
+      - UserBearer: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - code
+                - message
+                - data
+                properties:
+                  code:
+                    type: integer
+                    enum:
+                    - 0
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/DesktopPositionHistory'
+                      total:
+                        type: integer
+                        format: int64
+                      page:
+                        type: integer
+                      page_size:
+                        type: integer
+                      pages:
+                        type: integer
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '409':
+          $ref: '#/components/responses/AdminError'
+        '413':
+          $ref: '#/components/responses/AdminError'
+        '422':
+          $ref: '#/components/responses/AdminError'
+        '503':
+          $ref: '#/components/responses/AdminError'
+      parameters: *id006
+
 components:
   securitySchemes:
     DesktopSessionBearer:
@@ -2598,8 +3859,25 @@ components:
 
     DesktopMember:
       type: object
-      required: [public_id, name, remark, phone, status, model_token_status, created_at, updated_at]
+      required: [public_id, name, remark, phone, status, model_token_status, created_at, updated_at, department, position, position_revision, assignment_status]
       properties:
+        department:
+          allOf:
+          - $ref: '#/components/schemas/DesktopStructureRef'
+          nullable: true
+        position:
+          allOf:
+          - $ref: '#/components/schemas/DesktopStructureRef'
+          nullable: true
+        position_revision:
+          type: integer
+          format: int64
+          minimum: 0
+        assignment_status:
+          type: string
+          enum:
+          - assigned
+          - unassigned
         usage_as_of:
           type: string
           format: date-time
@@ -2755,8 +4033,12 @@ components:
     CreateMemberRequest:
       type: object
       additionalProperties: false
-      required: [name, phone]
+      required: [name, phone, position_id]
       properties:
+        position_id:
+          type: string
+          minLength: 1
+          description: 本企业启用岗位的公开 ID；部门由岗位确定。
         budget:
           $ref: '#/components/schemas/DesktopMemberBudget'
         name:
@@ -3549,3 +4831,156 @@ components:
           members: [{member_id: mem_example, name: Example, deleted: false, requests: 2, total_tokens: 1250, actual_cost: 0.125, cost_rank: 1, token_rank: 1}]
           member_models: [{member_id: mem_example, name: Example, deleted: false, model: gpt-5, requests: 2, input_tokens: 100, output_tokens: 150, cache_creation_tokens: 200, cache_read_tokens: 800, total_tokens: 1250}]
           observed_members: 1
+
+    DesktopStructureRef:
+      type: object
+      required:
+      - public_id
+      - name
+      properties:
+        public_id: &structure_id001
+          type: string
+        name: *structure_id001
+    DesktopOrganizationUnit:
+      type: object
+      required:
+      - public_id
+      - name
+      - status
+      - revision
+      - member_count
+      - created_at
+      - updated_at
+      properties:
+        public_id: *structure_id001
+        name: *structure_id001
+        status:
+          $ref: '#/components/schemas/DesktopStatus'
+        revision:
+          type: integer
+          format: int64
+          minimum: 1
+        member_count:
+          type: integer
+          minimum: 0
+        department:
+          $ref: '#/components/schemas/DesktopStructureRef'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    DesktopCreateDepartment:
+      type: object
+      additionalProperties: false
+      required:
+      - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+    DesktopCreatePosition:
+      type: object
+      additionalProperties: false
+      required:
+      - name
+      - department_id
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        department_id:
+          type: string
+          minLength: 1
+    DesktopUpdateOrganizationUnit:
+      type: object
+      additionalProperties: false
+      required:
+      - expected_revision
+      minProperties: 2
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        status:
+          $ref: '#/components/schemas/DesktopStatus'
+        expected_revision:
+          type: integer
+          format: int64
+          minimum: 1
+    DesktopAssignPosition:
+      type: object
+      additionalProperties: false
+      required:
+      - position_id
+      - expected_revision
+      properties:
+        position_id:
+          type: string
+          minLength: 1
+        expected_revision:
+          type: integer
+          format: int64
+          minimum: 0
+        reason:
+          type: string
+          maxLength: 500
+    DesktopOrganizationStructureStatus:
+      type: object
+      required:
+      - status
+      - unassigned_members
+      - inconsistent_members
+      - constraint_enabled
+      properties:
+        status:
+          type: string
+          enum:
+          - complete
+          - needs_assignment
+        unassigned_members:
+          type: integer
+          minimum: 0
+        inconsistent_members:
+          type: integer
+          minimum: 0
+        constraint_enabled:
+          type: boolean
+    DesktopPositionHistory:
+      type: object
+      required:
+      - position
+      - department
+      - position_revision
+      - started_at
+      - ended_at
+      - source
+      - reason
+      properties:
+        position:
+          $ref: '#/components/schemas/DesktopStructureRef'
+        department:
+          $ref: '#/components/schemas/DesktopStructureRef'
+        position_revision:
+          type: integer
+          format: int64
+          minimum: 1
+        started_at:
+          type: string
+          format: date-time
+        ended_at:
+          type: string
+          format: date-time
+          nullable: true
+        source:
+          type: string
+          enum:
+          - member_create
+          - transfer
+          - migration_confirmed
+        reason:
+          type: string

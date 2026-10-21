@@ -1,3 +1,4 @@
+import desktopStructure from './desktopStructure'
 import accounting from './accounting'
 import landing from './landing'
 import common from './common'
@@ -10,6 +11,7 @@ import admin from './admin'
 import misc from './misc'
 
 export default {
+  ...desktopStructure,
   ...accounting,
   ...landing,
   ...common,

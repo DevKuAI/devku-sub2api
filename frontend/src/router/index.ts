@@ -15,6 +15,7 @@ import { getSetupStatus } from '@/api/setup'
 import { resolveCompletedSetupRedirectPath } from './setupRedirect'
 import { resolveRouteDocumentTitle } from './title'
 import { biRoutes } from './biRoutes'
+import { desktopStructureRoutes } from './desktopStructureRoutes'
 
 // Finance users may only reach the accounting pages registered below; older organization paths redirect
 // to these before the guard runs.
@@ -32,6 +33,7 @@ const financeAccountingPathPattern = new RegExp(
  */
 const routes: RouteRecordRaw[] = [
   ...biRoutes,
+  ...desktopStructureRoutes,
   // ==================== Setup Routes ====================
   {
     path: '/setup',

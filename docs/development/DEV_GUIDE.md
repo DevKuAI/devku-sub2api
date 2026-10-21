@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | Fork | `DevKuAI/devku-sub2api` | `origin` remote |
 | 上游 | `Wei-Shaw/sub2api` | `upstream` remote；Go module/import 路径继续使用此名称 |
-| Go | `1.27.2` | [go.mod](../../backend/go.mod) 与 CI 的版本断言 |
+| Go | `1.27.3` | [go.mod](../../backend/go.mod) 与 CI 的版本断言 |
 | Node.js / pnpm | Node.js `20` / pnpm `9` | [CI](../../.github/workflows/backend-ci.yml) 与 [Release](../../.github/workflows/release.yml) |
 | golangci-lint | `2.14.0` | CI lint job |
 | PostgreSQL / Redis | 当前 Compose 为 PostgreSQL `18` / Redis `8` | [docker-compose.yml](../../deploy/docker-compose.yml) |

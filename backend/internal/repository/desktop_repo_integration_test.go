@@ -225,8 +225,9 @@ func TestDesktopRepositoryGatewayUserScopeRejectsCrossOrganizationAccess(t *test
 	})
 	require.ErrorIs(t, err, service.ErrDesktopOrganizationNotFound)
 	_, err = scoped.CreateMember(ctx, other.organization.PublicID, service.DesktopCreateMemberInput{
-		Member: &service.DesktopMember{PublicID: "mem_cross_scope", Name: "Cross", NameNormalized: "Cross", Phone: "+8613800000011"},
-		APIKey: &service.APIKey{Key: "sk-cross-scope", Name: "Cross", Status: service.StatusAPIKeyActive},
+		PositionID: other.position.PublicID,
+		Member:     &service.DesktopMember{PublicID: "mem_cross_scope", Name: "Cross", NameNormalized: "Cross", Phone: "+8613800000011"},
+		APIKey:     &service.APIKey{Key: "sk-cross-scope", Name: "Cross", Status: service.StatusAPIKeyActive},
 	})
 	require.ErrorIs(t, err, service.ErrDesktopOrganizationNotFound)
 	_, _, err = scoped.UpdateMember(ctx, other.organization.PublicID, otherMember.PublicID, service.DesktopUpdateMemberInput{})
@@ -353,8 +354,11 @@ func TestDesktopRepositoryCreateMemberRollsBackWhenAPIKeyCreationFails(t *testin
 	existingKey := &service.APIKey{UserID: user.ID, Key: fmt.Sprintf("sk-desktop-duplicate-%d", suffix), Name: "Existing", Status: service.StatusAPIKeyActive}
 	require.NoError(t, apiKeys.Create(ctx, existingKey))
 	t.Cleanup(func() {
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM desktop_member_position_history WHERE organization_id=$1", organization.ID)
 		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM desktop_member_api_keys WHERE member_id IN (SELECT id FROM desktop_members WHERE organization_id = $1)", organization.ID)
 		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM desktop_members WHERE organization_id = $1", organization.ID)
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM desktop_positions WHERE organization_id=$1", organization.ID)
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM desktop_departments WHERE organization_id=$1", organization.ID)
 		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM desktop_organizations WHERE id = $1", organization.ID)
 		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM api_keys WHERE user_id = $1", user.ID)
 		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM users WHERE id = $1", user.ID)
@@ -362,6 +366,7 @@ func TestDesktopRepositoryCreateMemberRollsBackWhenAPIKeyCreationFails(t *testin
 	})
 
 	_, err = repo.CreateMember(ctx, organization.PublicID, service.DesktopCreateMemberInput{
+		PositionID: createDesktopTestPosition(t, repo, organization.PublicID).PublicID,
 		Member: &service.DesktopMember{
 			PublicID: fmt.Sprintf("mem_rollback_%d", suffix), Name: "Member", NameNormalized: "Member",
 			Phone: desktopTestPhone(suffix), Status: service.DesktopStatusActive,
@@ -402,6 +407,8 @@ func TestDesktopRepositoryListAvailableGatewayUsersFiltersAssignedAndDisabledUse
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() {
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM desktop_positions WHERE organization_id=$1", organization.ID)
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM desktop_departments WHERE organization_id=$1", organization.ID)
 		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM desktop_organizations WHERE id = $1", organization.ID)
 		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM users WHERE id IN ($1, $2, $3)", freeUser.ID, assignedUser.ID, disabledUser.ID)
 		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM groups WHERE id = $1", group.ID)
@@ -432,6 +439,7 @@ func TestDesktopRepositoryOrganizationRestoreOnlyReactivatesOrganizationSuspende
 
 	createMember := func(label string, offset int64) *service.DesktopMember {
 		member, createErr := repo.CreateMember(ctx, organization.PublicID, service.DesktopCreateMemberInput{
+			PositionID: createDesktopTestPosition(t, repo, organization.PublicID).PublicID,
 			Member: &service.DesktopMember{
 				PublicID: fmt.Sprintf("mem_%s_%d", label, suffix), Name: label, NameNormalized: label,
 				Phone:  desktopTestPhone(suffix + offset),
@@ -453,8 +461,11 @@ func TestDesktopRepositoryOrganizationRestoreOnlyReactivatesOrganizationSuspende
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() {
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM desktop_member_position_history WHERE organization_id=$1", organization.ID)
 		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM desktop_member_api_keys WHERE member_id IN (SELECT id FROM desktop_members WHERE organization_id = $1)", organization.ID)
 		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM desktop_members WHERE organization_id = $1", organization.ID)
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM desktop_positions WHERE organization_id=$1", organization.ID)
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM desktop_departments WHERE organization_id=$1", organization.ID)
 		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM desktop_organizations WHERE id = $1", organization.ID)
 		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM api_keys WHERE user_id = $1", user.ID)
 		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM users WHERE id = $1", user.ID)
@@ -522,6 +533,7 @@ func TestDesktopRepositoryConcurrentDuplicatePhoneAllowsOneMember(t *testing.T) 
 	var start sync.WaitGroup
 	start.Add(1)
 	for _, input := range inputs {
+		input.PositionID = fixture.position.PublicID
 		go func(candidate service.DesktopCreateMemberInput) {
 			start.Wait()
 			_, err := fixture.repo.CreateMember(context.Background(), fixture.organization.PublicID, candidate)
@@ -668,6 +680,7 @@ type desktopRepositoryFixture struct {
 	user         *service.User
 	group        *service.Group
 	suffix       int64
+	position     *service.DesktopOrganizationUnit
 }
 
 var desktopFixtureSequence atomic.Uint64
@@ -692,19 +705,24 @@ func newDesktopRepositoryFixture(t *testing.T, label string, apiKeyLimit int, re
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() {
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM desktop_member_position_history WHERE organization_id=$1", organization.ID)
 		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM desktop_member_api_keys WHERE member_id IN (SELECT id FROM desktop_members WHERE organization_id = $1)", organization.ID)
 		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM desktop_members WHERE organization_id = $1", organization.ID)
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM desktop_positions WHERE organization_id=$1", organization.ID)
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM desktop_departments WHERE organization_id=$1", organization.ID)
 		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM desktop_organizations WHERE id = $1", organization.ID)
 		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM api_keys WHERE user_id = $1", user.ID)
 		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM users WHERE id = $1", user.ID)
 		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM groups WHERE id = $1", group.ID)
 	})
-	return &desktopRepositoryFixture{repo: repo, apiKeys: apiKeys, organization: organization, user: user, group: group, suffix: suffix}
+	position := createDesktopTestPosition(t, repo, organization.PublicID)
+	return &desktopRepositoryFixture{position: position, repo: repo, apiKeys: apiKeys, organization: organization, user: user, group: group, suffix: suffix}
 }
 
 func (f *desktopRepositoryFixture) createMember(t *testing.T, label string, offset int64) *service.DesktopMember {
 	t.Helper()
 	member, err := f.repo.CreateMember(context.Background(), f.organization.PublicID, service.DesktopCreateMemberInput{
+		PositionID: f.position.PublicID,
 		Member: &service.DesktopMember{
 			PublicID: fmt.Sprintf("mem_%s_%d", label, f.suffix), Name: "Member " + label, NameNormalized: "Member " + label,
 			Phone: desktopTestPhone(f.suffix + offset), Status: service.DesktopStatusActive,

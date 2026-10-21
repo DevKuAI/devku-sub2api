@@ -80,6 +80,16 @@ func OrganizationID(v int64) predicate.DesktopMember {
 	return predicate.DesktopMember(sql.FieldEQ(FieldOrganizationID, v))
 }
 
+// PositionID applies equality check predicate on the "position_id" field. It's identical to PositionIDEQ.
+func PositionID(v int64) predicate.DesktopMember {
+	return predicate.DesktopMember(sql.FieldEQ(FieldPositionID, v))
+}
+
+// PositionRevision applies equality check predicate on the "position_revision" field. It's identical to PositionRevisionEQ.
+func PositionRevision(v int64) predicate.DesktopMember {
+	return predicate.DesktopMember(sql.FieldEQ(FieldPositionRevision, v))
+}
+
 // Name applies equality check predicate on the "name" field. It's identical to NameEQ.
 func Name(v string) predicate.DesktopMember {
 	return predicate.DesktopMember(sql.FieldEQ(FieldName, v))
@@ -328,6 +338,76 @@ func OrganizationIDIn(vs ...int64) predicate.DesktopMember {
 // OrganizationIDNotIn applies the NotIn predicate on the "organization_id" field.
 func OrganizationIDNotIn(vs ...int64) predicate.DesktopMember {
 	return predicate.DesktopMember(sql.FieldNotIn(FieldOrganizationID, vs...))
+}
+
+// PositionIDEQ applies the EQ predicate on the "position_id" field.
+func PositionIDEQ(v int64) predicate.DesktopMember {
+	return predicate.DesktopMember(sql.FieldEQ(FieldPositionID, v))
+}
+
+// PositionIDNEQ applies the NEQ predicate on the "position_id" field.
+func PositionIDNEQ(v int64) predicate.DesktopMember {
+	return predicate.DesktopMember(sql.FieldNEQ(FieldPositionID, v))
+}
+
+// PositionIDIn applies the In predicate on the "position_id" field.
+func PositionIDIn(vs ...int64) predicate.DesktopMember {
+	return predicate.DesktopMember(sql.FieldIn(FieldPositionID, vs...))
+}
+
+// PositionIDNotIn applies the NotIn predicate on the "position_id" field.
+func PositionIDNotIn(vs ...int64) predicate.DesktopMember {
+	return predicate.DesktopMember(sql.FieldNotIn(FieldPositionID, vs...))
+}
+
+// PositionIDIsNil applies the IsNil predicate on the "position_id" field.
+func PositionIDIsNil() predicate.DesktopMember {
+	return predicate.DesktopMember(sql.FieldIsNull(FieldPositionID))
+}
+
+// PositionIDNotNil applies the NotNil predicate on the "position_id" field.
+func PositionIDNotNil() predicate.DesktopMember {
+	return predicate.DesktopMember(sql.FieldNotNull(FieldPositionID))
+}
+
+// PositionRevisionEQ applies the EQ predicate on the "position_revision" field.
+func PositionRevisionEQ(v int64) predicate.DesktopMember {
+	return predicate.DesktopMember(sql.FieldEQ(FieldPositionRevision, v))
+}
+
+// PositionRevisionNEQ applies the NEQ predicate on the "position_revision" field.
+func PositionRevisionNEQ(v int64) predicate.DesktopMember {
+	return predicate.DesktopMember(sql.FieldNEQ(FieldPositionRevision, v))
+}
+
+// PositionRevisionIn applies the In predicate on the "position_revision" field.
+func PositionRevisionIn(vs ...int64) predicate.DesktopMember {
+	return predicate.DesktopMember(sql.FieldIn(FieldPositionRevision, vs...))
+}
+
+// PositionRevisionNotIn applies the NotIn predicate on the "position_revision" field.
+func PositionRevisionNotIn(vs ...int64) predicate.DesktopMember {
+	return predicate.DesktopMember(sql.FieldNotIn(FieldPositionRevision, vs...))
+}
+
+// PositionRevisionGT applies the GT predicate on the "position_revision" field.
+func PositionRevisionGT(v int64) predicate.DesktopMember {
+	return predicate.DesktopMember(sql.FieldGT(FieldPositionRevision, v))
+}
+
+// PositionRevisionGTE applies the GTE predicate on the "position_revision" field.
+func PositionRevisionGTE(v int64) predicate.DesktopMember {
+	return predicate.DesktopMember(sql.FieldGTE(FieldPositionRevision, v))
+}
+
+// PositionRevisionLT applies the LT predicate on the "position_revision" field.
+func PositionRevisionLT(v int64) predicate.DesktopMember {
+	return predicate.DesktopMember(sql.FieldLT(FieldPositionRevision, v))
+}
+
+// PositionRevisionLTE applies the LTE predicate on the "position_revision" field.
+func PositionRevisionLTE(v int64) predicate.DesktopMember {
+	return predicate.DesktopMember(sql.FieldLTE(FieldPositionRevision, v))
 }
 
 // NameEQ applies the EQ predicate on the "name" field.
@@ -743,6 +823,29 @@ func HasAPIKeyAssignments() predicate.DesktopMember {
 func HasAPIKeyAssignmentsWith(preds ...predicate.DesktopMemberAPIKey) predicate.DesktopMember {
 	return predicate.DesktopMember(func(s *sql.Selector) {
 		step := newAPIKeyAssignmentsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasPosition applies the HasEdge predicate on the "position" edge.
+func HasPosition() predicate.DesktopMember {
+	return predicate.DesktopMember(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, PositionTable, PositionColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasPositionWith applies the HasEdge predicate on the "position" edge with a given conditions (other predicates).
+func HasPositionWith(preds ...predicate.DesktopPosition) predicate.DesktopMember {
+	return predicate.DesktopMember(func(s *sql.Selector) {
+		step := newPositionStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

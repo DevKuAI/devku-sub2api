@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"github.com/Wei-Shaw/sub2api/ent/desktopmember"
 	"github.com/Wei-Shaw/sub2api/ent/desktoporganization"
+	"github.com/Wei-Shaw/sub2api/ent/desktopposition"
 )
 
 // DesktopMember is the model entity for the DesktopMember schema.
@@ -28,6 +29,10 @@ type DesktopMember struct {
 	PublicID string `json:"public_id,omitempty"`
 	// OrganizationID holds the value of the "organization_id" field.
 	OrganizationID int64 `json:"organization_id,omitempty"`
+	// PositionID holds the value of the "position_id" field.
+	PositionID *int64 `json:"position_id,omitempty"`
+	// PositionRevision holds the value of the "position_revision" field.
+	PositionRevision int64 `json:"position_revision,omitempty"`
 	// Name holds the value of the "name" field.
 	Name string `json:"name,omitempty"`
 	// NameNormalized holds the value of the "name_normalized" field.
@@ -54,9 +59,11 @@ type DesktopMemberEdges struct {
 	Organization *DesktopOrganization `json:"organization,omitempty"`
 	// APIKeyAssignments holds the value of the api_key_assignments edge.
 	APIKeyAssignments []*DesktopMemberAPIKey `json:"api_key_assignments,omitempty"`
+	// Position holds the value of the position edge.
+	Position *DesktopPosition `json:"position,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [2]bool
+	loadedTypes [3]bool
 }
 
 // OrganizationOrErr returns the Organization value or an error if the edge
@@ -79,6 +86,17 @@ func (e DesktopMemberEdges) APIKeyAssignmentsOrErr() ([]*DesktopMemberAPIKey, er
 	return nil, &NotLoadedError{edge: "api_key_assignments"}
 }
 
+// PositionOrErr returns the Position value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e DesktopMemberEdges) PositionOrErr() (*DesktopPosition, error) {
+	if e.Position != nil {
+		return e.Position, nil
+	} else if e.loadedTypes[2] {
+		return nil, &NotFoundError{label: desktopposition.Label}
+	}
+	return nil, &NotLoadedError{edge: "position"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*DesktopMember) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
@@ -86,7 +104,7 @@ func (*DesktopMember) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case desktopmember.FieldAPIKeySuspendedByOrganization:
 			values[i] = new(sql.NullBool)
-		case desktopmember.FieldID, desktopmember.FieldOrganizationID, desktopmember.FieldAuthVersion:
+		case desktopmember.FieldID, desktopmember.FieldOrganizationID, desktopmember.FieldPositionID, desktopmember.FieldPositionRevision, desktopmember.FieldAuthVersion:
 			values[i] = new(sql.NullInt64)
 		case desktopmember.FieldPublicID, desktopmember.FieldName, desktopmember.FieldNameNormalized, desktopmember.FieldRemark, desktopmember.FieldPhone, desktopmember.FieldStatus:
 			values[i] = new(sql.NullString)
@@ -143,6 +161,19 @@ func (_m *DesktopMember) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field organization_id", values[i])
 			} else if value.Valid {
 				_m.OrganizationID = value.Int64
+			}
+		case desktopmember.FieldPositionID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field position_id", values[i])
+			} else if value.Valid {
+				_m.PositionID = new(int64)
+				*_m.PositionID = value.Int64
+			}
+		case desktopmember.FieldPositionRevision:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field position_revision", values[i])
+			} else if value.Valid {
+				_m.PositionRevision = value.Int64
 			}
 		case desktopmember.FieldName:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -209,6 +240,11 @@ func (_m *DesktopMember) QueryAPIKeyAssignments() *DesktopMemberAPIKeyQuery {
 	return NewDesktopMemberClient(_m.config).QueryAPIKeyAssignments(_m)
 }
 
+// QueryPosition queries the "position" edge of the DesktopMember entity.
+func (_m *DesktopMember) QueryPosition() *DesktopPositionQuery {
+	return NewDesktopMemberClient(_m.config).QueryPosition(_m)
+}
+
 // Update returns a builder for updating this DesktopMember.
 // Note that you need to call DesktopMember.Unwrap() before calling this method if this DesktopMember
 // was returned from a transaction, and the transaction was committed or rolled back.
@@ -248,6 +284,14 @@ func (_m *DesktopMember) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("organization_id=")
 	builder.WriteString(fmt.Sprintf("%v", _m.OrganizationID))
+	builder.WriteString(", ")
+	if v := _m.PositionID; v != nil {
+		builder.WriteString("position_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("position_revision=")
+	builder.WriteString(fmt.Sprintf("%v", _m.PositionRevision))
 	builder.WriteString(", ")
 	builder.WriteString("name=")
 	builder.WriteString(_m.Name)

@@ -14,6 +14,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/desktopmember"
 	"github.com/Wei-Shaw/sub2api/ent/desktopmemberapikey"
 	"github.com/Wei-Shaw/sub2api/ent/desktoporganization"
+	"github.com/Wei-Shaw/sub2api/ent/desktopposition"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 )
 
@@ -67,6 +68,47 @@ func (_u *DesktopMemberUpdate) SetNillableOrganizationID(v *int64) *DesktopMembe
 	if v != nil {
 		_u.SetOrganizationID(*v)
 	}
+	return _u
+}
+
+// SetPositionID sets the "position_id" field.
+func (_u *DesktopMemberUpdate) SetPositionID(v int64) *DesktopMemberUpdate {
+	_u.mutation.SetPositionID(v)
+	return _u
+}
+
+// SetNillablePositionID sets the "position_id" field if the given value is not nil.
+func (_u *DesktopMemberUpdate) SetNillablePositionID(v *int64) *DesktopMemberUpdate {
+	if v != nil {
+		_u.SetPositionID(*v)
+	}
+	return _u
+}
+
+// ClearPositionID clears the value of the "position_id" field.
+func (_u *DesktopMemberUpdate) ClearPositionID() *DesktopMemberUpdate {
+	_u.mutation.ClearPositionID()
+	return _u
+}
+
+// SetPositionRevision sets the "position_revision" field.
+func (_u *DesktopMemberUpdate) SetPositionRevision(v int64) *DesktopMemberUpdate {
+	_u.mutation.ResetPositionRevision()
+	_u.mutation.SetPositionRevision(v)
+	return _u
+}
+
+// SetNillablePositionRevision sets the "position_revision" field if the given value is not nil.
+func (_u *DesktopMemberUpdate) SetNillablePositionRevision(v *int64) *DesktopMemberUpdate {
+	if v != nil {
+		_u.SetPositionRevision(*v)
+	}
+	return _u
+}
+
+// AddPositionRevision adds value to the "position_revision" field.
+func (_u *DesktopMemberUpdate) AddPositionRevision(v int64) *DesktopMemberUpdate {
+	_u.mutation.AddPositionRevision(v)
 	return _u
 }
 
@@ -195,6 +237,11 @@ func (_u *DesktopMemberUpdate) AddAPIKeyAssignments(v ...*DesktopMemberAPIKey) *
 	return _u.AddAPIKeyAssignmentIDs(ids...)
 }
 
+// SetPosition sets the "position" edge to the DesktopPosition entity.
+func (_u *DesktopMemberUpdate) SetPosition(v *DesktopPosition) *DesktopMemberUpdate {
+	return _u.SetPositionID(v.ID)
+}
+
 // Mutation returns the DesktopMemberMutation object of the builder.
 func (_u *DesktopMemberUpdate) Mutation() *DesktopMemberMutation {
 	return _u.mutation
@@ -225,6 +272,12 @@ func (_u *DesktopMemberUpdate) RemoveAPIKeyAssignments(v ...*DesktopMemberAPIKey
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveAPIKeyAssignmentIDs(ids...)
+}
+
+// ClearPosition clears the "position" edge to the DesktopPosition entity.
+func (_u *DesktopMemberUpdate) ClearPosition() *DesktopMemberUpdate {
+	_u.mutation.ClearPosition()
+	return _u
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -271,6 +324,11 @@ func (_u *DesktopMemberUpdate) defaults() error {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *DesktopMemberUpdate) check() error {
+	if v, ok := _u.mutation.PositionRevision(); ok {
+		if err := desktopmember.PositionRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "position_revision", err: fmt.Errorf(`ent: validator failed for field "DesktopMember.position_revision": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Name(); ok {
 		if err := desktopmember.NameValidator(v); err != nil {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "DesktopMember.name": %w`, err)}
@@ -327,6 +385,12 @@ func (_u *DesktopMemberUpdate) sqlSave(ctx context.Context) (_node int, err erro
 	}
 	if _u.mutation.DeletedAtCleared() {
 		_spec.ClearField(desktopmember.FieldDeletedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.PositionRevision(); ok {
+		_spec.SetField(desktopmember.FieldPositionRevision, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedPositionRevision(); ok {
+		_spec.AddField(desktopmember.FieldPositionRevision, field.TypeInt64, value)
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(desktopmember.FieldName, field.TypeString, value)
@@ -426,6 +490,35 @@ func (_u *DesktopMemberUpdate) sqlSave(ctx context.Context) (_node int, err erro
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.PositionCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   desktopmember.PositionTable,
+			Columns: []string{desktopmember.PositionColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(desktopposition.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.PositionIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   desktopmember.PositionTable,
+			Columns: []string{desktopmember.PositionColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(desktopposition.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{desktopmember.Label}
@@ -483,6 +576,47 @@ func (_u *DesktopMemberUpdateOne) SetNillableOrganizationID(v *int64) *DesktopMe
 	if v != nil {
 		_u.SetOrganizationID(*v)
 	}
+	return _u
+}
+
+// SetPositionID sets the "position_id" field.
+func (_u *DesktopMemberUpdateOne) SetPositionID(v int64) *DesktopMemberUpdateOne {
+	_u.mutation.SetPositionID(v)
+	return _u
+}
+
+// SetNillablePositionID sets the "position_id" field if the given value is not nil.
+func (_u *DesktopMemberUpdateOne) SetNillablePositionID(v *int64) *DesktopMemberUpdateOne {
+	if v != nil {
+		_u.SetPositionID(*v)
+	}
+	return _u
+}
+
+// ClearPositionID clears the value of the "position_id" field.
+func (_u *DesktopMemberUpdateOne) ClearPositionID() *DesktopMemberUpdateOne {
+	_u.mutation.ClearPositionID()
+	return _u
+}
+
+// SetPositionRevision sets the "position_revision" field.
+func (_u *DesktopMemberUpdateOne) SetPositionRevision(v int64) *DesktopMemberUpdateOne {
+	_u.mutation.ResetPositionRevision()
+	_u.mutation.SetPositionRevision(v)
+	return _u
+}
+
+// SetNillablePositionRevision sets the "position_revision" field if the given value is not nil.
+func (_u *DesktopMemberUpdateOne) SetNillablePositionRevision(v *int64) *DesktopMemberUpdateOne {
+	if v != nil {
+		_u.SetPositionRevision(*v)
+	}
+	return _u
+}
+
+// AddPositionRevision adds value to the "position_revision" field.
+func (_u *DesktopMemberUpdateOne) AddPositionRevision(v int64) *DesktopMemberUpdateOne {
+	_u.mutation.AddPositionRevision(v)
 	return _u
 }
 
@@ -611,6 +745,11 @@ func (_u *DesktopMemberUpdateOne) AddAPIKeyAssignments(v ...*DesktopMemberAPIKey
 	return _u.AddAPIKeyAssignmentIDs(ids...)
 }
 
+// SetPosition sets the "position" edge to the DesktopPosition entity.
+func (_u *DesktopMemberUpdateOne) SetPosition(v *DesktopPosition) *DesktopMemberUpdateOne {
+	return _u.SetPositionID(v.ID)
+}
+
 // Mutation returns the DesktopMemberMutation object of the builder.
 func (_u *DesktopMemberUpdateOne) Mutation() *DesktopMemberMutation {
 	return _u.mutation
@@ -641,6 +780,12 @@ func (_u *DesktopMemberUpdateOne) RemoveAPIKeyAssignments(v ...*DesktopMemberAPI
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveAPIKeyAssignmentIDs(ids...)
+}
+
+// ClearPosition clears the "position" edge to the DesktopPosition entity.
+func (_u *DesktopMemberUpdateOne) ClearPosition() *DesktopMemberUpdateOne {
+	_u.mutation.ClearPosition()
+	return _u
 }
 
 // Where appends a list predicates to the DesktopMemberUpdate builder.
@@ -700,6 +845,11 @@ func (_u *DesktopMemberUpdateOne) defaults() error {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *DesktopMemberUpdateOne) check() error {
+	if v, ok := _u.mutation.PositionRevision(); ok {
+		if err := desktopmember.PositionRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "position_revision", err: fmt.Errorf(`ent: validator failed for field "DesktopMember.position_revision": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Name(); ok {
 		if err := desktopmember.NameValidator(v); err != nil {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "DesktopMember.name": %w`, err)}
@@ -773,6 +923,12 @@ func (_u *DesktopMemberUpdateOne) sqlSave(ctx context.Context) (_node *DesktopMe
 	}
 	if _u.mutation.DeletedAtCleared() {
 		_spec.ClearField(desktopmember.FieldDeletedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.PositionRevision(); ok {
+		_spec.SetField(desktopmember.FieldPositionRevision, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedPositionRevision(); ok {
+		_spec.AddField(desktopmember.FieldPositionRevision, field.TypeInt64, value)
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(desktopmember.FieldName, field.TypeString, value)
@@ -865,6 +1021,35 @@ func (_u *DesktopMemberUpdateOne) sqlSave(ctx context.Context) (_node *DesktopMe
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(desktopmemberapikey.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.PositionCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   desktopmember.PositionTable,
+			Columns: []string{desktopmember.PositionColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(desktopposition.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.PositionIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   desktopmember.PositionTable,
+			Columns: []string{desktopmember.PositionColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(desktopposition.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

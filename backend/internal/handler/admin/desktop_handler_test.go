@@ -98,7 +98,8 @@ func TestDesktopAdminMemberDTOExposesFullPhone(t *testing.T) {
 	}))
 	require.NoError(t, err)
 	require.JSONEq(t, `{
-		"public_id":"mem_one",
+		"assignment_status":"unassigned", "department":null,"position":null,"position_revision":0,
+"public_id":"mem_one",
 		"name":"Member",
 		"remark":"财务部",
 		"phone":"+8613800000000",

@@ -6,6 +6,9 @@
 | --- | --- |
 | [开发指南](DEV_GUIDE.md) | 仓库与 toolchain、服务配置、CI、本地验证、版本规则和故障排查 |
 | [仓库目录说明](REPOSITORY_LAYOUT.md) | 代码、文档、Agent skills 与本地文件的存放位置 |
+| [企业管理业务规划](enterprise-organization-plan.md) | 组织归属、数据汇集、成果沉淀、知识库与 SOP 的业务方向 |
+| [部门、岗位与员工归属实施方案](enterprise-organization-implementation-plan.md) | 组织模型、迁移、接口、管理页面与验收方案 |
+| [组织归属使用与部署](../desktop/DESKTOP_ORGANIZATION_STRUCTURE.md) | 部门、岗位、调岗、成员导入和分阶段数据库收紧 |
 | [插件开发](PLUGIN_DEVELOPMENT.md) | 独立进程、配置 UI、包清单、签名和宿主能力边界 |
 | [Plugin API](../../backend/pkg/pluginapi/README.md) | 协议、包格式及公开开发接口 |
 | [CI workflow](../../.github/workflows/backend-ci.yml) | 当前检查命令与工具版本 |

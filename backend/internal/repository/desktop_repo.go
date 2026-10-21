@@ -10,9 +10,11 @@ import (
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
+	"github.com/Wei-Shaw/sub2api/ent/desktopdepartment"
 	"github.com/Wei-Shaw/sub2api/ent/desktopmember"
 	"github.com/Wei-Shaw/sub2api/ent/desktopmemberapikey"
 	"github.com/Wei-Shaw/sub2api/ent/desktoporganization"
+	"github.com/Wei-Shaw/sub2api/ent/desktopposition"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/schema/mixins"
@@ -524,6 +526,10 @@ func (r *desktopRepository) CreateMember(ctx context.Context, organizationPublic
 		if err := validateDesktopCarrier(txCtx, client, gatewayUser, groupEntity); err != nil {
 			return err
 		}
+		position, err := desktopAssignmentPosition(txCtx, client, lockedOrganization.ID, input.PositionID)
+		if err != nil {
+			return err
+		}
 		member, err := client.DesktopMember.Create().
 			SetPublicID(input.Member.PublicID).
 			SetOrganizationID(lockedOrganization.ID).
@@ -531,6 +537,7 @@ func (r *desktopRepository) CreateMember(ctx context.Context, organizationPublic
 			SetNameNormalized(input.Member.NameNormalized).
 			SetRemark(input.Member.Remark).
 			SetPhone(input.Member.Phone).
+			SetPositionID(position.ID).SetPositionRevision(1).
 			Save(txCtx)
 		if err != nil {
 			return translatePersistenceError(err, nil, service.ErrDesktopValidation)
@@ -540,8 +547,14 @@ func (r *desktopRepository) CreateMember(ctx context.Context, organizationPublic
 		if err := r.createAPIKeyWithinLimit(txCtx, input.APIKey); err != nil {
 			return err
 		}
-		_, err = client.DesktopMemberAPIKey.Create().SetMemberID(member.ID).SetAPIKeyID(input.APIKey.ID).Save(txCtx)
-		return translatePersistenceError(err, nil, service.ErrDesktopRotationConflict)
+		if _, err = client.DesktopMemberAPIKey.Create().SetMemberID(member.ID).SetAPIKeyID(input.APIKey.ID).Save(txCtx); err != nil {
+			return translatePersistenceError(err, nil, service.ErrDesktopRotationConflict)
+		}
+		at, err := desktopStructureTime(txCtx, client)
+		if err != nil {
+			return err
+		}
+		return createDesktopPositionHistory(txCtx, client, member, position, "member_create", service.DesktopAssignPositionInput{ActorID: input.ActorID, RequestID: input.RequestID}, at)
 	})
 	if err != nil {
 		return nil, err
@@ -566,11 +579,31 @@ func (r *desktopRepository) ListMembers(ctx context.Context, organizationPublicI
 	if filters.Status != "" {
 		q = q.Where(desktopmember.StatusEQ(filters.Status))
 	}
+	if filters.DepartmentID != "" || filters.PositionID != "" {
+		pq := r.client.DesktopPosition.Query().Where(desktopposition.OrganizationIDEQ(organization.ID))
+		if filters.DepartmentID != "" {
+			pq.Where(desktopposition.HasDepartmentWith(desktopdepartment.PublicIDEQ(filters.DepartmentID)))
+		}
+		if filters.PositionID != "" {
+			pq.Where(desktopposition.PublicIDEQ(filters.PositionID))
+		}
+		ids, queryErr := pq.IDs(ctx)
+		if queryErr != nil {
+			return nil, nil, queryErr
+		}
+		if filters.PositionID != "" && len(ids) == 0 {
+			return nil, nil, service.ErrDesktopValidation
+		}
+		q.Where(desktopmember.PositionIDIn(ids...))
+	}
+	if filters.Unassigned {
+		q.Where(desktopmember.PositionIDIsNil())
+	}
 	total, err := q.Count(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
-	rows, err := q.WithAPIKeyAssignments(func(aq *dbent.DesktopMemberAPIKeyQuery) {
+	rows, err := q.WithPosition(func(pq *dbent.DesktopPositionQuery) { pq.WithDepartment() }).WithAPIKeyAssignments(func(aq *dbent.DesktopMemberAPIKeyQuery) {
 		aq.Where(desktopmemberapikey.RetiredAtIsNil()).WithAPIKey()
 	}).Order(dbent.Desc(desktopmember.FieldUpdatedAt), dbent.Desc(desktopmember.FieldID)).Offset(params.Offset()).Limit(params.Limit()).All(ctx)
 	if err != nil {
@@ -587,7 +620,7 @@ func (r *desktopRepository) GetMember(ctx context.Context, organizationPublicID,
 	row, err := r.client.DesktopMember.Query().Where(
 		desktopmember.PublicIDEQ(memberPublicID),
 		desktopmember.HasOrganizationWith(r.organizationPredicates(desktoporganization.PublicIDEQ(organizationPublicID))...),
-	).WithAPIKeyAssignments(func(q *dbent.DesktopMemberAPIKeyQuery) {
+	).WithPosition(func(pq *dbent.DesktopPositionQuery) { pq.WithDepartment() }).WithAPIKeyAssignments(func(q *dbent.DesktopMemberAPIKeyQuery) {
 		q.Where(desktopmemberapikey.RetiredAtIsNil()).WithAPIKey()
 	}).Only(ctx)
 	if err != nil {
@@ -709,6 +742,13 @@ func (r *desktopRepository) DeleteMember(ctx context.Context, organizationPublic
 			if _, err := client.DesktopMemberAPIKey.UpdateOne(assignment).SetRetiredAt(time.Now()).Save(txCtx); err != nil {
 				return err
 			}
+		}
+		at, err := desktopStructureTime(txCtx, client)
+		if err != nil {
+			return err
+		}
+		if _, err = closeDesktopPositionHistory(txCtx, client, lockedMember, at); err != nil {
+			return err
 		}
 		_, err = client.DesktopMember.UpdateOne(lockedMember).
 			SetStatus(service.DesktopStatusDisabled).
@@ -1022,6 +1062,14 @@ func desktopMemberEntityToService(row *dbent.DesktopMember) *service.DesktopMemb
 		ID: row.ID, PublicID: row.PublicID, OrganizationID: row.OrganizationID, Name: row.Name,
 		NameNormalized: row.NameNormalized, Remark: row.Remark, Phone: row.Phone, Status: row.Status, AuthVersion: row.AuthVersion,
 		APIKeySuspendedByOrganization: row.APIKeySuspendedByOrganization, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+	}
+	result.PositionRevision = row.PositionRevision
+	if p := row.Edges.Position; p != nil {
+		result.PositionID = p.PublicID
+		result.Position = &service.DesktopStructureRef{PublicID: p.PublicID, Name: p.Name}
+		if d := p.Edges.Department; d != nil {
+			result.Department = &service.DesktopStructureRef{PublicID: d.PublicID, Name: d.Name}
+		}
 	}
 	for _, assignment := range row.Edges.APIKeyAssignments {
 		if assignment.RetiredAt != nil {

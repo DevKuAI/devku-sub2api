@@ -74,6 +74,10 @@ type DesktopOrganization struct {
 }
 
 type DesktopMember struct {
+	PositionID                    string
+	PositionRevision              int64
+	Position                      *DesktopStructureRef
+	Department                    *DesktopStructureRef
 	UsageTimezone                 string
 	UsageAsOf                     *time.Time
 	Budget                        *DesktopMemberBudget
@@ -194,9 +198,12 @@ type DesktopOrganizationListFilters struct {
 }
 
 type DesktopMemberListFilters struct {
-	Search string
-	Status string
-	Phone  string
+	DepartmentID string
+	PositionID   string
+	Unassigned   bool
+	Search       string
+	Status       string
+	Phone        string
 }
 
 type DesktopCreateOrganizationInput struct {
@@ -229,8 +236,21 @@ type DesktopUpdateOrganizationInput struct {
 }
 
 type DesktopCreateMemberInput struct {
-	Member *DesktopMember
-	APIKey *APIKey
+	Member     *DesktopMember
+	APIKey     *APIKey
+	PositionID string
+	ActorID    int64
+	RequestID  string
+}
+
+type DesktopMemberCreateInput struct {
+	Name       string               `json:"name"`
+	Phone      string               `json:"phone"`
+	Remark     string               `json:"remark"`
+	PositionID string               `json:"position_id"`
+	Budget     *DesktopMemberBudget `json:"budget,omitempty"`
+	ActorID    int64                `json:"-"`
+	RequestID  string               `json:"-"`
 }
 
 type DesktopUpdateMemberInput struct {

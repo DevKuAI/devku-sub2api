@@ -16,6 +16,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/desktopmember"
 	"github.com/Wei-Shaw/sub2api/ent/desktopmemberapikey"
 	"github.com/Wei-Shaw/sub2api/ent/desktoporganization"
+	"github.com/Wei-Shaw/sub2api/ent/desktopposition"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 )
 
@@ -28,6 +29,7 @@ type DesktopMemberQuery struct {
 	predicates            []predicate.DesktopMember
 	withOrganization      *DesktopOrganizationQuery
 	withAPIKeyAssignments *DesktopMemberAPIKeyQuery
+	withPosition          *DesktopPositionQuery
 	modifiers             []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
@@ -102,6 +104,28 @@ func (_q *DesktopMemberQuery) QueryAPIKeyAssignments() *DesktopMemberAPIKeyQuery
 			sqlgraph.From(desktopmember.Table, desktopmember.FieldID, selector),
 			sqlgraph.To(desktopmemberapikey.Table, desktopmemberapikey.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, desktopmember.APIKeyAssignmentsTable, desktopmember.APIKeyAssignmentsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryPosition chains the current query on the "position" edge.
+func (_q *DesktopMemberQuery) QueryPosition() *DesktopPositionQuery {
+	query := (&DesktopPositionClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(desktopmember.Table, desktopmember.FieldID, selector),
+			sqlgraph.To(desktopposition.Table, desktopposition.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, desktopmember.PositionTable, desktopmember.PositionColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -303,6 +327,7 @@ func (_q *DesktopMemberQuery) Clone() *DesktopMemberQuery {
 		predicates:            append([]predicate.DesktopMember{}, _q.predicates...),
 		withOrganization:      _q.withOrganization.Clone(),
 		withAPIKeyAssignments: _q.withAPIKeyAssignments.Clone(),
+		withPosition:          _q.withPosition.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -328,6 +353,17 @@ func (_q *DesktopMemberQuery) WithAPIKeyAssignments(opts ...func(*DesktopMemberA
 		opt(query)
 	}
 	_q.withAPIKeyAssignments = query
+	return _q
+}
+
+// WithPosition tells the query-builder to eager-load the nodes that are connected to
+// the "position" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *DesktopMemberQuery) WithPosition(opts ...func(*DesktopPositionQuery)) *DesktopMemberQuery {
+	query := (&DesktopPositionClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withPosition = query
 	return _q
 }
 
@@ -409,9 +445,10 @@ func (_q *DesktopMemberQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([
 	var (
 		nodes       = []*DesktopMember{}
 		_spec       = _q.querySpec()
-		loadedTypes = [2]bool{
+		loadedTypes = [3]bool{
 			_q.withOrganization != nil,
 			_q.withAPIKeyAssignments != nil,
+			_q.withPosition != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -447,6 +484,12 @@ func (_q *DesktopMemberQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([
 			func(n *DesktopMember, e *DesktopMemberAPIKey) {
 				n.Edges.APIKeyAssignments = append(n.Edges.APIKeyAssignments, e)
 			}); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withPosition; query != nil {
+		if err := _q.loadPosition(ctx, query, nodes, nil,
+			func(n *DesktopMember, e *DesktopPosition) { n.Edges.Position = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -512,6 +555,38 @@ func (_q *DesktopMemberQuery) loadAPIKeyAssignments(ctx context.Context, query *
 	}
 	return nil
 }
+func (_q *DesktopMemberQuery) loadPosition(ctx context.Context, query *DesktopPositionQuery, nodes []*DesktopMember, init func(*DesktopMember), assign func(*DesktopMember, *DesktopPosition)) error {
+	ids := make([]int64, 0, len(nodes))
+	nodeids := make(map[int64][]*DesktopMember)
+	for i := range nodes {
+		if nodes[i].PositionID == nil {
+			continue
+		}
+		fk := *nodes[i].PositionID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(desktopposition.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "position_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
 
 func (_q *DesktopMemberQuery) sqlCount(ctx context.Context) (int, error) {
 	_spec := _q.querySpec()
@@ -543,6 +618,9 @@ func (_q *DesktopMemberQuery) querySpec() *sqlgraph.QuerySpec {
 		}
 		if _q.withOrganization != nil {
 			_spec.Node.AddColumnOnce(desktopmember.FieldOrganizationID)
+		}
+		if _q.withPosition != nil {
+			_spec.Node.AddColumnOnce(desktopmember.FieldPositionID)
 		}
 	}
 	if ps := _q.predicates; len(ps) > 0 {

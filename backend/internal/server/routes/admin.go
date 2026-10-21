@@ -178,6 +178,7 @@ func registerDesktopAdminRoutesIfEnabled(
 }
 
 func registerDesktopAdminRoutes(desktop *gin.RouterGroup, h *handler.Handlers) {
+	registerDesktopStructureRoutes(desktop.Group("/organizations/:organization_id"), h.Admin.Desktop.Service(), false)
 	desktop.GET("/organizations/:organization_id/period-reports", h.Admin.Desktop.PeriodReports)
 	desktop.POST("/organizations/:organization_id/period-reports/run", h.Admin.Desktop.RunPeriodReport)
 	desktop.GET("/organizations/:organization_id/period-reports/:report_id", h.Admin.Desktop.PeriodReports)

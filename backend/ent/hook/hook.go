@@ -201,6 +201,18 @@ func (f DesktopConversationRecordFunc) Mutate(ctx context.Context, m ent.Mutatio
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.DesktopConversationRecordMutation", m)
 }
 
+// The DesktopDepartmentFunc type is an adapter to allow the use of ordinary
+// function as DesktopDepartment mutator.
+type DesktopDepartmentFunc func(context.Context, *ent.DesktopDepartmentMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f DesktopDepartmentFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.DesktopDepartmentMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.DesktopDepartmentMutation", m)
+}
+
 // The DesktopMemberFunc type is an adapter to allow the use of ordinary
 // function as DesktopMember mutator.
 type DesktopMemberFunc func(context.Context, *ent.DesktopMemberMutation) (ent.Value, error)
@@ -225,6 +237,18 @@ func (f DesktopMemberAPIKeyFunc) Mutate(ctx context.Context, m ent.Mutation) (en
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.DesktopMemberAPIKeyMutation", m)
 }
 
+// The DesktopMemberPositionHistoryFunc type is an adapter to allow the use of ordinary
+// function as DesktopMemberPositionHistory mutator.
+type DesktopMemberPositionHistoryFunc func(context.Context, *ent.DesktopMemberPositionHistoryMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f DesktopMemberPositionHistoryFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.DesktopMemberPositionHistoryMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.DesktopMemberPositionHistoryMutation", m)
+}
+
 // The DesktopOrganizationFunc type is an adapter to allow the use of ordinary
 // function as DesktopOrganization mutator.
 type DesktopOrganizationFunc func(context.Context, *ent.DesktopOrganizationMutation) (ent.Value, error)
@@ -235,6 +259,18 @@ func (f DesktopOrganizationFunc) Mutate(ctx context.Context, m ent.Mutation) (en
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.DesktopOrganizationMutation", m)
+}
+
+// The DesktopPositionFunc type is an adapter to allow the use of ordinary
+// function as DesktopPosition mutator.
+type DesktopPositionFunc func(context.Context, *ent.DesktopPositionMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f DesktopPositionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.DesktopPositionMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.DesktopPositionMutation", m)
 }
 
 // The DesktopUpdateReleaseFunc type is an adapter to allow the use of ordinary

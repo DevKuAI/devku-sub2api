@@ -14,6 +14,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/desktopmember"
 	"github.com/Wei-Shaw/sub2api/ent/desktopmemberapikey"
 	"github.com/Wei-Shaw/sub2api/ent/desktoporganization"
+	"github.com/Wei-Shaw/sub2api/ent/desktopposition"
 )
 
 // DesktopMemberCreate is the builder for creating a DesktopMember entity.
@@ -75,6 +76,34 @@ func (_c *DesktopMemberCreate) SetPublicID(v string) *DesktopMemberCreate {
 // SetOrganizationID sets the "organization_id" field.
 func (_c *DesktopMemberCreate) SetOrganizationID(v int64) *DesktopMemberCreate {
 	_c.mutation.SetOrganizationID(v)
+	return _c
+}
+
+// SetPositionID sets the "position_id" field.
+func (_c *DesktopMemberCreate) SetPositionID(v int64) *DesktopMemberCreate {
+	_c.mutation.SetPositionID(v)
+	return _c
+}
+
+// SetNillablePositionID sets the "position_id" field if the given value is not nil.
+func (_c *DesktopMemberCreate) SetNillablePositionID(v *int64) *DesktopMemberCreate {
+	if v != nil {
+		_c.SetPositionID(*v)
+	}
+	return _c
+}
+
+// SetPositionRevision sets the "position_revision" field.
+func (_c *DesktopMemberCreate) SetPositionRevision(v int64) *DesktopMemberCreate {
+	_c.mutation.SetPositionRevision(v)
+	return _c
+}
+
+// SetNillablePositionRevision sets the "position_revision" field if the given value is not nil.
+func (_c *DesktopMemberCreate) SetNillablePositionRevision(v *int64) *DesktopMemberCreate {
+	if v != nil {
+		_c.SetPositionRevision(*v)
+	}
 	return _c
 }
 
@@ -172,6 +201,11 @@ func (_c *DesktopMemberCreate) AddAPIKeyAssignments(v ...*DesktopMemberAPIKey) *
 	return _c.AddAPIKeyAssignmentIDs(ids...)
 }
 
+// SetPosition sets the "position" edge to the DesktopPosition entity.
+func (_c *DesktopMemberCreate) SetPosition(v *DesktopPosition) *DesktopMemberCreate {
+	return _c.SetPositionID(v.ID)
+}
+
 // Mutation returns the DesktopMemberMutation object of the builder.
 func (_c *DesktopMemberCreate) Mutation() *DesktopMemberMutation {
 	return _c.mutation
@@ -223,6 +257,10 @@ func (_c *DesktopMemberCreate) defaults() error {
 		v := desktopmember.DefaultUpdatedAt()
 		_c.mutation.SetUpdatedAt(v)
 	}
+	if _, ok := _c.mutation.PositionRevision(); !ok {
+		v := desktopmember.DefaultPositionRevision
+		_c.mutation.SetPositionRevision(v)
+	}
 	if _, ok := _c.mutation.Remark(); !ok {
 		v := desktopmember.DefaultRemark
 		_c.mutation.SetRemark(v)
@@ -260,6 +298,14 @@ func (_c *DesktopMemberCreate) check() error {
 	}
 	if _, ok := _c.mutation.OrganizationID(); !ok {
 		return &ValidationError{Name: "organization_id", err: errors.New(`ent: missing required field "DesktopMember.organization_id"`)}
+	}
+	if _, ok := _c.mutation.PositionRevision(); !ok {
+		return &ValidationError{Name: "position_revision", err: errors.New(`ent: missing required field "DesktopMember.position_revision"`)}
+	}
+	if v, ok := _c.mutation.PositionRevision(); ok {
+		if err := desktopmember.PositionRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "position_revision", err: fmt.Errorf(`ent: validator failed for field "DesktopMember.position_revision": %w`, err)}
+		}
 	}
 	if _, ok := _c.mutation.Name(); !ok {
 		return &ValidationError{Name: "name", err: errors.New(`ent: missing required field "DesktopMember.name"`)}
@@ -358,6 +404,10 @@ func (_c *DesktopMemberCreate) createSpec() (*DesktopMember, *sqlgraph.CreateSpe
 		_spec.SetField(desktopmember.FieldPublicID, field.TypeString, value)
 		_node.PublicID = value
 	}
+	if value, ok := _c.mutation.PositionRevision(); ok {
+		_spec.SetField(desktopmember.FieldPositionRevision, field.TypeInt64, value)
+		_node.PositionRevision = value
+	}
 	if value, ok := _c.mutation.Name(); ok {
 		_spec.SetField(desktopmember.FieldName, field.TypeString, value)
 		_node.Name = value
@@ -417,6 +467,23 @@ func (_c *DesktopMemberCreate) createSpec() (*DesktopMember, *sqlgraph.CreateSpe
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.PositionIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   desktopmember.PositionTable,
+			Columns: []string{desktopmember.PositionColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(desktopposition.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.PositionID = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec
@@ -510,6 +577,42 @@ func (u *DesktopMemberUpsert) SetOrganizationID(v int64) *DesktopMemberUpsert {
 // UpdateOrganizationID sets the "organization_id" field to the value that was provided on create.
 func (u *DesktopMemberUpsert) UpdateOrganizationID() *DesktopMemberUpsert {
 	u.SetExcluded(desktopmember.FieldOrganizationID)
+	return u
+}
+
+// SetPositionID sets the "position_id" field.
+func (u *DesktopMemberUpsert) SetPositionID(v int64) *DesktopMemberUpsert {
+	u.Set(desktopmember.FieldPositionID, v)
+	return u
+}
+
+// UpdatePositionID sets the "position_id" field to the value that was provided on create.
+func (u *DesktopMemberUpsert) UpdatePositionID() *DesktopMemberUpsert {
+	u.SetExcluded(desktopmember.FieldPositionID)
+	return u
+}
+
+// ClearPositionID clears the value of the "position_id" field.
+func (u *DesktopMemberUpsert) ClearPositionID() *DesktopMemberUpsert {
+	u.SetNull(desktopmember.FieldPositionID)
+	return u
+}
+
+// SetPositionRevision sets the "position_revision" field.
+func (u *DesktopMemberUpsert) SetPositionRevision(v int64) *DesktopMemberUpsert {
+	u.Set(desktopmember.FieldPositionRevision, v)
+	return u
+}
+
+// UpdatePositionRevision sets the "position_revision" field to the value that was provided on create.
+func (u *DesktopMemberUpsert) UpdatePositionRevision() *DesktopMemberUpsert {
+	u.SetExcluded(desktopmember.FieldPositionRevision)
+	return u
+}
+
+// AddPositionRevision adds v to the "position_revision" field.
+func (u *DesktopMemberUpsert) AddPositionRevision(v int64) *DesktopMemberUpsert {
+	u.Add(desktopmember.FieldPositionRevision, v)
 	return u
 }
 
@@ -697,6 +800,48 @@ func (u *DesktopMemberUpsertOne) SetOrganizationID(v int64) *DesktopMemberUpsert
 func (u *DesktopMemberUpsertOne) UpdateOrganizationID() *DesktopMemberUpsertOne {
 	return u.Update(func(s *DesktopMemberUpsert) {
 		s.UpdateOrganizationID()
+	})
+}
+
+// SetPositionID sets the "position_id" field.
+func (u *DesktopMemberUpsertOne) SetPositionID(v int64) *DesktopMemberUpsertOne {
+	return u.Update(func(s *DesktopMemberUpsert) {
+		s.SetPositionID(v)
+	})
+}
+
+// UpdatePositionID sets the "position_id" field to the value that was provided on create.
+func (u *DesktopMemberUpsertOne) UpdatePositionID() *DesktopMemberUpsertOne {
+	return u.Update(func(s *DesktopMemberUpsert) {
+		s.UpdatePositionID()
+	})
+}
+
+// ClearPositionID clears the value of the "position_id" field.
+func (u *DesktopMemberUpsertOne) ClearPositionID() *DesktopMemberUpsertOne {
+	return u.Update(func(s *DesktopMemberUpsert) {
+		s.ClearPositionID()
+	})
+}
+
+// SetPositionRevision sets the "position_revision" field.
+func (u *DesktopMemberUpsertOne) SetPositionRevision(v int64) *DesktopMemberUpsertOne {
+	return u.Update(func(s *DesktopMemberUpsert) {
+		s.SetPositionRevision(v)
+	})
+}
+
+// AddPositionRevision adds v to the "position_revision" field.
+func (u *DesktopMemberUpsertOne) AddPositionRevision(v int64) *DesktopMemberUpsertOne {
+	return u.Update(func(s *DesktopMemberUpsert) {
+		s.AddPositionRevision(v)
+	})
+}
+
+// UpdatePositionRevision sets the "position_revision" field to the value that was provided on create.
+func (u *DesktopMemberUpsertOne) UpdatePositionRevision() *DesktopMemberUpsertOne {
+	return u.Update(func(s *DesktopMemberUpsert) {
+		s.UpdatePositionRevision()
 	})
 }
 
@@ -1065,6 +1210,48 @@ func (u *DesktopMemberUpsertBulk) SetOrganizationID(v int64) *DesktopMemberUpser
 func (u *DesktopMemberUpsertBulk) UpdateOrganizationID() *DesktopMemberUpsertBulk {
 	return u.Update(func(s *DesktopMemberUpsert) {
 		s.UpdateOrganizationID()
+	})
+}
+
+// SetPositionID sets the "position_id" field.
+func (u *DesktopMemberUpsertBulk) SetPositionID(v int64) *DesktopMemberUpsertBulk {
+	return u.Update(func(s *DesktopMemberUpsert) {
+		s.SetPositionID(v)
+	})
+}
+
+// UpdatePositionID sets the "position_id" field to the value that was provided on create.
+func (u *DesktopMemberUpsertBulk) UpdatePositionID() *DesktopMemberUpsertBulk {
+	return u.Update(func(s *DesktopMemberUpsert) {
+		s.UpdatePositionID()
+	})
+}
+
+// ClearPositionID clears the value of the "position_id" field.
+func (u *DesktopMemberUpsertBulk) ClearPositionID() *DesktopMemberUpsertBulk {
+	return u.Update(func(s *DesktopMemberUpsert) {
+		s.ClearPositionID()
+	})
+}
+
+// SetPositionRevision sets the "position_revision" field.
+func (u *DesktopMemberUpsertBulk) SetPositionRevision(v int64) *DesktopMemberUpsertBulk {
+	return u.Update(func(s *DesktopMemberUpsert) {
+		s.SetPositionRevision(v)
+	})
+}
+
+// AddPositionRevision adds v to the "position_revision" field.
+func (u *DesktopMemberUpsertBulk) AddPositionRevision(v int64) *DesktopMemberUpsertBulk {
+	return u.Update(func(s *DesktopMemberUpsert) {
+		s.AddPositionRevision(v)
+	})
+}
+
+// UpdatePositionRevision sets the "position_revision" field to the value that was provided on create.
+func (u *DesktopMemberUpsertBulk) UpdatePositionRevision() *DesktopMemberUpsertBulk {
+	return u.Update(func(s *DesktopMemberUpsert) {
+		s.UpdatePositionRevision()
 	})
 }
 

@@ -52,6 +52,7 @@ func TestDesktopRepositoryMemberLimitDefaultsAndSyncsOnReassignment(t *testing.T
 		Email: fmt.Sprintf("desktop-quota-carrier-%d@example.com", fixture.suffix),
 	})
 	t.Cleanup(func() {
+		_, _ = integrationDB.ExecContext(ctx, "UPDATE desktop_organizations SET gateway_user_id=$1 WHERE id=$2", fixture.user.ID, fixture.organization.ID)
 		_, _ = integrationDB.ExecContext(ctx, "DELETE FROM desktop_organizations WHERE gateway_user_id = $1", carrier.ID)
 		_, _ = integrationDB.ExecContext(ctx, "DELETE FROM users WHERE id = $1", carrier.ID)
 	})
@@ -120,8 +121,9 @@ func TestDesktopRepositoryMemberLimitCountsDisabledAndReleasesDeletedMembers(t *
 	require.NoError(t, err)
 
 	input := service.DesktopCreateMemberInput{
-		Member: &service.DesktopMember{PublicID: fmt.Sprintf("mem_slot_%d", fixture.suffix), Name: "New member", NameNormalized: "New member", Phone: desktopTestPhone(fixture.suffix + 2)},
-		APIKey: &service.APIKey{Key: fmt.Sprintf("sk-slot-%d", fixture.suffix), Name: "New member", Status: service.StatusAPIKeyActive},
+		PositionID: fixture.position.PublicID,
+		Member:     &service.DesktopMember{PublicID: fmt.Sprintf("mem_slot_%d", fixture.suffix), Name: "New member", NameNormalized: "New member", Phone: desktopTestPhone(fixture.suffix + 2)},
+		APIKey:     &service.APIKey{Key: fmt.Sprintf("sk-slot-%d", fixture.suffix), Name: "New member", Status: service.StatusAPIKeyActive},
 	}
 	_, err = fixture.repo.CreateMember(ctx, fixture.organization.PublicID, input)
 	require.ErrorIs(t, err, service.ErrDesktopMemberLimitReached)
@@ -143,8 +145,9 @@ func TestDesktopRepositoryConcurrentMemberCreationHonorsLimit(t *testing.T) {
 			defer workers.Done()
 			<-start
 			_, err := fixture.repo.CreateMember(ctx, fixture.organization.PublicID, service.DesktopCreateMemberInput{
-				Member: &service.DesktopMember{PublicID: fmt.Sprintf("mem_race_%d_%d", fixture.suffix, index), Name: "Member", NameNormalized: "Member", Phone: desktopTestPhone(fixture.suffix + int64(index))},
-				APIKey: &service.APIKey{Key: fmt.Sprintf("sk-race-%d-%d", fixture.suffix, index), Name: "Member", Status: service.StatusAPIKeyActive},
+				PositionID: fixture.position.PublicID,
+				Member:     &service.DesktopMember{PublicID: fmt.Sprintf("mem_race_%d_%d", fixture.suffix, index), Name: "Member", NameNormalized: "Member", Phone: desktopTestPhone(fixture.suffix + int64(index))},
+				APIKey:     &service.APIKey{Key: fmt.Sprintf("sk-race-%d-%d", fixture.suffix, index), Name: "Member", Status: service.StatusAPIKeyActive},
 			})
 			results <- err
 		}(i)

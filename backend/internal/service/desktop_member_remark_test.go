@@ -50,10 +50,10 @@ func TestDesktopMemberCreateRemarkForAdminAndManager(t *testing.T) {
 		var member *DesktopMember
 		var err error
 		if managed {
-			member, err = svc.CreateManagedMember(context.Background(), 42, "Member", "13800138000", " 财务部 ")
+			member, err = svc.CreateManagedMember(context.Background(), 42, DesktopMemberCreateInput{Name: "Member", Phone: "13800138000", Remark: " 财务部 ", PositionID: "pos_test"})
 			require.Equal(t, []int64{42}, repo.scopedUserIDs)
 		} else {
-			member, err = svc.CreateMember(context.Background(), "org_owned", "Member", "13800138000", " 财务部 ")
+			member, err = svc.CreateMember(context.Background(), "org_owned", DesktopMemberCreateInput{Name: "Member", Phone: "13800138000", Remark: " 财务部 ", PositionID: "pos_test"})
 		}
 		require.NoError(t, err)
 		require.Equal(t, "财务部", member.Remark)

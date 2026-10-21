@@ -197,8 +197,12 @@ func TestNativeHTTPAndActualTypeScriptClient(t *testing.T) {
 	require.NoError(t, f.db.QueryRow(`UPDATE desktop_organizations SET member_limit=100 WHERE public_id=$1 RETURNING id`, f.org).Scan(&org))
 	var account int64
 	require.NoError(t, f.db.QueryRow(`INSERT INTO accounts(name,platform,type,credentials) VALUES('native-http','openai','apikey','{}') RETURNING id`).Scan(&account))
+	var departmentID int64
+	require.NoError(t, f.db.QueryRow(`INSERT INTO desktop_departments(public_id,organization_id,name,name_normalized) VALUES('dep_http',$1,'HTTP Department','http department') RETURNING id`, org).Scan(&departmentID))
+	_, e = f.db.Exec(`INSERT INTO desktop_positions(public_id,organization_id,department_id,name,name_normalized) VALUES('pos_http',$1,$2,'HTTP Position','http position')`, org, departmentID)
+	require.NoError(t, e)
 	for i := 0; i < 25; i++ {
-		member, e := f.desktop.CreateMember(ctx, f.org, fmt.Sprintf("成员%02d", i), fmt.Sprintf("+861380%07d", i), "")
+		member, e := f.desktop.CreateMember(ctx, f.org, service.DesktopMemberCreateInput{Name: fmt.Sprintf("成员%02d", i), Phone: fmt.Sprintf("+861380%07d", i), PositionID: "pos_http"})
 		require.NoError(t, e)
 		_, e = f.db.Exec(`INSERT INTO usage_logs(user_id,api_key_id,account_id,request_id,model,input_tokens,output_tokens,billing_mode,created_at) VALUES($1,$2,$3,$4,$5,2147483647,20,'token',NOW()-INTERVAL '1 minute')`, f.owner, *member.CurrentAPIKeyID, account, fmt.Sprintf("http-%d", i), fmt.Sprintf("model-%02d", i))
 		require.NoError(t, e)

@@ -28,9 +28,12 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
 	"github.com/Wei-Shaw/sub2api/ent/compositemodelroute"
 	"github.com/Wei-Shaw/sub2api/ent/desktopconversationrecord"
+	"github.com/Wei-Shaw/sub2api/ent/desktopdepartment"
 	"github.com/Wei-Shaw/sub2api/ent/desktopmember"
 	"github.com/Wei-Shaw/sub2api/ent/desktopmemberapikey"
+	"github.com/Wei-Shaw/sub2api/ent/desktopmemberpositionhistory"
 	"github.com/Wei-Shaw/sub2api/ent/desktoporganization"
+	"github.com/Wei-Shaw/sub2api/ent/desktopposition"
 	"github.com/Wei-Shaw/sub2api/ent/desktopupdaterelease"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
@@ -132,9 +135,12 @@ func checkColumn(t, c string) error {
 			channelmonitorrequesttemplate.Table: channelmonitorrequesttemplate.ValidColumn,
 			compositemodelroute.Table:           compositemodelroute.ValidColumn,
 			desktopconversationrecord.Table:     desktopconversationrecord.ValidColumn,
+			desktopdepartment.Table:             desktopdepartment.ValidColumn,
 			desktopmember.Table:                 desktopmember.ValidColumn,
 			desktopmemberapikey.Table:           desktopmemberapikey.ValidColumn,
+			desktopmemberpositionhistory.Table:  desktopmemberpositionhistory.ValidColumn,
 			desktoporganization.Table:           desktoporganization.ValidColumn,
+			desktopposition.Table:               desktopposition.ValidColumn,
 			desktopupdaterelease.Table:          desktopupdaterelease.ValidColumn,
 			errorpassthroughrule.Table:          errorpassthroughrule.ValidColumn,
 			group.Table:                         group.ValidColumn,

@@ -28,6 +28,8 @@ func (DesktopMember) Fields() []ent.Field {
 	return []ent.Field{
 		field.String("public_id").MaxLen(40).NotEmpty().Unique().Immutable(),
 		field.Int64("organization_id"),
+		field.Int64("position_id").Optional().Nillable(),
+		field.Int64("position_revision").NonNegative().Default(0),
 		field.String("name").MaxLen(100).NotEmpty(),
 		field.String("name_normalized").MaxLen(100).NotEmpty(),
 		field.String("remark").MaxRuneLen(500).Default(""),
@@ -46,11 +48,14 @@ func (DesktopMember) Edges() []ent.Edge {
 			Unique().
 			Required(),
 		edge.To("api_key_assignments", DesktopMemberAPIKey.Type),
+		edge.From("position", DesktopPosition.Type).Ref("members").Field("position_id").Unique(),
 	}
 }
 
 func (DesktopMember) Indexes() []ent.Index {
 	return []ent.Index{
+		index.Fields("organization_id", "id").Unique().StorageKey("idx_desktop_members_org_id"),
+		index.Fields("organization_id", "position_id", "id").StorageKey("idx_desktop_members_position"),
 		index.Fields("organization_id", "phone").
 			Unique().
 			StorageKey("idx_desktop_members_org_phone_active").

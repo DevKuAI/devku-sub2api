@@ -54,14 +54,23 @@ type CompositeModelRoute func(*sql.Selector)
 // DesktopConversationRecord is the predicate function for desktopconversationrecord builders.
 type DesktopConversationRecord func(*sql.Selector)
 
+// DesktopDepartment is the predicate function for desktopdepartment builders.
+type DesktopDepartment func(*sql.Selector)
+
 // DesktopMember is the predicate function for desktopmember builders.
 type DesktopMember func(*sql.Selector)
 
 // DesktopMemberAPIKey is the predicate function for desktopmemberapikey builders.
 type DesktopMemberAPIKey func(*sql.Selector)
 
+// DesktopMemberPositionHistory is the predicate function for desktopmemberpositionhistory builders.
+type DesktopMemberPositionHistory func(*sql.Selector)
+
 // DesktopOrganization is the predicate function for desktoporganization builders.
 type DesktopOrganization func(*sql.Selector)
+
+// DesktopPosition is the predicate function for desktopposition builders.
+type DesktopPosition func(*sql.Selector)
 
 // DesktopUpdateRelease is the predicate function for desktopupdaterelease builders.
 type DesktopUpdateRelease func(*sql.Selector)

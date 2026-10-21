@@ -28,9 +28,12 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
 	"github.com/Wei-Shaw/sub2api/ent/compositemodelroute"
 	"github.com/Wei-Shaw/sub2api/ent/desktopconversationrecord"
+	"github.com/Wei-Shaw/sub2api/ent/desktopdepartment"
 	"github.com/Wei-Shaw/sub2api/ent/desktopmember"
 	"github.com/Wei-Shaw/sub2api/ent/desktopmemberapikey"
+	"github.com/Wei-Shaw/sub2api/ent/desktopmemberpositionhistory"
 	"github.com/Wei-Shaw/sub2api/ent/desktoporganization"
+	"github.com/Wei-Shaw/sub2api/ent/desktopposition"
 	"github.com/Wei-Shaw/sub2api/ent/desktopupdaterelease"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
@@ -86,9 +89,12 @@ const (
 	TypeChannelMonitorRequestTemplate = "ChannelMonitorRequestTemplate"
 	TypeCompositeModelRoute           = "CompositeModelRoute"
 	TypeDesktopConversationRecord     = "DesktopConversationRecord"
+	TypeDesktopDepartment             = "DesktopDepartment"
 	TypeDesktopMember                 = "DesktopMember"
 	TypeDesktopMemberAPIKey           = "DesktopMemberAPIKey"
+	TypeDesktopMemberPositionHistory  = "DesktopMemberPositionHistory"
 	TypeDesktopOrganization           = "DesktopOrganization"
+	TypeDesktopPosition               = "DesktopPosition"
 	TypeDesktopUpdateRelease          = "DesktopUpdateRelease"
 	TypeErrorPassthroughRule          = "ErrorPassthroughRule"
 	TypeGroup                         = "Group"
@@ -22469,6 +22475,885 @@ func (m *DesktopConversationRecordMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown DesktopConversationRecord edge %s", name)
 }
 
+// DesktopDepartmentMutation represents an operation that mutates the DesktopDepartment nodes in the graph.
+type DesktopDepartmentMutation struct {
+	config
+	op                  Op
+	typ                 string
+	id                  *int64
+	created_at          *time.Time
+	updated_at          *time.Time
+	public_id           *string
+	name                *string
+	name_normalized     *string
+	status              *string
+	revision            *int64
+	addrevision         *int64
+	clearedFields       map[string]struct{}
+	organization        *int64
+	clearedorganization bool
+	positions           map[int64]struct{}
+	removedpositions    map[int64]struct{}
+	clearedpositions    bool
+	done                bool
+	oldValue            func(context.Context) (*DesktopDepartment, error)
+	predicates          []predicate.DesktopDepartment
+}
+
+var _ ent.Mutation = (*DesktopDepartmentMutation)(nil)
+
+// desktopdepartmentOption allows management of the mutation configuration using functional options.
+type desktopdepartmentOption func(*DesktopDepartmentMutation)
+
+// newDesktopDepartmentMutation creates new mutation for the DesktopDepartment entity.
+func newDesktopDepartmentMutation(c config, op Op, opts ...desktopdepartmentOption) *DesktopDepartmentMutation {
+	m := &DesktopDepartmentMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeDesktopDepartment,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withDesktopDepartmentID sets the ID field of the mutation.
+func withDesktopDepartmentID(id int64) desktopdepartmentOption {
+	return func(m *DesktopDepartmentMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *DesktopDepartment
+		)
+		m.oldValue = func(ctx context.Context) (*DesktopDepartment, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().DesktopDepartment.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withDesktopDepartment sets the old DesktopDepartment of the mutation.
+func withDesktopDepartment(node *DesktopDepartment) desktopdepartmentOption {
+	return func(m *DesktopDepartmentMutation) {
+		m.oldValue = func(context.Context) (*DesktopDepartment, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m DesktopDepartmentMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m DesktopDepartmentMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *DesktopDepartmentMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *DesktopDepartmentMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().DesktopDepartment.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *DesktopDepartmentMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *DesktopDepartmentMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the DesktopDepartment entity.
+// If the DesktopDepartment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopDepartmentMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *DesktopDepartmentMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *DesktopDepartmentMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *DesktopDepartmentMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the DesktopDepartment entity.
+// If the DesktopDepartment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopDepartmentMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *DesktopDepartmentMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetPublicID sets the "public_id" field.
+func (m *DesktopDepartmentMutation) SetPublicID(s string) {
+	m.public_id = &s
+}
+
+// PublicID returns the value of the "public_id" field in the mutation.
+func (m *DesktopDepartmentMutation) PublicID() (r string, exists bool) {
+	v := m.public_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPublicID returns the old "public_id" field's value of the DesktopDepartment entity.
+// If the DesktopDepartment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopDepartmentMutation) OldPublicID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPublicID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPublicID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPublicID: %w", err)
+	}
+	return oldValue.PublicID, nil
+}
+
+// ResetPublicID resets all changes to the "public_id" field.
+func (m *DesktopDepartmentMutation) ResetPublicID() {
+	m.public_id = nil
+}
+
+// SetOrganizationID sets the "organization_id" field.
+func (m *DesktopDepartmentMutation) SetOrganizationID(i int64) {
+	m.organization = &i
+}
+
+// OrganizationID returns the value of the "organization_id" field in the mutation.
+func (m *DesktopDepartmentMutation) OrganizationID() (r int64, exists bool) {
+	v := m.organization
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOrganizationID returns the old "organization_id" field's value of the DesktopDepartment entity.
+// If the DesktopDepartment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopDepartmentMutation) OldOrganizationID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOrganizationID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOrganizationID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOrganizationID: %w", err)
+	}
+	return oldValue.OrganizationID, nil
+}
+
+// ResetOrganizationID resets all changes to the "organization_id" field.
+func (m *DesktopDepartmentMutation) ResetOrganizationID() {
+	m.organization = nil
+}
+
+// SetName sets the "name" field.
+func (m *DesktopDepartmentMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *DesktopDepartmentMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the DesktopDepartment entity.
+// If the DesktopDepartment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopDepartmentMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *DesktopDepartmentMutation) ResetName() {
+	m.name = nil
+}
+
+// SetNameNormalized sets the "name_normalized" field.
+func (m *DesktopDepartmentMutation) SetNameNormalized(s string) {
+	m.name_normalized = &s
+}
+
+// NameNormalized returns the value of the "name_normalized" field in the mutation.
+func (m *DesktopDepartmentMutation) NameNormalized() (r string, exists bool) {
+	v := m.name_normalized
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldNameNormalized returns the old "name_normalized" field's value of the DesktopDepartment entity.
+// If the DesktopDepartment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopDepartmentMutation) OldNameNormalized(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldNameNormalized is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldNameNormalized requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldNameNormalized: %w", err)
+	}
+	return oldValue.NameNormalized, nil
+}
+
+// ResetNameNormalized resets all changes to the "name_normalized" field.
+func (m *DesktopDepartmentMutation) ResetNameNormalized() {
+	m.name_normalized = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *DesktopDepartmentMutation) SetStatus(s string) {
+	m.status = &s
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *DesktopDepartmentMutation) Status() (r string, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the DesktopDepartment entity.
+// If the DesktopDepartment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopDepartmentMutation) OldStatus(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *DesktopDepartmentMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetRevision sets the "revision" field.
+func (m *DesktopDepartmentMutation) SetRevision(i int64) {
+	m.revision = &i
+	m.addrevision = nil
+}
+
+// Revision returns the value of the "revision" field in the mutation.
+func (m *DesktopDepartmentMutation) Revision() (r int64, exists bool) {
+	v := m.revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRevision returns the old "revision" field's value of the DesktopDepartment entity.
+// If the DesktopDepartment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopDepartmentMutation) OldRevision(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRevision is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRevision requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRevision: %w", err)
+	}
+	return oldValue.Revision, nil
+}
+
+// AddRevision adds i to the "revision" field.
+func (m *DesktopDepartmentMutation) AddRevision(i int64) {
+	if m.addrevision != nil {
+		*m.addrevision += i
+	} else {
+		m.addrevision = &i
+	}
+}
+
+// AddedRevision returns the value that was added to the "revision" field in this mutation.
+func (m *DesktopDepartmentMutation) AddedRevision() (r int64, exists bool) {
+	v := m.addrevision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRevision resets all changes to the "revision" field.
+func (m *DesktopDepartmentMutation) ResetRevision() {
+	m.revision = nil
+	m.addrevision = nil
+}
+
+// ClearOrganization clears the "organization" edge to the DesktopOrganization entity.
+func (m *DesktopDepartmentMutation) ClearOrganization() {
+	m.clearedorganization = true
+	m.clearedFields[desktopdepartment.FieldOrganizationID] = struct{}{}
+}
+
+// OrganizationCleared reports if the "organization" edge to the DesktopOrganization entity was cleared.
+func (m *DesktopDepartmentMutation) OrganizationCleared() bool {
+	return m.clearedorganization
+}
+
+// OrganizationIDs returns the "organization" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// OrganizationID instead. It exists only for internal usage by the builders.
+func (m *DesktopDepartmentMutation) OrganizationIDs() (ids []int64) {
+	if id := m.organization; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetOrganization resets all changes to the "organization" edge.
+func (m *DesktopDepartmentMutation) ResetOrganization() {
+	m.organization = nil
+	m.clearedorganization = false
+}
+
+// AddPositionIDs adds the "positions" edge to the DesktopPosition entity by ids.
+func (m *DesktopDepartmentMutation) AddPositionIDs(ids ...int64) {
+	if m.positions == nil {
+		m.positions = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.positions[ids[i]] = struct{}{}
+	}
+}
+
+// ClearPositions clears the "positions" edge to the DesktopPosition entity.
+func (m *DesktopDepartmentMutation) ClearPositions() {
+	m.clearedpositions = true
+}
+
+// PositionsCleared reports if the "positions" edge to the DesktopPosition entity was cleared.
+func (m *DesktopDepartmentMutation) PositionsCleared() bool {
+	return m.clearedpositions
+}
+
+// RemovePositionIDs removes the "positions" edge to the DesktopPosition entity by IDs.
+func (m *DesktopDepartmentMutation) RemovePositionIDs(ids ...int64) {
+	if m.removedpositions == nil {
+		m.removedpositions = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.positions, ids[i])
+		m.removedpositions[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedPositions returns the removed IDs of the "positions" edge to the DesktopPosition entity.
+func (m *DesktopDepartmentMutation) RemovedPositionsIDs() (ids []int64) {
+	for id := range m.removedpositions {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// PositionsIDs returns the "positions" edge IDs in the mutation.
+func (m *DesktopDepartmentMutation) PositionsIDs() (ids []int64) {
+	for id := range m.positions {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetPositions resets all changes to the "positions" edge.
+func (m *DesktopDepartmentMutation) ResetPositions() {
+	m.positions = nil
+	m.clearedpositions = false
+	m.removedpositions = nil
+}
+
+// Where appends a list predicates to the DesktopDepartmentMutation builder.
+func (m *DesktopDepartmentMutation) Where(ps ...predicate.DesktopDepartment) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the DesktopDepartmentMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *DesktopDepartmentMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.DesktopDepartment, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *DesktopDepartmentMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *DesktopDepartmentMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (DesktopDepartment).
+func (m *DesktopDepartmentMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *DesktopDepartmentMutation) Fields() []string {
+	fields := make([]string, 0, 8)
+	if m.created_at != nil {
+		fields = append(fields, desktopdepartment.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, desktopdepartment.FieldUpdatedAt)
+	}
+	if m.public_id != nil {
+		fields = append(fields, desktopdepartment.FieldPublicID)
+	}
+	if m.organization != nil {
+		fields = append(fields, desktopdepartment.FieldOrganizationID)
+	}
+	if m.name != nil {
+		fields = append(fields, desktopdepartment.FieldName)
+	}
+	if m.name_normalized != nil {
+		fields = append(fields, desktopdepartment.FieldNameNormalized)
+	}
+	if m.status != nil {
+		fields = append(fields, desktopdepartment.FieldStatus)
+	}
+	if m.revision != nil {
+		fields = append(fields, desktopdepartment.FieldRevision)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *DesktopDepartmentMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case desktopdepartment.FieldCreatedAt:
+		return m.CreatedAt()
+	case desktopdepartment.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case desktopdepartment.FieldPublicID:
+		return m.PublicID()
+	case desktopdepartment.FieldOrganizationID:
+		return m.OrganizationID()
+	case desktopdepartment.FieldName:
+		return m.Name()
+	case desktopdepartment.FieldNameNormalized:
+		return m.NameNormalized()
+	case desktopdepartment.FieldStatus:
+		return m.Status()
+	case desktopdepartment.FieldRevision:
+		return m.Revision()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *DesktopDepartmentMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case desktopdepartment.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case desktopdepartment.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case desktopdepartment.FieldPublicID:
+		return m.OldPublicID(ctx)
+	case desktopdepartment.FieldOrganizationID:
+		return m.OldOrganizationID(ctx)
+	case desktopdepartment.FieldName:
+		return m.OldName(ctx)
+	case desktopdepartment.FieldNameNormalized:
+		return m.OldNameNormalized(ctx)
+	case desktopdepartment.FieldStatus:
+		return m.OldStatus(ctx)
+	case desktopdepartment.FieldRevision:
+		return m.OldRevision(ctx)
+	}
+	return nil, fmt.Errorf("unknown DesktopDepartment field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *DesktopDepartmentMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case desktopdepartment.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case desktopdepartment.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case desktopdepartment.FieldPublicID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPublicID(v)
+		return nil
+	case desktopdepartment.FieldOrganizationID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOrganizationID(v)
+		return nil
+	case desktopdepartment.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	case desktopdepartment.FieldNameNormalized:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetNameNormalized(v)
+		return nil
+	case desktopdepartment.FieldStatus:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case desktopdepartment.FieldRevision:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRevision(v)
+		return nil
+	}
+	return fmt.Errorf("unknown DesktopDepartment field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *DesktopDepartmentMutation) AddedFields() []string {
+	var fields []string
+	if m.addrevision != nil {
+		fields = append(fields, desktopdepartment.FieldRevision)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *DesktopDepartmentMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case desktopdepartment.FieldRevision:
+		return m.AddedRevision()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *DesktopDepartmentMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case desktopdepartment.FieldRevision:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRevision(v)
+		return nil
+	}
+	return fmt.Errorf("unknown DesktopDepartment numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *DesktopDepartmentMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *DesktopDepartmentMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *DesktopDepartmentMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown DesktopDepartment nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *DesktopDepartmentMutation) ResetField(name string) error {
+	switch name {
+	case desktopdepartment.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case desktopdepartment.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case desktopdepartment.FieldPublicID:
+		m.ResetPublicID()
+		return nil
+	case desktopdepartment.FieldOrganizationID:
+		m.ResetOrganizationID()
+		return nil
+	case desktopdepartment.FieldName:
+		m.ResetName()
+		return nil
+	case desktopdepartment.FieldNameNormalized:
+		m.ResetNameNormalized()
+		return nil
+	case desktopdepartment.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case desktopdepartment.FieldRevision:
+		m.ResetRevision()
+		return nil
+	}
+	return fmt.Errorf("unknown DesktopDepartment field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *DesktopDepartmentMutation) AddedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.organization != nil {
+		edges = append(edges, desktopdepartment.EdgeOrganization)
+	}
+	if m.positions != nil {
+		edges = append(edges, desktopdepartment.EdgePositions)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *DesktopDepartmentMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case desktopdepartment.EdgeOrganization:
+		if id := m.organization; id != nil {
+			return []ent.Value{*id}
+		}
+	case desktopdepartment.EdgePositions:
+		ids := make([]ent.Value, 0, len(m.positions))
+		for id := range m.positions {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *DesktopDepartmentMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.removedpositions != nil {
+		edges = append(edges, desktopdepartment.EdgePositions)
+	}
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *DesktopDepartmentMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case desktopdepartment.EdgePositions:
+		ids := make([]ent.Value, 0, len(m.removedpositions))
+		for id := range m.removedpositions {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *DesktopDepartmentMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.clearedorganization {
+		edges = append(edges, desktopdepartment.EdgeOrganization)
+	}
+	if m.clearedpositions {
+		edges = append(edges, desktopdepartment.EdgePositions)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *DesktopDepartmentMutation) EdgeCleared(name string) bool {
+	switch name {
+	case desktopdepartment.EdgeOrganization:
+		return m.clearedorganization
+	case desktopdepartment.EdgePositions:
+		return m.clearedpositions
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *DesktopDepartmentMutation) ClearEdge(name string) error {
+	switch name {
+	case desktopdepartment.EdgeOrganization:
+		m.ClearOrganization()
+		return nil
+	}
+	return fmt.Errorf("unknown DesktopDepartment unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *DesktopDepartmentMutation) ResetEdge(name string) error {
+	switch name {
+	case desktopdepartment.EdgeOrganization:
+		m.ResetOrganization()
+		return nil
+	case desktopdepartment.EdgePositions:
+		m.ResetPositions()
+		return nil
+	}
+	return fmt.Errorf("unknown DesktopDepartment edge %s", name)
+}
+
 // DesktopMemberMutation represents an operation that mutates the DesktopMember nodes in the graph.
 type DesktopMemberMutation struct {
 	config
@@ -22479,6 +23364,8 @@ type DesktopMemberMutation struct {
 	updated_at                        *time.Time
 	deleted_at                        *time.Time
 	public_id                         *string
+	position_revision                 *int64
+	addposition_revision              *int64
 	name                              *string
 	name_normalized                   *string
 	remark                            *string
@@ -22493,6 +23380,8 @@ type DesktopMemberMutation struct {
 	api_key_assignments               map[int64]struct{}
 	removedapi_key_assignments        map[int64]struct{}
 	clearedapi_key_assignments        bool
+	position                          *int64
+	clearedposition                   bool
 	done                              bool
 	oldValue                          func(context.Context) (*DesktopMember, error)
 	predicates                        []predicate.DesktopMember
@@ -22787,6 +23676,111 @@ func (m *DesktopMemberMutation) OldOrganizationID(ctx context.Context) (v int64,
 // ResetOrganizationID resets all changes to the "organization_id" field.
 func (m *DesktopMemberMutation) ResetOrganizationID() {
 	m.organization = nil
+}
+
+// SetPositionID sets the "position_id" field.
+func (m *DesktopMemberMutation) SetPositionID(i int64) {
+	m.position = &i
+}
+
+// PositionID returns the value of the "position_id" field in the mutation.
+func (m *DesktopMemberMutation) PositionID() (r int64, exists bool) {
+	v := m.position
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPositionID returns the old "position_id" field's value of the DesktopMember entity.
+// If the DesktopMember object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopMemberMutation) OldPositionID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPositionID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPositionID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPositionID: %w", err)
+	}
+	return oldValue.PositionID, nil
+}
+
+// ClearPositionID clears the value of the "position_id" field.
+func (m *DesktopMemberMutation) ClearPositionID() {
+	m.position = nil
+	m.clearedFields[desktopmember.FieldPositionID] = struct{}{}
+}
+
+// PositionIDCleared returns if the "position_id" field was cleared in this mutation.
+func (m *DesktopMemberMutation) PositionIDCleared() bool {
+	_, ok := m.clearedFields[desktopmember.FieldPositionID]
+	return ok
+}
+
+// ResetPositionID resets all changes to the "position_id" field.
+func (m *DesktopMemberMutation) ResetPositionID() {
+	m.position = nil
+	delete(m.clearedFields, desktopmember.FieldPositionID)
+}
+
+// SetPositionRevision sets the "position_revision" field.
+func (m *DesktopMemberMutation) SetPositionRevision(i int64) {
+	m.position_revision = &i
+	m.addposition_revision = nil
+}
+
+// PositionRevision returns the value of the "position_revision" field in the mutation.
+func (m *DesktopMemberMutation) PositionRevision() (r int64, exists bool) {
+	v := m.position_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPositionRevision returns the old "position_revision" field's value of the DesktopMember entity.
+// If the DesktopMember object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopMemberMutation) OldPositionRevision(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPositionRevision is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPositionRevision requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPositionRevision: %w", err)
+	}
+	return oldValue.PositionRevision, nil
+}
+
+// AddPositionRevision adds i to the "position_revision" field.
+func (m *DesktopMemberMutation) AddPositionRevision(i int64) {
+	if m.addposition_revision != nil {
+		*m.addposition_revision += i
+	} else {
+		m.addposition_revision = &i
+	}
+}
+
+// AddedPositionRevision returns the value that was added to the "position_revision" field in this mutation.
+func (m *DesktopMemberMutation) AddedPositionRevision() (r int64, exists bool) {
+	v := m.addposition_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetPositionRevision resets all changes to the "position_revision" field.
+func (m *DesktopMemberMutation) ResetPositionRevision() {
+	m.position_revision = nil
+	m.addposition_revision = nil
 }
 
 // SetName sets the "name" field.
@@ -23142,6 +24136,33 @@ func (m *DesktopMemberMutation) ResetAPIKeyAssignments() {
 	m.removedapi_key_assignments = nil
 }
 
+// ClearPosition clears the "position" edge to the DesktopPosition entity.
+func (m *DesktopMemberMutation) ClearPosition() {
+	m.clearedposition = true
+	m.clearedFields[desktopmember.FieldPositionID] = struct{}{}
+}
+
+// PositionCleared reports if the "position" edge to the DesktopPosition entity was cleared.
+func (m *DesktopMemberMutation) PositionCleared() bool {
+	return m.PositionIDCleared() || m.clearedposition
+}
+
+// PositionIDs returns the "position" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// PositionID instead. It exists only for internal usage by the builders.
+func (m *DesktopMemberMutation) PositionIDs() (ids []int64) {
+	if id := m.position; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetPosition resets all changes to the "position" edge.
+func (m *DesktopMemberMutation) ResetPosition() {
+	m.position = nil
+	m.clearedposition = false
+}
+
 // Where appends a list predicates to the DesktopMemberMutation builder.
 func (m *DesktopMemberMutation) Where(ps ...predicate.DesktopMember) {
 	m.predicates = append(m.predicates, ps...)
@@ -23176,7 +24197,7 @@ func (m *DesktopMemberMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *DesktopMemberMutation) Fields() []string {
-	fields := make([]string, 0, 12)
+	fields := make([]string, 0, 14)
 	if m.created_at != nil {
 		fields = append(fields, desktopmember.FieldCreatedAt)
 	}
@@ -23191,6 +24212,12 @@ func (m *DesktopMemberMutation) Fields() []string {
 	}
 	if m.organization != nil {
 		fields = append(fields, desktopmember.FieldOrganizationID)
+	}
+	if m.position != nil {
+		fields = append(fields, desktopmember.FieldPositionID)
+	}
+	if m.position_revision != nil {
+		fields = append(fields, desktopmember.FieldPositionRevision)
 	}
 	if m.name != nil {
 		fields = append(fields, desktopmember.FieldName)
@@ -23231,6 +24258,10 @@ func (m *DesktopMemberMutation) Field(name string) (ent.Value, bool) {
 		return m.PublicID()
 	case desktopmember.FieldOrganizationID:
 		return m.OrganizationID()
+	case desktopmember.FieldPositionID:
+		return m.PositionID()
+	case desktopmember.FieldPositionRevision:
+		return m.PositionRevision()
 	case desktopmember.FieldName:
 		return m.Name()
 	case desktopmember.FieldNameNormalized:
@@ -23264,6 +24295,10 @@ func (m *DesktopMemberMutation) OldField(ctx context.Context, name string) (ent.
 		return m.OldPublicID(ctx)
 	case desktopmember.FieldOrganizationID:
 		return m.OldOrganizationID(ctx)
+	case desktopmember.FieldPositionID:
+		return m.OldPositionID(ctx)
+	case desktopmember.FieldPositionRevision:
+		return m.OldPositionRevision(ctx)
 	case desktopmember.FieldName:
 		return m.OldName(ctx)
 	case desktopmember.FieldNameNormalized:
@@ -23322,6 +24357,20 @@ func (m *DesktopMemberMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetOrganizationID(v)
 		return nil
+	case desktopmember.FieldPositionID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPositionID(v)
+		return nil
+	case desktopmember.FieldPositionRevision:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPositionRevision(v)
+		return nil
 	case desktopmember.FieldName:
 		v, ok := value.(string)
 		if !ok {
@@ -23379,6 +24428,9 @@ func (m *DesktopMemberMutation) SetField(name string, value ent.Value) error {
 // this mutation.
 func (m *DesktopMemberMutation) AddedFields() []string {
 	var fields []string
+	if m.addposition_revision != nil {
+		fields = append(fields, desktopmember.FieldPositionRevision)
+	}
 	if m.addauth_version != nil {
 		fields = append(fields, desktopmember.FieldAuthVersion)
 	}
@@ -23390,6 +24442,8 @@ func (m *DesktopMemberMutation) AddedFields() []string {
 // was not set, or was not defined in the schema.
 func (m *DesktopMemberMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
+	case desktopmember.FieldPositionRevision:
+		return m.AddedPositionRevision()
 	case desktopmember.FieldAuthVersion:
 		return m.AddedAuthVersion()
 	}
@@ -23401,6 +24455,13 @@ func (m *DesktopMemberMutation) AddedField(name string) (ent.Value, bool) {
 // type.
 func (m *DesktopMemberMutation) AddField(name string, value ent.Value) error {
 	switch name {
+	case desktopmember.FieldPositionRevision:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPositionRevision(v)
+		return nil
 	case desktopmember.FieldAuthVersion:
 		v, ok := value.(int64)
 		if !ok {
@@ -23419,6 +24480,9 @@ func (m *DesktopMemberMutation) ClearedFields() []string {
 	if m.FieldCleared(desktopmember.FieldDeletedAt) {
 		fields = append(fields, desktopmember.FieldDeletedAt)
 	}
+	if m.FieldCleared(desktopmember.FieldPositionID) {
+		fields = append(fields, desktopmember.FieldPositionID)
+	}
 	return fields
 }
 
@@ -23435,6 +24499,9 @@ func (m *DesktopMemberMutation) ClearField(name string) error {
 	switch name {
 	case desktopmember.FieldDeletedAt:
 		m.ClearDeletedAt()
+		return nil
+	case desktopmember.FieldPositionID:
+		m.ClearPositionID()
 		return nil
 	}
 	return fmt.Errorf("unknown DesktopMember nullable field %s", name)
@@ -23458,6 +24525,12 @@ func (m *DesktopMemberMutation) ResetField(name string) error {
 		return nil
 	case desktopmember.FieldOrganizationID:
 		m.ResetOrganizationID()
+		return nil
+	case desktopmember.FieldPositionID:
+		m.ResetPositionID()
+		return nil
+	case desktopmember.FieldPositionRevision:
+		m.ResetPositionRevision()
 		return nil
 	case desktopmember.FieldName:
 		m.ResetName()
@@ -23486,12 +24559,15 @@ func (m *DesktopMemberMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *DesktopMemberMutation) AddedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 3)
 	if m.organization != nil {
 		edges = append(edges, desktopmember.EdgeOrganization)
 	}
 	if m.api_key_assignments != nil {
 		edges = append(edges, desktopmember.EdgeAPIKeyAssignments)
+	}
+	if m.position != nil {
+		edges = append(edges, desktopmember.EdgePosition)
 	}
 	return edges
 }
@@ -23510,13 +24586,17 @@ func (m *DesktopMemberMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case desktopmember.EdgePosition:
+		if id := m.position; id != nil {
+			return []ent.Value{*id}
+		}
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *DesktopMemberMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 3)
 	if m.removedapi_key_assignments != nil {
 		edges = append(edges, desktopmember.EdgeAPIKeyAssignments)
 	}
@@ -23539,12 +24619,15 @@ func (m *DesktopMemberMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *DesktopMemberMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 3)
 	if m.clearedorganization {
 		edges = append(edges, desktopmember.EdgeOrganization)
 	}
 	if m.clearedapi_key_assignments {
 		edges = append(edges, desktopmember.EdgeAPIKeyAssignments)
+	}
+	if m.clearedposition {
+		edges = append(edges, desktopmember.EdgePosition)
 	}
 	return edges
 }
@@ -23557,6 +24640,8 @@ func (m *DesktopMemberMutation) EdgeCleared(name string) bool {
 		return m.clearedorganization
 	case desktopmember.EdgeAPIKeyAssignments:
 		return m.clearedapi_key_assignments
+	case desktopmember.EdgePosition:
+		return m.clearedposition
 	}
 	return false
 }
@@ -23567,6 +24652,9 @@ func (m *DesktopMemberMutation) ClearEdge(name string) error {
 	switch name {
 	case desktopmember.EdgeOrganization:
 		m.ClearOrganization()
+		return nil
+	case desktopmember.EdgePosition:
+		m.ClearPosition()
 		return nil
 	}
 	return fmt.Errorf("unknown DesktopMember unique edge %s", name)
@@ -23581,6 +24669,9 @@ func (m *DesktopMemberMutation) ResetEdge(name string) error {
 		return nil
 	case desktopmember.EdgeAPIKeyAssignments:
 		m.ResetAPIKeyAssignments()
+		return nil
+	case desktopmember.EdgePosition:
+		m.ResetPosition()
 		return nil
 	}
 	return fmt.Errorf("unknown DesktopMember edge %s", name)
@@ -24197,6 +25288,1136 @@ func (m *DesktopMemberAPIKeyMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown DesktopMemberAPIKey edge %s", name)
+}
+
+// DesktopMemberPositionHistoryMutation represents an operation that mutates the DesktopMemberPositionHistory nodes in the graph.
+type DesktopMemberPositionHistoryMutation struct {
+	config
+	op                       Op
+	typ                      string
+	id                       *int64
+	organization_id          *int64
+	addorganization_id       *int64
+	member_id                *int64
+	addmember_id             *int64
+	position_id              *int64
+	addposition_id           *int64
+	position_revision        *int64
+	addposition_revision     *int64
+	department_name_snapshot *string
+	position_name_snapshot   *string
+	started_at               *time.Time
+	ended_at                 *time.Time
+	source                   *string
+	changed_by_user_id       *int64
+	addchanged_by_user_id    *int64
+	request_id               *string
+	reason                   *string
+	clearedFields            map[string]struct{}
+	done                     bool
+	oldValue                 func(context.Context) (*DesktopMemberPositionHistory, error)
+	predicates               []predicate.DesktopMemberPositionHistory
+}
+
+var _ ent.Mutation = (*DesktopMemberPositionHistoryMutation)(nil)
+
+// desktopmemberpositionhistoryOption allows management of the mutation configuration using functional options.
+type desktopmemberpositionhistoryOption func(*DesktopMemberPositionHistoryMutation)
+
+// newDesktopMemberPositionHistoryMutation creates new mutation for the DesktopMemberPositionHistory entity.
+func newDesktopMemberPositionHistoryMutation(c config, op Op, opts ...desktopmemberpositionhistoryOption) *DesktopMemberPositionHistoryMutation {
+	m := &DesktopMemberPositionHistoryMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeDesktopMemberPositionHistory,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withDesktopMemberPositionHistoryID sets the ID field of the mutation.
+func withDesktopMemberPositionHistoryID(id int64) desktopmemberpositionhistoryOption {
+	return func(m *DesktopMemberPositionHistoryMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *DesktopMemberPositionHistory
+		)
+		m.oldValue = func(ctx context.Context) (*DesktopMemberPositionHistory, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().DesktopMemberPositionHistory.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withDesktopMemberPositionHistory sets the old DesktopMemberPositionHistory of the mutation.
+func withDesktopMemberPositionHistory(node *DesktopMemberPositionHistory) desktopmemberpositionhistoryOption {
+	return func(m *DesktopMemberPositionHistoryMutation) {
+		m.oldValue = func(context.Context) (*DesktopMemberPositionHistory, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m DesktopMemberPositionHistoryMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m DesktopMemberPositionHistoryMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *DesktopMemberPositionHistoryMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *DesktopMemberPositionHistoryMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().DesktopMemberPositionHistory.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetOrganizationID sets the "organization_id" field.
+func (m *DesktopMemberPositionHistoryMutation) SetOrganizationID(i int64) {
+	m.organization_id = &i
+	m.addorganization_id = nil
+}
+
+// OrganizationID returns the value of the "organization_id" field in the mutation.
+func (m *DesktopMemberPositionHistoryMutation) OrganizationID() (r int64, exists bool) {
+	v := m.organization_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOrganizationID returns the old "organization_id" field's value of the DesktopMemberPositionHistory entity.
+// If the DesktopMemberPositionHistory object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopMemberPositionHistoryMutation) OldOrganizationID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOrganizationID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOrganizationID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOrganizationID: %w", err)
+	}
+	return oldValue.OrganizationID, nil
+}
+
+// AddOrganizationID adds i to the "organization_id" field.
+func (m *DesktopMemberPositionHistoryMutation) AddOrganizationID(i int64) {
+	if m.addorganization_id != nil {
+		*m.addorganization_id += i
+	} else {
+		m.addorganization_id = &i
+	}
+}
+
+// AddedOrganizationID returns the value that was added to the "organization_id" field in this mutation.
+func (m *DesktopMemberPositionHistoryMutation) AddedOrganizationID() (r int64, exists bool) {
+	v := m.addorganization_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetOrganizationID resets all changes to the "organization_id" field.
+func (m *DesktopMemberPositionHistoryMutation) ResetOrganizationID() {
+	m.organization_id = nil
+	m.addorganization_id = nil
+}
+
+// SetMemberID sets the "member_id" field.
+func (m *DesktopMemberPositionHistoryMutation) SetMemberID(i int64) {
+	m.member_id = &i
+	m.addmember_id = nil
+}
+
+// MemberID returns the value of the "member_id" field in the mutation.
+func (m *DesktopMemberPositionHistoryMutation) MemberID() (r int64, exists bool) {
+	v := m.member_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMemberID returns the old "member_id" field's value of the DesktopMemberPositionHistory entity.
+// If the DesktopMemberPositionHistory object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopMemberPositionHistoryMutation) OldMemberID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMemberID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMemberID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMemberID: %w", err)
+	}
+	return oldValue.MemberID, nil
+}
+
+// AddMemberID adds i to the "member_id" field.
+func (m *DesktopMemberPositionHistoryMutation) AddMemberID(i int64) {
+	if m.addmember_id != nil {
+		*m.addmember_id += i
+	} else {
+		m.addmember_id = &i
+	}
+}
+
+// AddedMemberID returns the value that was added to the "member_id" field in this mutation.
+func (m *DesktopMemberPositionHistoryMutation) AddedMemberID() (r int64, exists bool) {
+	v := m.addmember_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetMemberID resets all changes to the "member_id" field.
+func (m *DesktopMemberPositionHistoryMutation) ResetMemberID() {
+	m.member_id = nil
+	m.addmember_id = nil
+}
+
+// SetPositionID sets the "position_id" field.
+func (m *DesktopMemberPositionHistoryMutation) SetPositionID(i int64) {
+	m.position_id = &i
+	m.addposition_id = nil
+}
+
+// PositionID returns the value of the "position_id" field in the mutation.
+func (m *DesktopMemberPositionHistoryMutation) PositionID() (r int64, exists bool) {
+	v := m.position_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPositionID returns the old "position_id" field's value of the DesktopMemberPositionHistory entity.
+// If the DesktopMemberPositionHistory object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopMemberPositionHistoryMutation) OldPositionID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPositionID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPositionID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPositionID: %w", err)
+	}
+	return oldValue.PositionID, nil
+}
+
+// AddPositionID adds i to the "position_id" field.
+func (m *DesktopMemberPositionHistoryMutation) AddPositionID(i int64) {
+	if m.addposition_id != nil {
+		*m.addposition_id += i
+	} else {
+		m.addposition_id = &i
+	}
+}
+
+// AddedPositionID returns the value that was added to the "position_id" field in this mutation.
+func (m *DesktopMemberPositionHistoryMutation) AddedPositionID() (r int64, exists bool) {
+	v := m.addposition_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetPositionID resets all changes to the "position_id" field.
+func (m *DesktopMemberPositionHistoryMutation) ResetPositionID() {
+	m.position_id = nil
+	m.addposition_id = nil
+}
+
+// SetPositionRevision sets the "position_revision" field.
+func (m *DesktopMemberPositionHistoryMutation) SetPositionRevision(i int64) {
+	m.position_revision = &i
+	m.addposition_revision = nil
+}
+
+// PositionRevision returns the value of the "position_revision" field in the mutation.
+func (m *DesktopMemberPositionHistoryMutation) PositionRevision() (r int64, exists bool) {
+	v := m.position_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPositionRevision returns the old "position_revision" field's value of the DesktopMemberPositionHistory entity.
+// If the DesktopMemberPositionHistory object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopMemberPositionHistoryMutation) OldPositionRevision(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPositionRevision is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPositionRevision requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPositionRevision: %w", err)
+	}
+	return oldValue.PositionRevision, nil
+}
+
+// AddPositionRevision adds i to the "position_revision" field.
+func (m *DesktopMemberPositionHistoryMutation) AddPositionRevision(i int64) {
+	if m.addposition_revision != nil {
+		*m.addposition_revision += i
+	} else {
+		m.addposition_revision = &i
+	}
+}
+
+// AddedPositionRevision returns the value that was added to the "position_revision" field in this mutation.
+func (m *DesktopMemberPositionHistoryMutation) AddedPositionRevision() (r int64, exists bool) {
+	v := m.addposition_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetPositionRevision resets all changes to the "position_revision" field.
+func (m *DesktopMemberPositionHistoryMutation) ResetPositionRevision() {
+	m.position_revision = nil
+	m.addposition_revision = nil
+}
+
+// SetDepartmentNameSnapshot sets the "department_name_snapshot" field.
+func (m *DesktopMemberPositionHistoryMutation) SetDepartmentNameSnapshot(s string) {
+	m.department_name_snapshot = &s
+}
+
+// DepartmentNameSnapshot returns the value of the "department_name_snapshot" field in the mutation.
+func (m *DesktopMemberPositionHistoryMutation) DepartmentNameSnapshot() (r string, exists bool) {
+	v := m.department_name_snapshot
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDepartmentNameSnapshot returns the old "department_name_snapshot" field's value of the DesktopMemberPositionHistory entity.
+// If the DesktopMemberPositionHistory object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopMemberPositionHistoryMutation) OldDepartmentNameSnapshot(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDepartmentNameSnapshot is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDepartmentNameSnapshot requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDepartmentNameSnapshot: %w", err)
+	}
+	return oldValue.DepartmentNameSnapshot, nil
+}
+
+// ResetDepartmentNameSnapshot resets all changes to the "department_name_snapshot" field.
+func (m *DesktopMemberPositionHistoryMutation) ResetDepartmentNameSnapshot() {
+	m.department_name_snapshot = nil
+}
+
+// SetPositionNameSnapshot sets the "position_name_snapshot" field.
+func (m *DesktopMemberPositionHistoryMutation) SetPositionNameSnapshot(s string) {
+	m.position_name_snapshot = &s
+}
+
+// PositionNameSnapshot returns the value of the "position_name_snapshot" field in the mutation.
+func (m *DesktopMemberPositionHistoryMutation) PositionNameSnapshot() (r string, exists bool) {
+	v := m.position_name_snapshot
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPositionNameSnapshot returns the old "position_name_snapshot" field's value of the DesktopMemberPositionHistory entity.
+// If the DesktopMemberPositionHistory object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopMemberPositionHistoryMutation) OldPositionNameSnapshot(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPositionNameSnapshot is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPositionNameSnapshot requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPositionNameSnapshot: %w", err)
+	}
+	return oldValue.PositionNameSnapshot, nil
+}
+
+// ResetPositionNameSnapshot resets all changes to the "position_name_snapshot" field.
+func (m *DesktopMemberPositionHistoryMutation) ResetPositionNameSnapshot() {
+	m.position_name_snapshot = nil
+}
+
+// SetStartedAt sets the "started_at" field.
+func (m *DesktopMemberPositionHistoryMutation) SetStartedAt(t time.Time) {
+	m.started_at = &t
+}
+
+// StartedAt returns the value of the "started_at" field in the mutation.
+func (m *DesktopMemberPositionHistoryMutation) StartedAt() (r time.Time, exists bool) {
+	v := m.started_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStartedAt returns the old "started_at" field's value of the DesktopMemberPositionHistory entity.
+// If the DesktopMemberPositionHistory object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopMemberPositionHistoryMutation) OldStartedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStartedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStartedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStartedAt: %w", err)
+	}
+	return oldValue.StartedAt, nil
+}
+
+// ResetStartedAt resets all changes to the "started_at" field.
+func (m *DesktopMemberPositionHistoryMutation) ResetStartedAt() {
+	m.started_at = nil
+}
+
+// SetEndedAt sets the "ended_at" field.
+func (m *DesktopMemberPositionHistoryMutation) SetEndedAt(t time.Time) {
+	m.ended_at = &t
+}
+
+// EndedAt returns the value of the "ended_at" field in the mutation.
+func (m *DesktopMemberPositionHistoryMutation) EndedAt() (r time.Time, exists bool) {
+	v := m.ended_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEndedAt returns the old "ended_at" field's value of the DesktopMemberPositionHistory entity.
+// If the DesktopMemberPositionHistory object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopMemberPositionHistoryMutation) OldEndedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEndedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEndedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEndedAt: %w", err)
+	}
+	return oldValue.EndedAt, nil
+}
+
+// ClearEndedAt clears the value of the "ended_at" field.
+func (m *DesktopMemberPositionHistoryMutation) ClearEndedAt() {
+	m.ended_at = nil
+	m.clearedFields[desktopmemberpositionhistory.FieldEndedAt] = struct{}{}
+}
+
+// EndedAtCleared returns if the "ended_at" field was cleared in this mutation.
+func (m *DesktopMemberPositionHistoryMutation) EndedAtCleared() bool {
+	_, ok := m.clearedFields[desktopmemberpositionhistory.FieldEndedAt]
+	return ok
+}
+
+// ResetEndedAt resets all changes to the "ended_at" field.
+func (m *DesktopMemberPositionHistoryMutation) ResetEndedAt() {
+	m.ended_at = nil
+	delete(m.clearedFields, desktopmemberpositionhistory.FieldEndedAt)
+}
+
+// SetSource sets the "source" field.
+func (m *DesktopMemberPositionHistoryMutation) SetSource(s string) {
+	m.source = &s
+}
+
+// Source returns the value of the "source" field in the mutation.
+func (m *DesktopMemberPositionHistoryMutation) Source() (r string, exists bool) {
+	v := m.source
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSource returns the old "source" field's value of the DesktopMemberPositionHistory entity.
+// If the DesktopMemberPositionHistory object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopMemberPositionHistoryMutation) OldSource(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSource is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSource requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSource: %w", err)
+	}
+	return oldValue.Source, nil
+}
+
+// ResetSource resets all changes to the "source" field.
+func (m *DesktopMemberPositionHistoryMutation) ResetSource() {
+	m.source = nil
+}
+
+// SetChangedByUserID sets the "changed_by_user_id" field.
+func (m *DesktopMemberPositionHistoryMutation) SetChangedByUserID(i int64) {
+	m.changed_by_user_id = &i
+	m.addchanged_by_user_id = nil
+}
+
+// ChangedByUserID returns the value of the "changed_by_user_id" field in the mutation.
+func (m *DesktopMemberPositionHistoryMutation) ChangedByUserID() (r int64, exists bool) {
+	v := m.changed_by_user_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldChangedByUserID returns the old "changed_by_user_id" field's value of the DesktopMemberPositionHistory entity.
+// If the DesktopMemberPositionHistory object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopMemberPositionHistoryMutation) OldChangedByUserID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldChangedByUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldChangedByUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldChangedByUserID: %w", err)
+	}
+	return oldValue.ChangedByUserID, nil
+}
+
+// AddChangedByUserID adds i to the "changed_by_user_id" field.
+func (m *DesktopMemberPositionHistoryMutation) AddChangedByUserID(i int64) {
+	if m.addchanged_by_user_id != nil {
+		*m.addchanged_by_user_id += i
+	} else {
+		m.addchanged_by_user_id = &i
+	}
+}
+
+// AddedChangedByUserID returns the value that was added to the "changed_by_user_id" field in this mutation.
+func (m *DesktopMemberPositionHistoryMutation) AddedChangedByUserID() (r int64, exists bool) {
+	v := m.addchanged_by_user_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearChangedByUserID clears the value of the "changed_by_user_id" field.
+func (m *DesktopMemberPositionHistoryMutation) ClearChangedByUserID() {
+	m.changed_by_user_id = nil
+	m.addchanged_by_user_id = nil
+	m.clearedFields[desktopmemberpositionhistory.FieldChangedByUserID] = struct{}{}
+}
+
+// ChangedByUserIDCleared returns if the "changed_by_user_id" field was cleared in this mutation.
+func (m *DesktopMemberPositionHistoryMutation) ChangedByUserIDCleared() bool {
+	_, ok := m.clearedFields[desktopmemberpositionhistory.FieldChangedByUserID]
+	return ok
+}
+
+// ResetChangedByUserID resets all changes to the "changed_by_user_id" field.
+func (m *DesktopMemberPositionHistoryMutation) ResetChangedByUserID() {
+	m.changed_by_user_id = nil
+	m.addchanged_by_user_id = nil
+	delete(m.clearedFields, desktopmemberpositionhistory.FieldChangedByUserID)
+}
+
+// SetRequestID sets the "request_id" field.
+func (m *DesktopMemberPositionHistoryMutation) SetRequestID(s string) {
+	m.request_id = &s
+}
+
+// RequestID returns the value of the "request_id" field in the mutation.
+func (m *DesktopMemberPositionHistoryMutation) RequestID() (r string, exists bool) {
+	v := m.request_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRequestID returns the old "request_id" field's value of the DesktopMemberPositionHistory entity.
+// If the DesktopMemberPositionHistory object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopMemberPositionHistoryMutation) OldRequestID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRequestID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRequestID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRequestID: %w", err)
+	}
+	return oldValue.RequestID, nil
+}
+
+// ResetRequestID resets all changes to the "request_id" field.
+func (m *DesktopMemberPositionHistoryMutation) ResetRequestID() {
+	m.request_id = nil
+}
+
+// SetReason sets the "reason" field.
+func (m *DesktopMemberPositionHistoryMutation) SetReason(s string) {
+	m.reason = &s
+}
+
+// Reason returns the value of the "reason" field in the mutation.
+func (m *DesktopMemberPositionHistoryMutation) Reason() (r string, exists bool) {
+	v := m.reason
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldReason returns the old "reason" field's value of the DesktopMemberPositionHistory entity.
+// If the DesktopMemberPositionHistory object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopMemberPositionHistoryMutation) OldReason(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldReason is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldReason requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldReason: %w", err)
+	}
+	return oldValue.Reason, nil
+}
+
+// ResetReason resets all changes to the "reason" field.
+func (m *DesktopMemberPositionHistoryMutation) ResetReason() {
+	m.reason = nil
+}
+
+// Where appends a list predicates to the DesktopMemberPositionHistoryMutation builder.
+func (m *DesktopMemberPositionHistoryMutation) Where(ps ...predicate.DesktopMemberPositionHistory) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the DesktopMemberPositionHistoryMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *DesktopMemberPositionHistoryMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.DesktopMemberPositionHistory, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *DesktopMemberPositionHistoryMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *DesktopMemberPositionHistoryMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (DesktopMemberPositionHistory).
+func (m *DesktopMemberPositionHistoryMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *DesktopMemberPositionHistoryMutation) Fields() []string {
+	fields := make([]string, 0, 12)
+	if m.organization_id != nil {
+		fields = append(fields, desktopmemberpositionhistory.FieldOrganizationID)
+	}
+	if m.member_id != nil {
+		fields = append(fields, desktopmemberpositionhistory.FieldMemberID)
+	}
+	if m.position_id != nil {
+		fields = append(fields, desktopmemberpositionhistory.FieldPositionID)
+	}
+	if m.position_revision != nil {
+		fields = append(fields, desktopmemberpositionhistory.FieldPositionRevision)
+	}
+	if m.department_name_snapshot != nil {
+		fields = append(fields, desktopmemberpositionhistory.FieldDepartmentNameSnapshot)
+	}
+	if m.position_name_snapshot != nil {
+		fields = append(fields, desktopmemberpositionhistory.FieldPositionNameSnapshot)
+	}
+	if m.started_at != nil {
+		fields = append(fields, desktopmemberpositionhistory.FieldStartedAt)
+	}
+	if m.ended_at != nil {
+		fields = append(fields, desktopmemberpositionhistory.FieldEndedAt)
+	}
+	if m.source != nil {
+		fields = append(fields, desktopmemberpositionhistory.FieldSource)
+	}
+	if m.changed_by_user_id != nil {
+		fields = append(fields, desktopmemberpositionhistory.FieldChangedByUserID)
+	}
+	if m.request_id != nil {
+		fields = append(fields, desktopmemberpositionhistory.FieldRequestID)
+	}
+	if m.reason != nil {
+		fields = append(fields, desktopmemberpositionhistory.FieldReason)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *DesktopMemberPositionHistoryMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case desktopmemberpositionhistory.FieldOrganizationID:
+		return m.OrganizationID()
+	case desktopmemberpositionhistory.FieldMemberID:
+		return m.MemberID()
+	case desktopmemberpositionhistory.FieldPositionID:
+		return m.PositionID()
+	case desktopmemberpositionhistory.FieldPositionRevision:
+		return m.PositionRevision()
+	case desktopmemberpositionhistory.FieldDepartmentNameSnapshot:
+		return m.DepartmentNameSnapshot()
+	case desktopmemberpositionhistory.FieldPositionNameSnapshot:
+		return m.PositionNameSnapshot()
+	case desktopmemberpositionhistory.FieldStartedAt:
+		return m.StartedAt()
+	case desktopmemberpositionhistory.FieldEndedAt:
+		return m.EndedAt()
+	case desktopmemberpositionhistory.FieldSource:
+		return m.Source()
+	case desktopmemberpositionhistory.FieldChangedByUserID:
+		return m.ChangedByUserID()
+	case desktopmemberpositionhistory.FieldRequestID:
+		return m.RequestID()
+	case desktopmemberpositionhistory.FieldReason:
+		return m.Reason()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *DesktopMemberPositionHistoryMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case desktopmemberpositionhistory.FieldOrganizationID:
+		return m.OldOrganizationID(ctx)
+	case desktopmemberpositionhistory.FieldMemberID:
+		return m.OldMemberID(ctx)
+	case desktopmemberpositionhistory.FieldPositionID:
+		return m.OldPositionID(ctx)
+	case desktopmemberpositionhistory.FieldPositionRevision:
+		return m.OldPositionRevision(ctx)
+	case desktopmemberpositionhistory.FieldDepartmentNameSnapshot:
+		return m.OldDepartmentNameSnapshot(ctx)
+	case desktopmemberpositionhistory.FieldPositionNameSnapshot:
+		return m.OldPositionNameSnapshot(ctx)
+	case desktopmemberpositionhistory.FieldStartedAt:
+		return m.OldStartedAt(ctx)
+	case desktopmemberpositionhistory.FieldEndedAt:
+		return m.OldEndedAt(ctx)
+	case desktopmemberpositionhistory.FieldSource:
+		return m.OldSource(ctx)
+	case desktopmemberpositionhistory.FieldChangedByUserID:
+		return m.OldChangedByUserID(ctx)
+	case desktopmemberpositionhistory.FieldRequestID:
+		return m.OldRequestID(ctx)
+	case desktopmemberpositionhistory.FieldReason:
+		return m.OldReason(ctx)
+	}
+	return nil, fmt.Errorf("unknown DesktopMemberPositionHistory field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *DesktopMemberPositionHistoryMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case desktopmemberpositionhistory.FieldOrganizationID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOrganizationID(v)
+		return nil
+	case desktopmemberpositionhistory.FieldMemberID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMemberID(v)
+		return nil
+	case desktopmemberpositionhistory.FieldPositionID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPositionID(v)
+		return nil
+	case desktopmemberpositionhistory.FieldPositionRevision:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPositionRevision(v)
+		return nil
+	case desktopmemberpositionhistory.FieldDepartmentNameSnapshot:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDepartmentNameSnapshot(v)
+		return nil
+	case desktopmemberpositionhistory.FieldPositionNameSnapshot:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPositionNameSnapshot(v)
+		return nil
+	case desktopmemberpositionhistory.FieldStartedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStartedAt(v)
+		return nil
+	case desktopmemberpositionhistory.FieldEndedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEndedAt(v)
+		return nil
+	case desktopmemberpositionhistory.FieldSource:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSource(v)
+		return nil
+	case desktopmemberpositionhistory.FieldChangedByUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetChangedByUserID(v)
+		return nil
+	case desktopmemberpositionhistory.FieldRequestID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRequestID(v)
+		return nil
+	case desktopmemberpositionhistory.FieldReason:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetReason(v)
+		return nil
+	}
+	return fmt.Errorf("unknown DesktopMemberPositionHistory field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *DesktopMemberPositionHistoryMutation) AddedFields() []string {
+	var fields []string
+	if m.addorganization_id != nil {
+		fields = append(fields, desktopmemberpositionhistory.FieldOrganizationID)
+	}
+	if m.addmember_id != nil {
+		fields = append(fields, desktopmemberpositionhistory.FieldMemberID)
+	}
+	if m.addposition_id != nil {
+		fields = append(fields, desktopmemberpositionhistory.FieldPositionID)
+	}
+	if m.addposition_revision != nil {
+		fields = append(fields, desktopmemberpositionhistory.FieldPositionRevision)
+	}
+	if m.addchanged_by_user_id != nil {
+		fields = append(fields, desktopmemberpositionhistory.FieldChangedByUserID)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *DesktopMemberPositionHistoryMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case desktopmemberpositionhistory.FieldOrganizationID:
+		return m.AddedOrganizationID()
+	case desktopmemberpositionhistory.FieldMemberID:
+		return m.AddedMemberID()
+	case desktopmemberpositionhistory.FieldPositionID:
+		return m.AddedPositionID()
+	case desktopmemberpositionhistory.FieldPositionRevision:
+		return m.AddedPositionRevision()
+	case desktopmemberpositionhistory.FieldChangedByUserID:
+		return m.AddedChangedByUserID()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *DesktopMemberPositionHistoryMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case desktopmemberpositionhistory.FieldOrganizationID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddOrganizationID(v)
+		return nil
+	case desktopmemberpositionhistory.FieldMemberID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddMemberID(v)
+		return nil
+	case desktopmemberpositionhistory.FieldPositionID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPositionID(v)
+		return nil
+	case desktopmemberpositionhistory.FieldPositionRevision:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPositionRevision(v)
+		return nil
+	case desktopmemberpositionhistory.FieldChangedByUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddChangedByUserID(v)
+		return nil
+	}
+	return fmt.Errorf("unknown DesktopMemberPositionHistory numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *DesktopMemberPositionHistoryMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(desktopmemberpositionhistory.FieldEndedAt) {
+		fields = append(fields, desktopmemberpositionhistory.FieldEndedAt)
+	}
+	if m.FieldCleared(desktopmemberpositionhistory.FieldChangedByUserID) {
+		fields = append(fields, desktopmemberpositionhistory.FieldChangedByUserID)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *DesktopMemberPositionHistoryMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *DesktopMemberPositionHistoryMutation) ClearField(name string) error {
+	switch name {
+	case desktopmemberpositionhistory.FieldEndedAt:
+		m.ClearEndedAt()
+		return nil
+	case desktopmemberpositionhistory.FieldChangedByUserID:
+		m.ClearChangedByUserID()
+		return nil
+	}
+	return fmt.Errorf("unknown DesktopMemberPositionHistory nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *DesktopMemberPositionHistoryMutation) ResetField(name string) error {
+	switch name {
+	case desktopmemberpositionhistory.FieldOrganizationID:
+		m.ResetOrganizationID()
+		return nil
+	case desktopmemberpositionhistory.FieldMemberID:
+		m.ResetMemberID()
+		return nil
+	case desktopmemberpositionhistory.FieldPositionID:
+		m.ResetPositionID()
+		return nil
+	case desktopmemberpositionhistory.FieldPositionRevision:
+		m.ResetPositionRevision()
+		return nil
+	case desktopmemberpositionhistory.FieldDepartmentNameSnapshot:
+		m.ResetDepartmentNameSnapshot()
+		return nil
+	case desktopmemberpositionhistory.FieldPositionNameSnapshot:
+		m.ResetPositionNameSnapshot()
+		return nil
+	case desktopmemberpositionhistory.FieldStartedAt:
+		m.ResetStartedAt()
+		return nil
+	case desktopmemberpositionhistory.FieldEndedAt:
+		m.ResetEndedAt()
+		return nil
+	case desktopmemberpositionhistory.FieldSource:
+		m.ResetSource()
+		return nil
+	case desktopmemberpositionhistory.FieldChangedByUserID:
+		m.ResetChangedByUserID()
+		return nil
+	case desktopmemberpositionhistory.FieldRequestID:
+		m.ResetRequestID()
+		return nil
+	case desktopmemberpositionhistory.FieldReason:
+		m.ResetReason()
+		return nil
+	}
+	return fmt.Errorf("unknown DesktopMemberPositionHistory field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *DesktopMemberPositionHistoryMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *DesktopMemberPositionHistoryMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *DesktopMemberPositionHistoryMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *DesktopMemberPositionHistoryMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *DesktopMemberPositionHistoryMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *DesktopMemberPositionHistoryMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *DesktopMemberPositionHistoryMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown DesktopMemberPositionHistory unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *DesktopMemberPositionHistoryMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown DesktopMemberPositionHistory edge %s", name)
 }
 
 // DesktopOrganizationMutation represents an operation that mutates the DesktopOrganization nodes in the graph.
@@ -25862,6 +28083,985 @@ func (m *DesktopOrganizationMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown DesktopOrganization edge %s", name)
+}
+
+// DesktopPositionMutation represents an operation that mutates the DesktopPosition nodes in the graph.
+type DesktopPositionMutation struct {
+	config
+	op                  Op
+	typ                 string
+	id                  *int64
+	created_at          *time.Time
+	updated_at          *time.Time
+	public_id           *string
+	name                *string
+	name_normalized     *string
+	status              *string
+	revision            *int64
+	addrevision         *int64
+	clearedFields       map[string]struct{}
+	organization        *int64
+	clearedorganization bool
+	department          *int64
+	cleareddepartment   bool
+	members             map[int64]struct{}
+	removedmembers      map[int64]struct{}
+	clearedmembers      bool
+	done                bool
+	oldValue            func(context.Context) (*DesktopPosition, error)
+	predicates          []predicate.DesktopPosition
+}
+
+var _ ent.Mutation = (*DesktopPositionMutation)(nil)
+
+// desktoppositionOption allows management of the mutation configuration using functional options.
+type desktoppositionOption func(*DesktopPositionMutation)
+
+// newDesktopPositionMutation creates new mutation for the DesktopPosition entity.
+func newDesktopPositionMutation(c config, op Op, opts ...desktoppositionOption) *DesktopPositionMutation {
+	m := &DesktopPositionMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeDesktopPosition,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withDesktopPositionID sets the ID field of the mutation.
+func withDesktopPositionID(id int64) desktoppositionOption {
+	return func(m *DesktopPositionMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *DesktopPosition
+		)
+		m.oldValue = func(ctx context.Context) (*DesktopPosition, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().DesktopPosition.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withDesktopPosition sets the old DesktopPosition of the mutation.
+func withDesktopPosition(node *DesktopPosition) desktoppositionOption {
+	return func(m *DesktopPositionMutation) {
+		m.oldValue = func(context.Context) (*DesktopPosition, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m DesktopPositionMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m DesktopPositionMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *DesktopPositionMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *DesktopPositionMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().DesktopPosition.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *DesktopPositionMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *DesktopPositionMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the DesktopPosition entity.
+// If the DesktopPosition object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopPositionMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *DesktopPositionMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *DesktopPositionMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *DesktopPositionMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the DesktopPosition entity.
+// If the DesktopPosition object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopPositionMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *DesktopPositionMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetPublicID sets the "public_id" field.
+func (m *DesktopPositionMutation) SetPublicID(s string) {
+	m.public_id = &s
+}
+
+// PublicID returns the value of the "public_id" field in the mutation.
+func (m *DesktopPositionMutation) PublicID() (r string, exists bool) {
+	v := m.public_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPublicID returns the old "public_id" field's value of the DesktopPosition entity.
+// If the DesktopPosition object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopPositionMutation) OldPublicID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPublicID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPublicID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPublicID: %w", err)
+	}
+	return oldValue.PublicID, nil
+}
+
+// ResetPublicID resets all changes to the "public_id" field.
+func (m *DesktopPositionMutation) ResetPublicID() {
+	m.public_id = nil
+}
+
+// SetOrganizationID sets the "organization_id" field.
+func (m *DesktopPositionMutation) SetOrganizationID(i int64) {
+	m.organization = &i
+}
+
+// OrganizationID returns the value of the "organization_id" field in the mutation.
+func (m *DesktopPositionMutation) OrganizationID() (r int64, exists bool) {
+	v := m.organization
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOrganizationID returns the old "organization_id" field's value of the DesktopPosition entity.
+// If the DesktopPosition object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopPositionMutation) OldOrganizationID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOrganizationID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOrganizationID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOrganizationID: %w", err)
+	}
+	return oldValue.OrganizationID, nil
+}
+
+// ResetOrganizationID resets all changes to the "organization_id" field.
+func (m *DesktopPositionMutation) ResetOrganizationID() {
+	m.organization = nil
+}
+
+// SetDepartmentID sets the "department_id" field.
+func (m *DesktopPositionMutation) SetDepartmentID(i int64) {
+	m.department = &i
+}
+
+// DepartmentID returns the value of the "department_id" field in the mutation.
+func (m *DesktopPositionMutation) DepartmentID() (r int64, exists bool) {
+	v := m.department
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDepartmentID returns the old "department_id" field's value of the DesktopPosition entity.
+// If the DesktopPosition object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopPositionMutation) OldDepartmentID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDepartmentID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDepartmentID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDepartmentID: %w", err)
+	}
+	return oldValue.DepartmentID, nil
+}
+
+// ResetDepartmentID resets all changes to the "department_id" field.
+func (m *DesktopPositionMutation) ResetDepartmentID() {
+	m.department = nil
+}
+
+// SetName sets the "name" field.
+func (m *DesktopPositionMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *DesktopPositionMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the DesktopPosition entity.
+// If the DesktopPosition object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopPositionMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *DesktopPositionMutation) ResetName() {
+	m.name = nil
+}
+
+// SetNameNormalized sets the "name_normalized" field.
+func (m *DesktopPositionMutation) SetNameNormalized(s string) {
+	m.name_normalized = &s
+}
+
+// NameNormalized returns the value of the "name_normalized" field in the mutation.
+func (m *DesktopPositionMutation) NameNormalized() (r string, exists bool) {
+	v := m.name_normalized
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldNameNormalized returns the old "name_normalized" field's value of the DesktopPosition entity.
+// If the DesktopPosition object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopPositionMutation) OldNameNormalized(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldNameNormalized is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldNameNormalized requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldNameNormalized: %w", err)
+	}
+	return oldValue.NameNormalized, nil
+}
+
+// ResetNameNormalized resets all changes to the "name_normalized" field.
+func (m *DesktopPositionMutation) ResetNameNormalized() {
+	m.name_normalized = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *DesktopPositionMutation) SetStatus(s string) {
+	m.status = &s
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *DesktopPositionMutation) Status() (r string, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the DesktopPosition entity.
+// If the DesktopPosition object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopPositionMutation) OldStatus(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *DesktopPositionMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetRevision sets the "revision" field.
+func (m *DesktopPositionMutation) SetRevision(i int64) {
+	m.revision = &i
+	m.addrevision = nil
+}
+
+// Revision returns the value of the "revision" field in the mutation.
+func (m *DesktopPositionMutation) Revision() (r int64, exists bool) {
+	v := m.revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRevision returns the old "revision" field's value of the DesktopPosition entity.
+// If the DesktopPosition object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DesktopPositionMutation) OldRevision(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRevision is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRevision requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRevision: %w", err)
+	}
+	return oldValue.Revision, nil
+}
+
+// AddRevision adds i to the "revision" field.
+func (m *DesktopPositionMutation) AddRevision(i int64) {
+	if m.addrevision != nil {
+		*m.addrevision += i
+	} else {
+		m.addrevision = &i
+	}
+}
+
+// AddedRevision returns the value that was added to the "revision" field in this mutation.
+func (m *DesktopPositionMutation) AddedRevision() (r int64, exists bool) {
+	v := m.addrevision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRevision resets all changes to the "revision" field.
+func (m *DesktopPositionMutation) ResetRevision() {
+	m.revision = nil
+	m.addrevision = nil
+}
+
+// ClearOrganization clears the "organization" edge to the DesktopOrganization entity.
+func (m *DesktopPositionMutation) ClearOrganization() {
+	m.clearedorganization = true
+	m.clearedFields[desktopposition.FieldOrganizationID] = struct{}{}
+}
+
+// OrganizationCleared reports if the "organization" edge to the DesktopOrganization entity was cleared.
+func (m *DesktopPositionMutation) OrganizationCleared() bool {
+	return m.clearedorganization
+}
+
+// OrganizationIDs returns the "organization" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// OrganizationID instead. It exists only for internal usage by the builders.
+func (m *DesktopPositionMutation) OrganizationIDs() (ids []int64) {
+	if id := m.organization; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetOrganization resets all changes to the "organization" edge.
+func (m *DesktopPositionMutation) ResetOrganization() {
+	m.organization = nil
+	m.clearedorganization = false
+}
+
+// ClearDepartment clears the "department" edge to the DesktopDepartment entity.
+func (m *DesktopPositionMutation) ClearDepartment() {
+	m.cleareddepartment = true
+	m.clearedFields[desktopposition.FieldDepartmentID] = struct{}{}
+}
+
+// DepartmentCleared reports if the "department" edge to the DesktopDepartment entity was cleared.
+func (m *DesktopPositionMutation) DepartmentCleared() bool {
+	return m.cleareddepartment
+}
+
+// DepartmentIDs returns the "department" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// DepartmentID instead. It exists only for internal usage by the builders.
+func (m *DesktopPositionMutation) DepartmentIDs() (ids []int64) {
+	if id := m.department; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetDepartment resets all changes to the "department" edge.
+func (m *DesktopPositionMutation) ResetDepartment() {
+	m.department = nil
+	m.cleareddepartment = false
+}
+
+// AddMemberIDs adds the "members" edge to the DesktopMember entity by ids.
+func (m *DesktopPositionMutation) AddMemberIDs(ids ...int64) {
+	if m.members == nil {
+		m.members = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.members[ids[i]] = struct{}{}
+	}
+}
+
+// ClearMembers clears the "members" edge to the DesktopMember entity.
+func (m *DesktopPositionMutation) ClearMembers() {
+	m.clearedmembers = true
+}
+
+// MembersCleared reports if the "members" edge to the DesktopMember entity was cleared.
+func (m *DesktopPositionMutation) MembersCleared() bool {
+	return m.clearedmembers
+}
+
+// RemoveMemberIDs removes the "members" edge to the DesktopMember entity by IDs.
+func (m *DesktopPositionMutation) RemoveMemberIDs(ids ...int64) {
+	if m.removedmembers == nil {
+		m.removedmembers = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.members, ids[i])
+		m.removedmembers[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedMembers returns the removed IDs of the "members" edge to the DesktopMember entity.
+func (m *DesktopPositionMutation) RemovedMembersIDs() (ids []int64) {
+	for id := range m.removedmembers {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// MembersIDs returns the "members" edge IDs in the mutation.
+func (m *DesktopPositionMutation) MembersIDs() (ids []int64) {
+	for id := range m.members {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetMembers resets all changes to the "members" edge.
+func (m *DesktopPositionMutation) ResetMembers() {
+	m.members = nil
+	m.clearedmembers = false
+	m.removedmembers = nil
+}
+
+// Where appends a list predicates to the DesktopPositionMutation builder.
+func (m *DesktopPositionMutation) Where(ps ...predicate.DesktopPosition) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the DesktopPositionMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *DesktopPositionMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.DesktopPosition, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *DesktopPositionMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *DesktopPositionMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (DesktopPosition).
+func (m *DesktopPositionMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *DesktopPositionMutation) Fields() []string {
+	fields := make([]string, 0, 9)
+	if m.created_at != nil {
+		fields = append(fields, desktopposition.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, desktopposition.FieldUpdatedAt)
+	}
+	if m.public_id != nil {
+		fields = append(fields, desktopposition.FieldPublicID)
+	}
+	if m.organization != nil {
+		fields = append(fields, desktopposition.FieldOrganizationID)
+	}
+	if m.department != nil {
+		fields = append(fields, desktopposition.FieldDepartmentID)
+	}
+	if m.name != nil {
+		fields = append(fields, desktopposition.FieldName)
+	}
+	if m.name_normalized != nil {
+		fields = append(fields, desktopposition.FieldNameNormalized)
+	}
+	if m.status != nil {
+		fields = append(fields, desktopposition.FieldStatus)
+	}
+	if m.revision != nil {
+		fields = append(fields, desktopposition.FieldRevision)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *DesktopPositionMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case desktopposition.FieldCreatedAt:
+		return m.CreatedAt()
+	case desktopposition.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case desktopposition.FieldPublicID:
+		return m.PublicID()
+	case desktopposition.FieldOrganizationID:
+		return m.OrganizationID()
+	case desktopposition.FieldDepartmentID:
+		return m.DepartmentID()
+	case desktopposition.FieldName:
+		return m.Name()
+	case desktopposition.FieldNameNormalized:
+		return m.NameNormalized()
+	case desktopposition.FieldStatus:
+		return m.Status()
+	case desktopposition.FieldRevision:
+		return m.Revision()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *DesktopPositionMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case desktopposition.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case desktopposition.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case desktopposition.FieldPublicID:
+		return m.OldPublicID(ctx)
+	case desktopposition.FieldOrganizationID:
+		return m.OldOrganizationID(ctx)
+	case desktopposition.FieldDepartmentID:
+		return m.OldDepartmentID(ctx)
+	case desktopposition.FieldName:
+		return m.OldName(ctx)
+	case desktopposition.FieldNameNormalized:
+		return m.OldNameNormalized(ctx)
+	case desktopposition.FieldStatus:
+		return m.OldStatus(ctx)
+	case desktopposition.FieldRevision:
+		return m.OldRevision(ctx)
+	}
+	return nil, fmt.Errorf("unknown DesktopPosition field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *DesktopPositionMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case desktopposition.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case desktopposition.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case desktopposition.FieldPublicID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPublicID(v)
+		return nil
+	case desktopposition.FieldOrganizationID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOrganizationID(v)
+		return nil
+	case desktopposition.FieldDepartmentID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDepartmentID(v)
+		return nil
+	case desktopposition.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	case desktopposition.FieldNameNormalized:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetNameNormalized(v)
+		return nil
+	case desktopposition.FieldStatus:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case desktopposition.FieldRevision:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRevision(v)
+		return nil
+	}
+	return fmt.Errorf("unknown DesktopPosition field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *DesktopPositionMutation) AddedFields() []string {
+	var fields []string
+	if m.addrevision != nil {
+		fields = append(fields, desktopposition.FieldRevision)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *DesktopPositionMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case desktopposition.FieldRevision:
+		return m.AddedRevision()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *DesktopPositionMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case desktopposition.FieldRevision:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRevision(v)
+		return nil
+	}
+	return fmt.Errorf("unknown DesktopPosition numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *DesktopPositionMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *DesktopPositionMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *DesktopPositionMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown DesktopPosition nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *DesktopPositionMutation) ResetField(name string) error {
+	switch name {
+	case desktopposition.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case desktopposition.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case desktopposition.FieldPublicID:
+		m.ResetPublicID()
+		return nil
+	case desktopposition.FieldOrganizationID:
+		m.ResetOrganizationID()
+		return nil
+	case desktopposition.FieldDepartmentID:
+		m.ResetDepartmentID()
+		return nil
+	case desktopposition.FieldName:
+		m.ResetName()
+		return nil
+	case desktopposition.FieldNameNormalized:
+		m.ResetNameNormalized()
+		return nil
+	case desktopposition.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case desktopposition.FieldRevision:
+		m.ResetRevision()
+		return nil
+	}
+	return fmt.Errorf("unknown DesktopPosition field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *DesktopPositionMutation) AddedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.organization != nil {
+		edges = append(edges, desktopposition.EdgeOrganization)
+	}
+	if m.department != nil {
+		edges = append(edges, desktopposition.EdgeDepartment)
+	}
+	if m.members != nil {
+		edges = append(edges, desktopposition.EdgeMembers)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *DesktopPositionMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case desktopposition.EdgeOrganization:
+		if id := m.organization; id != nil {
+			return []ent.Value{*id}
+		}
+	case desktopposition.EdgeDepartment:
+		if id := m.department; id != nil {
+			return []ent.Value{*id}
+		}
+	case desktopposition.EdgeMembers:
+		ids := make([]ent.Value, 0, len(m.members))
+		for id := range m.members {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *DesktopPositionMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.removedmembers != nil {
+		edges = append(edges, desktopposition.EdgeMembers)
+	}
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *DesktopPositionMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case desktopposition.EdgeMembers:
+		ids := make([]ent.Value, 0, len(m.removedmembers))
+		for id := range m.removedmembers {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *DesktopPositionMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.clearedorganization {
+		edges = append(edges, desktopposition.EdgeOrganization)
+	}
+	if m.cleareddepartment {
+		edges = append(edges, desktopposition.EdgeDepartment)
+	}
+	if m.clearedmembers {
+		edges = append(edges, desktopposition.EdgeMembers)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *DesktopPositionMutation) EdgeCleared(name string) bool {
+	switch name {
+	case desktopposition.EdgeOrganization:
+		return m.clearedorganization
+	case desktopposition.EdgeDepartment:
+		return m.cleareddepartment
+	case desktopposition.EdgeMembers:
+		return m.clearedmembers
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *DesktopPositionMutation) ClearEdge(name string) error {
+	switch name {
+	case desktopposition.EdgeOrganization:
+		m.ClearOrganization()
+		return nil
+	case desktopposition.EdgeDepartment:
+		m.ClearDepartment()
+		return nil
+	}
+	return fmt.Errorf("unknown DesktopPosition unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *DesktopPositionMutation) ResetEdge(name string) error {
+	switch name {
+	case desktopposition.EdgeOrganization:
+		m.ResetOrganization()
+		return nil
+	case desktopposition.EdgeDepartment:
+		m.ResetDepartment()
+		return nil
+	case desktopposition.EdgeMembers:
+		m.ResetMembers()
+		return nil
+	}
+	return fmt.Errorf("unknown DesktopPosition edge %s", name)
 }
 
 // DesktopUpdateReleaseMutation represents an operation that mutates the DesktopUpdateRelease nodes in the graph.

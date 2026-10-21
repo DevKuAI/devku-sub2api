@@ -25,6 +25,10 @@ const (
 	FieldPublicID = "public_id"
 	// FieldOrganizationID holds the string denoting the organization_id field in the database.
 	FieldOrganizationID = "organization_id"
+	// FieldPositionID holds the string denoting the position_id field in the database.
+	FieldPositionID = "position_id"
+	// FieldPositionRevision holds the string denoting the position_revision field in the database.
+	FieldPositionRevision = "position_revision"
 	// FieldName holds the string denoting the name field in the database.
 	FieldName = "name"
 	// FieldNameNormalized holds the string denoting the name_normalized field in the database.
@@ -43,6 +47,8 @@ const (
 	EdgeOrganization = "organization"
 	// EdgeAPIKeyAssignments holds the string denoting the api_key_assignments edge name in mutations.
 	EdgeAPIKeyAssignments = "api_key_assignments"
+	// EdgePosition holds the string denoting the position edge name in mutations.
+	EdgePosition = "position"
 	// Table holds the table name of the desktopmember in the database.
 	Table = "desktop_members"
 	// OrganizationTable is the table that holds the organization relation/edge.
@@ -59,6 +65,13 @@ const (
 	APIKeyAssignmentsInverseTable = "desktop_member_api_keys"
 	// APIKeyAssignmentsColumn is the table column denoting the api_key_assignments relation/edge.
 	APIKeyAssignmentsColumn = "member_id"
+	// PositionTable is the table that holds the position relation/edge.
+	PositionTable = "desktop_members"
+	// PositionInverseTable is the table name for the DesktopPosition entity.
+	// It exists in this package in order to avoid circular dependency with the "desktopposition" package.
+	PositionInverseTable = "desktop_positions"
+	// PositionColumn is the table column denoting the position relation/edge.
+	PositionColumn = "position_id"
 )
 
 // Columns holds all SQL columns for desktopmember fields.
@@ -69,6 +82,8 @@ var Columns = []string{
 	FieldDeletedAt,
 	FieldPublicID,
 	FieldOrganizationID,
+	FieldPositionID,
+	FieldPositionRevision,
 	FieldName,
 	FieldNameNormalized,
 	FieldRemark,
@@ -104,6 +119,10 @@ var (
 	UpdateDefaultUpdatedAt func() time.Time
 	// PublicIDValidator is a validator for the "public_id" field. It is called by the builders before save.
 	PublicIDValidator func(string) error
+	// DefaultPositionRevision holds the default value on creation for the "position_revision" field.
+	DefaultPositionRevision int64
+	// PositionRevisionValidator is a validator for the "position_revision" field. It is called by the builders before save.
+	PositionRevisionValidator func(int64) error
 	// NameValidator is a validator for the "name" field. It is called by the builders before save.
 	NameValidator func(string) error
 	// NameNormalizedValidator is a validator for the "name_normalized" field. It is called by the builders before save.
@@ -157,6 +176,16 @@ func ByPublicID(opts ...sql.OrderTermOption) OrderOption {
 // ByOrganizationID orders the results by the organization_id field.
 func ByOrganizationID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldOrganizationID, opts...).ToFunc()
+}
+
+// ByPositionID orders the results by the position_id field.
+func ByPositionID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPositionID, opts...).ToFunc()
+}
+
+// ByPositionRevision orders the results by the position_revision field.
+func ByPositionRevision(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPositionRevision, opts...).ToFunc()
 }
 
 // ByName orders the results by the name field.
@@ -214,6 +243,13 @@ func ByAPIKeyAssignments(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption
 		sqlgraph.OrderByNeighborTerms(s, newAPIKeyAssignmentsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByPositionField orders the results by position field.
+func ByPositionField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newPositionStep(), sql.OrderByField(field, opts...))
+	}
+}
 func newOrganizationStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -226,5 +262,12 @@ func newAPIKeyAssignmentsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(APIKeyAssignmentsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, APIKeyAssignmentsTable, APIKeyAssignmentsColumn),
+	)
+}
+func newPositionStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(PositionInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, true, PositionTable, PositionColumn),
 	)
 }

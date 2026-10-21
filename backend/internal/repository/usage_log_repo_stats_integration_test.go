@@ -60,6 +60,15 @@ func TestUsageLog_UpstreamModelMismatchFilterAndPartialIndex(t *testing.T) {
 	require.Len(t, trend, 1)
 	require.Equal(t, int64(1), trend[0].Requests)
 
+	// Make model predicates selective before checking access paths. With only two
+	// rows, an equally valid timestamp index plus incremental sort can be cheaper.
+	_, err = tx.ExecContext(ctx, `INSERT INTO usage_logs
+	(user_id,api_key_id,account_id,request_id,model,input_tokens,output_tokens,billing_mode,created_at)
+	SELECT $1,$2,$3,'model-index-probe-'||n,'index-probe-other-model',1,1,'token',$4
+	FROM generate_series(1,5000) AS n`, user.ID, apiKey.ID, account.ID, now)
+	require.NoError(t, err)
+	_, err = tx.ExecContext(ctx, "ANALYZE usage_logs")
+	require.NoError(t, err)
 	_, err = tx.ExecContext(ctx, "SET LOCAL enable_seqscan = off")
 	require.NoError(t, err)
 	assertPlanUsesIndex := func(query, indexName string, args ...any) {

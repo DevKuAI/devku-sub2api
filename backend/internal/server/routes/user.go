@@ -185,6 +185,7 @@ func registerDesktopUserRoutesIfEnabled(authenticated *gin.RouterGroup, h *handl
 	}
 	desktop := authenticated.Group("/desktop/organization")
 	desktop.Use(middleware.DesktopAdminBodyLimit())
+	registerDesktopStructureRoutes(desktop, h.Desktop.Service(), true)
 	desktop.GET("/period-reports", h.Desktop.ManagedPeriodReports)
 	desktop.GET("/period-reports/:report_id", h.Desktop.ManagedPeriodReports)
 	desktop.GET("/period-reports/:report_id/sources", h.Desktop.ManagedPeriodReports)
