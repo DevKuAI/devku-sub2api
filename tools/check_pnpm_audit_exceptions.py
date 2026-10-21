@@ -148,6 +148,13 @@ def main() -> int:
     with open(args.audit, "r", encoding="utf-8") as handle:
         audit = json.load(handle)
 
+    if not isinstance(audit, dict) or "error" in audit:
+        sys.stderr.write("Audit failed or returned an invalid report; rerun against a working registry.\n")
+        return 1
+    if not any(isinstance(audit.get(key), dict) for key in ("advisories", "vulnerabilities")):
+        sys.stderr.write("Audit report is missing advisories or vulnerabilities.\n")
+        return 1
+
     # 读取异常清单并建立索引，便于快速匹配包名 + advisory。
     exceptions = parse_exceptions(args.exceptions)
     exception_index = {}
