@@ -126,3 +126,47 @@ html.dark .desktop-detail-select .select-option-focused, html.dark .desktop-deta
   .desktop-detail .detail-page-title { flex-basis: 12rem; }
   .desktop-detail .detail-page-actions { margin-inline-start: auto; }
 }
+
+/* Member assignment filters share the existing searchable Select controls. */
+.desktop-detail .detail-member-toolbar { @apply min-w-0 space-y-4 rounded-2xl border border-gray-200 bg-white p-4 dark:border-dark-700 dark:bg-dark-900; }
+.desktop-detail .detail-member-filter-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.desktop-detail .detail-member-filter-field { @apply block min-w-0; }
+.desktop-detail .detail-member-filter-field .input-label { @apply text-sm; line-height: 1.5; }
+.desktop-detail .detail-member-filter-field .input, .desktop-detail .detail-member-filter-field .select-trigger { @apply border-gray-500 dark:border-dark-500; min-width: 0; min-height: 2.75rem; transition: none; }
+.desktop-detail .detail-member-filter-field .select-value { white-space: normal; overflow-wrap: anywhere; text-overflow: clip; text-align: start; }
+.desktop-detail .detail-member-filter-footer { @apply flex flex-wrap items-center justify-between gap-4; }
+.desktop-detail .detail-member-unassigned { @apply inline-flex min-h-11 cursor-pointer items-center gap-2.5 rounded-xl border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 dark:border-dark-600 dark:text-dark-200; }
+.desktop-detail .detail-member-unassigned input { width: 1rem; height: 1rem; accent-color: theme('colors.primary.600'); }
+.desktop-detail .detail-member-unassigned-active { @apply border-primary-600 bg-primary-50 text-primary-800 dark:border-primary-400 dark:bg-primary-950 dark:text-primary-200; }
+.desktop-detail .detail-member-actions { @apply flex min-w-0 flex-wrap items-center gap-3; }
+.desktop-detail .detail-member-actions .btn { max-width: 100%; white-space: normal; overflow-wrap: anywhere; transition: none; }
+.desktop-detail .detail-member-filter-clear, .desktop-detail .detail-member-assignment-action { @apply inline-flex min-h-9 items-center gap-1.5 rounded-lg text-sm font-medium text-primary-700 underline underline-offset-4 dark:text-primary-300; }
+.desktop-detail .detail-member-filter-hint, .desktop-detail .detail-member-department { @apply text-sm text-gray-600 dark:text-dark-300; line-height: 1.6; overflow-wrap: anywhere; }
+.desktop-detail .detail-member-filter-hint:empty { display: none; }
+.desktop-detail .detail-member-assignment { @apply flex min-w-0 max-w-56 flex-col items-start gap-1; line-height: 1.5; }
+.desktop-detail .detail-member-assignment :where(p, bdi, a) { white-space: normal; overflow-wrap: anywhere; }
+.desktop-detail .detail-member-unassigned-badge { @apply inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 dark:bg-amber-950 dark:text-amber-200; }
+.desktop-member-structure-select .select-option-label { white-space: normal; overflow-wrap: anywhere; }
+@container enterprise-detail (min-width: 36rem) {
+  .desktop-detail .detail-member-filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container enterprise-detail (min-width: 64rem) {
+  .desktop-detail .detail-member-filter-grid { grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.85fr) repeat(2, minmax(0, 1fr)); }
+}
+@container enterprise-detail (max-width: 35.999rem) {
+  .desktop-detail .detail-member-actions { width: 100%; }
+  .desktop-detail .detail-member-actions .btn { flex: 1 1 auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .desktop-member-structure-select *, .desktop-member-structure-select { animation: none !important; transition: none !important; }
+}
+.desktop-detail .detail-member-filter-field .select-icon { @apply text-gray-500 dark:text-dark-300; }
+@media (hover: hover) {
+  .desktop-detail .detail-member-filter-field .select-trigger:not(:disabled):hover { @apply border-gray-500 dark:border-dark-500; }
+}
+.desktop-detail .detail-member-toolbar .btn, .desktop-member-structure-select .select-option { transition: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .desktop-detail .detail-member-actions .btn { transition: transform 150ms ease-out; }
+  .desktop-detail .detail-member-actions .btn:not(:disabled):active { transform: scale(0.96); }
+}
+.desktop-member-structure-select { transition: none !important; }

@@ -31,7 +31,8 @@ const managedDesktopAPI = vi.hoisted(() => ({
 }))
 
 const router = vi.hoisted(() => ({ replace: vi.fn(), push: vi.fn(), resolve: vi.fn((input: { path: string; query: Record<string, unknown> }) => ({ fullPath: input.path + '?' + new URLSearchParams(Object.fromEntries(Object.entries(input.query).filter(([,value]) => value !== undefined).map(([key,value]) => [key,String(value)]))).toString() })) }))
-vi.mock('@/api/desktopStructure', async original => ({ ...await original<typeof import('@/api/desktopStructure')>(), desktopStructure: () => ({ all: vi.fn().mockResolvedValue([]) }) }))
+const structureAPI = vi.hoisted(() => ({ all: vi.fn() }))
+vi.mock('@/api/desktopStructure', async original => ({ ...await original<typeof import('@/api/desktopStructure')>(), desktopStructure: () => structureAPI }))
 
 const route = vi.hoisted(() => ({
   path: '/admin/desktop/organizations/org_one',
@@ -92,13 +93,13 @@ const member = {
   updated_at: '2026-08-26T00:00:00Z',
 }
 
-function mountView() {
+function mountView(dataTableStub: true | { props: string[]; template: string } = true) {
   return mount(DesktopOrganizationDetailView, {
     global: {
       stubs: {
         AppLayout: { template: '<main><slot /></main>' },
         RouterLink: { name: 'RouterLink', props: ['to'], template: '<a><slot /></a>' },
-        DataTable: true,
+        DataTable: dataTableStub,
         DesktopOrganizationUsageStatistics: true,
         DesktopAnalyticsRangePicker: true,
         DesktopConversationStatistics: true,
@@ -164,6 +165,8 @@ function mountViewWithRealMemberForm() {
 describe('DesktopOrganizationDetailView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    structureAPI.all.mockResolvedValue([])
+    route.query = { tab: 'members' }
     desktopAPI.getOrganization.mockResolvedValue({ ...organization })
     desktopAPI.getGatewayUser.mockResolvedValue({ id: 42, email: 'carrier@example.com', username: 'carrier' })
     desktopAPI.listMembers.mockResolvedValue({ items: [{ ...member }], total: 1, page: 1, page_size: 20, pages: 1 })
@@ -910,6 +913,80 @@ describe('DesktopOrganizationDetailView', () => {
     expect(vm.confirmState.show).toBe(true)
     expect(vm.confirmError).toBe('Delete rejected')
     expect(vm.confirmPending).toBe(false)
+    wrapper.unmount()
+  })
+
+  it.each([false, true])('makes unassigned mutually exclusive with department and position filters for selfManaged=%s', async selfManaged => {
+    const api = selfManaged ? managedDesktopAPI : desktopAPI
+    const wrapper = selfManaged ? mountManagedView() : mountView(); await flushPromises()
+    const vm = wrapper.vm as any
+    vm.memberDepartment = 'dep_one'; vm.memberPosition = 'pos_one'; vm.memberPagination.page = 3
+    await wrapper.get('[data-testid="member-unassigned-filter"]').setValue(true); await flushPromises()
+    expect(vm.memberDepartment).toBe('')
+    expect(vm.memberPosition).toBe('')
+    expect(vm.memberPagination.page).toBe(1)
+    expect(api.listMembers).toHaveBeenLastCalledWith('org_one', 1, 20, { search: '', status: '', unassigned: true }, expect.any(AbortSignal))
+    const departmentFilter = wrapper.findAllComponents({ name: 'Select' }).find(select => select.attributes('id') === 'member-department-filter')!
+    expect(departmentFilter.props('disabled')).toBe(true)
+    await wrapper.get('[data-testid="member-unassigned-filter"]').setValue(false); await flushPromises()
+    expect(departmentFilter.props('disabled')).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('clears the prior position and restricts choices when the department changes', async () => {
+    structureAPI.all.mockImplementation(async (kind: string) => kind === 'departments'
+      ? [{ public_id: 'dep_one', name: 'Delivery', status: 'active' }, { public_id: 'dep_two', name: 'Sales', status: 'disabled' }]
+      : [{ public_id: 'pos_one', name: 'Engineer', status: 'active', department: { public_id: 'dep_one' } }, { public_id: 'pos_two', name: 'Sales manager', status: 'active', department: { public_id: 'dep_two' } }])
+    const wrapper = mountView(); await flushPromises()
+    const vm = wrapper.vm as any
+    vm.memberPosition = 'pos_one'; vm.memberDepartment = 'dep_two'; vm.changeMemberDepartment(); await flushPromises()
+    expect(vm.memberPosition).toBe('')
+    expect(vm.memberPositionOptions.map((option: { value: string }) => option.value)).toEqual(['', 'pos_two'])
+    expect(vm.memberDepartmentOptions[2].label).toBe('desktopStructure.disabledOption')
+    expect(desktopAPI.listMembers).toHaveBeenLastCalledWith('org_one', 1, 20, { search: '', status: '', department_id: 'dep_two' }, expect.any(AbortSignal))
+    wrapper.unmount()
+  })
+
+  it('recovers organization filters independently without clearing the member search', async () => {
+    structureAPI.all.mockRejectedValueOnce(new Error('Network unavailable'))
+    const wrapper = mountView(); await flushPromises()
+    const vm = wrapper.vm as any
+    vm.memberSearch = 'Keep this search'; vm.memberDepartment = 'dep_one'
+    structureAPI.all.mockImplementation(async (kind: string) => kind === 'departments' ? [{ public_id: 'dep_one', name: 'Delivery', status: 'active' }] : [])
+    expect(wrapper.text()).toContain('desktopStructure.structureFiltersLoadFailed')
+    const retry = wrapper.findAll('button').find(button => button.text() === 'desktopStructure.retryStructureFilters')!
+    await retry.trigger('click'); await flushPromises()
+    expect(vm.structureChoicesError).toBe('')
+    expect(vm.memberSearch).toBe('Keep this search')
+    expect(vm.memberDepartment).toBe('dep_one')
+    expect(vm.memberDepartmentOptions.find((option: { value: string }) => option.value === 'dep_one').label).toBe('Delivery')
+    expect(desktopAPI.getOrganization).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+
+  it('exports the same unassigned scope as the member list', async () => {
+    const wrapper = mountView(); await flushPromises()
+    const vm = wrapper.vm as any
+    vm.memberDepartment = 'dep_one'; vm.memberPosition = 'pos_one'; vm.memberUnassigned = true
+    await vm.exportMemberUsage()
+    const filters = desktopAPI.listMembers.mock.calls.at(-1)![3]
+    expect(filters).toMatchObject({ unassigned: true })
+    expect(filters).not.toHaveProperty('department_id')
+    expect(filters).not.toHaveProperty('position_id')
+    wrapper.unmount()
+  })
+
+  it('renders complete assignments and a direct assignment action for unassigned members', async () => {
+    desktopAPI.listMembers.mockResolvedValue({ items: [{ ...member, position: { public_id: 'pos_one', name: 'Engineer' }, department: { public_id: 'dep_one', name: 'Delivery' } }, { ...member, public_id: 'mem_two' }], total: 2 })
+    const wrapper = mountView({ props: ['data'], template: '<div><div v-for="row in data" :key="row.public_id"><slot name="cell-assignment" :row="row" /></div></div>' }); await flushPromises()
+    const cells = wrapper.findAll('.detail-member-assignment')
+    expect(cells[0].get('p').text()).toBe('Engineer')
+    expect(cells[0].get('.detail-member-department').text()).toBe('Delivery')
+    expect(cells[1].get('.detail-member-unassigned-badge').text()).toBe('desktopStructure.unassigned')
+    expect(cells[1].get('.detail-member-assignment-action').text()).toBe('desktopStructure.assignPosition')
+    desktopAPI.getOrganization.mockResolvedValue({ ...organization, status: 'disabled' })
+    await (wrapper.vm as any).loadOrganization(); await flushPromises()
+    expect(wrapper.find('.detail-member-assignment-action').exists()).toBe(false)
     wrapper.unmount()
   })
 

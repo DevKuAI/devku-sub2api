@@ -98,20 +98,27 @@
       <section v-else-if="organization && activeTab === 'members'" :id="panelId('members')" class="min-w-0 space-y-4" tabindex="0" role="tabpanel" :aria-labelledby="tabId('members')">
         <DesktopOrganizationUsageStatistics v-if="organization" :organization-id="organizationID" :self-managed="selfManaged" />
         <header class="detail-tab-heading"><div><h2 class="detail-section-title">{{ t('admin.desktop.members') }}</h2><p class="detail-caption mt-1">{{ t('admin.desktop.detail.membersHint') }}</p></div><router-link class="btn btn-secondary" :to="{ path: `${structureBase}/structure`, query: memberReturnQuery() }">{{ t('desktopStructure.title') }}</router-link></header>
-        <div v-if="organization" class="detail-toolbar">
-          <label class="w-full min-w-0 space-y-1 sm:max-w-72 sm:flex-1"><span class="block text-xs font-medium text-gray-600 dark:text-gray-300">{{ t('admin.desktop.memberSearchLabel') }}</span><input v-model="memberSearch" class="input" type="search" :placeholder="t('admin.desktop.searchMembers')" @input="scheduleMembers" /></label>
-          <div class="w-40 space-y-1"><span class="block text-xs font-medium text-gray-600 dark:text-gray-300">{{ t('common.status') }}</span><Select dropdown-class="desktop-detail-select" v-model="memberStatus" :options="statusOptions" :aria-label="t('common.status')" @change="resetMembers" /></div>
-          <label class="space-y-1"><span class="block text-xs">{{ t('desktopStructure.department') }}</span><select v-model="memberDepartment" class="input" @change="memberPosition = ''; resetMembers()"><option value="">{{ t('common.all') }}</option><option v-for="d in departmentChoices" :key="d.public_id" :value="d.public_id">{{ d.name }}</option></select></label>
-          <label class="space-y-1"><span class="block text-xs">{{ t('desktopStructure.position') }}</span><select v-model="memberPosition" class="input" @change="resetMembers"><option value="">{{ t('common.all') }}</option><option v-for="p in positionChoices.filter(p => !memberDepartment || p.department?.public_id === memberDepartment)" :key="p.public_id" :value="p.public_id">{{ p.name }}</option></select></label>
-          <label class="flex items-center gap-2"><input v-model="memberUnassigned" type="checkbox" @change="resetMembers" />{{ t('desktopStructure.unassigned') }}</label>
-          <div class="ms-auto flex w-full flex-wrap items-center gap-3 sm:w-auto">
-            <button class="btn btn-secondary shrink-0 whitespace-nowrap" type="button" data-testid="import-members" :disabled="!canCreateMember" @click="router.push({ path: `${structureBase}/members/import`, query: memberReturnQuery() })"><Icon name="upload" size="md" class="mr-1" />{{ t('admin.desktop.memberImport.button') }}</button>
-            <button class="btn btn-secondary shrink-0 whitespace-nowrap" type="button" data-testid="export-member-usage" :disabled="membersExporting || !organization || organization.public_id !== organizationID" :aria-busy="membersExporting" :title="t('admin.desktop.memberUsageExport.hint')" @click="exportMemberUsage">
-              <Icon :name="membersExporting ? 'refresh' : 'download'" size="md" class="mr-1" :class="{ 'animate-spin': membersExporting }" />{{ t(membersExporting ? 'admin.desktop.memberUsageExport.exporting' : 'admin.desktop.memberUsageExport.button') }}
-            </button>
-            <button class="btn btn-secondary" type="button" :disabled="membersLoading" :title="t('common.refresh')" :aria-label="t('common.refresh')" @click="loadMembers"><Icon name="refresh" size="md" :class="membersLoading ? 'animate-spin' : ''" /></button>
-            <button class="btn btn-primary w-full shrink-0 whitespace-nowrap sm:w-auto" type="button" :disabled="!canCreateMember" @click="openCreateMember"><Icon name="plus" size="md" class="mr-1" />{{ t('admin.desktop.createMember') }}</button>
+        <div v-if="organization" class="detail-member-toolbar">
+          <div class="detail-member-filter-grid">
+            <label class="detail-member-filter-field"><span class="input-label">{{ t('admin.desktop.memberSearchLabel') }}</span><input v-model="memberSearch" class="input" type="search" :placeholder="t('admin.desktop.searchMembers')" @input="scheduleMembers" /></label>
+            <div class="detail-member-filter-field"><label for="member-status-filter" class="input-label">{{ t('common.status') }}</label><Select id="member-status-filter" dropdown-class="desktop-detail-select desktop-member-structure-select" v-model="memberStatus" :options="statusOptions" :aria-label="t('common.status')" @change="resetMembers" /></div>
+            <div class="detail-member-filter-field"><label for="member-department-filter" class="input-label">{{ t('desktopStructure.department') }}</label><Select id="member-department-filter" v-model="memberDepartment" dropdown-class="desktop-detail-select desktop-member-structure-select" :options="memberDepartmentOptions" :placeholder="t('desktopStructure.selectedDepartment')" :searchable="true" :search-placeholder="t('desktopStructure.searchDepartments')" :aria-label="t('desktopStructure.filterValue', { label: t('desktopStructure.department'), value: memberDepartmentOptions.find(option => option.value === memberDepartment)?.label || t('desktopStructure.selectedDepartment') })" :aria-describedby="memberUnassigned ? 'member-unassigned-hint' : undefined" :disabled="memberUnassigned || structureChoicesLoading || !!structureChoicesError" @change="changeMemberDepartment" /></div>
+            <div class="detail-member-filter-field"><label for="member-position-filter" class="input-label">{{ t('desktopStructure.position') }}</label><Select id="member-position-filter" v-model="memberPosition" dropdown-class="desktop-detail-select desktop-member-structure-select" :options="memberPositionOptions" :placeholder="t('desktopStructure.selectedPosition')" :searchable="true" :search-placeholder="t('desktopStructure.searchPositions')" :aria-label="t('desktopStructure.filterValue', { label: t('desktopStructure.position'), value: memberPositionOptions.find(option => option.value === memberPosition)?.label || t('desktopStructure.selectedPosition') })" :aria-describedby="memberUnassigned ? 'member-unassigned-hint' : undefined" :disabled="memberUnassigned || structureChoicesLoading || !!structureChoicesError" @change="changeMemberPosition" /></div>
           </div>
+          <div class="detail-member-filter-footer">
+            <div class="flex min-w-0 flex-wrap items-center gap-3">
+              <label class="detail-member-unassigned" :class="{ 'detail-member-unassigned-active': memberUnassigned }"><input v-model="memberUnassigned" type="checkbox" data-testid="member-unassigned-filter" aria-describedby="member-unassigned-hint" @change="changeMemberUnassigned" /><span>{{ t('desktopStructure.onlyUnassigned') }}</span></label>
+              <button v-if="hasMemberFilters" type="button" class="detail-member-filter-clear" @click="clearMemberFilters">{{ t('desktopStructure.clearFilters') }}</button>
+            </div>
+            <div class="detail-member-actions">
+              <button class="btn btn-secondary" type="button" data-testid="import-members" :disabled="!canCreateMember" @click="router.push({ path: `${structureBase}/members/import`, query: memberReturnQuery() })"><Icon name="upload" size="md" aria-hidden="true" />{{ t('admin.desktop.memberImport.button') }}</button>
+              <button class="btn btn-secondary" type="button" data-testid="export-member-usage" :disabled="membersExporting || !organization || organization.public_id !== organizationID" :aria-busy="membersExporting" :title="t('admin.desktop.memberUsageExport.hint')" @click="exportMemberUsage"><Icon :name="membersExporting ? 'refresh' : 'download'" size="md" :class="{ 'animate-spin': membersExporting }" aria-hidden="true" />{{ t(membersExporting ? 'admin.desktop.memberUsageExport.exporting' : 'admin.desktop.memberUsageExport.button') }}</button>
+              <button class="btn btn-secondary" type="button" :disabled="membersLoading" :title="t('common.refresh')" :aria-label="t('common.refresh')" @click="loadMembers"><Icon name="refresh" size="md" :class="membersLoading ? 'animate-spin' : ''" aria-hidden="true" /></button>
+              <button class="btn btn-primary" type="button" :disabled="!canCreateMember" @click="openCreateMember"><Icon name="plus" size="md" aria-hidden="true" />{{ t('admin.desktop.createMember') }}</button>
+            </div>
+          </div>
+          <p id="member-unassigned-hint" class="detail-member-filter-hint" role="status">{{ memberUnassigned ? t('desktopStructure.unassignedFilterHint') : structureChoicesLoading ? t('common.loading') : '' }}</p>
+          <div v-if="structureChoicesError" class="detail-error flex flex-wrap items-center justify-between gap-3" role="alert"><p class="min-w-0 flex-1">{{ structureChoicesError }}</p><button type="button" class="btn btn-secondary" @click="loadMemberStructure">{{ t('desktopStructure.retryStructureFilters') }}</button></div>
         </div>
         <p class="detail-caption">{{ t('desktopStructure.currentExportHint') }}</p>
         <p v-if="organization && (organization.status !== 'active' || memberLimitReached)" class="text-sm text-amber-700 dark:text-amber-300" role="status">{{ t(organization.status !== 'active' ? 'admin.desktop.errors.ORGANIZATION_DISABLED' : 'admin.desktop.errors.MEMBER_LIMIT_REACHED') }}</p>
@@ -122,7 +129,13 @@
           <div v-if="members.some(member => !member.usage) && !membersLoading" class="detail-warning flex flex-wrap items-center justify-between gap-3" role="status"><span>{{ t('admin.desktop.usageUnavailableHint') }}</span><button class="btn btn-secondary" type="button" @click="loadMembers">{{ t('common.refresh') }}</button></div>
           <DataTable class="card overflow-hidden" tabindex="0" :aria-label="t('admin.desktop.members')" :columns="memberColumns" :data="members" :loading="membersLoading" row-key="public_id">
             <template #cell-name="{ row }"><div class="min-w-0 max-w-64"><div class="break-words font-medium text-gray-900 dark:text-white">{{ row.name }}</div><div class="mt-1 break-all font-mono text-xs text-gray-500 dark:text-dark-400">{{ row.public_id }}</div></div></template>
-            <template #cell-assignment="{ row }"><span class="block max-w-56 break-words">{{ row.department?.name || '—' }} / {{ row.position?.name || t('desktopStructure.unassigned') }}</span><router-link class="text-primary-600 hover:underline" :to="{ path: `${structureBase}/members/${row.public_id}/position`, query: memberReturnQuery() }">{{ t('desktopStructure.changePosition') }}</router-link></template>
+            <template #cell-assignment="{ row }">
+              <div class="detail-member-assignment">
+                <template v-if="row.position"><p class="font-medium text-gray-900 dark:text-gray-100"><bdi>{{ row.position.name }}</bdi></p><p v-if="row.department" class="detail-member-department"><bdi>{{ row.department.name }}</bdi></p></template>
+                <span v-else class="detail-member-unassigned-badge">{{ t('desktopStructure.unassigned') }}</span>
+                <router-link v-if="organization.status === 'active'" class="detail-member-assignment-action" :aria-label="t(row.position ? 'desktopStructure.changePositionFor' : 'desktopStructure.assignPositionFor', { name: row.name })" :to="{ path: `${structureBase}/members/${row.public_id}/position`, query: memberReturnQuery() }">{{ t(row.position ? 'desktopStructure.changePosition' : 'desktopStructure.assignPosition') }}<Icon name="arrowRight" size="xs" aria-hidden="true" /></router-link>
+              </div>
+            </template>
             <template #cell-remark="{ row }"><span class="block max-w-64 whitespace-pre-wrap break-words">{{ row.remark || '—' }}</span></template>
             <template #cell-status="{ row }"><StatusBadge :status="row.status" :label="statusLabel(row.status)" /></template>
             <template #cell-model_token_status="{ row }"><span :class="['badge', tokenBadge(row.model_token_status)]">{{ tokenStatusLabel(row.model_token_status) }}</span><span v-if="budgetWarning(row)" class="mt-1 block text-xs text-amber-700 dark:text-amber-300">{{ t(budgetWarning(row)) }}</span></template>
@@ -406,11 +419,16 @@ const membersLoading = ref(false)
 const membersExporting = ref(false)
 const memberSearch = ref(String(route.query.member_search || ''))
 const memberStatus = ref<DesktopStatus | ''>(route.query.member_status === 'active' || route.query.member_status === 'disabled' ? route.query.member_status : '')
-const memberDepartment = ref(String(route.query.department_id || ''))
-const memberPosition = ref(String(route.query.position_id || ''))
+const memberDepartment = ref(route.query.unassigned === 'true' ? '' : String(route.query.department_id || ''))
+const memberPosition = ref(route.query.unassigned === 'true' ? '' : String(route.query.position_id || ''))
 const memberUnassigned = ref(route.query.unassigned === 'true')
 const departmentChoices = ref<OrganizationUnit[]>([])
 const positionChoices = ref<OrganizationUnit[]>([])
+const structureChoicesLoading = ref(false), structureChoicesError = ref('')
+const unitOptionLabel = (unit: OrganizationUnit) => unit.status === 'disabled' ? t('desktopStructure.disabledOption', { name: unit.name }) : unit.name
+const memberDepartmentOptions = computed(() => [{ value: '', label: t('desktopStructure.allDepartments') }, ...departmentChoices.value.map(unit => ({ value: unit.public_id, label: unitOptionLabel(unit) }))])
+const memberPositionOptions = computed(() => [{ value: '', label: t('desktopStructure.allPositions') }, ...positionChoices.value.filter(unit => !memberDepartment.value || unit.department?.public_id === memberDepartment.value).map(unit => ({ value: unit.public_id, label: unitOptionLabel(unit) }))])
+const memberAssignmentFilters = computed(() => memberUnassigned.value ? { unassigned: true } : { ...(memberDepartment.value ? { department_id: memberDepartment.value } : {}), ...(memberPosition.value ? { position_id: memberPosition.value } : {}) })
 const hasMemberFilters = computed(() => Boolean(memberSearch.value.trim() || memberStatus.value || memberDepartment.value || memberPosition.value || memberUnassigned.value))
 const memberPagination = reactive({ page: Math.max(1, Number(route.query.member_page) || 1), page_size: getPersistedPageSize(), total: 0 })
 const showOrganizationEdit = ref(false)
@@ -459,7 +477,7 @@ const statusOptions = computed(() => [{ value: '', label: t('common.all') }, { v
 const editableStatusOptions = computed(() => statusOptions.value.slice(1))
 const memberColumns = computed<Column[]>(() => [
 	{ key: 'name', label: t('admin.desktop.member') }, { key: 'remark', label: t('admin.desktop.memberRemark') }, { key: 'phone', label: t('admin.desktop.phone') },
-  { key: 'assignment', label: t('desktopStructure.position') }, { key: 'status', label: t('common.status') }, { key: 'model_token_status', label: t('admin.desktop.modelToken') },
+  { key: 'assignment', label: t('desktopStructure.assignmentColumn'), class: 'min-w-40' }, { key: 'status', label: t('common.status') }, { key: 'model_token_status', label: t('admin.desktop.modelToken') },
   { key: 'usage_cost', label: t('admin.desktop.usageCost') },
   { key: 'usage_tokens', label: t('admin.desktop.usageTokens') },
   { key: 'updated_at', label: t('admin.desktop.updatedAt') },
@@ -541,7 +559,7 @@ async function loadMembers() {
   membersLoading.value = true
   membersError.value = ''
   try {
-    const result = await organizationAPI.value.listMembers(organizationID.value, memberPagination.page, memberPagination.page_size, { search: memberSearch.value.trim(), status: memberStatus.value, ...(memberDepartment.value ? { department_id: memberDepartment.value } : {}), ...(memberPosition.value ? { position_id: memberPosition.value } : {}), ...(memberUnassigned.value ? { unassigned: true } : {}) }, request.signal)
+    const result = await organizationAPI.value.listMembers(organizationID.value, memberPagination.page, memberPagination.page_size, { search: memberSearch.value.trim(), status: memberStatus.value, ...memberAssignmentFilters.value }, request.signal)
     if (!request.signal.aborted) { members.value = result.items; memberPagination.total = result.total }
   } catch (error) {
     if (!request.signal.aborted && (error as { code?: string })?.code !== 'ERR_CANCELED') {
@@ -551,7 +569,10 @@ async function loadMembers() {
   } finally { if (!request.signal.aborted) membersLoading.value = false }
 }
 function scheduleMembers() { clearTimeout(memberTimer); memberTimer = setTimeout(resetMembers, 300) }
-function resetMembers() { memberPagination.page = 1; void loadMembers() }
+function resetMembers() { clearTimeout(memberTimer); memberPagination.page = 1; void loadMembers() }
+function changeMemberDepartment() { memberPosition.value = ''; memberUnassigned.value = false; resetMembers() }
+function changeMemberPosition() { memberUnassigned.value = false; resetMembers() }
+function changeMemberUnassigned() { if (memberUnassigned.value) { memberDepartment.value = ''; memberPosition.value = '' } resetMembers() }
 function clearMemberFilters() { memberSearch.value = ''; memberStatus.value = ''; memberDepartment.value = ''; memberPosition.value = ''; memberUnassigned.value = false; resetMembers() }
 function changeMemberPage(page: number) { memberPagination.page = page; void loadMembers() }
 function changeMemberPageSize(size: number) { memberPagination.page_size = size; memberPagination.page = 1; void loadMembers() }
@@ -569,7 +590,7 @@ async function exportMemberUsage() {
   membersExporting.value = true
   const selectedOrganization = organization.value
   const api = organizationAPI.value
-  const filters: { search: string; status: DesktopStatus | ''; as_of?: string; department_id?: string; position_id?: string; unassigned?: boolean } = { search: memberSearch.value.trim(), status: memberStatus.value, ...(memberDepartment.value ? { department_id: memberDepartment.value } : {}), ...(memberPosition.value ? { position_id: memberPosition.value } : {}), ...(memberUnassigned.value ? { unassigned: true } : {}) }
+  const filters: { search: string; status: DesktopStatus | ''; as_of?: string; department_id?: string; position_id?: string; unassigned?: boolean } = { search: memberSearch.value.trim(), status: memberStatus.value, ...memberAssignmentFilters.value }
   try {
     const allMembers: DesktopMember[] = []
     let pages = 1
@@ -655,11 +676,22 @@ async function saveOrganization() {
 }
 
 const structureBase = computed(() => desktopOrganizationPath(organizationID.value, selfManaged))
-watch(organizationID, async id => {
-  departmentChoices.value = []; positionChoices.value = []
-  if (!id) return
-  try { const api = desktopStructure(id, selfManaged); const [ds, ps] = await Promise.all([api.all('departments'), api.all('positions')]); if (id === organizationID.value) { departmentChoices.value = ds; positionChoices.value = ps } } catch { /* The member list remains available when structure options fail to load. */ }
-}, { immediate: true })
+let structureChoicesGeneration = 0
+async function loadMemberStructure() {
+  const id = organizationID.value, request = ++structureChoicesGeneration
+  structureChoicesError.value = ''
+  if (!id) { structureChoicesLoading.value = false; return }
+  structureChoicesLoading.value = true
+  try {
+    const api = desktopStructure(id, selfManaged)
+    const [departments, positions] = await Promise.all([api.all('departments'), api.all('positions')])
+    if (request === structureChoicesGeneration && id === organizationID.value) { departmentChoices.value = departments; positionChoices.value = positions }
+  } catch {
+    if (request === structureChoicesGeneration) structureChoicesError.value = t('desktopStructure.structureFiltersLoadFailed')
+  } finally { if (request === structureChoicesGeneration) structureChoicesLoading.value = false }
+}
+watch(organizationID, () => { departmentChoices.value = []; positionChoices.value = []; void loadMemberStructure() }, { immediate: true })
+
 function memberReturnQuery() { return { return_to: router.resolve({ path: route.path, query: { ...route.query, tab: 'members', member_search: memberSearch.value || undefined, member_status: memberStatus.value || undefined, department_id: memberDepartment.value || undefined, position_id: memberPosition.value || undefined, unassigned: memberUnassigned.value ? 'true' : undefined, member_page: String(memberPagination.page) } }).fullPath } }
 function openCreateMember() { if (!canCreateMember.value) { appStore.showError(t(memberLimitReached.value ? 'admin.desktop.errors.MEMBER_LIMIT_REACHED' : 'admin.desktop.errors.ORGANIZATION_DISABLED')); return } void router.push({ path: `${structureBase.value}/members/new`, query: memberReturnQuery() }) }
 function openEditMember(member: DesktopMember) { void router.push({ path: `${structureBase.value}/members/${member.public_id}/edit`, query: memberReturnQuery() }) }
@@ -746,5 +778,5 @@ onMounted(() => {
   }
   void Promise.all([loadOrganization(), loadMembers()])
 })
-onBeforeUnmount(() => { organizationGeneration++; clearTimeout(memberTimer); memberController?.abort(); gatewayController?.abort(); cancelMemberExport() })
+onBeforeUnmount(() => { structureChoicesGeneration++; organizationGeneration++; clearTimeout(memberTimer); memberController?.abort(); gatewayController?.abort(); cancelMemberExport() })
 </script>

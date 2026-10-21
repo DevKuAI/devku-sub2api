@@ -93,6 +93,20 @@ export default {
     "importStartHint": "Download the template and enter member details. Select the file to review assignments and validation before importing.",
     "importEmpty": "Select an Excel or CSV file to preview members",
     "historyLoadFailed": "Position history could not be loaded. Retry without losing your assignment changes.",
-    "unitStatusHint": "Disabled departments and positions cannot be selected for new members or reassignments."
+    "unitStatusHint": "Disabled departments and positions cannot be selected for new members or reassignments.",
+    "allDepartments": "All departments",
+    "allPositions": "All positions",
+    "onlyUnassigned": "Unassigned only",
+    "unassignedFilterHint": "Showing members without a position. Department and position filters have been cleared.",
+    "structureFiltersLoadFailed": "Department and position options could not be loaded. Retry, or continue filtering by name and status.",
+    "retryStructureFilters": "Reload departments and positions",
+    "assignmentColumn": "Department / position",
+    "assignPosition": "Assign position",
+    "assignPositionFor": "Assign position to {name}",
+    "changePositionFor": "Change position for {name}",
+    "disabledOption": "{name} (disabled)",
+    "filterValue": "{label}: {value}",
+    "selectedDepartment": "Selected department (name unavailable)",
+    "selectedPosition": "Selected position (name unavailable)"
   }
 }

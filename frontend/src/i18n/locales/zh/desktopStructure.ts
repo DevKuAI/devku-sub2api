@@ -93,6 +93,20 @@ export default {
     "importStartHint": "下载模板填写员工信息，选择文件后先核对归属与校验结果。",
     "importEmpty": "选择 Excel 或 CSV 文件后显示预览",
     "historyLoadFailed": "岗位历史加载失败。可重试，已填写的调岗内容会保留。",
-    "unitStatusHint": "停用后，该部门或岗位不能用于新增员工或调岗。"
+    "unitStatusHint": "停用后，该部门或岗位不能用于新增员工或调岗。",
+    "allDepartments": "全部部门",
+    "allPositions": "全部岗位",
+    "onlyUnassigned": "仅看待分配",
+    "unassignedFilterHint": "仅显示尚未分配岗位的成员；部门和岗位筛选已清除。",
+    "structureFiltersLoadFailed": "部门和岗位选项加载失败，可重新加载；姓名和状态筛选仍可使用。",
+    "retryStructureFilters": "重新加载部门和岗位",
+    "assignmentColumn": "部门 / 岗位",
+    "assignPosition": "分配岗位",
+    "assignPositionFor": "为 {name} 分配岗位",
+    "changePositionFor": "为 {name} 调整岗位",
+    "disabledOption": "{name}（已停用）",
+    "filterValue": "{label}：{value}",
+    "selectedDepartment": "已选部门（名称暂不可用）",
+    "selectedPosition": "已选岗位（名称暂不可用）"
   }
 }
