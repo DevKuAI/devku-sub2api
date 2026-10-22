@@ -52,7 +52,7 @@ func TestDesktopStructureHTTPActualTypeScriptClient(t *testing.T) {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
-		if (c.Request.Method == "POST" || c.Request.Method == "PUT") && c.GetHeader("Idempotency-Key") == "" {
+		if (c.Request.Method == "POST" || c.Request.Method == "PUT") && !strings.HasSuffix(c.Request.URL.Path, "/members/usage-export") && c.GetHeader("Idempotency-Key") == "" {
 			c.AbortWithStatus(http.StatusBadRequest)
 			return
 		}

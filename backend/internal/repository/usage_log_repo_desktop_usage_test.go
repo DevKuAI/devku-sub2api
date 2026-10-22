@@ -21,9 +21,10 @@ func TestUsageLogRepositoryGetDesktopMembersUsage(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{
 			"member_id", "today_tokens", "last_30_days_tokens", "total_tokens",
 			"today_actual_cost", "last_30_days_actual_cost", "total_actual_cost",
+			"measured_today", "unmeasured_today", "measured_30", "unmeasured_30", "measured_total", "unmeasured_total",
 		}).
-			AddRow(7, 100, 900, 1200, 0.1, 0.9, 1.2).
-			AddRow(9, 999, 999, 999, 9.9, 9.9, 9.9))
+			AddRow(7, 100, 900, 1200, 0.1, 0.9, 1.2, 1, 0, 1, 0, 1, 0).
+			AddRow(9, 999, 999, 999, 9.9, 9.9, 9.9, 1, 0, 1, 0, 1, 0))
 
 	result, err := repo.GetDesktopMembersUsage(
 		context.Background(),

@@ -1563,9 +1563,9 @@ paths:
         默认分析近 30 个本地自然日（含今日）；可选最近 7、30、90 天，或指定不超过 90 天的日期范围。
         当结束日期为今日时，仅统计到 as_of；previous 为上一等长时段相同时间边界的用量。
         daily、breakdown、models、members、member_models 和 observed_members 均使用所选期间，排行返回费用或令牌用量前 10 的并集。
-        member_models 返回全部有计费日志的成员与模型组合，包含历史 API Key 和已删除成员的留存用量，不受排行限制；无用量组合不返回。
+        member_models 按成员分页，member_models_page 给出筛选后的成员数、模型组合数、Token 合计和分页元数据；包含历史 Key 和已删除成员，独立于 Top 10 排行。
         observed_members 仅表示所选期间有计费日志的成员，不代表完整采用率；requests 仅表示计费日志数。
-        统计截止 as_of（不含该时刻）；空数据返回 0。接口受 DESKTOP_ENABLED 控制，不依赖对话上报开关。
+        统计截止 as_of（不含该时刻）；空数据返回 0。Token 仅汇总可计量请求，token_status 区分 ready、partial 和 unavailable；费用包含全部计费日志。接口受 DESKTOP_ENABLED 控制，不依赖对话上报开关。
       security:
         - AdminBearer: []
       parameters:
@@ -1573,6 +1573,13 @@ paths:
         - $ref: '#/components/parameters/DesktopAnalyticsDays'
         - $ref: '#/components/parameters/DesktopAnalyticsFrom'
         - $ref: '#/components/parameters/DesktopAnalyticsTo'
+        - $ref: '#/components/parameters/DesktopUsageSection'
+        - $ref: '#/components/parameters/DesktopUsagePage'
+        - $ref: '#/components/parameters/DesktopUsagePageSize'
+        - $ref: '#/components/parameters/DesktopUsageSearch'
+        - $ref: '#/components/parameters/DesktopUsageModel'
+        - $ref: '#/components/parameters/DesktopUsageSort'
+        - $ref: '#/components/parameters/DesktopAnalyticsAsOf'
       responses:
         '200':
           description: 企业费用及令牌用量统计
@@ -1609,9 +1616,9 @@ paths:
         默认分析近 30 个本地自然日（含今日）；可选最近 7、30、90 天，或指定不超过 90 天的日期范围。
         当结束日期为今日时，仅统计到 as_of；previous 为上一等长时段相同时间边界的用量。
         daily、breakdown、models、members、member_models 和 observed_members 均使用所选期间，排行返回费用或令牌用量前 10 的并集。
-        member_models 返回全部有计费日志的成员与模型组合，包含历史 API Key 和已删除成员的留存用量，不受排行限制；无用量组合不返回。
+        member_models 按成员分页，member_models_page 给出筛选后的成员数、模型组合数、Token 合计和分页元数据；包含历史 Key 和已删除成员，独立于 Top 10 排行。
         observed_members 仅表示所选期间有计费日志的成员，不代表完整采用率；requests 仅表示计费日志数。
-        统计截止 as_of（不含该时刻）；空数据返回 0。接口受 DESKTOP_ENABLED 控制，不依赖对话上报开关。
+        统计截止 as_of（不含该时刻）；空数据返回 0。Token 仅汇总可计量请求，token_status 区分 ready、partial 和 unavailable；费用包含全部计费日志。接口受 DESKTOP_ENABLED 控制，不依赖对话上报开关。
         企业范围由当前 Web 登录账号确定，不接受客户端指定企业。
       security:
         - UserBearer: []
@@ -1619,6 +1626,13 @@ paths:
         - $ref: '#/components/parameters/DesktopAnalyticsDays'
         - $ref: '#/components/parameters/DesktopAnalyticsFrom'
         - $ref: '#/components/parameters/DesktopAnalyticsTo'
+        - $ref: '#/components/parameters/DesktopUsageSection'
+        - $ref: '#/components/parameters/DesktopUsagePage'
+        - $ref: '#/components/parameters/DesktopUsagePageSize'
+        - $ref: '#/components/parameters/DesktopUsageSearch'
+        - $ref: '#/components/parameters/DesktopUsageModel'
+        - $ref: '#/components/parameters/DesktopUsageSort'
+        - $ref: '#/components/parameters/DesktopAnalyticsAsOf'
       responses:
         '200':
           description: 企业费用及令牌用量统计
@@ -3214,6 +3228,124 @@ paths:
           $ref: '#/components/responses/AdminError'
       parameters: *id006
 
+  /api/v1/admin/desktop/organizations/{organization_id}/members/usage-export:
+    post:
+      tags:
+      - Desktop Organization Structure
+      operationId: exportAdminDesktopMemberUsage
+      summary: 导出固定快照中的成员用量 CSV
+      description: 成员集合、排序、岗位、凭据状态和用量共享一个 Repeatable Read 快照；服务端生成完整临时文件后返回，失败不发送部分 CSV。包含 BOM，防止 CSV 公式注入；未计量的 Token 单元格为空。企业停用后仍可按原有阅读权限导出。
+      security:
+      - AdminBearer: []
+      parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: search
+        in: query
+        schema:
+          type: string
+      - name: status
+        in: query
+        schema:
+          type: string
+      - name: department_id
+        in: query
+        schema:
+          type: string
+      - name: position_id
+        in: query
+        schema:
+          type: string
+      - name: unassigned
+        in: query
+        schema:
+          type: boolean
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DesktopMemberUsageExportFormat'
+      responses:
+        '200':
+          description: 固定列顺序的 CSV 文件
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '204':
+          description: 没有匹配成员，不返回文件
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '403':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '413':
+          $ref: '#/components/responses/AdminError'
+        '422':
+          $ref: '#/components/responses/AdminError'
+        '503':
+          $ref: '#/components/responses/AdminError'
+  /api/v1/desktop/organization/members/usage-export:
+    post:
+      tags:
+      - Desktop Organization Structure
+      operationId: exportManagedDesktopMemberUsage
+      summary: 导出固定快照中的成员用量 CSV
+      description: 成员集合、排序、岗位、凭据状态和用量共享一个 Repeatable Read 快照；服务端生成完整临时文件后返回，失败不发送部分 CSV。包含 BOM，防止 CSV 公式注入；未计量的 Token 单元格为空。企业停用后仍可按原有阅读权限导出。
+      security:
+      - UserBearer: []
+      parameters:
+      - name: search
+        in: query
+        schema:
+          type: string
+      - name: status
+        in: query
+        schema:
+          type: string
+      - name: department_id
+        in: query
+        schema:
+          type: string
+      - name: position_id
+        in: query
+        schema:
+          type: string
+      - name: unassigned
+        in: query
+        schema:
+          type: boolean
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DesktopMemberUsageExportFormat'
+      responses:
+        '200':
+          description: 固定列顺序的 CSV 文件
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '204':
+          description: 没有匹配成员，不返回文件
+        '401':
+          $ref: '#/components/responses/AdminError'
+        '403':
+          $ref: '#/components/responses/AdminError'
+        '404':
+          $ref: '#/components/responses/AdminError'
+        '413':
+          $ref: '#/components/responses/AdminError'
+        '422':
+          $ref: '#/components/responses/AdminError'
+        '503':
+          $ref: '#/components/responses/AdminError'
+
 components:
   securitySchemes:
     DesktopSessionBearer:
@@ -3252,6 +3384,64 @@ components:
         enum: [no-store]
 
   parameters:
+    DesktopUsageSection:
+      name: section
+      in: query
+      schema:
+        type: string
+        enum:
+        - summary
+        - insights
+        - member_models
+        default: insights
+      description: summary 仅返回汇总；insights 返回趋势、排行和首个成员明细页；member_models 仅返回成员模型分页明细。
+    DesktopUsagePage:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 1000000
+        default: 1
+      description: 仅控制成员模型明细页，按成员分页；一个成员的模型组合完整返回。
+    DesktopUsagePageSize:
+      name: page_size
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    DesktopUsageSearch:
+      name: search
+      in: query
+      schema:
+        type: string
+        maxLength: 100
+      description: 仅筛选成员模型明细，匹配姓名、成员 ID 或模型。
+    DesktopUsageModel:
+      name: model
+      in: query
+      schema:
+        type: string
+        maxLength: 200
+      description: 仅筛选成员模型明细，精确匹配 requested_model 优先的模型名。
+    DesktopUsageSort:
+      name: sort
+      in: query
+      schema:
+        type: string
+        enum:
+        - tokens
+        - name
+        default: tokens
+    DesktopAnalyticsAsOf:
+      name: as_of
+      in: query
+      schema:
+        type: string
+        format: date-time
+      description: 可复用过去 24 小时内的统计截止时刻。一次响应使用 Repeatable Read；跨请求的迟到日志仍可能改变统计。
     DesktopAnalyticsDays:
       name: days
       in: query
@@ -3399,6 +3589,81 @@ components:
                 retry_after: '60'
 
   schemas:
+    DesktopMemberUsageExportFormat:
+      type: object
+      additionalProperties: false
+      required:
+      - headers
+      - active
+      - disabled
+      - token_labels
+      properties:
+        headers:
+          type: array
+          minItems: 19
+          maxItems: 19
+          items:
+            type: string
+            minLength: 1
+            maxLength: 120
+          description: 固定列顺序的本地化标题：企业名称、企业编码、成员 ID、姓名、备注、部门、岗位、手机号、状态、Model Token 状态、今日费用、近
+            30 日费用、累计费用、今日 Token、近 30 日 Token、累计 Token、更新时间、统计截止时刻、时区。
+        active:
+          type: string
+          minLength: 1
+          maxLength: 120
+        disabled:
+          type: string
+          minLength: 1
+          maxLength: 120
+        token_labels:
+          type: object
+          required:
+          - active
+          - disabled
+          - missing
+          additionalProperties:
+            type: string
+            minLength: 1
+            maxLength: 120
+    DesktopMemberModelPage:
+      type: object
+      properties:
+        page:
+          type: integer
+          format: int64
+        page_size:
+          type: integer
+          format: int64
+        total_members:
+          type: integer
+          format: int64
+        total_rows:
+          type: integer
+          format: int64
+        model_count:
+          type: integer
+          format: int64
+        total_tokens:
+          type: integer
+          format: int64
+        models:
+          type: array
+          maxItems: 500
+          items:
+            type: string
+        token_status:
+          type: string
+          enum:
+          - ready
+          - partial
+          - unavailable
+        measured_requests:
+          type: integer
+          format: int64
+        unmeasured_requests:
+          type: integer
+          format: int64
     DesktopStatus:
       type: string
       enum: [active, disabled]
@@ -3947,6 +4212,9 @@ components:
         - last_30_days_actual_cost
         - total_actual_cost
       properties:
+        today_token_status: {type: string, enum: [ready, partial, unavailable]}
+        last_30_days_token_status: {type: string, enum: [ready, partial, unavailable]}
+        total_token_status: {type: string, enum: [ready, partial, unavailable]}
         today_tokens:
           type: integer
           format: int64
@@ -4709,6 +4977,9 @@ components:
       type: object
       required: [total_tokens, actual_cost]
       properties:
+        token_status: {type: string, enum: [ready, partial, unavailable]}
+        measured_requests: {type: integer, format: int64}
+        unmeasured_requests: {type: integer, format: int64}
         total_tokens:
           type: integer
           format: int64
@@ -4723,6 +4994,8 @@ components:
       type: object
       required: [timezone, as_of, today, week, month, total, last_30_days, selected, previous, range_start, range_end, previous_start, previous_end, daily, breakdown, models, members, member_models, observed_members]
       properties:
+        member_models_page:
+          $ref: '#/components/schemas/DesktopMemberModelPage'
         analysis:
           $ref: '#/components/schemas/DesktopOrganizationUsagePeriod'
           description: 所选日期范围的企业分析消耗，已包含在企业总用量中，不进入成员排行。
@@ -4800,11 +5073,14 @@ components:
                   token_rank: {type: integer, format: int64}
         member_models:
           type: array
-          description: 所选期间按成员和模型汇总的全部计费用量。按成员名称、成员 ID、总 Token 降序和模型名称排序；无用量时为空数组。
+          description: 所选期间当前成员页的完整模型组合；使用 page、page_size、search、model、sort 查询，member_models_page 提供全局筛选计数。
           items:
             type: object
             required: [member_id, name, deleted, model, requests, input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens, total_tokens]
             properties:
+              token_status: {type: string, enum: [ready, partial, unavailable]}
+              measured_requests: {type: integer, format: int64}
+              unmeasured_requests: {type: integer, format: int64}
               member_id: {type: string, description: 成员公开 ID。}
               name: {type: string, description: 成员名称。}
               deleted: {type: boolean, description: 成员是否已删除。}

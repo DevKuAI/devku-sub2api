@@ -151,11 +151,28 @@ func (r *desktopRepository) ListOrganizations(ctx context.Context, params pagina
 	if err != nil {
 		return nil, nil, err
 	}
-	rows, err := q.WithGatewayUser().WithGroup().WithMembers().
+	rows, err := q.WithGatewayUser().WithGroup().
 		Order(dbent.Desc(desktoporganization.FieldUpdatedAt), dbent.Desc(desktoporganization.FieldID)).
 		Offset(params.Offset()).Limit(params.Limit()).All(ctx)
 	if err != nil {
 		return nil, nil, err
+	}
+	ids := make([]int64, 0, len(rows))
+	for _, row := range rows {
+		ids = append(ids, row.ID)
+	}
+	counts := []struct {
+		OrganizationID int64 `json:"organization_id"`
+		Count          int   `json:"count"`
+	}{}
+	if len(ids) > 0 {
+		if err := r.client.DesktopMember.Query().Where(desktopmember.OrganizationIDIn(ids...)).GroupBy(desktopmember.FieldOrganizationID).Aggregate(dbent.Count()).Scan(ctx, &counts); err != nil {
+			return nil, nil, err
+		}
+	}
+	byID := make(map[int64]int, len(counts))
+	for _, count := range counts {
+		byID[count.OrganizationID] = count.Count
 	}
 	result := make([]service.DesktopOrganization, 0, len(rows))
 	for _, row := range rows {
@@ -163,6 +180,7 @@ func (r *desktopRepository) ListOrganizations(ctx context.Context, params pagina
 		if err != nil {
 			return nil, nil, err
 		}
+		item.MemberCount = byID[row.ID]
 		result = append(result, *item)
 	}
 	return result, paginationResultFromTotal(int64(total), params), nil
@@ -848,7 +866,7 @@ func (r *desktopRepository) FindActiveOrganizationByCode(ctx context.Context, co
 	row, err := r.client.DesktopOrganization.Query().Where(
 		desktoporganization.CodeEQ(code),
 		desktoporganization.StatusEQ(service.DesktopStatusActive),
-	).WithGatewayUser().WithGroup().WithMembers().Only(ctx)
+	).WithGatewayUser().WithGroup().Only(ctx)
 	if err != nil {
 		return nil, translatePersistenceError(err, service.ErrDesktopOrganizationNotFound, nil)
 	}

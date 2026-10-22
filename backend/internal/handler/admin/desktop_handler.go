@@ -358,7 +358,11 @@ func (h *DesktopHandler) OrganizationUsageStatistics(c *gin.Context) {
 	if response.ErrorFrom(c, err) {
 		return
 	}
-	result, err := h.desktop.OrganizationUsageStatistics(c.Request.Context(), c.Param("organization_id"), 0, rangeInput)
+	query, err := handlerdto.ParseDesktopUsageQuery(c.Request.URL.Query())
+	if response.ErrorFrom(c, err) {
+		return
+	}
+	result, err := h.desktop.OrganizationUsageStatistics(c.Request.Context(), c.Param("organization_id"), 0, rangeInput, query)
 	if response.ErrorFrom(c, err) {
 		return
 	}

@@ -65,6 +65,8 @@ func TestDesktopReportsClaimQueuedWorkBeforeTwoAM(t *testing.T) {
 	s, r, _, _ := reportFixture()
 	s.now = func() time.Time { return time.Date(2026, 10, 10, 1, 0, 0, 0, s.loc) }
 	s.tick(context.Background())
+	_, err := s.processNext(context.Background(), false)
+	require.NoError(t, err)
 	require.Empty(t, r.scannedDate, "automatic enqueue remains scheduled after 02:00")
 	require.Equal(t, 1, r.claims, "manual and retry tasks must run all day")
 }
@@ -99,6 +101,12 @@ func (r *reportTestRepo) FinishExecution(_ context.Context, execution *DesktopRe
 		}
 	}
 	return ErrDesktopReportLeaseLost
+}
+func (r *reportTestRepo) CompleteExecution(ctx context.Context, task *DesktopReportTask, e *DesktopReportExecution) error {
+	if err := r.Save(ctx, task, time.Time{}, false); err != nil {
+		return err
+	}
+	return r.FinishExecution(ctx, e)
 }
 func (r *reportTestRepo) Executions(context.Context, int64, string) ([]DesktopReportExecution, error) {
 	return append([]DesktopReportExecution{}, r.executions...), nil

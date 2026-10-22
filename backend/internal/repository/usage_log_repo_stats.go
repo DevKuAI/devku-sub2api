@@ -149,15 +149,21 @@ func (r *usageLogRepository) GetDesktopMembersUsage(ctx context.Context, memberI
 	query := `
 		SELECT
 			assignment.member_id,
-			COALESCE(SUM(ul.input_tokens + ul.output_tokens + ul.cache_creation_tokens + ul.cache_read_tokens)
+			COALESCE(SUM(` + desktopMeasuredTotalSQL + `)
 				FILTER (WHERE ul.created_at >= $2 AND ul.created_at < $4), 0) AS today_tokens,
-			COALESCE(SUM(ul.input_tokens + ul.output_tokens + ul.cache_creation_tokens + ul.cache_read_tokens)
+			COALESCE(SUM(` + desktopMeasuredTotalSQL + `)
 				FILTER (WHERE ul.created_at >= $3 AND ul.created_at < $4), 0) AS last_30_days_tokens,
-			COALESCE(SUM(ul.input_tokens + ul.output_tokens + ul.cache_creation_tokens + ul.cache_read_tokens)
+			COALESCE(SUM(` + desktopMeasuredTotalSQL + `)
 				FILTER (WHERE ul.created_at < $4), 0) AS total_tokens,
 			COALESCE(SUM(ul.actual_cost) FILTER (WHERE ul.created_at >= $2 AND ul.created_at < $4), 0) AS today_actual_cost,
 			COALESCE(SUM(ul.actual_cost) FILTER (WHERE ul.created_at >= $3 AND ul.created_at < $4), 0) AS last_30_days_actual_cost,
-			COALESCE(SUM(ul.actual_cost) FILTER (WHERE ul.created_at < $4), 0) AS total_actual_cost
+			COALESCE(SUM(ul.actual_cost) FILTER (WHERE ul.created_at < $4), 0) AS total_actual_cost,
+ COUNT(ul.id) FILTER(WHERE ul.created_at >= $2 AND ul.created_at < $4 AND ` + nativeMeasured + `),
+ COUNT(ul.id) FILTER(WHERE ul.created_at >= $2 AND ul.created_at < $4 AND NOT ` + nativeMeasured + `),
+ COUNT(ul.id) FILTER(WHERE ul.created_at >= $3 AND ul.created_at < $4 AND ` + nativeMeasured + `),
+ COUNT(ul.id) FILTER(WHERE ul.created_at >= $3 AND ul.created_at < $4 AND NOT ` + nativeMeasured + `),
+ COUNT(ul.id) FILTER(WHERE ul.created_at < $4 AND ` + nativeMeasured + `),
+ COUNT(ul.id) FILTER(WHERE ul.created_at < $4 AND NOT ` + nativeMeasured + `)
 		FROM desktop_member_api_keys assignment
 		LEFT JOIN usage_logs ul ON ul.api_key_id = assignment.api_key_id
 		WHERE assignment.member_id = ANY($1)
@@ -172,6 +178,7 @@ func (r *usageLogRepository) GetDesktopMembersUsage(ctx context.Context, memberI
 	for rows.Next() {
 		usage := &service.DesktopMemberUsage{}
 		var memberID int64
+		var measuredToday, unmeasuredToday, measured30, unmeasured30, measuredTotal, unmeasuredTotal int64
 		if err := rows.Scan(
 			&memberID,
 			&usage.TodayTokens,
@@ -180,9 +187,13 @@ func (r *usageLogRepository) GetDesktopMembersUsage(ctx context.Context, memberI
 			&usage.TodayActualCost,
 			&usage.Last30DaysActualCost,
 			&usage.TotalActualCost,
+			&measuredToday, &unmeasuredToday, &measured30, &unmeasured30, &measuredTotal, &unmeasuredTotal,
 		); err != nil {
 			return nil, err
 		}
+		usage.TodayTokenStatus = desktopUsageStatus(measuredToday, unmeasuredToday)
+		usage.Last30DaysTokenStatus = desktopUsageStatus(measured30, unmeasured30)
+		usage.TotalTokenStatus = desktopUsageStatus(measuredTotal, unmeasuredTotal)
 		if _, ok := result[memberID]; ok {
 			result[memberID] = usage
 		}

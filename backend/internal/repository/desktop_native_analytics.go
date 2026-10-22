@@ -12,9 +12,6 @@ import (
 
 const nativeKeys = `SELECT a.api_key_id FROM desktop_member_api_keys a JOIN desktop_members m ON m.id=a.member_id WHERE m.organization_id=$1
  UNION SELECT id FROM api_keys WHERE desktop_analysis_organization_id=$1`
-const nativeTotal = `COALESCE(ul.input_tokens,0)::numeric+COALESCE(ul.output_tokens,0)::numeric+COALESCE(ul.cache_read_tokens,0)::numeric+COALESCE(ul.cache_creation_tokens,0)::numeric`
-const nativeMeasured = `(COALESCE(NULLIF(ul.billing_mode,''),'token')='token' AND COALESCE(ul.image_count,0)=0 AND COALESCE(ul.video_count,0)=0 AND (` + nativeTotal + `)>0)`
-const nativeWhere = ` WHERE ul.api_key_id IN (` + nativeKeys + `) AND ul.created_at >= $2 AND ul.created_at < $3`
 
 func nativeSum(expression string) string {
 	return `CASE WHEN COUNT(*)>0 AND COUNT(*) FILTER(WHERE ` + nativeMeasured + `)=0 THEN NULL ELSE COALESCE(SUM(` + expression + `) FILTER(WHERE ` + nativeMeasured + `),0)::text END`
@@ -59,13 +56,8 @@ func (r *usageLogRepository) nativeUsage(ctx context.Context, org int64, selecte
 	if err != nil {
 		return nil, err
 	}
-	out.Totals.Status = "ready"
-	if out.Totals.Unmeasured > 0 {
-		out.Totals.Status = "partial"
-	}
-	if out.Totals.Total == nil {
-		out.Totals.Status = "unavailable"
-	}
+	out.Totals.Status = desktopUsageStatus(out.Totals.Measured, out.Totals.Unmeasured)
+
 	err = scanSingleRow(ctx, r.sql, `SELECT `+nativeSum(nativeTotal)+` FROM usage_logs ul`+nativeWhere, []any{org, selected.PreviousStart.UTC(), selected.PreviousEnd.UTC()}, &out.PreviousTokens)
 	if err != nil {
 		return nil, err

@@ -1,10 +1,12 @@
-import { describe, expect, it, vi } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { flushPromises, mount } from '@vue/test-utils'
 import { ref } from 'vue'
 import type { DesktopUsageMemberModel } from '@/api/desktopOrganizationUsage'
 import Pagination from '@/components/common/Pagination.vue'
 import DesktopMemberModelUsage from '../DesktopMemberModelUsage.vue'
 
+const remoteAPI = vi.hoisted(() => ({ getDesktopOrganizationUsageStatistics: vi.fn() }))
+vi.mock('@/api/desktopOrganizationUsage', () => remoteAPI)
 vi.mock('vue-i18n', async (importOriginal) => ({ ...await importOriginal<typeof import('vue-i18n')>(), useI18n: () => ({ t: (key: string) => key, locale: ref('en') }) }))
 
 const record = (index: number): DesktopUsageMemberModel => ({
@@ -15,6 +17,7 @@ const record = (index: number): DesktopUsageMemberModel => ({
 })
 
 describe('Member model token usage', () => {
+ beforeEach(() => { remoteAPI.getDesktopOrganizationUsageStatistics.mockReset() })
   it('groups models by member identity, totals their usage, and keeps same-name members separate', () => {
     const wrapper = mount(DesktopMemberModelUsage, { props: { rows: [record(0), { ...record(0), model: 'Model-C' }, { ...record(1), name: 'Member 0' }] } })
     const cards = wrapper.findAll('[data-testid="member-usage-card"]')
@@ -117,4 +120,49 @@ describe('Member model token usage', () => {
     expect(wrapper.get('[data-testid="member-usage-results"]').attributes('role')).toBe('status')
     wrapper.unmount()
   })
+  it('uses server counts and fetches a member page with the original cutoff', async () => {
+    const initialPage = { page: 1, page_size: 10, total_members: 25, total_rows: 30, model_count: 2, total_tokens: 10000, models: ['Model-A', 'Model-B'] }
+    const wrapper = mount(DesktopMemberModelUsage, { props: { rows: [record(0)], organizationId: 'org_one', selfManaged: true, asOf: '2026-10-22T00:00:00Z', initialPage } })
+    expect(wrapper.get('[data-testid="member-usage-count"]').text()).toBe('25')
+    expect(remoteAPI.getDesktopOrganizationUsageStatistics).not.toHaveBeenCalled()
+    remoteAPI.getDesktopOrganizationUsageStatistics.mockResolvedValueOnce({ member_models: [record(11)], member_models_page: { ...initialPage, page: 2 } })
+    wrapper.getComponent(Pagination).vm.$emit('update:page', 2); await flushPromises()
+    expect(remoteAPI.getDesktopOrganizationUsageStatistics).toHaveBeenCalledWith('org_one', true, expect.any(AbortSignal), undefined, expect.objectContaining({ section: 'member_models', page: 2, as_of: '2026-10-22T00:00:00Z' }))
+    expect(wrapper.get('[data-testid="member-usage-list"]').text()).toContain('mem_11')
+    wrapper.unmount()
+  })
+  it('ignores an old page result after the enterprise changes', async () => {
+    const initialPage = { page: 1, page_size: 10, total_members: 25, total_rows: 30, model_count: 2, total_tokens: 10000, models: ['Model-A', 'Model-B'] }
+    const wrapper = mount(DesktopMemberModelUsage, { props: { rows: [record(0)], organizationId: 'org_one', initialPage } })
+    let finish!: (value: object) => void
+    remoteAPI.getDesktopOrganizationUsageStatistics.mockReturnValueOnce(new Promise(resolve => { finish = resolve }))
+    wrapper.getComponent(Pagination).vm.$emit('update:page', 2); await flushPromises()
+    const signal = remoteAPI.getDesktopOrganizationUsageStatistics.mock.lastCall![2] as AbortSignal
+    await wrapper.setProps({ organizationId: 'org_two', rows: [{ ...record(3), name: 'Current enterprise' }] })
+    expect(signal.aborted).toBe(true)
+    finish({ member_models: [{ ...record(1), name: 'Stale enterprise' }], member_models_page: initialPage }); await flushPromises()
+    expect(wrapper.text()).toContain('Current enterprise'); expect(wrapper.text()).not.toContain('Stale enterprise')
+    wrapper.unmount()
+  })
+  it('shows unknown tokens instead of zero for unmeasured requests', () => {
+    const initialPage = { page: 1, page_size: 10, total_members: 1, total_rows: 1, model_count: 1, total_tokens: 0, models: ['image'], token_status: 'unavailable' as const }
+    const wrapper = mount(DesktopMemberModelUsage, { props: { rows: [{ ...record(0), total_tokens: 0, token_status: 'unavailable' }], organizationId: 'org_one', initialPage } })
+    expect(wrapper.get('[data-testid="member-usage-total"]').text()).toBe('—')
+    expect(wrapper.get('[data-testid="member-total"]').text()).toBe('—')
+    expect(wrapper.text()).toContain('usageStatistics.unmeasuredHint'); wrapper.unmount()
+  })
+
+  it('hides stale rows after a failed page and retries the same page', async () => {
+    const initialPage = { page: 1, page_size: 10, total_members: 25, total_rows: 30, model_count: 2, total_tokens: 10000, models: ['Model-A', 'Model-B'] }
+    const wrapper = mount(DesktopMemberModelUsage, { props: { rows: [record(0)], organizationId: 'org_one', initialPage } })
+    remoteAPI.getDesktopOrganizationUsageStatistics.mockRejectedValueOnce(new Error('Offline'))
+    wrapper.getComponent(Pagination).vm.$emit('update:page', 2); await flushPromises()
+    expect(wrapper.find('[data-testid="member-usage-list"]').exists()).toBe(false)
+    remoteAPI.getDesktopOrganizationUsageStatistics.mockResolvedValueOnce({ member_models: [record(11)], member_models_page: { ...initialPage, page: 2 } })
+    await wrapper.get('[role="alert"] button').trigger('click'); await flushPromises()
+    expect(remoteAPI.getDesktopOrganizationUsageStatistics.mock.lastCall![4].page).toBe(2)
+    expect(wrapper.get('[data-testid="member-usage-list"]').text()).toContain('mem_11')
+    wrapper.unmount()
+  })
+
 })

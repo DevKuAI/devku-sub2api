@@ -8,6 +8,7 @@ import (
 )
 
 var ErrDesktopReportLeaseLost = errors.New("desktop report lease lost")
+var ErrDesktopReportCheckpointUncertain = errors.New("desktop report checkpoint outcome uncertain")
 
 func validateDesktopSummaryConfig(enabled, reporting bool, model string) error {
 	if len([]rune(model)) > 200 || (enabled && (!reporting || strings.TrimSpace(model) == "")) {
@@ -175,10 +176,17 @@ type DesktopReportRepository interface {
 	AnalysisKey(context.Context, *DesktopOrganization) (*APIKey, error)
 	BeginExecution(context.Context, *DesktopReportTask, *DesktopReportExecution) error
 	FinishExecution(context.Context, *DesktopReportExecution) error
+	CompleteExecution(context.Context, *DesktopReportTask, *DesktopReportExecution) error
 	Executions(context.Context, int64, string) ([]DesktopReportExecution, error)
 }
 
 type DesktopReportAI interface {
 	Check(context.Context, *DesktopOrganization, *APIKey, string) error
 	Generate(context.Context, *DesktopOrganization, *APIKey, string, string, string, string) (string, error)
+}
+
+// DesktopReportMaintenanceRepository stores bounded automatic scan progress across restarts.
+type DesktopReportMaintenanceRepository interface {
+	ReportScanDate(context.Context, string, time.Time) (time.Time, error)
+	AdvanceReportScan(context.Context, string, time.Time) error
 }

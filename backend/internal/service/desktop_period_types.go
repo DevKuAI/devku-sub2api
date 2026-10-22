@@ -64,5 +64,6 @@ type DesktopPeriodRepository interface {
 	DuePeriodOrganizations(context.Context, string, time.Time) ([]string, error)
 	BeginPeriodExecution(context.Context, *DesktopPeriodTask, *DesktopReportExecution) error
 	FinishPeriodExecution(context.Context, *DesktopReportExecution) error
+	CompletePeriodExecution(context.Context, *DesktopPeriodTask, *DesktopReportExecution) error
 	RecordPeriodExecutionUsage(context.Context, int64, *UsageLog) error
 }

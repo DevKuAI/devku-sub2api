@@ -6,6 +6,9 @@ vi.mock('file-saver', () => ({ saveAs: vi.fn() }))
 
 vi.mock('@/api/bi', () => ({ isBIEnabled: vi.fn().mockResolvedValue(false) }))
 
+const usageExport = vi.hoisted(() => ({ download: vi.fn() }))
+vi.mock('@/api/desktopOrganizationUsage', async original => ({ ...await original<typeof import('@/api/desktopOrganizationUsage')>(), exportDesktopMemberUsage: usageExport.download }))
+
 const desktopAPI = vi.hoisted(() => ({
   getOrganization: vi.fn(),
   getGatewayUser: vi.fn(),
@@ -166,6 +169,7 @@ describe('DesktopOrganizationDetailView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     structureAPI.all.mockResolvedValue([])
+    usageExport.download.mockReset().mockResolvedValue(new Blob(['frozen CSV'], { type: 'text/csv;charset=utf-8;' }))
     route.query = { tab: 'members' }
     desktopAPI.getOrganization.mockResolvedValue({ ...organization })
     desktopAPI.getGatewayUser.mockResolvedValue({ id: 42, email: 'carrier@example.com', username: 'carrier' })
@@ -419,131 +423,60 @@ describe('DesktopOrganizationDetailView', () => {
     expect(disconnect).toHaveBeenCalled()
   })
 
-  it.each([false, true])('exports all filtered member pages with selfManaged=%s', async selfManaged => {
-    const api = selfManaged ? managedDesktopAPI : desktopAPI
-    const otherAPI = selfManaged ? desktopAPI : managedDesktopAPI
-    const wrapper = selfManaged ? mountManagedView() : mountView()
-    await flushPromises()
-    api.listMembers.mockClear()
-    otherAPI.listMembers.mockClear()
-    const vm = wrapper.vm as any
-    vm.memberSearch = '  Member  '
-    vm.memberStatus = 'active'
-    vm.memberPagination.page = 5
-    vm.memberPagination.total = 0
-    const firstPage = Array.from({ length: 100 }, (_, index) => ({ ...member, public_id: `mem_${index}` }))
-    api.listMembers
-      .mockResolvedValueOnce({ items: firstPage, page: 1, page_size: 100, total: 101, pages: 2 })
-      .mockResolvedValueOnce({ items: [{ ...member, public_id: 'mem_last', name: 'Last member' }], page: 2, page_size: 100, total: 101, pages: 2 })
-
-    await wrapper.get('[data-testid="export-member-usage"]').trigger('click')
-    await flushPromises()
-
-    expect(api.listMembers).toHaveBeenCalledTimes(2)
-    for (const page of [1, 2]) {
-      expect(api.listMembers).toHaveBeenNthCalledWith(page, 'org_one', page, 100, { search: 'Member', status: 'active' }, expect.any(AbortSignal))
-    }
-    expect(otherAPI.listMembers).not.toHaveBeenCalled()
+  it.each([false, true])('downloads a server snapshot without refetching live member pages with selfManaged=%s', async selfManaged => {
+    const wrapper = selfManaged ? mountManagedView() : mountView(); await flushPromises()
+    desktopAPI.listMembers.mockClear(); managedDesktopAPI.listMembers.mockClear()
+    const vm = wrapper.vm as any; vm.memberSearch = '  Member  '; vm.memberStatus = 'active'; vm.memberPagination.page = 5
+    await vm.exportMemberUsage()
+    expect(usageExport.download).toHaveBeenCalledWith('org_one', selfManaged, { search: 'Member', status: 'active' }, expect.any(Function), expect.any(AbortSignal))
+    expect(desktopAPI.listMembers).not.toHaveBeenCalled(); expect(managedDesktopAPI.listMembers).not.toHaveBeenCalled()
     expect(saveAs).toHaveBeenCalledOnce()
-    const [blob, filename] = vi.mocked(saveAs).mock.calls[0] as [Blob, string]
-    expect(blob.type).toBe('text/csv;charset=utf-8;')
-    expect(filename).toMatch(/^desktop_member_usage_desktop_\d{4}-\d{2}-\d{2}\.csv$/)
-    const text = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(String(reader.result))
-      reader.onerror = reject
-      reader.readAsText(blob)
-    })
-    expect(text.split('\r\n')).toHaveLength(102)
-    expect(text).toContain('mem_last,Last member')
-    expect(text).toContain(',1250,2500000,4000000000,')
-    expect(vm.memberPagination.page).toBe(5)
-    expect(vm.members).toHaveLength(1)
-    expect(appStore.showSuccess).toHaveBeenCalledWith('admin.desktop.memberUsageExport.success')
+    expect(vi.mocked(saveAs).mock.calls[0]![1]).toMatch(/^desktop_member_usage_desktop_\d{4}-\d{2}-\d{2}\.csv$/)
+    expect(vm.memberPagination.page).toBe(5); expect(vm.members).toHaveLength(1)
     wrapper.unmount()
   })
-
-  it('freezes export filters and prevents duplicate submissions while loading', async () => {
-    const wrapper = mountView()
-    await flushPromises()
-    desktopAPI.listMembers.mockClear()
-    let resolveFirst!: (value: unknown) => void
-    desktopAPI.listMembers
-      .mockImplementationOnce(() => new Promise(resolve => { resolveFirst = resolve }))
-      .mockResolvedValueOnce({ items: [member], pages: 2 })
-    const vm = wrapper.vm as any
-    vm.memberSearch = 'original'
-    const pending = vm.exportMemberUsage()
-    await flushPromises()
+  it('freezes export filters and prevents duplicate submissions while the snapshot is generated', async () => {
+    const wrapper = mountView(); await flushPromises()
+    let finish!: (value: Blob) => void
+    usageExport.download.mockReturnValueOnce(new Promise(resolve => { finish = resolve }))
+    const vm = wrapper.vm as any; vm.memberSearch = 'original'
+    const pending = vm.exportMemberUsage(); await flushPromises()
     expect(wrapper.get('[data-testid="export-member-usage"]').attributes('disabled')).toBeDefined()
-    await vm.exportMemberUsage()
-    expect(desktopAPI.listMembers).toHaveBeenCalledOnce()
-    vm.memberSearch = 'changed'
-    vm.memberStatus = 'disabled'
-    resolveFirst({ items: [member], pages: 2 })
-    await pending
-    expect(desktopAPI.listMembers).toHaveBeenLastCalledWith('org_one', 2, 100, { search: 'original', status: '' }, expect.any(AbortSignal))
-    expect(saveAs).toHaveBeenCalledOnce()
-    expect(vm.membersExporting).toBe(false)
-    wrapper.unmount()
+    await vm.exportMemberUsage(); expect(usageExport.download).toHaveBeenCalledTimes(1)
+    vm.memberSearch = 'changed'; vm.memberStatus = 'disabled'
+    expect(usageExport.download.mock.calls[0]![2]).toEqual({ search: 'original', status: '' })
+    finish(new Blob(['snapshot'])); await pending
+    expect(saveAs).toHaveBeenCalledOnce(); expect(vm.membersExporting).toBe(false); wrapper.unmount()
   })
-
-  it('does not download a partial file when a later page fails and allows retry', async () => {
-    const wrapper = mountView()
-    await flushPromises()
-    desktopAPI.listMembers
-      .mockResolvedValueOnce({ items: [member], pages: 2 })
-      .mockRejectedValueOnce(new Error('offline'))
-    const vm = wrapper.vm as any
-    await vm.exportMemberUsage()
-    expect(saveAs).not.toHaveBeenCalled()
+  it('does not download a partial snapshot after failure and allows retry', async () => {
+    usageExport.download.mockRejectedValueOnce(new Error('Snapshot failed'))
+    const wrapper = mountView(); await flushPromises(); const vm = wrapper.vm as any
+    await vm.exportMemberUsage(); expect(saveAs).not.toHaveBeenCalled()
     expect(appStore.showError).toHaveBeenCalledWith('admin.desktop.memberUsageExport.failed')
-    expect(vm.membersExporting).toBe(false)
-    await vm.exportMemberUsage()
-    expect(saveAs).toHaveBeenCalledOnce()
-    wrapper.unmount()
+    await vm.exportMemberUsage(); expect(saveAs).toHaveBeenCalledOnce(); wrapper.unmount()
   })
-
-  it('shows an empty export message without downloading a header-only file', async () => {
-    const wrapper = mountView()
-    await flushPromises()
-    desktopAPI.listMembers.mockResolvedValueOnce({ items: [], pages: 0 })
-    await (wrapper.vm as any).exportMemberUsage()
-    expect(saveAs).not.toHaveBeenCalled()
-    expect(appStore.showWarning).toHaveBeenCalledWith('admin.desktop.memberUsageExport.empty')
-    wrapper.unmount()
+  it('does not download an empty snapshot', async () => {
+    usageExport.download.mockResolvedValueOnce(new Blob([]))
+    const wrapper = mountView(); await flushPromises(); await (wrapper.vm as any).exportMemberUsage()
+    expect(saveAs).not.toHaveBeenCalled(); expect(appStore.showWarning).toHaveBeenCalledWith('admin.desktop.memberUsageExport.empty'); wrapper.unmount()
   })
-
-  it.each([false, true])('cancels an export when its organization changes with selfManaged=%s', async selfManaged => {
-    const api = selfManaged ? managedDesktopAPI : desktopAPI
-    const wrapper = selfManaged ? mountManagedView() : mountView()
-    await flushPromises()
-    let resolvePage!: (value: unknown) => void
-    api.listMembers.mockImplementationOnce(() => new Promise(resolve => { resolvePage = resolve }))
-    const vm = wrapper.vm as any
-    const pending = vm.exportMemberUsage()
-    const signal = api.listMembers.mock.lastCall?.[4] as AbortSignal
-    vm.organization = { ...organization, public_id: 'org_two' }
-    expect(signal.aborted).toBe(true)
-    resolvePage({ items: [member], pages: 1 })
-    await pending
-    expect(saveAs).not.toHaveBeenCalled()
-    expect(appStore.showError).not.toHaveBeenCalled()
-    wrapper.unmount()
+  it.each([false, true])('cancels snapshot generation when its enterprise changes with selfManaged=%s', async selfManaged => {
+    const wrapper = selfManaged ? mountManagedView() : mountView(); await flushPromises()
+    let finish!: (value: Blob) => void
+    usageExport.download.mockReturnValueOnce(new Promise(resolve => { finish = resolve }))
+    const vm = wrapper.vm as any; const pending = vm.exportMemberUsage()
+    const signal = usageExport.download.mock.lastCall![4] as AbortSignal
+    vm.organization = { ...organization, public_id: 'org_two' }; expect(signal.aborted).toBe(true)
+    finish(new Blob(['snapshot'])); await pending
+    expect(saveAs).not.toHaveBeenCalled(); expect(appStore.showError).not.toHaveBeenCalled(); wrapper.unmount()
   })
-
-  it('cancels a pending export on unmount even if the request later resolves', async () => {
-    const wrapper = mountView()
-    await flushPromises()
-    let resolvePage!: (value: unknown) => void
-    desktopAPI.listMembers.mockImplementationOnce(() => new Promise(resolve => { resolvePage = resolve }))
-    const pending = (wrapper.vm as any).exportMemberUsage()
-    const signal = desktopAPI.listMembers.mock.lastCall?.[4] as AbortSignal
-    wrapper.unmount()
-    expect(signal.aborted).toBe(true)
-    resolvePage({ items: [member], pages: 1 })
-    await pending
-    expect(saveAs).not.toHaveBeenCalled()
+  it('cancels pending snapshot generation on unmount', async () => {
+    const wrapper = mountView(); await flushPromises()
+    let finish!: (value: Blob) => void
+    usageExport.download.mockReturnValueOnce(new Promise(resolve => { finish = resolve }))
+    const pending = (wrapper.vm as any).exportMemberUsage(); const signal = usageExport.download.mock.lastCall![4] as AbortSignal
+    wrapper.unmount(); expect(signal.aborted).toBe(true)
+    finish(new Blob(['snapshot'])); await pending; expect(saveAs).not.toHaveBeenCalled()
   })
 
 	it('serializes destructive confirmation submissions', async () => {
@@ -969,7 +902,7 @@ describe('DesktopOrganizationDetailView', () => {
     const vm = wrapper.vm as any
     vm.memberDepartment = 'dep_one'; vm.memberPosition = 'pos_one'; vm.memberUnassigned = true
     await vm.exportMemberUsage()
-    const filters = desktopAPI.listMembers.mock.calls.at(-1)![3]
+    const filters = usageExport.download.mock.calls.at(-1)![2]
     expect(filters).toMatchObject({ unassigned: true })
     expect(filters).not.toHaveProperty('department_id')
     expect(filters).not.toHaveProperty('position_id')

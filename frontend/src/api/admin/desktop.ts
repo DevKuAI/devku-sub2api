@@ -127,6 +127,9 @@ export interface DesktopMember {
 }
 
 export interface DesktopMemberUsage {
+ today_token_status?: string
+ last_30_days_token_status?: string
+ total_token_status?: string
   today_tokens: number
   last_30_days_tokens: number
   total_tokens: number

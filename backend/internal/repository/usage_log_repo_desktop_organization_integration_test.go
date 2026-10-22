@@ -101,7 +101,8 @@ func TestDesktopOrganizationUsageIncludesHistoricalKeysAndIsolatesOrganizations(
 		memberModels[item.MemberID+"/"+item.Model] = item
 	}
 	require.Equal(t, service.DesktopUsageMemberModel{
-		MemberID: member.PublicID, Name: member.Name, Deleted: true, Model: "model", Requests: 4, TotalTokens: 130,
+		DesktopUsageMeasurement: service.DesktopUsageMeasurement{TokenStatus: "ready", MeasuredRequests: 4},
+		MemberID:                member.PublicID, Name: member.Name, Deleted: true, Model: "model", Requests: 4, TotalTokens: 130,
 		DesktopUsageBreakdown: service.DesktopUsageBreakdown{InputTokens: 13, OutputTokens: 26, CacheCreationTokens: 39, CacheReadTokens: 52},
 	}, memberModels[member.PublicID+"/model"])
 	require.EqualValues(t, 20, memberModels[member.PublicID+"/requested-model"].TotalTokens)
@@ -166,8 +167,9 @@ func TestDesktopOrganizationUsageIncludesHistoricalKeysAndIsolatesOrganizations(
 	require.Equal(t, outside.PublicID, result.MemberModels[0].MemberID)
 	result, err = repo.GetDesktopOrganizationUsage(ctx, -1, windows)
 	require.NoError(t, err)
-	require.Zero(t, result.Total)
-	require.Zero(t, result.Last30Days)
+	emptyPeriod := service.DesktopOrganizationUsagePeriod{DesktopUsageMeasurement: service.DesktopUsageMeasurement{TokenStatus: "ready"}}
+	require.Equal(t, emptyPeriod, result.Total)
+	require.Equal(t, emptyPeriod, result.Last30Days)
 	require.Len(t, result.Daily, 30)
 	require.Empty(t, result.Models)
 	require.Empty(t, result.Members)

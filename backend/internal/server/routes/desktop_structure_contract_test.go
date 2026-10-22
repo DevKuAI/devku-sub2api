@@ -41,7 +41,7 @@ func TestDesktopStructureOpenAPIAndRegisteredRoutes(t *testing.T) {
 			if method == "parameters" {
 				continue
 			}
-			selected := strings.Contains(path, "/departments") || strings.Contains(path, "/positions") || strings.Contains(path, "/organization-structure/") || strings.HasSuffix(path, "/position") || strings.HasSuffix(path, "/position-history") || (method == "get" && strings.HasSuffix(path, "/members/{member_id}") && !strings.Contains(path, "/daily-reports/"))
+			selected := strings.HasSuffix(path, "/members/usage-export") || strings.Contains(path, "/departments") || strings.Contains(path, "/positions") || strings.Contains(path, "/organization-structure/") || strings.HasSuffix(path, "/position") || strings.HasSuffix(path, "/position-history") || (method == "get" && strings.HasSuffix(path, "/members/{member_id}") && !strings.Contains(path, "/daily-reports/"))
 			if !selected {
 				continue
 			}
@@ -56,5 +56,5 @@ func TestDesktopStructureOpenAPIAndRegisteredRoutes(t *testing.T) {
 			count++
 		}
 	}
-	require.Equal(t, 24, count)
+	require.Equal(t, 26, count)
 }

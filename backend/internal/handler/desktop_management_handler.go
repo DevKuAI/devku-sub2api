@@ -272,7 +272,11 @@ func (h *DesktopHandler) ManagedOrganizationUsageStatistics(c *gin.Context) {
 	if response.ErrorFrom(c, err) {
 		return
 	}
-	result, err := h.desktop.OrganizationUsageStatistics(c.Request.Context(), "", userID, rangeInput)
+	query, err := dto.ParseDesktopUsageQuery(c.Request.URL.Query())
+	if response.ErrorFrom(c, err) {
+		return
+	}
+	result, err := h.desktop.OrganizationUsageStatistics(c.Request.Context(), "", userID, rangeInput, query)
 	if response.ErrorFrom(c, err) {
 		return
 	}

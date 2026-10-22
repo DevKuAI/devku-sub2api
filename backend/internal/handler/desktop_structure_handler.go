@@ -2,9 +2,9 @@ package handler
 
 import (
 	"context"
-	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
 	"strings"
 
+	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
@@ -30,6 +30,7 @@ func (h *DesktopStructureHandler) Register(group *gin.RouterGroup) {
 		group.PATCH("/"+kind+"/:unit_id", h.Unit(kind))
 	}
 	group.GET("/organization-structure/status", h.Status)
+	group.POST("/members/usage-export", h.ExportMemberUsage)
 	group.GET("/members/:member_id", h.GetMember)
 	group.PUT("/members/:member_id/position", h.Assign)
 	group.GET("/members/:member_id/position-history", h.History)

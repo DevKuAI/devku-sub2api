@@ -3,10 +3,12 @@ package service
 import (
 	"context"
 	"errors"
-	"github.com/google/uuid"
+	"fmt"
 	"log/slog"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // Both daily and period jobs use the same checkpointed generation and billing path.
@@ -20,6 +22,7 @@ type reportGenerationHooks struct {
 	Save         func(context.Context) error
 	Begin        func(context.Context, *DesktopReportExecution) error
 	Finish       func(context.Context, *DesktopReportExecution) error
+	Complete     func(context.Context, *DesktopReportExecution) error
 	RecordUsage  func(context.Context, int64, *UsageLog) error
 }
 
@@ -94,22 +97,27 @@ func (s *DesktopReportService) generateSummary(ctx context.Context, key *APIKey,
 			}
 			finished := s.now().UTC()
 			execution.FinishedAt = &finished
-			// Preserve the outcome even if shutdown or lease loss canceled the task context.
+			// A successful chunk and its execution status commit together, even during shutdown.
 			finishCtx, finishCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
-			finishErr := hooks.Finish(finishCtx, &execution)
-			finishCancel()
-			if finishErr != nil {
-				return "", finishErr
-			}
 			if callErr != nil {
+				finishErr := hooks.Finish(finishCtx, &execution)
+				finishCancel()
+				if finishErr != nil {
+					return "", finishErr
+				}
 				return "", callErr
 			}
-
+			previous := *work
 			work.Outputs = append(work.Outputs, text)
 			work.Attempts = 0
 			work.RetryAt = time.Time{}
-			if err = hooks.Save(ctx); err != nil {
-				return "", err
+			completeErr := hooks.Complete(finishCtx, &execution)
+			finishCancel()
+			if completeErr != nil {
+				slog.ErrorContext(ctx, "desktop report checkpoint outcome uncertain", "execution_id", execution.ID, "error", completeErr)
+				*work = previous
+				// Do not overwrite a transaction whose commit acknowledgement may have been lost.
+				return "", fmt.Errorf("%w: %w", ErrDesktopReportCheckpointUncertain, completeErr)
 			}
 		}
 		if len(work.Outputs) == 1 {

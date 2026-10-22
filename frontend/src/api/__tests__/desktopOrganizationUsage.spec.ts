@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-const client = vi.hoisted(() => ({ get: vi.fn() }))
+const client = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }))
 vi.mock('@/api/client', () => ({ apiClient: client }))
-import { getDesktopOrganizationUsageStatistics } from '../desktopOrganizationUsage'
+import { getDesktopOrganizationUsageStatistics, exportDesktopMemberUsage } from '../desktopOrganizationUsage'
 
 describe('Desktop organization usage API', () => {
   beforeEach(() => { client.get.mockReset().mockResolvedValue({ data: { total: { total_tokens: 42, actual_cost: 1.5 } } }) })
@@ -22,4 +22,12 @@ describe('Desktop organization usage API', () => {
       signal: controller.signal, params: { from: '2026-09-01', to: '2026-09-07' },
     })
   })
+  it('requests the export snapshot with localized labels and cancellation', async () => {
+    const controller = new AbortController(), file = new Blob(['CSV'])
+    client.post.mockResolvedValueOnce({ data: file })
+    expect(await exportDesktopMemberUsage('org/one', false, { unassigned: true }, key => key, controller.signal)).toBe(file)
+    expect(client.post).toHaveBeenCalledWith('/admin/desktop/organizations/org%2Fone/members/usage-export', expect.objectContaining({ headers: expect.arrayContaining(['desktopStructure.position']) }), expect.objectContaining({ params: { unassigned: true }, responseType: 'blob', signal: controller.signal }))
+    expect(client.post.mock.lastCall![1].headers).toHaveLength(19)
+  })
+
 })

@@ -2,10 +2,11 @@ package service
 
 import (
 	"context"
-	"github.com/stretchr/testify/require"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestDesktopPeriodCalendarClosedShanghaiPeriods(t *testing.T) {
@@ -57,6 +58,12 @@ func (r *periodTestRepo) BeginPeriodExecution(ctx context.Context, _ *DesktopPer
 	return r.BeginExecution(ctx, nil, e)
 }
 func (r *periodTestRepo) FinishPeriodExecution(ctx context.Context, e *DesktopReportExecution) error {
+	return r.FinishExecution(ctx, e)
+}
+func (r *periodTestRepo) CompletePeriodExecution(ctx context.Context, task *DesktopPeriodTask, e *DesktopReportExecution) error {
+	if err := r.SavePeriod(ctx, task, time.Time{}, false); err != nil {
+		return err
+	}
 	return r.FinishExecution(ctx, e)
 }
 func (r *periodTestRepo) RecordPeriodExecutionUsage(context.Context, int64, *UsageLog) error {

@@ -42,7 +42,7 @@ describe('Desktop organization usage statistics', () => {
   it.each([false, true])('loads whole-organization usage for selfManaged=%s with precise costs and token tooltips', async (selfManaged) => {
     const wrapper = view(selfManaged)
     await flushPromises()
-    expect(api.getDesktopOrganizationUsageStatistics).toHaveBeenCalledWith('org_one', selfManaged, expect.any(AbortSignal))
+    expect(api.getDesktopOrganizationUsageStatistics).toHaveBeenCalledWith('org_one', selfManaged, expect.any(AbortSignal), undefined, { section: 'summary' })
     expect(wrapper.find('[data-testid="organization-usage-today"]').text()).toContain('$0.1250')
     expect(wrapper.find('[data-testid="organization-usage-week"]').text()).toContain('2,500,000')
     expect(wrapper.find('[data-testid="organization-usage-month"]').text()).toContain('$12.7500')
@@ -56,7 +56,7 @@ describe('Desktop organization usage statistics', () => {
   it.each([false, true])('shows trends and rankings only in the usage tab for selfManaged=%s', async (selfManaged) => {
     const wrapper = view(selfManaged, 'insights')
     await flushPromises()
-    expect(api.getDesktopOrganizationUsageStatistics).toHaveBeenCalledWith('org_one', selfManaged, expect.any(AbortSignal), undefined)
+    expect(api.getDesktopOrganizationUsageStatistics).toHaveBeenCalledWith('org_one', selfManaged, expect.any(AbortSignal), undefined, { section: 'insights' })
     expect(wrapper.find('[data-testid="organization-usage-today"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="usage-trend-chart"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="organization-last-30-days"]').text()).toContain('$1.5000')
@@ -74,7 +74,7 @@ describe('Desktop organization usage statistics', () => {
     expect(wrapper.find('[data-testid="organization-member-ranking"] li').text()).toContain('Member Two')
     await wrapper.setProps({ range: { days: 7 } })
     await flushPromises()
-    expect(api.getDesktopOrganizationUsageStatistics).toHaveBeenLastCalledWith('org_one', selfManaged, expect.any(AbortSignal), { days: 7 })
+    expect(api.getDesktopOrganizationUsageStatistics).toHaveBeenLastCalledWith('org_one', selfManaged, expect.any(AbortSignal), { days: 7 }, { section: 'insights' })
     wrapper.unmount()
   })
 
@@ -106,7 +106,7 @@ describe('Desktop organization usage statistics', () => {
     await flushPromises()
     expect(wrapper.find('[data-testid="organization-usage-total"]').text()).toContain('$9.0000')
     expect(wrapper.text()).not.toContain('$150.1235')
-    expect(api.getDesktopOrganizationUsageStatistics).toHaveBeenLastCalledWith('org_two', true, expect.any(AbortSignal))
+    expect(api.getDesktopOrganizationUsageStatistics).toHaveBeenLastCalledWith('org_two', true, expect.any(AbortSignal), undefined, { section: 'summary' })
     wrapper.unmount()
     expect((api.getDesktopOrganizationUsageStatistics.mock.lastCall?.[2] as AbortSignal).aborted).toBe(true)
   })
@@ -147,7 +147,7 @@ describe('Desktop organization usage statistics', () => {
     await wrapper.get('[role="alert"] button').trigger('click')
     await flushPromises()
     expect(wrapper.get('[data-testid="member-usage-count"]').text()).toBe('2')
-    expect(api.getDesktopOrganizationUsageStatistics).toHaveBeenLastCalledWith('org_one', selfManaged, expect.any(AbortSignal), undefined)
+    expect(api.getDesktopOrganizationUsageStatistics).toHaveBeenLastCalledWith('org_one', selfManaged, expect.any(AbortSignal), undefined, { section: 'insights' })
     wrapper.unmount()
   })
 

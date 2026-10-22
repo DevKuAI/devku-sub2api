@@ -125,27 +125,45 @@ func (s *DesktopService) ListPeriodReports(ctx context.Context, org, kind, start
 	return r.ListPeriods(ctx, o.ID, kind, start, page, size, readableOnly...)
 }
 func (s *DesktopReportService) enqueueAutomaticPeriods(ctx context.Context) {
-	r, e := s.periods()
-	if e != nil {
+	repo, err := s.periods()
+	if err != nil {
 		return
 	}
 	for _, kind := range []string{"week", "month"} {
-		first, end, e := resolveDesktopPeriod(kind, "", s.now())
-		if e != nil || s.now().Before(end.Add(3*time.Hour)) {
+		first, end, err := resolveDesktopPeriod(kind, "", s.now())
+		if err != nil || s.now().Before(end.Add(3*time.Hour)) {
 			continue
 		}
-		ids, e := r.DuePeriodOrganizations(ctx, kind, first)
-		if e != nil {
-			continue
-		}
-		for _, id := range ids {
-			o, e := s.desktop.GetOrganization(ctx, id)
-			if e == nil {
-				_, _ = s.enqueuePeriod(ctx, o, kind, first.Format("2006-01-02"), "generate")
+		scan := func(start time.Time) error {
+			ids, err := repo.DuePeriodOrganizations(ctx, kind, start)
+			if err != nil {
+				return err
 			}
+			for _, id := range ids {
+				org, err := s.desktop.GetOrganization(ctx, id)
+				if err != nil {
+					return err
+				}
+				if _, err = s.enqueuePeriod(ctx, org, kind, start.Format("2006-01-02"), "generate"); err != nil && !errors.Is(err, ErrDesktopRotationConflict) {
+					return err
+				}
+			}
+			return nil
 		}
+		if err := scan(first); err != nil {
+			slog.Error("desktop period enqueue failed", "kind", kind, "error", err)
+			continue
+		}
+		oldest := first.AddDate(0, 0, -77)
+		step := func(d time.Time) time.Time { return d.AddDate(0, 0, 7) }
+		if kind == "month" {
+			oldest = first.AddDate(0, -2, 0)
+			step = func(d time.Time) time.Time { return d.AddDate(0, 1, 0) }
+		}
+		s.backfill(ctx, kind, oldest, first.AddDate(0, 0, -1), step, scan)
 	}
 }
+
 func (s *DesktopReportService) runPeriod(parent context.Context, t *DesktopPeriodTask) {
 	repo, e := s.periods()
 	if e != nil {
@@ -173,7 +191,7 @@ func (s *DesktopReportService) runPeriod(parent context.Context, t *DesktopPerio
 		}
 	}()
 	next, e := s.processPeriod(ctx, repo, t)
-	if ctx.Err() != nil || errors.Is(e, ErrDesktopReportLeaseLost) {
+	if ctx.Err() != nil || errors.Is(e, ErrDesktopReportLeaseLost) || errors.Is(e, ErrDesktopReportCheckpointUncertain) {
 		return
 	}
 	if e != nil {
@@ -257,6 +275,9 @@ func (s *DesktopReportService) processPeriod(ctx context.Context, repo DesktopPe
 		Begin: func(ctx context.Context, e *DesktopReportExecution) error {
 			return repo.BeginPeriodExecution(ctx, t, e)
 		}, Finish: repo.FinishPeriodExecution, RecordUsage: repo.RecordPeriodExecutionUsage,
+		Complete: func(ctx context.Context, e *DesktopReportExecution) error {
+			return repo.CompletePeriodExecution(ctx, t, e)
+		},
 	})
 	if e != nil {
 		return time.Time{}, e

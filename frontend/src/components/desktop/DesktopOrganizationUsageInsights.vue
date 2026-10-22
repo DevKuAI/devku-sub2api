@@ -11,8 +11,8 @@
       </div>
       <div class="card analytics-panel">
         <dt class="analytics-caption">{{ t('admin.desktop.usageStatistics.selectedTokens') }}</dt>
-        <dd class="analytics-value"><bdi>{{ formatTokens(statistics.selected.total_tokens) }}</bdi></dd>
-        <dd class="analytics-caption mt-3">{{ t('admin.desktop.usageStatistics.previousComparison', { amount: formatTokens(statistics.previous.total_tokens), change: percentageChange(statistics.selected.total_tokens, statistics.previous.total_tokens) }) }}</dd>
+        <dd class="analytics-value"><bdi>{{ statistics.selected.token_status === 'unavailable' ? '—' : formatTokens(statistics.selected.total_tokens) }}</bdi></dd>
+        <dd class="analytics-caption mt-3">{{ t('admin.desktop.usageStatistics.previousComparison', { amount: statistics.previous.token_status === 'unavailable' ? '—' : formatTokens(statistics.previous.total_tokens), change: statistics.selected.token_status === 'unavailable' || statistics.previous.token_status === 'unavailable' ? '—' : percentageChange(statistics.selected.total_tokens, statistics.previous.total_tokens) }) }}</dd>
       </div>
     </dl>
     <section class="card analytics-panel space-y-4" :aria-label="t('admin.desktop.usageStatistics.trend')">
@@ -46,10 +46,11 @@
         </div>
       </div>
       <dl class="grid grid-cols-2 gap-5">
-        <div v-for="part in breakdownParts" :key="part.key" class="min-w-0"><dt class="analytics-caption">{{ t(`admin.desktop.usageStatistics.${part.key}`) }}</dt><dd class="analytics-value"><bdi>{{ formatTokens(part.value) }}</bdi></dd></div>
+        <div v-for="part in breakdownParts" :key="part.key" class="min-w-0"><dt class="analytics-caption">{{ t(`admin.desktop.usageStatistics.${part.key}`) }}</dt><dd class="analytics-value"><bdi>{{ statistics.selected.token_status === 'unavailable' ? '—' : formatTokens(part.value) }}</bdi></dd></div>
       </dl>
     </section>
 
+    <p v-if="statistics.selected.token_status === 'partial' || statistics.selected.token_status === 'unavailable'" class="analytics-caption" role="status">{{ t('admin.desktop.usageStatistics.unmeasuredHint') }}</p>
     <div class="analytics-grid">
       <section class="card analytics-panel" :aria-label="t('admin.desktop.usageStatistics.models')">
         <h4 class="analytics-heading">{{ t('admin.desktop.usageStatistics.models') }}</h4>
@@ -77,7 +78,7 @@
         <p v-else class="analytics-caption mt-4">{{ t('admin.desktop.usageStatistics.noUsage') }}</p>
       </section>
     </div>
-    <DesktopMemberModelUsage v-model:number-mode="numberMode" :rows="statistics.member_models" @refresh="emit('refresh')" />
+    <DesktopMemberModelUsage v-model:number-mode="numberMode" :rows="statistics.member_models" :initial-page="statistics.member_models_page" :as-of="statistics.as_of" :organization-id="organizationId" :self-managed="selfManaged" :range="range" @refresh="emit('refresh')" />
   </div>
 </template>
 
@@ -87,7 +88,7 @@ import { useDesktopAnalyticsColors } from '@/composables/useDesktopAnalyticsColo
 import { useI18n } from 'vue-i18n'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler } from 'chart.js'
 import { Line } from 'vue-chartjs'
-import type { DesktopOrganizationUsageStatistics, DesktopUsageRank } from '@/api/desktopOrganizationUsage'
+import type { DesktopOrganizationUsageStatistics, DesktopUsageRank, DesktopAnalyticsRange } from '@/api/desktopOrganizationUsage'
 import { createDesktopUsageFormatter, type TokenNumberMode } from '@/utils/desktopUsageFormat'
 import Icon from '@/components/icons/Icon.vue'
 import DesktopAnalyticsDailyData from './DesktopAnalyticsDailyData.vue'
@@ -96,7 +97,7 @@ import DesktopMemberModelUsage from './DesktopMemberModelUsage.vue'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler)
 
-const props = defineProps<{ statistics: DesktopOrganizationUsageStatistics }>()
+const props = defineProps<{ statistics: DesktopOrganizationUsageStatistics; organizationId?: string; selfManaged?: boolean; range?: DesktopAnalyticsRange }>()
 const emit = defineEmits<{ refresh: [] }>()
 const { t, locale } = useI18n()
 const numberMode = ref<TokenNumberMode>('compact')
@@ -119,7 +120,7 @@ const chartData = computed(() => ({
   labels: props.statistics.daily.map(day => day.date.slice(5)),
   datasets: [{
     label: t(`admin.desktop.usageStatistics.${selectedMetric.value}`),
-    data: props.statistics.daily.map(day => day[selectedMetric.value === 'cost' ? 'actual_cost' : 'total_tokens']),
+    data: props.statistics.daily.map(day => selectedMetric.value === 'tokens' && day.token_status === 'unavailable' ? null : day[selectedMetric.value === 'cost' ? 'actual_cost' : 'total_tokens']),
     borderColor: chartColors.value.line,
     borderWidth: 2,
     backgroundColor: chartColors.value.fill,
@@ -150,7 +151,7 @@ const breakdownParts = computed(() => [
   { key: 'cacheReadTokens', value: props.statistics.breakdown.cache_read_tokens },
 ])
 function formatValue(value: DesktopUsageRank) {
-  return selectedMetric.value === 'cost' ? formatter.value.cost(value.actual_cost) : formatTokens(value.total_tokens)
+  return selectedMetric.value === 'cost' ? formatter.value.cost(value.actual_cost) : value.token_status === 'unavailable' ? '—' : formatTokens(value.total_tokens)
 }
 function percentageChange(current: number, previous: number) {
   if (previous === 0) return t('admin.desktop.usageStatistics.noComparison')

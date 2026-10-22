@@ -30,16 +30,15 @@ func reportUnavailableReason(err error) string {
 }
 
 type DesktopReportService struct {
-	desktop     *DesktopService
-	repo        DesktopReportRepository
-	ai          DesktopReportAI
-	now         func() time.Time
-	loc         *time.Location
-	cancel      context.CancelFunc
-	wg          sync.WaitGroup
-	start       sync.Once
-	stop        sync.Once
-	lastCleanup time.Time
+	desktop *DesktopService
+	repo    DesktopReportRepository
+	ai      DesktopReportAI
+	now     func() time.Time
+	loc     *time.Location
+	cancel  context.CancelFunc
+	wg      sync.WaitGroup
+	start   sync.Once
+	stop    sync.Once
 }
 
 func NewDesktopReportService(desktop *DesktopService, repo DesktopReportRepository) *DesktopReportService {
@@ -52,21 +51,17 @@ func (s *DesktopReportService) Start(ai DesktopReportAI) {
 		s.ai = ai
 		ctx, cancel := context.WithCancel(context.Background())
 		s.cancel = cancel
-		s.wg.Add(1)
-		go func() {
-			defer s.wg.Done()
-			ticker := time.NewTicker(time.Minute)
-			defer ticker.Stop()
-			s.tick(ctx)
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case <-ticker.C:
-					s.tick(ctx)
-				}
-			}
-		}()
+		s.wg.Add(2)
+		go s.maintenanceLoop(ctx, s.tick)
+		go s.maintenanceLoop(ctx, s.cleanupTick)
+		workers := max(1, s.desktop.config.ReportWorkers)
+		if s.desktop.config.ReportWorkers <= 0 {
+			workers = 2
+		}
+		for i := 0; i < workers; i++ {
+			s.wg.Add(1)
+			go s.worker(ctx, i%2 == 1)
+		}
 	})
 }
 func (s *DesktopReportService) Stop() {
@@ -294,89 +289,154 @@ func reportHasRecords(members []DesktopReportMember) bool {
 	}
 	return false
 }
-func (s *DesktopReportService) tick(ctx context.Context) {
-	if cleaner, ok := s.repo.(interface {
-		Cleanup(context.Context, time.Time) error
-	}); ok && (s.lastCleanup.IsZero() || s.now().Sub(s.lastCleanup) >= time.Hour) {
-		cleanupCtx, cancel := context.WithTimeout(ctx, time.Minute)
-		err := cleaner.Cleanup(cleanupCtx, s.now())
-		cancel()
-		if err != nil {
-			slog.Error("desktop retention cleanup failed", "error", err)
-		} else {
-			s.lastCleanup = s.now()
+func (s *DesktopReportService) maintenanceLoop(ctx context.Context, action func(context.Context)) {
+	defer s.wg.Done()
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+	action(ctx)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			action(ctx)
 		}
 	}
+}
+
+func (s *DesktopReportService) cleanupTick(ctx context.Context) {
+	cleaner, ok := s.repo.(interface {
+		Cleanup(context.Context, time.Time) error
+	})
+	if !ok {
+		return
+	}
+	cleanupCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
+	defer cancel()
+	if err := cleaner.Cleanup(cleanupCtx, s.now()); err != nil && ctx.Err() == nil {
+		slog.Error("desktop retention cleanup failed", "error", err)
+	}
+}
+
+func (s *DesktopReportService) tick(ctx context.Context) {
 	if s.now().In(s.loc).Hour() >= 2 {
 		s.enqueueAutomatic(ctx)
 	}
 	s.enqueueAutomaticPeriods(ctx)
-	workers := s.desktop.config.ReportWorkers
-	if workers <= 0 {
-		workers = 2
-	}
-	slots := make(chan struct{}, workers)
-	var running sync.WaitGroup
-	defer running.Wait()
-	for range max(workers, 4) {
-		select {
-		case slots <- struct{}{}:
-		case <-ctx.Done():
-			return
-		}
-		task, err := s.repo.Claim(ctx)
-		if err != nil {
-			<-slots
+}
+
+func (s *DesktopReportService) worker(ctx context.Context, preferPeriod bool) {
+	defer s.wg.Done()
+	for ctx.Err() == nil {
+		ran, err := s.processNext(ctx, preferPeriod)
+		preferPeriod = !preferPeriod
+		if err != nil && ctx.Err() == nil {
 			slog.Error("desktop report claim failed", "error", err)
+		}
+		if ran && err == nil {
+			continue
+		}
+		timer := time.NewTimer(5 * time.Second)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
 			return
+		case <-timer.C:
 		}
-		var period *DesktopPeriodTask
-		if task == nil {
-			if repo, e := s.periods(); e == nil {
-				period, err = repo.ClaimPeriod(ctx)
-			}
-		}
-		if err != nil || (task == nil && period == nil) {
-			<-slots
-			return
-		}
-		running.Add(1)
-		go func() {
-			defer running.Done()
-			defer func() { <-slots }()
-			if task != nil {
-				s.run(ctx, task)
-			} else {
-				s.runPeriod(ctx, period)
-			}
-		}()
 	}
 }
 
+func (s *DesktopReportService) processNext(ctx context.Context, preferPeriod bool) (bool, error) {
+	claimPeriod := func() (bool, error) {
+		repo, err := s.periods()
+		if err != nil {
+			return false, nil
+		}
+		task, err := repo.ClaimPeriod(ctx)
+		if err != nil || task == nil {
+			return false, err
+		}
+		s.runPeriod(ctx, task)
+		return true, nil
+	}
+	if preferPeriod {
+		ran, err := claimPeriod()
+		if ran || err != nil {
+			return ran, err
+		}
+	}
+	task, err := s.repo.Claim(ctx)
+	if err != nil {
+		return false, err
+	}
+	if task != nil {
+		s.run(ctx, task)
+		return true, nil
+	}
+	if !preferPeriod {
+		return claimPeriod()
+	}
+	return false, nil
+}
+
 func (s *DesktopReportService) enqueueAutomatic(ctx context.Context) {
-	date := s.now().In(s.loc).AddDate(0, 0, -1).Format("2006-01-02")
+	today := s.now().In(s.loc)
+	latest := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, s.loc).AddDate(0, 0, -1)
+	scan := func(date time.Time) error { return s.enqueueAutomaticDate(ctx, date.Format("2006-01-02")) }
+	if err := scan(latest); err != nil {
+		slog.Error("desktop report enqueue failed", "error", err)
+		return
+	}
+	s.backfill(ctx, "day", latest.AddDate(0, 0, -89), latest.AddDate(0, 0, -1), func(d time.Time) time.Time { return d.AddDate(0, 0, 1) }, scan)
+}
+
+func (s *DesktopReportService) enqueueAutomaticDate(ctx context.Context, date string) error {
 	ids, err := s.repo.DueOrganizations(ctx, date)
 	if err != nil {
-		slog.Error("desktop report enqueue scan failed", "error", err)
-		return
+		return err
 	}
 	for _, id := range ids {
 		o, err := s.desktop.GetOrganization(ctx, id)
 		if err != nil {
-			continue
+			return err
 		}
 		members, err := s.repo.Day(ctx, o.ID, date)
 		if err != nil {
-			slog.Error("desktop report source scan failed", "error", err)
-			continue
+			return err
 		}
 		if reportHasRecords(members) {
-			if _, err = s.repo.Enqueue(ctx, o.ID, date, "automatic"); err != nil {
-				slog.Error("desktop report enqueue failed", "error", err)
+			if _, err = s.repo.Enqueue(ctx, o.ID, date, "automatic"); err != nil && !errors.Is(err, ErrDesktopRotationConflict) {
+				return err
 			}
 		}
 	}
+	return nil
 }
+
+// Scan progress is durable; recent periods are checked on every maintenance tick for late sources.
+func (s *DesktopReportService) backfill(ctx context.Context, kind string, first, last time.Time, step func(time.Time) time.Time, scan func(time.Time) error) {
+	repo, ok := s.repo.(DesktopReportMaintenanceRepository)
+	if !ok || last.Before(first) {
+		return
+	}
+	next, err := repo.ReportScanDate(ctx, kind, first)
+	if err != nil {
+		slog.Error("desktop report backfill cursor failed", "kind", kind, "error", err)
+		return
+	}
+	for i := 0; i < 4 && !next.After(last) && ctx.Err() == nil; i++ {
+		if err = scan(next); err != nil {
+			slog.Error("desktop report backfill failed", "kind", kind, "date", next.Format("2006-01-02"), "error", err)
+			return
+		}
+		next = step(next)
+		if err = repo.AdvanceReportScan(ctx, kind, next); err != nil {
+			slog.Error("desktop report backfill cursor failed", "kind", kind, "error", err)
+			return
+		}
+	}
+}
+
 func (s *DesktopReportService) run(parent context.Context, t *DesktopReportTask) {
 	ctx, cancel := context.WithTimeout(parent, 15*time.Minute)
 	defer cancel()
@@ -401,7 +461,7 @@ func (s *DesktopReportService) run(parent context.Context, t *DesktopReportTask)
 	}()
 	next, err := s.process(ctx, t)
 	if err != nil {
-		if ctx.Err() != nil {
+		if ctx.Err() != nil || errors.Is(err, ErrDesktopReportLeaseLost) || errors.Is(err, ErrDesktopReportCheckpointUncertain) {
 			return
 		}
 		t.Status = "waiting"
@@ -508,7 +568,7 @@ func (s *DesktopReportService) process(ctx context.Context, t *DesktopReportTask
 		content, e := s.analyze(ctx, t, key, &snapshot.Work, desktopReportMemberPrompt, "", "member:"+snapshot.Member.MemberID)
 		if e != nil {
 			var blocked *DesktopReportUnavailable
-			if errors.As(e, &blocked) || errors.Is(e, ErrDesktopReportLeaseLost) || ctx.Err() != nil {
+			if errors.As(e, &blocked) || errors.Is(e, ErrDesktopReportLeaseLost) || errors.Is(e, ErrDesktopReportCheckpointUncertain) || ctx.Err() != nil {
 				return time.Time{}, e
 			}
 			snapshot.Member.Error = "upstream_failed"
@@ -559,7 +619,7 @@ func (s *DesktopReportService) process(ctx context.Context, t *DesktopReportTask
 		content, e := s.analyze(ctx, t, key, &t.Payload.SummaryWork, desktopReportSummaryPrompt, source, "summary")
 		if e != nil {
 			var blocked *DesktopReportUnavailable
-			if errors.As(e, &blocked) || errors.Is(e, ErrDesktopReportLeaseLost) || ctx.Err() != nil {
+			if errors.As(e, &blocked) || errors.Is(e, ErrDesktopReportLeaseLost) || errors.Is(e, ErrDesktopReportCheckpointUncertain) || ctx.Err() != nil {
 				return time.Time{}, e
 			}
 			t.Payload.Summary.Status = "failed"
@@ -623,5 +683,6 @@ func (s *DesktopReportService) analyze(ctx context.Context, t *DesktopReportTask
 		Save:   func(ctx context.Context) error { return s.repo.Save(ctx, t, s.now(), false) },
 		Begin:  func(ctx context.Context, e *DesktopReportExecution) error { return s.repo.BeginExecution(ctx, t, e) },
 		Finish: s.repo.FinishExecution, RecordUsage: record,
+		Complete: func(ctx context.Context, e *DesktopReportExecution) error { return s.repo.CompleteExecution(ctx, t, e) },
 	})
 }

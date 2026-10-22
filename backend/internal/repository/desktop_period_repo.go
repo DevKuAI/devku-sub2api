@@ -232,6 +232,10 @@ func (r *desktopReportRepository) ClaimPeriod(ctx context.Context) (*service.Des
 	return t, e
 }
 func (r *desktopReportRepository) SavePeriod(ctx context.Context, t *service.DesktopPeriodTask, next time.Time, release bool) error {
+	return saveDesktopPeriodTask(ctx, r.db, t, next, release)
+}
+
+func saveDesktopPeriodTask(ctx context.Context, db sqlExecutor, t *service.DesktopPeriodTask, next time.Time, release bool) error {
 	if t.Sources == nil {
 		t.Sources = []service.DesktopPeriodSource{}
 	}
@@ -245,7 +249,7 @@ func (r *desktopReportRepository) SavePeriod(ctx context.Context, t *service.Des
 		versions[i].Content = ""
 	}
 	meta, _ := json.Marshal(versions)
-	result, e := r.db.ExecContext(ctx, `UPDATE desktop_period_report_tasks SET status=$3,reason=$4,sources=$5,source_versions=$6,coverage=$7,work=$8,configuration=$9,content=$10,generated_at=$11,next_run_at=$12,lease_token=CASE WHEN $13 THEN NULL ELSE lease_token END,lease_until=CASE WHEN $13 THEN NULL ELSE lease_until END,updated_at=NOW() WHERE id=$1 AND lease_token=$2 AND lease_until>NOW()`, t.InternalID, t.LeaseToken, t.Status, t.Reason, string(sources), string(meta), string(coverage), string(work), string(config), t.Content, t.GeneratedAt, next, release)
+	result, e := db.ExecContext(ctx, `UPDATE desktop_period_report_tasks SET status=$3,reason=$4,sources=$5,source_versions=$6,coverage=$7,work=$8,configuration=$9,content=$10,generated_at=$11,next_run_at=$12,lease_token=CASE WHEN $13 THEN NULL ELSE lease_token END,lease_until=CASE WHEN $13 THEN NULL ELSE lease_until END,updated_at=NOW() WHERE id=$1 AND lease_token=$2 AND lease_until>NOW()`, t.InternalID, t.LeaseToken, t.Status, t.Reason, string(sources), string(meta), string(coverage), string(work), string(config), t.Content, t.GeneratedAt, next, release)
 	return checkReportLease(result, e)
 }
 func (r *desktopReportRepository) RenewPeriod(ctx context.Context, t *service.DesktopPeriodTask) error {
@@ -253,7 +257,7 @@ func (r *desktopReportRepository) RenewPeriod(ctx context.Context, t *service.De
 	return checkReportLease(result, e)
 }
 func (r *desktopReportRepository) DuePeriodOrganizations(ctx context.Context, kind string, start time.Time) ([]string, error) {
-	rows, e := r.db.QueryContext(ctx, `SELECT o.public_id FROM desktop_organizations o WHERE o.deleted_at IS NULL AND o.status='active' AND o.conversation_summary_enabled AND (($1='week' AND o.weekly_summary_enabled) OR ($1='month' AND o.monthly_summary_enabled)) AND NOT EXISTS(SELECT 1 FROM desktop_period_report_tasks p WHERE p.organization_id=o.id AND p.kind=$1 AND p.period_start=$2::date)`, kind, start.Format("2006-01-02"))
+	rows, e := r.db.QueryContext(ctx, `SELECT o.public_id FROM desktop_organizations o WHERE o.deleted_at IS NULL AND o.status='active' AND o.conversation_summary_enabled AND o.summary_enabled_at IS NOT NULL AND o.summary_enabled_at < $2::date + CASE WHEN $1='week' THEN INTERVAL '7 days' ELSE INTERVAL '1 month' END AND (($1='week' AND o.weekly_summary_enabled) OR ($1='month' AND o.monthly_summary_enabled)) AND NOT EXISTS(SELECT 1 FROM desktop_period_report_tasks p WHERE p.organization_id=o.id AND p.kind=$1 AND p.period_start=$2::date)`, kind, start.Format("2006-01-02"))
 	if e != nil {
 		return nil, e
 	}
@@ -276,9 +280,23 @@ func (r *desktopReportRepository) BeginPeriodExecution(ctx context.Context, t *s
 	return err
 }
 func (r *desktopReportRepository) FinishPeriodExecution(ctx context.Context, e *service.DesktopReportExecution) error {
-	result, err := r.db.ExecContext(ctx, `UPDATE desktop_period_report_executions SET status=$2,error=$3,finished_at=$4 WHERE id=$1 AND request_id=$5 AND status='running'`, e.ID, e.Status, e.Error, e.FinishedAt, e.RequestID)
-	return checkReportLease(result, err)
+	return finishDesktopReportExecution(ctx, r.db, true, e)
 }
+func (r *desktopReportRepository) CompletePeriodExecution(ctx context.Context, t *service.DesktopPeriodTask, e *service.DesktopReportExecution) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if err = saveDesktopPeriodTask(ctx, tx, t, time.Now(), false); err != nil {
+		return err
+	}
+	if err = finishDesktopReportExecution(ctx, tx, true, e); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 func (r *desktopReportRepository) RecordPeriodExecutionUsage(ctx context.Context, id int64, usage *service.UsageLog) error {
 	_, e := r.db.ExecContext(ctx, `UPDATE desktop_period_report_executions SET total_tokens=$2,actual_cost=$3 WHERE id=$1`, id, usage.InputTokens+usage.OutputTokens+usage.CacheCreationTokens+usage.CacheReadTokens, usage.ActualCost)
 	return e

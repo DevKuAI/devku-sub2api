@@ -242,20 +242,39 @@ func (r *desktopReportRepository) Claim(ctx context.Context) (*service.DesktopRe
 	return task, loadDesktopReportMembers(ctx, r.db, task)
 }
 func (r *desktopReportRepository) Save(ctx context.Context, t *service.DesktopReportTask, next time.Time, release bool) error {
-	data, err := desktopReportTaskPayload(t)
-	if err != nil {
-		return err
-	}
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
+	if err = saveDesktopReportTask(ctx, tx, t, next, release); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func saveDesktopReportTask(ctx context.Context, tx *sql.Tx, t *service.DesktopReportTask, next time.Time, release bool) error {
+	data, err := desktopReportTaskPayload(t)
+	if err != nil {
+		return err
+	}
 	result, err := tx.ExecContext(ctx, `UPDATE desktop_daily_report_tasks SET status=$3,reason=$4,payload=$5::jsonb,metadata=$5::jsonb-ARRAY['summary','summary_work']::text[],summary=COALESCE($5::jsonb->'summary','{}'),next_run_at=$6,updated_at=NOW(),lease_token=CASE WHEN $7 THEN NULL ELSE lease_token END,lease_until=CASE WHEN $7 THEN NULL ELSE lease_until END WHERE id=$1 AND lease_token=$2 AND lease_until>NOW()`, t.ID, t.LeaseToken, t.Status, t.Reason, string(data), next, release)
 	if err = checkReportLease(result, err); err != nil {
 		return err
 	}
-	if err = saveDesktopReportMembers(ctx, tx, t); err != nil {
+	return saveDesktopReportMembers(ctx, tx, t)
+}
+
+func (r *desktopReportRepository) CompleteExecution(ctx context.Context, t *service.DesktopReportTask, e *service.DesktopReportExecution) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if err = saveDesktopReportTask(ctx, tx, t, time.Now(), false); err != nil {
+		return err
+	}
+	if err = finishDesktopReportExecution(ctx, tx, false, e); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -328,19 +347,18 @@ func (r *desktopReportRepository) BeginExecution(ctx context.Context, task *serv
 	return err
 }
 func (r *desktopReportRepository) FinishExecution(ctx context.Context, execution *service.DesktopReportExecution) error {
-	result, err := r.db.ExecContext(ctx, `UPDATE desktop_daily_report_executions SET status=$2,error=$3,finished_at=$4 WHERE id=$1 AND request_id=$5 AND status='running'`, execution.ID, execution.Status, execution.Error, execution.FinishedAt, execution.RequestID)
-	if err != nil {
-		return err
-	}
-	count, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if count != 1 {
-		return service.ErrDesktopReportLeaseLost
-	}
-	return nil
+	return finishDesktopReportExecution(ctx, r.db, false, execution)
 }
+
+func finishDesktopReportExecution(ctx context.Context, db sqlExecutor, period bool, e *service.DesktopReportExecution) error {
+	table := "desktop_daily_report_executions"
+	if period {
+		table = "desktop_period_report_executions"
+	}
+	result, err := db.ExecContext(ctx, "UPDATE "+table+" SET status=$2,error=$3,finished_at=$4 WHERE id=$1 AND request_id=$5 AND status='running'", e.ID, e.Status, e.Error, e.FinishedAt, e.RequestID)
+	return checkReportLease(result, err)
+}
+
 func (r *desktopReportRepository) Executions(ctx context.Context, org int64, date string) ([]service.DesktopReportExecution, error) {
 	rows, err := r.db.QueryContext(ctx, `SELECT id,revision,kind,member_id,model,round,chunk,attempt,request_id,status,error,started_at,finished_at,total_tokens,actual_cost
  FROM desktop_daily_report_executions WHERE organization_id=$1 AND report_date=$2::date ORDER BY id DESC`, org, date)

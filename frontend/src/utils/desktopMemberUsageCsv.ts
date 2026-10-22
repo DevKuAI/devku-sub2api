@@ -15,25 +15,7 @@ export function createDesktopMemberUsageCsv(
   t: (key: string) => string,
  context?: { asOf: string; timezone: string },
 ): string {
-  const headers = [
-    'admin.desktop.organizationName',
-    'admin.desktop.organizationCode',
-    'admin.desktop.memberUsageExport.memberId',
-    'admin.desktop.member',
-    'admin.desktop.memberRemark',
-    'desktopStructure.department',
-    'desktopStructure.position',
-    'admin.desktop.phone',
-    'common.status',
-    'admin.desktop.modelToken',
-    'admin.desktop.memberUsageExport.todayCost',
-    'admin.desktop.memberUsageExport.last30DaysCost',
-    'admin.desktop.memberUsageExport.totalCost',
-    'admin.desktop.memberUsageExport.todayTokens',
-    'admin.desktop.memberUsageExport.last30DaysTokens',
-    'admin.desktop.memberUsageExport.totalTokens',
-    'admin.desktop.updatedAt',
-  ].map(key => t(key))
+  const headers = desktopMemberUsageCsvHeaders(t).slice(0, 17)
   const rows = members.map(member => [
     organization.name,
     organization.code,
@@ -55,4 +37,28 @@ export function createDesktopMemberUsageCsv(
   ])
   if (context) { headers.push(t('admin.desktop.memberUsageExport.asOf'), t('admin.desktop.memberUsageExport.timezone')); rows.forEach(row => row.push(context.asOf, context.timezone)) }
   return '\uFEFF' + [headers, ...rows].map(row => row.map(csvValue).join(',')).join('\r\n')
+}
+
+export function desktopMemberUsageCsvHeaders(t: (key: string) => string): string[] {
+  return [
+    'admin.desktop.organizationName',
+    'admin.desktop.organizationCode',
+    'admin.desktop.memberUsageExport.memberId',
+    'admin.desktop.member',
+    'admin.desktop.memberRemark',
+    'desktopStructure.department',
+    'desktopStructure.position',
+    'admin.desktop.phone',
+    'common.status',
+    'admin.desktop.modelToken',
+    'admin.desktop.memberUsageExport.todayCost',
+    'admin.desktop.memberUsageExport.last30DaysCost',
+    'admin.desktop.memberUsageExport.totalCost',
+    'admin.desktop.memberUsageExport.todayTokens',
+    'admin.desktop.memberUsageExport.last30DaysTokens',
+    'admin.desktop.memberUsageExport.totalTokens',
+    'admin.desktop.updatedAt',
+    'admin.desktop.memberUsageExport.asOf',
+    'admin.desktop.memberUsageExport.timezone',
+  ].map(key => t(key))
 }

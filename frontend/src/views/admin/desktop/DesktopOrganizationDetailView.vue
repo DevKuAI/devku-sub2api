@@ -159,15 +159,15 @@
               <div class="min-w-36 space-y-1 text-sm tabular-nums">
                 <div class="grid grid-cols-[max-content_minmax(0,1fr)] items-baseline gap-x-2">
                   <span class="text-gray-500 dark:text-dark-400">{{ t('admin.desktop.usageToday') }}:</span>
-                  <span class="text-right" :title="formatUsageTokensFull(row.usage?.today_tokens)">{{ formatUsageTokensFull(row.usage?.today_tokens) }}</span>
+                  <span class="text-right" :title="formatUsageTokensFull(row.usage?.today_tokens, row.usage?.today_token_status)">{{ formatUsageTokensFull(row.usage?.today_tokens, row.usage?.today_token_status) }}</span>
                 </div>
                 <div class="grid grid-cols-[max-content_minmax(0,1fr)] items-baseline gap-x-2">
                   <span class="text-gray-500 dark:text-dark-400">{{ t('admin.desktop.usageLast30Days') }}:</span>
-                  <span class="text-right" :title="formatUsageTokensFull(row.usage?.last_30_days_tokens)">{{ formatUsageTokensFull(row.usage?.last_30_days_tokens) }}</span>
+                  <span class="text-right" :title="formatUsageTokensFull(row.usage?.last_30_days_tokens, row.usage?.last_30_days_token_status)">{{ formatUsageTokensFull(row.usage?.last_30_days_tokens, row.usage?.last_30_days_token_status) }}</span>
                 </div>
                 <div class="grid grid-cols-[max-content_minmax(0,1fr)] items-baseline gap-x-2">
                   <span class="text-gray-500 dark:text-dark-400">{{ t('admin.desktop.usageTotal') }}:</span>
-                  <span class="text-right" :title="formatUsageTokensFull(row.usage?.total_tokens)">{{ formatUsageTokensFull(row.usage?.total_tokens) }}</span>
+                  <span class="text-right" :title="formatUsageTokensFull(row.usage?.total_tokens, row.usage?.total_token_status)">{{ formatUsageTokensFull(row.usage?.total_tokens, row.usage?.total_token_status) }}</span>
                 </div>
               </div>
             </template>
@@ -355,7 +355,7 @@ import type { Column } from '@/components/common/types'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import { formatDateTime } from '@/utils/format'
-import { createDesktopMemberUsageCsv } from '@/utils/desktopMemberUsageCsv'
+import { exportDesktopMemberUsage } from '@/api/desktopOrganizationUsage'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import DataTable from '@/components/common/DataTable.vue'
@@ -508,7 +508,7 @@ function tokenStatusLabel(value: DesktopModelTokenStatus): string { return t(`ad
 function tokenBadge(value: DesktopModelTokenStatus): string { return value === 'active' ? 'badge-success' : value === 'disabled' ? 'badge-warning' : 'badge-gray' }
 function normalizeUsageNumber(value: number | undefined): number { return Number.isFinite(value) ? Number(value) : 0 }
 function formatUsageCost(value: number | undefined): string { return value === undefined ? t('admin.desktop.usageUnavailable') : `$${normalizeUsageNumber(value).toFixed(4)}` }
-function formatUsageTokensFull(value: number | undefined): string { return value === undefined ? t('admin.desktop.usageUnavailable') : normalizeUsageNumber(value).toLocaleString() }
+function formatUsageTokensFull(value: number | undefined, status?: string): string { return value === undefined || status === 'unavailable' ? t('admin.desktop.usageUnavailable') : normalizeUsageNumber(value).toLocaleString() }
 function setTab(tab: DetailTab) { void router.replace({ query: { ...route.query, tab } }) }
 function tabId(tab: DetailTab) { return `desktop-organization-tab-${tab}` }
 function panelId(tab: DetailTab) { return `desktop-organization-panel-${tab}` }
@@ -590,23 +590,11 @@ async function exportMemberUsage() {
   memberExportController = request
   membersExporting.value = true
   const selectedOrganization = organization.value
-  const api = organizationAPI.value
-  const filters: { search: string; status: DesktopStatus | ''; as_of?: string; department_id?: string; position_id?: string; unassigned?: boolean } = { search: memberSearch.value.trim(), status: memberStatus.value, ...memberAssignmentFilters.value }
+  const filters = { search: memberSearch.value.trim(), status: memberStatus.value, ...memberAssignmentFilters.value }
   try {
-    const allMembers: DesktopMember[] = []
-    let pages = 1
-    for (let page = 1; page <= pages; page++) {
-      const result = await api.listMembers(selectedOrganization.public_id, page, 100, filters, request.signal)
-      if (request.signal.aborted) return
-      if (page === 1) { pages = result.pages; if (result.items[0]?.usage_as_of) filters.as_of = result.items[0].usage_as_of }
-      allMembers.push(...result.items)
-    }
-    if (allMembers.length === 0) {
-      appStore.showWarning(t('admin.desktop.memberUsageExport.empty'))
-      return
-    }
-    const csv = createDesktopMemberUsageCsv(selectedOrganization, allMembers, t, { asOf: filters.as_of || '', timezone: allMembers[0]?.usage_timezone || '' })
-    const file = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const file = await exportDesktopMemberUsage(selectedOrganization.public_id, selfManaged, filters, t, request.signal)
+    if (request.signal.aborted) return
+    if (file.size === 0) { appStore.showWarning(t('admin.desktop.memberUsageExport.empty')); return }
     const code = selectedOrganization.code.replace(/[^a-zA-Z0-9_-]/g, '_')
     saveAs(file, `desktop_member_usage_${code}_${new Date().toISOString().slice(0, 10)}.csv`)
     appStore.showSuccess(t('admin.desktop.memberUsageExport.success'))

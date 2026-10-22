@@ -20,7 +20,7 @@
         <p class="mt-3 break-all text-base font-semibold tabular-nums text-gray-900 dark:text-gray-100 sm:text-2xl">{{ statistics ? `$${statistics[period.key].actual_cost.toFixed(4)}` : '—' }}</p>
         <div class="mt-2 flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1 text-xs">
           <span class="text-gray-500 dark:text-dark-400">{{ t('admin.desktop.usageTokens') }}</span>
-          <span class="break-all font-medium tabular-nums text-gray-700 dark:text-dark-200" :title="statistics?.[period.key].total_tokens.toLocaleString()">{{ statistics ? statistics[period.key].total_tokens.toLocaleString() : '—' }}</span>
+          <span class="break-all font-medium tabular-nums text-gray-700 dark:text-dark-200" :title="statistics?.[period.key].token_status === 'unavailable' ? undefined : statistics?.[period.key].total_tokens.toLocaleString()">{{ statistics ? statistics[period.key].token_status === 'unavailable' ? '—' : statistics[period.key].total_tokens.toLocaleString() : '—' }}</span>
         </div>
       </article>
     </div>
@@ -28,7 +28,8 @@
       <div class="analytics-grid" aria-hidden="true"><div v-for="tile in 2" :key="tile" class="card analytics-panel"><p class="analytics-caption">{{ t(tile === 1 ? 'admin.desktop.usageStatistics.selectedCost' : 'admin.desktop.usageStatistics.selectedTokens') }}</p><p class="analytics-value">—</p></div></div>
       <DesktopMemberModelUsage :rows="[]" loading />
     </div>
-    <DesktopOrganizationUsageInsights v-if="view === 'insights' && statistics && !error" :statistics="statistics" @refresh="load" />
+    <p v-if="statistics && [statistics.today, statistics.week, statistics.month, statistics.total].some(period => period.token_status === 'partial' || period.token_status === 'unavailable')" class="text-sm text-amber-700 dark:text-amber-300" role="status">{{ t('admin.desktop.usageStatistics.unmeasuredHint') }}</p>
+    <DesktopOrganizationUsageInsights v-if="view === 'insights' && statistics && !error" :statistics="statistics" :organization-id="organizationId" :self-managed="selfManaged" :range="range" @refresh="load" />
     <p v-if="loading" class="text-xs text-gray-500 dark:text-dark-400" role="status">{{ t('common.loading') }}</p>
     <p v-else-if="view === 'summary' && statistics" class="text-xs leading-relaxed text-gray-500 dark:text-dark-400">{{ t('admin.desktop.usageStatistics.hint', { timezone: statistics.timezone }) }}</p>
   </section>
@@ -66,8 +67,8 @@ async function load() {
   loading.value = true
   try {
     const result = props.view === 'insights'
-      ? await getDesktopOrganizationUsageStatistics(props.organizationId, props.selfManaged, request.signal, props.range)
-      : await getDesktopOrganizationUsageStatistics(props.organizationId, props.selfManaged, request.signal)
+      ? await getDesktopOrganizationUsageStatistics(props.organizationId, props.selfManaged, request.signal, props.range, { section: 'insights' })
+      : await getDesktopOrganizationUsageStatistics(props.organizationId, props.selfManaged, request.signal, undefined, { section: 'summary' })
     if (!request.signal.aborted) statistics.value = result
   } catch {
     if (!request.signal.aborted) error.value = true

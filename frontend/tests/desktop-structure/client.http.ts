@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest'
 import { apiClient } from '@/api/client'
 import { authStorage } from '@/utils/authStorage'
+import { exportDesktopMemberUsage } from '@/api/desktopOrganizationUsage'
 import { desktopStructure, desktopStructureError, structureIdempotencyKey } from '@/api/desktopStructure'
 
 // Invoked by the Go integration fixture against a real HTTP server and PostgreSQL.
@@ -52,5 +53,14 @@ it('runs the actual Web client through organization structure and assignment ope
     expect(cause).toMatchObject({ status: 409, reason: 'ORGANIZATION_UNIT_NAME_EXISTS' })
     expect(desktopStructureError(cause, key => key)).toBe('desktopStructure.nameExists')
   }
+  const csv = await exportDesktopMemberUsage(organizationId, true, {}, key => key, new AbortController().signal)
+  const csvText = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsText(csv)
+  })
+  expect(csvText).toContain('HTTP 新员工')
+  expect(csvText).toContain('已更名岗位')
+  expect(csvText).not.toContain('sk-desktop-')
+  expect(csvText.split('\r\n').filter(Boolean)).toHaveLength(3)
   console.log('Desktop structure TypeScript HTTP flow verified')
 })

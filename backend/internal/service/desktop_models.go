@@ -101,12 +101,15 @@ type DesktopMember struct {
 }
 
 type DesktopMemberUsage struct {
-	TodayTokens          int64   `json:"today_tokens"`
-	Last30DaysTokens     int64   `json:"last_30_days_tokens"`
-	TotalTokens          int64   `json:"total_tokens"`
-	TodayActualCost      float64 `json:"today_actual_cost"`
-	Last30DaysActualCost float64 `json:"last_30_days_actual_cost"`
-	TotalActualCost      float64 `json:"total_actual_cost"`
+	TodayTokenStatus      string  `json:"today_token_status,omitempty"`
+	Last30DaysTokenStatus string  `json:"last_30_days_token_status,omitempty"`
+	TotalTokenStatus      string  `json:"total_token_status,omitempty"`
+	TodayTokens           int64   `json:"today_tokens"`
+	Last30DaysTokens      int64   `json:"last_30_days_tokens"`
+	TotalTokens           int64   `json:"total_tokens"`
+	TodayActualCost       float64 `json:"today_actual_cost"`
+	Last30DaysActualCost  float64 `json:"last_30_days_actual_cost"`
+	TotalActualCost       float64 `json:"total_actual_cost"`
 }
 
 func (m *DesktopMember) ModelTokenStatus() string {

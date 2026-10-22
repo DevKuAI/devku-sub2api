@@ -6,7 +6,7 @@
       <table>
         <caption class="sr-only">{{ caption }}</caption>
         <thead><tr><th scope="col">{{ t('admin.desktop.usageStatistics.date') }}</th><th v-for="column in columns" :key="column.key" scope="col">{{ column.label }}</th></tr></thead>
-        <tbody><tr v-for="row in rows" :key="row.date"><th scope="row">{{ row.date }}</th><td v-for="column in columns" :key="column.key"><bdi>{{ column.format(Number(row[column.key])) }}</bdi></td></tr></tbody>
+        <tbody><tr v-for="row in rows" :key="row.date"><th scope="row">{{ row.date }}</th><td v-for="column in columns" :key="column.key"><bdi>{{ column.key === 'total_tokens' && 'token_status' in row && row.token_status === 'unavailable' ? '—' : column.format(Number(row[column.key])) }}</bdi></td></tr></tbody>
       </table>
     </div>
   </details>

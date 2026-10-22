@@ -8,15 +8,15 @@
     <dl class="usage-overview rounded-xl bg-primary-50 p-5 dark:bg-dark-800" data-testid="member-usage-overview">
       <div class="overview-total min-w-0">
         <dt class="text-sm text-gray-700 dark:text-dark-300">{{ t(hasFilters ? 'admin.desktop.usageStatistics.filteredTokens' : 'admin.desktop.usageStatistics.totalTokens') }}</dt>
-        <dd class="mt-2 break-all text-3xl font-semibold leading-tight tabular-nums text-primary-700 dark:text-primary-300" data-testid="member-usage-total"><bdi>{{ loading ? '—' : formatTokens(totalTokens) }}</bdi></dd>
+        <dd class="mt-2 break-all text-3xl font-semibold leading-tight tabular-nums text-primary-700 dark:text-primary-300" data-testid="member-usage-total"><bdi>{{ loading || remoteError || metadata?.token_status === 'unavailable' ? '—' : formatTokens(totalTokens) }}</bdi></dd>
       </div>
       <div class="min-w-0">
         <dt class="text-sm text-gray-700 dark:text-dark-300">{{ t('admin.desktop.usageStatistics.usageMembers') }}</dt>
-        <dd class="mt-2 text-xl font-semibold leading-tight tabular-nums text-gray-900 dark:text-gray-100" data-testid="member-usage-count">{{ loading ? '—' : formatNumber(members.length) }}</dd>
+        <dd class="mt-2 text-xl font-semibold leading-tight tabular-nums text-gray-900 dark:text-gray-100" data-testid="member-usage-count">{{ loading || remoteError ? '—' : formatNumber(memberCount) }}</dd>
       </div>
       <div class="min-w-0">
         <dt class="text-sm text-gray-700 dark:text-dark-300">{{ t('admin.desktop.usageStatistics.usageModels') }}</dt>
-        <dd class="mt-2 text-xl font-semibold leading-tight tabular-nums text-gray-900 dark:text-gray-100">{{ loading ? '—' : formatNumber(matchedModelCount) }}</dd>
+        <dd class="mt-2 text-xl font-semibold leading-tight tabular-nums text-gray-900 dark:text-gray-100">{{ loading || remoteError ? '—' : formatNumber(matchedModelCount) }}</dd>
       </div>
     </dl>
 
@@ -50,18 +50,20 @@
     </div>
 
     <div class="flex min-w-0 flex-wrap items-center justify-between gap-3">
-      <p class="min-w-0 break-words text-sm leading-normal text-gray-600 dark:text-dark-300" role="status" aria-live="polite" data-testid="member-usage-results">{{ announced ? t(loading ? 'admin.desktop.usageStatistics.loadingMembers' : 'admin.desktop.usageStatistics.memberUsageResults', { members: formatNumber(members.length), models: formatNumber(filteredRows.length) }) : '' }}</p>
+      <p class="min-w-0 break-words text-sm leading-normal text-gray-600 dark:text-dark-300" role="status" aria-live="polite" data-testid="member-usage-results">{{ announced && !remoteError ? t(loading ? 'admin.desktop.usageStatistics.loadingMembers' : 'admin.desktop.usageStatistics.memberUsageResults', { members: formatNumber(memberCount), models: formatNumber(rowCount) }) : '' }}</p>
       <button v-if="hasFilters && !loading" class="usage-action" type="button" @click="clearFilters">{{ t('admin.desktop.usageStatistics.clearUsageFilters') }}</button>
     </div>
     <p v-if="selectedModel" class="break-all text-sm leading-normal text-gray-600 dark:text-dark-300">{{ t('admin.desktop.usageStatistics.selectedUsageModel', { model: selectedModel }) }}</p>
 
+    <div v-if="remoteError" class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-200" role="alert"><p>{{ t('admin.desktop.usageStatistics.loadFailed') }}</p><button type="button" class="btn btn-secondary" @click="retryRemote">{{ t('common.refresh') }}</button></div>
+    <p v-if="metadata?.token_status === 'partial' || metadata?.token_status === 'unavailable'" class="text-sm text-amber-700 dark:text-amber-300" role="status">{{ t('admin.desktop.usageStatistics.unmeasuredHint') }}</p>
     <div v-if="loading" class="rounded-xl border border-gray-200 bg-white p-6 text-sm leading-normal text-gray-600 dark:border-dark-700 dark:bg-dark-900" data-testid="member-usage-loading">{{ t('admin.desktop.usageStatistics.loadingMembers') }}</div>
-    <div v-else-if="!members.length" class="space-y-3 rounded-xl border border-gray-200 bg-white p-6 text-center dark:border-dark-700 dark:bg-dark-900" data-testid="member-usage-empty">
+    <div v-else-if="!remoteError && !members.length" class="space-y-3 rounded-xl border border-gray-200 bg-white p-6 text-center dark:border-dark-700 dark:bg-dark-900" data-testid="member-usage-empty">
       <p class="text-sm font-semibold leading-normal text-gray-900 dark:text-gray-100">{{ t(hasFilters ? 'admin.desktop.usageStatistics.noMatchingMemberModels' : 'admin.desktop.usageStatistics.noUsage') }}</p>
       <p class="mx-auto max-w-prose break-words text-sm leading-normal text-gray-600 dark:text-dark-300">{{ hasFilters ? t('admin.desktop.usageStatistics.noMatchingUsageHint', { query: filterDescription }) : t('admin.desktop.usageStatistics.noMemberUsageHint') }}</p>
       <button class="usage-action" type="button" @click="hasFilters ? clearFilters() : emit('refresh')">{{ t(hasFilters ? 'admin.desktop.usageStatistics.clearUsageFilters' : 'common.refresh') }}</button>
     </div>
-    <div v-else class="space-y-3" data-testid="member-usage-list">
+    <div v-else-if="!remoteError" class="space-y-3" data-testid="member-usage-list">
       <details v-for="(member, index) in pageMembers" :key="member.memberId" :open="index === 0" class="member-card rounded-xl border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-900" data-testid="member-usage-card">
         <summary class="member-summary usage-focus cursor-pointer list-none p-4">
           <div class="flex min-w-0 items-start gap-3">
@@ -77,7 +79,7 @@
           </div>
           <div class="member-total min-w-0">
             <span class="text-xs text-gray-600 dark:text-dark-400">{{ t('admin.desktop.usageStatistics.totalTokens') }}</span>
-            <p class="break-all text-xl font-semibold leading-tight tabular-nums text-gray-900 dark:text-gray-100" data-testid="member-total"><bdi>{{ formatTokens(member.totalTokens) }}</bdi></p>
+            <p class="break-all text-xl font-semibold leading-tight tabular-nums text-gray-900 dark:text-gray-100" data-testid="member-total"><bdi>{{ member.models.every(model => model.token_status === 'unavailable') ? '—' : formatTokens(member.totalTokens) }}</bdi></p>
           </div>
         </summary>
         <div class="divide-y divide-gray-100 border-t border-gray-200 dark:divide-dark-800 dark:border-dark-700">
@@ -87,19 +89,19 @@
                 <p class="break-all text-sm font-semibold leading-normal text-gray-900 dark:text-gray-100"><bdi>{{ model.model }}</bdi></p>
                 <p class="mt-1 text-xs leading-normal text-gray-600 dark:text-dark-400">{{ t('admin.desktop.usageStatistics.billingRecords', { count: formatNumber(model.requests) }) }}</p>
               </div>
-              <p class="break-all text-lg font-semibold leading-normal tabular-nums text-primary-700 dark:text-primary-300" data-testid="model-total"><bdi>{{ formatTokens(model.total_tokens) }}</bdi><span class="ms-1 text-xs font-normal text-gray-600 dark:text-dark-400">Token</span></p>
+              <p class="break-all text-lg font-semibold leading-normal tabular-nums text-primary-700 dark:text-primary-300" data-testid="model-total"><bdi>{{ model.token_status === 'unavailable' ? '—' : formatTokens(model.total_tokens) }}</bdi><span class="ms-1 text-xs font-normal text-gray-600 dark:text-dark-400">Token</span></p>
             </div>
             <dl class="token-parts">
               <div v-for="part in tokenParts" :key="part.key" class="min-w-0" :data-token-kind="part.key">
                 <dt class="text-xs leading-normal text-gray-600 dark:text-dark-400">{{ t(`admin.desktop.usageStatistics.${part.label}`) }}</dt>
-                <dd class="mt-1 break-all text-sm font-medium leading-normal tabular-nums text-gray-900 dark:text-gray-100"><bdi>{{ formatTokens(model[part.key]) }}</bdi></dd>
+                <dd class="mt-1 break-all text-sm font-medium leading-normal tabular-nums text-gray-900 dark:text-gray-100"><bdi>{{ model.token_status === 'unavailable' ? '—' : formatTokens(model[part.key]) }}</bdi></dd>
               </div>
             </dl>
           </article>
         </div>
       </details>
     </div>
-    <Pagination v-if="members.length > pageSize && !loading" v-model:page="page" class="usage-pagination" :page-size="pageSize" :total="members.length" :show-page-size-selector="false" />
+    <Pagination v-if="memberCount > pageSize && !loading && !remoteError" v-model:page="page" class="usage-pagination" :page-size="pageSize" :total="memberCount" :show-page-size-selector="false" @update:page="remote && loadRemote()" />
 
     <details class="usage-notes text-xs leading-normal text-gray-600 dark:text-dark-400">
       <summary class="usage-focus cursor-pointer py-2 font-medium">{{ t('admin.desktop.usageStatistics.usageCalculation') }}</summary>
@@ -112,9 +114,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { DesktopUsageMemberModel } from '@/api/desktopOrganizationUsage'
+import { getDesktopOrganizationUsageStatistics, type DesktopUsageMemberModel, type DesktopMemberModelPage, type DesktopAnalyticsRange } from '@/api/desktopOrganizationUsage'
 import Pagination from '@/components/common/Pagination.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { createDesktopUsageFormatter, type TokenNumberMode } from '@/utils/desktopUsageFormat'
@@ -127,7 +129,7 @@ interface UsageMember {
   totalTokens: number
   requests: number
 }
-const props = withDefaults(defineProps<{ rows: DesktopUsageMemberModel[]; loading?: boolean; numberMode?: TokenNumberMode }>(), { loading: false })
+const props = withDefaults(defineProps<{ rows: DesktopUsageMemberModel[]; loading?: boolean; numberMode?: TokenNumberMode; organizationId?: string; selfManaged?: boolean; range?: DesktopAnalyticsRange; initialPage?: DesktopMemberModelPage; asOf?: string }>(), { loading: false })
 const emit = defineEmits<{ refresh: []; 'update:numberMode': [value: TokenNumberMode] }>()
 const { t, locale } = useI18n()
 const search = ref('')
@@ -141,8 +143,38 @@ const numberMode = computed({
 })
 const numberModes = [{ value: 'compact', label: 'compactTokens' }, { value: 'exact', label: 'exactTokens' }] as const
 const page = ref(1)
-const pageSize = 10
+const pageSize = computed(() => props.initialPage?.page_size ?? 10)
 const announced = ref(false)
+const remote = computed(() => Boolean(props.organizationId && props.initialPage))
+const remoteRows = ref<DesktopUsageMemberModel[]>()
+const remotePage = ref<DesktopMemberModelPage>()
+const remoteLoading = ref(false), remoteError = ref(false)
+const loading = computed(() => props.loading || remoteLoading.value)
+const sourceRows = computed(() => remoteRows.value ?? props.rows)
+const metadata = computed(() => remotePage.value ?? props.initialPage)
+let request: AbortController | undefined, timer: ReturnType<typeof setTimeout> | undefined
+async function loadRemote() {
+ if (!props.organizationId) return
+ request?.abort(); request = new AbortController()
+ const current = request
+ remoteLoading.value = true; remoteError.value = false
+ try {
+  const result = await getDesktopOrganizationUsageStatistics(props.organizationId, !!props.selfManaged, current.signal, props.range, { section: 'member_models', page: page.value, page_size: pageSize.value, search: search.value.trim(), model: selectedModel.value, sort: sortBy.value, as_of: props.asOf })
+  if (!current.signal.aborted) {
+   const last = Math.max(1, Math.ceil((result.member_models_page?.total_members ?? 0) / pageSize.value))
+   if (page.value > last) { page.value = last; void loadRemote(); return }
+   remoteRows.value = result.member_models; remotePage.value = result.member_models_page
+  }
+ } catch { if (!current.signal.aborted) remoteError.value = true }
+ finally { if (request === current) remoteLoading.value = false }
+}
+function retryRemote() {
+ if (props.asOf && Date.now() - Date.parse(props.asOf) >= 24 * 60 * 60 * 1000) emit('refresh')
+ else void loadRemote()
+}
+const memberCount = computed(() => remote.value ? metadata.value?.total_members ?? 0 : members.value.length)
+const rowCount = computed(() => remote.value ? metadata.value?.total_rows ?? 0 : filteredRows.value.length)
+
 const language = computed(() => locale?.value || 'zh-CN')
 const collator = computed(() => new Intl.Collator(language.value, { numeric: true, sensitivity: 'base' }))
 const formatter = computed(() => createDesktopUsageFormatter(language.value))
@@ -154,12 +186,13 @@ const tokenParts = [
   { key: 'cache_creation_tokens', label: 'cacheCreationTokens' },
   { key: 'cache_read_tokens', label: 'cacheReadTokens' },
 ] as const
-const availableModels = computed(() => [...new Set(props.rows.map(row => row.model))].sort(collator.value.compare))
+const availableModels = computed(() => remote.value ? [...new Set([...(metadata.value?.models ?? []), ...(selectedModel.value ? [selectedModel.value] : [])])] : [...new Set(props.rows.map(row => row.model))].sort(collator.value.compare))
 const hasFilters = computed(() => Boolean(search.value.trim() || selectedModel.value))
 const filterDescription = computed(() => search.value.trim() || selectedModel.value)
 const filteredRows = computed(() => {
   const query = search.value.trim().toLocaleLowerCase(language.value)
-  return props.rows.filter(row => (!selectedModel.value || row.model === selectedModel.value) &&
+  if (remote.value) return sourceRows.value
+  return sourceRows.value.filter(row => (!selectedModel.value || row.model === selectedModel.value) &&
     (!query || [row.name, row.member_id, row.model].some(value => value.toLocaleLowerCase(language.value).includes(query))))
 })
 const members = computed(() => {
@@ -174,16 +207,19 @@ const members = computed(() => {
     member.totalTokens += row.total_tokens
     member.requests += row.requests
   }
-  return [...groups.values()].map(member => ({ ...member, models: member.models.sort((a, b) => b.total_tokens - a.total_tokens || collator.value.compare(a.model, b.model)) }))
-    .sort((a, b) => (sortBy.value === 'tokens' ? b.totalTokens - a.totalTokens : 0) || collator.value.compare(a.name, b.name) || collator.value.compare(a.memberId, b.memberId))
+  const result = [...groups.values()].map(member => ({ ...member, models: member.models.sort((a, b) => b.total_tokens - a.total_tokens || collator.value.compare(a.model, b.model)) }))
+  return remote.value ? result : result.sort((a, b) => (sortBy.value === 'tokens' ? b.totalTokens - a.totalTokens : 0) || collator.value.compare(a.name, b.name) || collator.value.compare(a.memberId, b.memberId))
 })
-const totalTokens = computed(() => filteredRows.value.reduce((total, row) => total + row.total_tokens, 0))
-const matchedModelCount = computed(() => new Set(filteredRows.value.map(row => row.model)).size)
-const pageMembers = computed(() => members.value.slice((page.value - 1) * pageSize, page.value * pageSize))
+const totalTokens = computed(() => remote.value ? metadata.value?.total_tokens ?? 0 : filteredRows.value.reduce((total, row) => total + row.total_tokens, 0))
+const matchedModelCount = computed(() => remote.value ? metadata.value?.model_count ?? 0 : new Set(filteredRows.value.map(row => row.model)).size)
+const pageMembers = computed(() => remote.value ? members.value : members.value.slice((page.value - 1) * pageSize.value, page.value * pageSize.value))
 function clearFilters() { search.value = ''; selectedModel.value = ''; searchInput.value?.focus() }
-watch([search, selectedModel, sortBy, () => props.rows], () => { page.value = 1 })
-watch(() => props.rows, () => { if (!availableModels.value.includes(selectedModel.value)) selectedModel.value = '' })
+watch([search, selectedModel, sortBy], () => { page.value = 1; if (remote.value) { request?.abort(); clearTimeout(timer); timer = setTimeout(loadRemote, 250) } })
+watch(() => [props.rows, props.organizationId, props.selfManaged, props.range, props.asOf], () => { clearTimeout(timer); request?.abort(); remoteRows.value = undefined; remotePage.value = undefined; remoteLoading.value = false; remoteError.value = false; page.value = 1; if (remote.value && hasFilters.value) void loadRemote() })
+
+watch(() => props.rows, () => { if (!remote.value && !availableModels.value.includes(selectedModel.value)) selectedModel.value = '' })
 onMounted(() => { announced.value = true })
+onBeforeUnmount(() => { clearTimeout(timer); request?.abort() })
 </script>
 
 <style scoped>
