@@ -257,7 +257,7 @@ func (r *desktopReportRepository) RenewPeriod(ctx context.Context, t *service.De
 	return checkReportLease(result, e)
 }
 func (r *desktopReportRepository) DuePeriodOrganizations(ctx context.Context, kind string, start time.Time) ([]string, error) {
-	rows, e := r.db.QueryContext(ctx, `SELECT o.public_id FROM desktop_organizations o WHERE o.deleted_at IS NULL AND o.status='active' AND o.conversation_summary_enabled AND o.summary_enabled_at IS NOT NULL AND o.summary_enabled_at < $2::date + CASE WHEN $1='week' THEN INTERVAL '7 days' ELSE INTERVAL '1 month' END AND (($1='week' AND o.weekly_summary_enabled) OR ($1='month' AND o.monthly_summary_enabled)) AND NOT EXISTS(SELECT 1 FROM desktop_period_report_tasks p WHERE p.organization_id=o.id AND p.kind=$1 AND p.period_start=$2::date)`, kind, start.Format("2006-01-02"))
+	rows, e := r.db.QueryContext(ctx, `SELECT o.public_id FROM desktop_organizations o WHERE o.deleted_at IS NULL AND o.status='active' AND o.conversation_summary_enabled AND o.summary_enabled_at IS NOT NULL AND o.summary_enabled_at < $2::date + CASE WHEN $1='week' THEN INTERVAL '7 days' ELSE INTERVAL '1 month' END AND (($1='week' AND o.weekly_summary_enabled) OR ($1='month' AND o.monthly_summary_enabled)) AND NOT EXISTS(SELECT 1 FROM desktop_period_report_tasks p WHERE p.organization_id=o.id AND p.kind=$1 AND p.period_start=$2::date) ORDER BY o.id LIMIT $3`, kind, start.Format("2006-01-02"), service.DesktopReportScanBatchSize)
 	if e != nil {
 		return nil, e
 	}

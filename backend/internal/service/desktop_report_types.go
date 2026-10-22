@@ -10,6 +10,11 @@ import (
 var ErrDesktopReportLeaseLost = errors.New("desktop report lease lost")
 var ErrDesktopReportCheckpointUncertain = errors.New("desktop report checkpoint outcome uncertain")
 
+// Bound each automatic scan before loading organization configuration or checkpoints.
+const DesktopReportScanBatchSize = 16
+
+var errDesktopReportScanDeferred = errors.New("desktop report scan batch incomplete")
+
 func validateDesktopSummaryConfig(enabled, reporting bool, model string) error {
 	if len([]rune(model)) > 200 || (enabled && (!reporting || strings.TrimSpace(model) == "")) {
 		return ErrDesktopValidation.WithMetadata(map[string]string{"field": "analysis_model"})

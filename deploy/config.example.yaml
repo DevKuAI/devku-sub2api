@@ -114,6 +114,10 @@ simple_mode_key_rate_limit_enabled: false
 # =============================================================================
 desktop:
   enabled: false
+  # Limit background report work on small hosts.
+  report_workers: 1
+  report_scan_interval_seconds: 300
+  report_cleanup_interval_seconds: 600
   # Generate with: openssl rand -base64 32
   jwt_secret: ""
   # Must be an externally reachable HTTPS URL ending exactly in /v1.

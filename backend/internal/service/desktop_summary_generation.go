@@ -108,13 +108,17 @@ func (s *DesktopReportService) generateSummary(ctx context.Context, key *APIKey,
 				return "", callErr
 			}
 			previous := *work
+			chunk := len(work.Outputs)
+			consumed := work.Inputs[chunk]
 			work.Outputs = append(work.Outputs, text)
+			work.Inputs[chunk] = ""
 			work.Attempts = 0
 			work.RetryAt = time.Time{}
 			completeErr := hooks.Complete(finishCtx, &execution)
 			finishCancel()
 			if completeErr != nil {
 				slog.ErrorContext(ctx, "desktop report checkpoint outcome uncertain", "execution_id", execution.ID, "error", completeErr)
+				work.Inputs[chunk] = consumed
 				*work = previous
 				// Do not overwrite a transaction whose commit acknowledgement may have been lost.
 				return "", fmt.Errorf("%w: %w", ErrDesktopReportCheckpointUncertain, completeErr)

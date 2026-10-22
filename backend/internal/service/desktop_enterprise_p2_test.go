@@ -57,17 +57,17 @@ func TestDesktopP2BackfillResumesAndDoesNotAdvancePastFailure(t *testing.T) {
 	step := func(d time.Time) time.Time { return d.AddDate(0, 0, 1) }
 	scan := func(d time.Time) error { dates = append(dates, d); return nil }
 	s.backfill(context.Background(), "day", first, last, step, scan)
-	require.Len(t, dates, 4)
-	require.Equal(t, first.AddDate(0, 0, 4), repo.next)
+	require.Len(t, dates, 1)
+	require.Equal(t, first.AddDate(0, 0, 1), repo.next)
 	restarted := NewDesktopReportService(s.desktop, repo)
 	restarted.backfill(context.Background(), "day", first, last, step, scan)
-	require.Len(t, dates, 8)
-	require.Equal(t, first.AddDate(0, 0, 8), repo.next)
+	require.Len(t, dates, 2)
+	require.Equal(t, first.AddDate(0, 0, 2), repo.next)
 	failed := repo.next
 	restarted.backfill(context.Background(), "day", first, last, step, func(time.Time) error { return errors.New("database unavailable") })
 	require.Equal(t, failed, repo.next)
 	restarted.backfill(context.Background(), "day", first, last, step, scan)
-	require.Equal(t, failed, dates[8])
+	require.Equal(t, failed, dates[2])
 }
 
 type queueOrderRepo struct {

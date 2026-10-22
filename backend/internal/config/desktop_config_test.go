@@ -34,6 +34,34 @@ func TestDesktopConfigValid(t *testing.T) {
 	require.NoError(t, cfg.validateDesktop())
 }
 
+func TestDesktopReportResourceDefaultsAndEnvironment(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.Equal(t, 1, cfg.Desktop.ReportWorkers)
+	require.Equal(t, 300, cfg.Desktop.ReportScanIntervalSeconds)
+	require.Equal(t, 600, cfg.Desktop.ReportCleanupIntervalSeconds)
+	t.Setenv("DESKTOP_REPORT_WORKERS", "3")
+	t.Setenv("DESKTOP_REPORT_SCAN_INTERVAL_SECONDS", "120")
+	t.Setenv("DESKTOP_REPORT_CLEANUP_INTERVAL_SECONDS", "1800")
+	cfg, err = Load()
+	require.NoError(t, err)
+	require.Equal(t, 3, cfg.Desktop.ReportWorkers)
+	require.Equal(t, 120, cfg.Desktop.ReportScanIntervalSeconds)
+	require.Equal(t, 1800, cfg.Desktop.ReportCleanupIntervalSeconds)
+}
+
+func TestDesktopReportResourceIntervalsRejectInvalidValues(t *testing.T) {
+	for _, value := range []int{-1, 86401} {
+		cfg := &Config{Desktop: validDesktopConfig()}
+		cfg.Desktop.ReportScanIntervalSeconds = value
+		require.ErrorContains(t, cfg.validateDesktop(), "report_scan_interval_seconds")
+		cfg.Desktop.ReportScanIntervalSeconds = 0
+		cfg.Desktop.ReportCleanupIntervalSeconds = value
+		require.ErrorContains(t, cfg.validateDesktop(), "report_cleanup_interval_seconds")
+	}
+}
+
 func TestDesktopConfigRejectsInvalidSecretsAndGateway(t *testing.T) {
 	tests := []struct {
 		name   string

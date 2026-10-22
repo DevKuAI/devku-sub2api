@@ -119,18 +119,20 @@ type Config struct {
 
 // DesktopConfig controls the isolated Desktop authentication domain.
 type DesktopConfig struct {
-	ReportWorkers               int    `mapstructure:"report_workers"`
-	ConversationMemberPerMinute int    `mapstructure:"conversation_member_per_minute"`
-	Enabled                     bool   `mapstructure:"enabled"`
-	JWTSecret                   string `mapstructure:"jwt_secret"`
-	PublicGatewayBaseURL        string `mapstructure:"public_gateway_base_url"`
-	AccessTokenTTLMinutes       int    `mapstructure:"access_token_ttl_minutes"`
-	RefreshFamilyTTLDays        int    `mapstructure:"refresh_family_ttl_days"`
-	LookupIPPerMinute           int    `mapstructure:"lookup_ip_per_minute"`
-	LoginIPPerMinute            int    `mapstructure:"login_ip_per_minute"`
-	LoginOrganizationPerMinute  int    `mapstructure:"login_organization_per_minute"`
-	LoginPhoneFailureLimit      int    `mapstructure:"login_phone_failure_limit"`
-	LoginPhoneFreezeMinutes     int    `mapstructure:"login_phone_freeze_minutes"`
+	ReportWorkers                int    `mapstructure:"report_workers"`
+	ReportScanIntervalSeconds    int    `mapstructure:"report_scan_interval_seconds"`
+	ReportCleanupIntervalSeconds int    `mapstructure:"report_cleanup_interval_seconds"`
+	ConversationMemberPerMinute  int    `mapstructure:"conversation_member_per_minute"`
+	Enabled                      bool   `mapstructure:"enabled"`
+	JWTSecret                    string `mapstructure:"jwt_secret"`
+	PublicGatewayBaseURL         string `mapstructure:"public_gateway_base_url"`
+	AccessTokenTTLMinutes        int    `mapstructure:"access_token_ttl_minutes"`
+	RefreshFamilyTTLDays         int    `mapstructure:"refresh_family_ttl_days"`
+	LookupIPPerMinute            int    `mapstructure:"lookup_ip_per_minute"`
+	LoginIPPerMinute             int    `mapstructure:"login_ip_per_minute"`
+	LoginOrganizationPerMinute   int    `mapstructure:"login_organization_per_minute"`
+	LoginPhoneFailureLimit       int    `mapstructure:"login_phone_failure_limit"`
+	LoginPhoneFreezeMinutes      int    `mapstructure:"login_phone_freeze_minutes"`
 }
 
 // DesktopUpdateStorageConfig configures stable Desktop updater artifacts in S3-compatible storage.
@@ -2086,7 +2088,9 @@ func setDefaults() {
 	// Desktop authentication domain
 	viper.SetDefault("desktop.conversation_member_per_minute", 60)
 	viper.SetDefault("desktop.enabled", false)
-	viper.SetDefault("desktop.report_workers", 2)
+	viper.SetDefault("desktop.report_workers", 1)
+	viper.SetDefault("desktop.report_scan_interval_seconds", 300)
+	viper.SetDefault("desktop.report_cleanup_interval_seconds", 600)
 	viper.SetDefault("desktop.jwt_secret", "")
 	viper.SetDefault("desktop.public_gateway_base_url", "")
 	viper.SetDefault("desktop.access_token_ttl_minutes", 15)
@@ -3872,6 +3876,17 @@ func (c *Config) validateDesktop() error {
 	}
 	if c.Desktop.ReportWorkers < 0 || c.Desktop.ReportWorkers > 16 {
 		return fmt.Errorf("desktop.report_workers must be between 1 and 16")
+	}
+	for _, setting := range []struct {
+		name  string
+		value int
+	}{
+		{"report_scan_interval_seconds", c.Desktop.ReportScanIntervalSeconds},
+		{"report_cleanup_interval_seconds", c.Desktop.ReportCleanupIntervalSeconds},
+	} {
+		if setting.value < 0 || setting.value > 86400 {
+			return fmt.Errorf("desktop.%s must be between 0 and 86400 (0 uses the default)", setting.name)
+		}
 	}
 	decodedJWTSecret, err := base64.StdEncoding.Strict().DecodeString(c.Desktop.JWTSecret)
 	if err != nil {

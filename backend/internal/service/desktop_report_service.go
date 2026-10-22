@@ -52,12 +52,9 @@ func (s *DesktopReportService) Start(ai DesktopReportAI) {
 		ctx, cancel := context.WithCancel(context.Background())
 		s.cancel = cancel
 		s.wg.Add(2)
-		go s.maintenanceLoop(ctx, s.tick)
-		go s.maintenanceLoop(ctx, s.cleanupTick)
+		go s.maintenanceLoop(ctx, reportMaintenanceInterval(s.desktop.config.ReportScanIntervalSeconds, 5*time.Minute), s.tick)
+		go s.maintenanceLoop(ctx, reportMaintenanceInterval(s.desktop.config.ReportCleanupIntervalSeconds, 10*time.Minute), s.cleanupTick)
 		workers := max(1, s.desktop.config.ReportWorkers)
-		if s.desktop.config.ReportWorkers <= 0 {
-			workers = 2
-		}
 		for i := 0; i < workers; i++ {
 			s.wg.Add(1)
 			go s.worker(ctx, i%2 == 1)
@@ -289,9 +286,16 @@ func reportHasRecords(members []DesktopReportMember) bool {
 	}
 	return false
 }
-func (s *DesktopReportService) maintenanceLoop(ctx context.Context, action func(context.Context)) {
+func reportMaintenanceInterval(seconds int, fallback time.Duration) time.Duration {
+	if seconds <= 0 {
+		return fallback
+	}
+	return time.Duration(seconds) * time.Second
+}
+
+func (s *DesktopReportService) maintenanceLoop(ctx context.Context, interval time.Duration, action func(context.Context)) {
 	defer s.wg.Done()
-	ticker := time.NewTicker(time.Minute)
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	action(ctx)
 	for {
@@ -319,6 +323,8 @@ func (s *DesktopReportService) cleanupTick(ctx context.Context) {
 }
 
 func (s *DesktopReportService) tick(ctx context.Context) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
 	if s.now().In(s.loc).Hour() >= 2 {
 		s.enqueueAutomatic(ctx)
 	}
@@ -327,16 +333,21 @@ func (s *DesktopReportService) tick(ctx context.Context) {
 
 func (s *DesktopReportService) worker(ctx context.Context, preferPeriod bool) {
 	defer s.wg.Done()
+	idleDelay := 5 * time.Second
 	for ctx.Err() == nil {
 		ran, err := s.processNext(ctx, preferPeriod)
 		preferPeriod = !preferPeriod
 		if err != nil && ctx.Err() == nil {
 			slog.Error("desktop report claim failed", "error", err)
 		}
+		delay := idleDelay
 		if ran && err == nil {
-			continue
+			idleDelay = 5 * time.Second
+			delay = time.Second
+		} else {
+			idleDelay = min(30*time.Second, idleDelay*2)
 		}
-		timer := time.NewTimer(5 * time.Second)
+		timer := time.NewTimer(delay)
 		select {
 		case <-ctx.Done():
 			timer.Stop()
@@ -384,7 +395,9 @@ func (s *DesktopReportService) enqueueAutomatic(ctx context.Context) {
 	latest := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, s.loc).AddDate(0, 0, -1)
 	scan := func(date time.Time) error { return s.enqueueAutomaticDate(ctx, date.Format("2006-01-02")) }
 	if err := scan(latest); err != nil {
-		slog.Error("desktop report enqueue failed", "error", err)
+		if !errors.Is(err, errDesktopReportScanDeferred) {
+			slog.Error("desktop report enqueue failed", "error", err)
+		}
 		return
 	}
 	s.backfill(ctx, "day", latest.AddDate(0, 0, -89), latest.AddDate(0, 0, -1), func(d time.Time) time.Time { return d.AddDate(0, 0, 1) }, scan)
@@ -395,20 +408,17 @@ func (s *DesktopReportService) enqueueAutomaticDate(ctx context.Context, date st
 	if err != nil {
 		return err
 	}
-	for _, id := range ids {
+	for _, id := range ids[:min(len(ids), DesktopReportScanBatchSize)] {
 		o, err := s.desktop.GetOrganization(ctx, id)
 		if err != nil {
 			return err
 		}
-		members, err := s.repo.Day(ctx, o.ID, date)
-		if err != nil {
+		if _, err = s.repo.Enqueue(ctx, o.ID, date, "automatic"); err != nil && !errors.Is(err, ErrDesktopRotationConflict) {
 			return err
 		}
-		if reportHasRecords(members) {
-			if _, err = s.repo.Enqueue(ctx, o.ID, date, "automatic"); err != nil && !errors.Is(err, ErrDesktopRotationConflict) {
-				return err
-			}
-		}
+	}
+	if len(ids) >= DesktopReportScanBatchSize {
+		return errDesktopReportScanDeferred
 	}
 	return nil
 }
@@ -424,16 +434,17 @@ func (s *DesktopReportService) backfill(ctx context.Context, kind string, first,
 		slog.Error("desktop report backfill cursor failed", "kind", kind, "error", err)
 		return
 	}
-	for i := 0; i < 4 && !next.After(last) && ctx.Err() == nil; i++ {
-		if err = scan(next); err != nil {
+	if next.After(last) || ctx.Err() != nil {
+		return
+	}
+	if err = scan(next); err != nil {
+		if !errors.Is(err, errDesktopReportScanDeferred) {
 			slog.Error("desktop report backfill failed", "kind", kind, "date", next.Format("2006-01-02"), "error", err)
-			return
 		}
-		next = step(next)
-		if err = repo.AdvanceReportScan(ctx, kind, next); err != nil {
-			slog.Error("desktop report backfill cursor failed", "kind", kind, "error", err)
-			return
-		}
+		return
+	}
+	if err = repo.AdvanceReportScan(ctx, kind, step(next)); err != nil {
+		slog.Error("desktop report backfill cursor failed", "kind", kind, "error", err)
 	}
 }
 
@@ -553,16 +564,10 @@ func (s *DesktopReportService) process(ctx context.Context, t *DesktopReportTask
 			continue
 		}
 		if len(snapshot.Work.Inputs) == 0 {
-			if reader, ok := s.repo.(DesktopReportSnapshotReader); ok && len(snapshot.Sources) == 0 {
-				snapshot.Sources, err = reader.SnapshotSources(ctx, o.ID, snapshot.Member.SourceIDs)
-				if err != nil {
-					return time.Time{}, err
-				}
-				if len(snapshot.Sources) != snapshot.Member.RecordCount {
-					return time.Time{}, NewDesktopReportUnavailable("sources_unavailable")
-				}
+			snapshot.Work.Inputs, err = s.memberInputs(ctx, o.ID, snapshot, t.Payload.Model)
+			if err != nil {
+				return time.Time{}, err
 			}
-			snapshot.Work.Inputs = reportSourceInputs(snapshot.Sources, t.Payload.Model)
 			snapshot.Sources = nil
 		}
 		content, e := s.analyze(ctx, t, key, &snapshot.Work, desktopReportMemberPrompt, "", "member:"+snapshot.Member.MemberID)

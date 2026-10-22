@@ -216,8 +216,14 @@ func (r *desktopReportRepository) Enqueue(ctx context.Context, org int64, date, 
 	return r.Task(ctx, org, date)
 }
 func (r *desktopReportRepository) DueOrganizations(ctx context.Context, date string) ([]string, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT public_id FROM desktop_organizations WHERE deleted_at IS NULL AND status='active' AND conversation_summary_enabled AND summary_enabled_at IS NOT NULL AND (summary_enabled_at AT TIME ZONE 'Asia/Shanghai')::date <= $1::date
- AND NOT EXISTS(SELECT 1 FROM desktop_daily_report_tasks t WHERE t.organization_id=desktop_organizations.id AND t.report_date=$1::date)`, date)
+	start, end, err := reportBounds(date)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := r.db.QueryContext(ctx, `SELECT o.public_id FROM desktop_organizations o WHERE o.deleted_at IS NULL AND o.status='active' AND o.conversation_summary_enabled AND o.summary_enabled_at IS NOT NULL AND (o.summary_enabled_at AT TIME ZONE 'Asia/Shanghai')::date <= $1::date
+ AND NOT EXISTS(SELECT 1 FROM desktop_daily_report_tasks t WHERE t.organization_id=o.id AND t.report_date=$1::date)
+ AND EXISTS(SELECT 1 FROM desktop_conversation_records c JOIN desktop_members m ON m.id=c.member_id AND m.organization_id=o.id WHERE c.organization_id=o.id AND c.stopped_at >= $2 AND c.stopped_at < $3)
+ ORDER BY o.id LIMIT $4`, date, start, end, service.DesktopReportScanBatchSize)
 	if err != nil {
 		return nil, err
 	}

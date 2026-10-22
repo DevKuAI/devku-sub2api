@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 
@@ -9,14 +10,60 @@ import (
 
 const desktopReportInputTokens = 6000
 
+const desktopReportSourceBatchSize = 4
+
+// Keep decoded source bodies bounded while preparing a member's durable inputs.
+func (s *DesktopReportService) memberInputs(ctx context.Context, org int64, snapshot *DesktopReportSnapshot, model string) ([]string, error) {
+	reader, ok := s.repo.(DesktopReportSnapshotReader)
+	if !ok || len(snapshot.Sources) > 0 {
+		return reportSourceInputs(snapshot.Sources, model), nil
+	}
+	ids := snapshot.Member.SourceIDs
+	if len(ids) != snapshot.Member.RecordCount {
+		return nil, NewDesktopReportUnavailable("sources_unavailable")
+	}
+	builder := newReportSourceInputBuilder(model)
+	for offset := 0; offset < len(ids); offset += desktopReportSourceBatchSize {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		batch := ids[offset:min(offset+desktopReportSourceBatchSize, len(ids))]
+		sources, err := reader.SnapshotSources(ctx, org, batch)
+		if err != nil {
+			return nil, err
+		}
+		if len(sources) != len(batch) {
+			return nil, NewDesktopReportUnavailable("sources_unavailable")
+		}
+		builder.addSources(sources)
+	}
+	return builder.finish(), nil
+}
+
 // Complete records share a batch; oversized segments repeat their source metadata.
 func reportSourceInputs(sources []DesktopReportSource, model string) []string {
+	builder := newReportSourceInputBuilder(model)
+	builder.addSources(sources)
+	return builder.finish()
+}
+
+type reportSourceInputBuilder struct {
+	codec  tokenizer.Codec
+	inputs []string
+	batch  string
+}
+
+func newReportSourceInputBuilder(model string) *reportSourceInputBuilder {
 	codec, _ := openAIInputTokensCodecForModel(model)
-	parts := []string{}
+	return &reportSourceInputBuilder{codec: codec, inputs: []string{}}
+}
+
+func (b *reportSourceInputBuilder) addSources(sources []DesktopReportSource) {
+	codec := b.codec
 	for _, source := range sources {
 		raw, _ := json.Marshal(source)
 		if reportInputFits("["+string(raw)+"]", codec) {
-			parts = append(parts, string(raw))
+			b.append(string(raw))
 			continue
 		}
 		segments := []struct {
@@ -60,29 +107,32 @@ func reportSourceInputs(sources []DesktopReportSource, model string) []string {
 						}
 					}
 				}
-				parts = append(parts, encode(n))
+				b.append(encode(n))
 				text = text[n:]
 			}
 		}
 	}
-	result := []string{}
-	batch := ""
-	for _, part := range parts {
-		next := part
-		if batch != "" {
-			next = batch + "," + part
-		}
-		if batch != "" && !reportInputFits("["+next+"]", codec) {
-			result = append(result, "["+batch+"]")
-			batch = part
-		} else {
-			batch = next
-		}
+}
+
+func (b *reportSourceInputBuilder) append(part string) {
+	next := part
+	if b.batch != "" {
+		next = b.batch + "," + part
 	}
-	if batch != "" {
-		result = append(result, "["+batch+"]")
+	if b.batch != "" && !reportInputFits("["+next+"]", b.codec) {
+		b.inputs = append(b.inputs, "["+b.batch+"]")
+		b.batch = part
+	} else {
+		b.batch = next
 	}
-	return result
+}
+
+func (b *reportSourceInputBuilder) finish() []string {
+	if b.batch != "" {
+		b.inputs = append(b.inputs, "["+b.batch+"]")
+		b.batch = ""
+	}
+	return b.inputs
 }
 
 func reportInputFits(input string, codec tokenizer.Codec) bool {

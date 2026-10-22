@@ -139,7 +139,7 @@ func (s *DesktopReportService) enqueueAutomaticPeriods(ctx context.Context) {
 			if err != nil {
 				return err
 			}
-			for _, id := range ids {
+			for _, id := range ids[:min(len(ids), DesktopReportScanBatchSize)] {
 				org, err := s.desktop.GetOrganization(ctx, id)
 				if err != nil {
 					return err
@@ -148,10 +148,15 @@ func (s *DesktopReportService) enqueueAutomaticPeriods(ctx context.Context) {
 					return err
 				}
 			}
+			if len(ids) >= DesktopReportScanBatchSize {
+				return errDesktopReportScanDeferred
+			}
 			return nil
 		}
 		if err := scan(first); err != nil {
-			slog.Error("desktop period enqueue failed", "kind", kind, "error", err)
+			if !errors.Is(err, errDesktopReportScanDeferred) {
+				slog.Error("desktop period enqueue failed", "kind", kind, "error", err)
+			}
 			continue
 		}
 		oldest := first.AddDate(0, 0, -77)
