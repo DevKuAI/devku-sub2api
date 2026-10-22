@@ -82,7 +82,12 @@ func (h *DesktopStructureHandler) Unit(kind string) gin.HandlerFunc {
 				}
 				return
 			}
-			filter := service.DesktopStructureFilter{Search: strings.TrimSpace(c.Query("search")), Status: c.Query("status"), DepartmentID: c.Query("department_id")}
+			includeMemberCount := c.Query("include_member_count")
+			if includeMemberCount != "" && includeMemberCount != "true" && includeMemberCount != "false" {
+				response.ErrorFrom(c, service.ErrDesktopValidation)
+				return
+			}
+			filter := service.DesktopStructureFilter{ExcludeMemberCount: includeMemberCount == "false", Search: strings.TrimSpace(c.Query("search")), Status: c.Query("status"), DepartmentID: c.Query("department_id")}
 			if (filter.Status != "" && filter.Status != "active" && filter.Status != "disabled") || len(filter.Search) > 400 {
 				response.ErrorFrom(c, service.ErrDesktopValidation)
 				return

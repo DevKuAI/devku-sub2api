@@ -9,6 +9,10 @@ import (
 	"sync"
 	"testing"
 
+	"entgo.io/ent/dialect"
+	"entgo.io/ent/dialect/sql"
+	dbent "github.com/Wei-Shaw/sub2api/ent"
+
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/stretchr/testify/require"
@@ -181,4 +185,83 @@ func TestDesktopStructureMigrationAssignmentAndDeferredConstraint(t *testing.T) 
 	require.NoError(t, err)
 	_, err = tx.ExecContext(ctx, "INSERT INTO desktop_members VALUES(3,1,NULL,0,NULL)")
 	require.Error(t, err)
+}
+
+func TestDesktopStructureAggregatedCountsAndBoundedHistory(t *testing.T) {
+	ctx := context.Background()
+	f := newDesktopRepositoryFixture(t, "structread", 10)
+	other := newDesktopRepositoryFixture(t, "structreadother", 10)
+	other.createMember(t, "foreign", 1)
+	active := f.createMember(t, "active", 1)
+	inactive := f.createMember(t, "inactive", 2)
+	removed := f.createMember(t, "removed", 3)
+	disabled := service.DesktopStatusDisabled
+	_, _, err := f.repo.UpdateMember(ctx, f.organization.PublicID, inactive.PublicID, service.DesktopUpdateMemberInput{Status: &disabled})
+	require.NoError(t, err)
+	_, err = f.repo.DeleteMember(ctx, f.organization.PublicID, removed.PublicID)
+	require.NoError(t, err)
+	// A separate client observes entity hydration without closing the shared database.
+	client := dbent.NewClient(dbent.Driver(sql.OpenDB(dialect.Postgres, integrationDB)))
+	memberReads, largestPositionRead := 0, 0
+	client.Intercept(dbent.InterceptFunc(func(next dbent.Querier) dbent.Querier {
+		return dbent.QuerierFunc(func(ctx context.Context, query dbent.Query) (dbent.Value, error) {
+			result, e := next.Query(ctx, query)
+			if _, ok := result.([]*dbent.DesktopMember); ok {
+				memberReads++
+			}
+			if positions, ok := result.([]*dbent.DesktopPosition); ok && len(positions) > largestPositionRead {
+				largestPositionRead = len(positions)
+			}
+			return result, e
+		})
+	}))
+	observed := *f.repo.(*desktopRepository)
+	observed.client = client
+	for _, kind := range []string{service.DesktopDepartmentKind, service.DesktopPositionKind} {
+		rows, page, e := observed.ListOrganizationUnits(ctx, f.organization.PublicID, kind, pagination.PaginationParams{Page: 1, PageSize: 1}, service.DesktopStructureFilter{})
+		require.NoError(t, e)
+		require.EqualValues(t, 1, page.Total)
+		require.Len(t, rows, 1)
+		require.Equal(t, 2, rows[0].MemberCount)
+		unit, e := observed.GetOrganizationUnit(ctx, f.organization.PublicID, kind, rows[0].PublicID)
+		require.NoError(t, e)
+		require.Equal(t, 2, unit.MemberCount)
+		options, _, e := observed.ListOrganizationUnits(ctx, f.organization.PublicID, kind, pagination.DefaultPagination(), service.DesktopStructureFilter{ExcludeMemberCount: true})
+		require.NoError(t, e)
+		require.Zero(t, options[0].MemberCount)
+	}
+	org, err := observed.GetOrganization(ctx, f.organization.PublicID)
+	require.NoError(t, err)
+	require.Equal(t, 2, org.MemberCount)
+	managed, err := observed.GetOrganizationForGatewayUser(ctx, f.user.ID)
+	require.NoError(t, err)
+	require.Equal(t, 2, managed.MemberCount)
+	require.Zero(t, memberReads, "counting must not hydrate member entities")
+	r := f.repo.(service.DesktopStructureRepository)
+	department := createDesktopTestUnit(t, r, f.organization.PublicID, service.DesktopDepartmentKind, "", "History department")
+	target := createDesktopTestUnit(t, r, f.organization.PublicID, service.DesktopPositionKind, department.PublicID, "Original target")
+	createDesktopTestUnit(t, r, f.organization.PublicID, service.DesktopPositionKind, department.PublicID, "Unrelated target")
+	revision := int64(1)
+	_, err = r.AssignMemberPosition(ctx, f.organization.PublicID, active.PublicID, service.DesktopAssignPositionInput{PositionID: target.PublicID, ExpectedRevision: &revision})
+	require.NoError(t, err)
+	name := "Renamed target"
+	input := service.DesktopSaveUnitInput{Name: &name, ExpectedRevision: target.Revision}
+	require.NoError(t, service.ValidateDesktopUnitInput(service.DesktopPositionKind, target.PublicID, &input))
+	_, err = r.SaveOrganizationUnit(ctx, f.organization.PublicID, service.DesktopPositionKind, target.PublicID, input)
+	require.NoError(t, err)
+	largestPositionRead = 0
+	history, page, err := observed.MemberPositionHistory(ctx, f.organization.PublicID, active.PublicID, pagination.PaginationParams{Page: 1, PageSize: 1})
+	require.NoError(t, err)
+	require.EqualValues(t, 2, page.Total)
+	require.Len(t, history, 1)
+	require.Equal(t, "Original target", history[0].Position.Name)
+	require.Equal(t, 1, largestPositionRead, "history must hydrate only positions referenced by the current page")
+	history, page, err = observed.MemberPositionHistory(ctx, f.organization.PublicID, active.PublicID, pagination.PaginationParams{Page: 3, PageSize: 1})
+	require.NoError(t, err)
+	require.Empty(t, history)
+	require.EqualValues(t, 2, page.Total)
+	empty := createDesktopTestUnit(t, r, f.organization.PublicID, service.DesktopDepartmentKind, "", "Empty department")
+	unit, err := observed.GetOrganizationUnit(ctx, f.organization.PublicID, service.DesktopDepartmentKind, empty.PublicID)
+	require.NoError(t, err)
+	require.Zero(t, unit.MemberCount)
 }

@@ -122,8 +122,8 @@ describe('Desktop structure routed forms', () => {
     route.path = '/admin/desktop/organizations/org_one/structure'
     route.query = { kind: 'positions', search: 'Engineer', department_id: 'dep_one', status: 'active' }
     const wrapper = mount(StructureList, options); await flushPromises()
-    expect(navigation.resolve).toHaveBeenCalledWith({ path: route.path, query: route.query })
-    expect(api.list).toHaveBeenCalledWith('positions', expect.objectContaining({ search: 'Engineer', department_id: 'dep_one', status: 'active' }))
+    expect(navigation.resolve).toHaveBeenCalledWith({ path: route.path, query: { ...route.query, page: '1' } })
+    expect(api.list).toHaveBeenCalledWith('positions', expect.objectContaining({ search: 'Engineer', department_id: 'dep_one', status: 'active' }), expect.any(AbortSignal))
     wrapper.unmount()
   })
 
@@ -182,6 +182,72 @@ describe('Desktop structure routed forms', () => {
     route.path = '/admin/desktop/organizations/org_one/departments/new'
     await wrapper.setProps({ kind: 'departments' }); await flushPromises()
     expect(document.activeElement).toBe(wrapper.get('h1').element)
+    wrapper.unmount()
+  })
+
+  it('keeps reassignment available when the initial history request fails', async () => {
+    route.params.memberId = 'mem_one'
+    api.history.mockRejectedValueOnce(new Error('History unavailable'))
+    const wrapper = mount(PositionForm, options); await flushPromises()
+    expect(wrapper.find('form').exists()).toBe(true)
+    expect(wrapper.get('[role="alert"]').text()).toContain('desktopStructure.historyLoadFailed')
+    await wrapper.get('textarea').setValue('Retain my explanation')
+    await wrapper.get('[role="alert"] button').trigger('click'); await flushPromises()
+    expect((wrapper.get('textarea').element as HTMLTextAreaElement).value).toBe('Retain my explanation')
+    expect(api.member).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+  it('renders reassignment before a slow history request finishes', async () => {
+    route.params.memberId = 'mem_one'
+    let finish!: (value: object) => void
+    api.history.mockReturnValueOnce(new Promise(resolve => { finish = resolve }))
+    const wrapper = mount(PositionForm, options); await flushPromises()
+    expect(wrapper.find('form').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('desktopStructure.historyUnknown')
+    finish({ items: [], total: 0 }); await flushPromises(); wrapper.unmount()
+  })
+  it('retries structure options without replacing the member draft', async () => {
+    api.all.mockRejectedValueOnce(new Error('Options unavailable'))
+    const wrapper = mount(MemberForm, options); await flushPromises()
+    await wrapper.get('input[maxlength="100"]').setValue('Keep my draft')
+    expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.text()).not.toContain('desktopStructure.noDepartments')
+    await wrapper.get('[role="alert"] button').trigger('click'); await flushPromises()
+    expect((wrapper.get('input[maxlength="100"]').element as HTMLInputElement).value).toBe('Keep my draft')
+    expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeUndefined()
+    expect(api.organization).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+  it('refreshes only results when filters change and cancels the prior list request', async () => {
+    vi.useFakeTimers()
+    route.path = '/admin/desktop/organizations/org_one/structure'; route.query = { kind: 'positions' }
+    const wrapper = mount(StructureList, options); await flushPromises()
+    const firstSignal = api.list.mock.calls[0][2] as AbortSignal
+    await wrapper.get('input[type="search"]').setValue('New query')
+    await vi.advanceTimersByTimeAsync(300); await flushPromises()
+    expect(firstSignal.aborted).toBe(true)
+    expect(api.list).toHaveBeenCalledTimes(2)
+    expect(api.organization).toHaveBeenCalledTimes(1)
+    expect(api.status).toHaveBeenCalledTimes(1)
+    expect(api.all).toHaveBeenCalledTimes(1)
+    wrapper.unmount(); vi.useRealTimers()
+  })
+  it('preserves the page in edit return links and clamps an out-of-range restored page', async () => {
+    route.query = { page: '3', kind: 'positions' }
+    api.list.mockResolvedValue({ items: [position], total: 60 })
+    const wrapper = mount(StructureList, options); await flushPromises()
+    expect(api.list).toHaveBeenCalledWith('positions', expect.objectContaining({ page: 3 }), expect.any(AbortSignal))
+    expect(navigation.resolve).toHaveBeenCalledWith(expect.objectContaining({ query: expect.objectContaining({ page: '3' }) }))
+    wrapper.unmount()
+    api.list.mockClear().mockResolvedValue({ items: [position], total: 21 })
+    const restored = mount(StructureList, options); await flushPromises()
+    expect(api.list).toHaveBeenLastCalledWith('positions', expect.objectContaining({ page: 2 }), expect.any(AbortSignal))
+    expect(navigation.resolve).toHaveBeenLastCalledWith(expect.objectContaining({ query: expect.objectContaining({ page: '2' }) }))
+    restored.unmount()
+  })
+  it('does not fetch department options on the department tab', async () => {
+    const wrapper = mount(StructureList, options); await flushPromises()
+    expect(api.all).not.toHaveBeenCalled()
     wrapper.unmount()
   })
 

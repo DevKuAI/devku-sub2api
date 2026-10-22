@@ -13,7 +13,12 @@ export function useDesktopForm(snapshot: () => unknown, busy: () => boolean, org
   const ready = ref(false)
   const dirty = computed(() => ready.value && JSON.stringify(snapshot()) !== baseline.value)
   let allow = false
-  const mayLeave = () => allow || (!busy() && (!dirty.value || window.confirm(t('desktopStructure.discard'))))
+  const mayLeave = () => {
+    if (allow) return true
+    if (busy() || (dirty.value && !window.confirm(t('desktopStructure.discard')))) return false
+    drafts.delete(key())
+    return true
+  }
   onBeforeRouteLeave(mayLeave)
   onBeforeRouteUpdate(mayLeave)
   const beforeUnload = (event: BeforeUnloadEvent) => { if (busy() || dirty.value) { event.preventDefault(); event.returnValue = '' } }
@@ -21,7 +26,11 @@ export function useDesktopForm(snapshot: () => unknown, busy: () => boolean, org
   onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
   return {
     dirty,
-    restore: () => drafts.get(key()),
+    restore() {
+      const draft = drafts.get(key())
+      drafts.delete(key())
+      return draft
+    },
     clean() { baseline.value = JSON.stringify(snapshot()); ready.value = true; allow = false },
     async leave(path: string, force = false) {
       if (!force && !mayLeave()) return

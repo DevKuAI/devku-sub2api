@@ -55,7 +55,8 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { desktopStructure, type OrganizationUnit } from '@/api/desktopStructure'
+import { desktopStructure } from '@/api/desktopStructure'
+import { useDesktopStructureOptions } from '@/features/desktop-structure/useDesktopStructureOptions'
 import { normalizeDesktopStructureName as normalized } from '@/utils/desktopStructureName'
 import { useI18n } from 'vue-i18n'
 import { saveAs } from 'file-saver'
@@ -81,11 +82,10 @@ const rows = ref<ImportRow[]>([])
 const loading = ref(false)
 const importing = ref(false)
 const templateLoading = ref(false)
-const departments = ref<OrganizationUnit[]>([])
-const positions = ref<OrganizationUnit[]>([])
+const structure = useDesktopStructureOptions()
+const { departments, positions, loading: structureLoading, error: structureError } = structure
 const fallbackDepartment = ref('')
 const fallbackPosition = ref('')
-const structureLoading = ref(true), structureError = ref('')
 const availablePositions = computed(() => positions.value.filter(p => p.department?.public_id === fallbackDepartment.value))
 const attempted = ref(false)
 const fileError = ref('')
@@ -93,7 +93,7 @@ const fileName = ref('')
 const fileInput = ref<HTMLInputElement>()
 const page = ref(1)
 const pageSize = 20
-let generation = 0, structureGeneration = 0
+let generation = 0
 const pendingRows = computed(() => rows.value.filter(row => !row.errors.length && row.status !== 'success'))
 const invalidCount = computed(() => rows.value.filter(row => row.errors.length).length)
 const successCount = computed(() => rows.value.filter(row => row.status === 'success').length)
@@ -209,16 +209,9 @@ watch(fallbackPosition, resolvePositions)
 watch(importing, value => emit('busy', value))
 watch(() => rows.value.some(row => row.status !== 'success'), value => emit('dirty', value))
 async function loadStructure() {
-  const id = props.organizationId, current = ++structureGeneration
-  structureLoading.value = true; structureError.value = ''
-  try {
-    const api = desktopStructure(id, props.selfManaged)
-    const [ds, ps] = await Promise.all([api.all('departments', { status: 'active' }), api.all('positions', { status: 'active' })])
-    if (current === structureGeneration && id === props.organizationId) { departments.value = ds; positions.value = ps; resolvePositions() }
-  } catch { if (current === structureGeneration) structureError.value = t('desktopStructure.failed') }
-  finally { if (current === structureGeneration) structureLoading.value = false }
+  await structure.load(desktopStructure(props.organizationId, props.selfManaged), { status: 'active' })
+  if (!structureError.value) resolvePositions()
 }
-watch(() => [props.organizationId, props.selfManaged], () => { departments.value = []; positions.value = []; void loadStructure() }, { immediate: true })
-
-onBeforeUnmount(() => { generation++; structureGeneration++ })
+watch(() => [props.organizationId, props.selfManaged], () => { structure.reset(); void loadStructure() }, { immediate: true })
+onBeforeUnmount(() => { generation++ })
 </script>

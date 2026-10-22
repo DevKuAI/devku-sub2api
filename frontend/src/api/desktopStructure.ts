@@ -39,14 +39,17 @@ export function desktopStructure(organizationId: string, selfManaged = false) {
   return {
     members,
     organization: () => members.getOrganization(organizationId) as Promise<DesktopOrganization | null>,
-    async list(kind: UnitKind, params: Record<string, string | number> = {}) {
-      const { data } = await apiClient.get<PaginatedResponse<OrganizationUnit>>(`${base}/${kind}`, { params: { page: 1, page_size: 100, ...params } })
+    async list(kind: UnitKind, params: Record<string, string | number> = {}, signal?: AbortSignal) {
+      const { data } = await apiClient.get<PaginatedResponse<OrganizationUnit>>(`${base}/${kind}`, { params: { page: 1, page_size: 100, ...params }, ...(signal ? { signal } : {}) })
       return data
     },
-    async all(kind: UnitKind, params: Record<string, string | number> = {}) {
+    // Dropdown options do not need member counts; callers can explicitly opt in.
+    async all(kind: UnitKind, params: Record<string, string | number> = {}, signal?: AbortSignal) {
       const result: OrganizationUnit[] = []
       for (let page = 1; ; page++) {
-        const data = await this.list(kind, { ...params, page })
+        signal?.throwIfAborted()
+        const data = await this.list(kind, { include_member_count: 'false', ...params, page }, signal)
+        signal?.throwIfAborted()
         result.push(...data.items)
         if (result.length >= data.total || data.items.length === 0) return result
       }

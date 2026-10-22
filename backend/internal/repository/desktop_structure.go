@@ -5,6 +5,9 @@ import (
 	"errors"
 	"time"
 
+	"entgo.io/ent/dialect"
+	"entgo.io/ent/dialect/sql"
+
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/desktopdepartment"
 	"github.com/Wei-Shaw/sub2api/ent/desktopmember"
@@ -17,22 +20,68 @@ import (
 
 func departmentUnit(row *dbent.DesktopDepartment) service.DesktopOrganizationUnit {
 	result := service.DesktopOrganizationUnit{DesktopStructureRef: service.DesktopStructureRef{PublicID: row.PublicID, Name: row.Name}, Status: row.Status, Revision: row.Revision, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
-	for _, p := range row.Edges.Positions {
-		result.MemberCount += len(p.Edges.Members)
-	}
 	return result
 }
 func positionUnit(row *dbent.DesktopPosition) service.DesktopOrganizationUnit {
-	result := service.DesktopOrganizationUnit{DesktopStructureRef: service.DesktopStructureRef{PublicID: row.PublicID, Name: row.Name}, Status: row.Status, Revision: row.Revision, MemberCount: len(row.Edges.Members), CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+	result := service.DesktopOrganizationUnit{DesktopStructureRef: service.DesktopStructureRef{PublicID: row.PublicID, Name: row.Name}, Status: row.Status, Revision: row.Revision, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
 	if d := row.Edges.Department; d != nil {
 		result.Department = &service.DesktopStructureRef{PublicID: d.PublicID, Name: d.Name}
 	}
 	return result
 }
-func structureMembers(q *dbent.DesktopMemberQuery) { q.Select(desktopmember.FieldID) }
+
+func (r *desktopRepository) structureOrganization(ctx context.Context, org string) (*dbent.DesktopOrganization, error) {
+	organization, err := r.client.DesktopOrganization.Query().Where(r.organizationPredicates(desktoporganization.PublicIDEQ(org))...).Only(ctx)
+	if err != nil {
+		return nil, translatePersistenceError(err, service.ErrDesktopOrganizationNotFound, nil)
+	}
+	return organization, nil
+}
+
+// populateUnitMemberCounts aggregates only the units in the current response.
+func (r *desktopRepository) populateUnitMemberCounts(ctx context.Context, org int64, kind string, ids []int64, units []service.DesktopOrganizationUnit) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	members := sql.Table(desktopmember.Table).As("m")
+	column := members.C(desktopmember.FieldPositionID)
+	query := sql.Dialect(dialect.Postgres).Select().From(members)
+	if kind == service.DesktopDepartmentKind {
+		positions := sql.Table(desktopposition.Table).As("p")
+		query.Join(positions).On(members.C(desktopmember.FieldPositionID), positions.C(desktopposition.FieldID))
+		column = positions.C(desktopposition.FieldDepartmentID)
+	}
+	values := make([]any, len(ids))
+	for i, id := range ids {
+		values[i] = id
+	}
+	statement, args := query.Select(column, sql.Count(members.C(desktopmember.FieldID))).
+		Where(sql.And(sql.EQ(members.C(desktopmember.FieldOrganizationID), org), sql.IsNull(members.C(desktopmember.FieldDeletedAt)), sql.In(column, values...))).GroupBy(column).Query()
+	rows, err := r.client.QueryContext(ctx, statement, args...)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = rows.Close() }()
+	counts := make(map[int64]int, len(ids))
+	for rows.Next() {
+		var id int64
+		var count int
+		if err := rows.Scan(&id, &count); err != nil {
+			return err
+		}
+		counts[id] = count
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for i, id := range ids {
+		units[i].MemberCount = counts[id]
+	}
+	return nil
+}
 
 func (r *desktopRepository) ListOrganizationUnits(ctx context.Context, org, kind string, params pagination.PaginationParams, filter service.DesktopStructureFilter) ([]service.DesktopOrganizationUnit, *pagination.PaginationResult, error) {
-	organization, err := r.GetOrganization(ctx, org)
+	organization, err := r.structureOrganization(ctx, org)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -49,12 +98,19 @@ func (r *desktopRepository) ListOrganizationUnits(ctx context.Context, org, kind
 		if e != nil {
 			return nil, nil, e
 		}
-		rows, e := q.WithPositions(func(q *dbent.DesktopPositionQuery) { q.WithMembers(structureMembers) }).Order(dbent.Asc(desktopdepartment.FieldNameNormalized), dbent.Asc(desktopdepartment.FieldID)).Offset(params.Offset()).Limit(params.Limit()).All(ctx)
+		rows, e := q.Order(dbent.Asc(desktopdepartment.FieldNameNormalized), dbent.Asc(desktopdepartment.FieldID)).Offset(params.Offset()).Limit(params.Limit()).All(ctx)
 		if e != nil {
 			return nil, nil, e
 		}
+		ids := make([]int64, 0, len(rows))
 		for _, row := range rows {
+			ids = append(ids, row.ID)
 			out = append(out, departmentUnit(row))
+		}
+		if !filter.ExcludeMemberCount {
+			if e := r.populateUnitMemberCounts(ctx, organization.ID, kind, ids, out); e != nil {
+				return nil, nil, e
+			}
 		}
 		return out, paginationResultFromTotal(int64(count), params), nil
 	}
@@ -72,35 +128,48 @@ func (r *desktopRepository) ListOrganizationUnits(ctx context.Context, org, kind
 	if err != nil {
 		return nil, nil, err
 	}
-	rows, err := q.WithDepartment().WithMembers(structureMembers).Order(dbent.Asc(desktopposition.FieldNameNormalized), dbent.Asc(desktopposition.FieldID)).Offset(params.Offset()).Limit(params.Limit()).All(ctx)
+	rows, err := q.WithDepartment().Order(dbent.Asc(desktopposition.FieldNameNormalized), dbent.Asc(desktopposition.FieldID)).Offset(params.Offset()).Limit(params.Limit()).All(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
+	ids := make([]int64, 0, len(rows))
 	for _, row := range rows {
+		ids = append(ids, row.ID)
 		out = append(out, positionUnit(row))
+	}
+	if !filter.ExcludeMemberCount {
+		if err := r.populateUnitMemberCounts(ctx, organization.ID, kind, ids, out); err != nil {
+			return nil, nil, err
+		}
 	}
 	return out, paginationResultFromTotal(int64(count), params), nil
 }
 
 func (r *desktopRepository) GetOrganizationUnit(ctx context.Context, org, kind, id string) (*service.DesktopOrganizationUnit, error) {
-	organization, err := r.GetOrganization(ctx, org)
+	organization, err := r.structureOrganization(ctx, org)
 	if err != nil {
 		return nil, err
 	}
 	if kind == service.DesktopDepartmentKind {
-		row, e := r.client.DesktopDepartment.Query().Where(desktopdepartment.OrganizationIDEQ(organization.ID), desktopdepartment.PublicIDEQ(id)).WithPositions(func(q *dbent.DesktopPositionQuery) { q.WithMembers(structureMembers) }).Only(ctx)
+		row, e := r.client.DesktopDepartment.Query().Where(desktopdepartment.OrganizationIDEQ(organization.ID), desktopdepartment.PublicIDEQ(id)).Only(ctx)
 		if e != nil {
 			return nil, translatePersistenceError(e, service.ErrDesktopStructureNotFound, nil)
 		}
-		result := departmentUnit(row)
-		return &result, nil
+		units := []service.DesktopOrganizationUnit{departmentUnit(row)}
+		if e := r.populateUnitMemberCounts(ctx, organization.ID, kind, []int64{row.ID}, units); e != nil {
+			return nil, e
+		}
+		return &units[0], nil
 	}
-	row, e := r.client.DesktopPosition.Query().Where(desktopposition.OrganizationIDEQ(organization.ID), desktopposition.PublicIDEQ(id)).WithDepartment().WithMembers(structureMembers).Only(ctx)
+	row, e := r.client.DesktopPosition.Query().Where(desktopposition.OrganizationIDEQ(organization.ID), desktopposition.PublicIDEQ(id)).WithDepartment().Only(ctx)
 	if e != nil {
 		return nil, translatePersistenceError(e, service.ErrDesktopStructureNotFound, nil)
 	}
-	result := positionUnit(row)
-	return &result, nil
+	units := []service.DesktopOrganizationUnit{positionUnit(row)}
+	if e := r.populateUnitMemberCounts(ctx, organization.ID, kind, []int64{row.ID}, units); e != nil {
+		return nil, e
+	}
+	return &units[0], nil
 }
 
 func (r *desktopRepository) lockStructureOrganization(ctx context.Context, c *dbent.Client, org string) (*dbent.DesktopOrganization, error) {
@@ -336,7 +405,18 @@ func (r *desktopRepository) MemberPositionHistory(ctx context.Context, org, memb
 	if err != nil {
 		return nil, nil, err
 	}
-	positions, err := r.client.DesktopPosition.Query().Where(desktopposition.OrganizationIDEQ(member.OrganizationID)).WithDepartment().All(ctx)
+	if len(rows) == 0 {
+		return []service.DesktopPositionHistory{}, paginationResultFromTotal(int64(total), params), nil
+	}
+	ids := make([]int64, 0, len(rows))
+	seen := make(map[int64]bool, len(rows))
+	for _, row := range rows {
+		if !seen[row.PositionID] {
+			ids = append(ids, row.PositionID)
+			seen[row.PositionID] = true
+		}
+	}
+	positions, err := r.client.DesktopPosition.Query().Where(desktopposition.OrganizationIDEQ(member.OrganizationID), desktopposition.IDIn(ids...)).WithDepartment().All(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -356,7 +436,7 @@ func (r *desktopRepository) MemberPositionHistory(ctx context.Context, org, memb
 }
 
 func (r *desktopRepository) OrganizationStructureStatus(ctx context.Context, org string) (*service.DesktopStructureStatus, error) {
-	organization, err := r.GetOrganization(ctx, org)
+	organization, err := r.structureOrganization(ctx, org)
 	if err != nil {
 		return nil, err
 	}

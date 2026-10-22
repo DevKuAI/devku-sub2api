@@ -54,7 +54,10 @@ type DesktopOrganizationUnit struct {
 	UpdatedAt   time.Time            `json:"updated_at"`
 }
 
-type DesktopStructureFilter struct{ Search, Status, DepartmentID string }
+type DesktopStructureFilter struct {
+	Search, Status, DepartmentID string
+	ExcludeMemberCount           bool
+}
 
 type DesktopSaveUnitInput struct {
 	Name             *string `json:"name"`

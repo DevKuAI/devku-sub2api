@@ -2096,6 +2096,12 @@ paths:
         '503':
           $ref: '#/components/responses/AdminError'
       parameters:
+      - name: include_member_count
+        in: query
+        description: 是否统计当前成员人数；选项加载可设为 false，此时 member_count 返回 0。
+        schema:
+          type: boolean
+          default: true
       - &id003
         name: page
         in: query
@@ -2316,6 +2322,12 @@ paths:
         '503':
           $ref: '#/components/responses/AdminError'
       parameters:
+      - name: include_member_count
+        in: query
+        description: 是否统计当前成员人数；选项加载可设为 false，此时 member_count 返回 0。
+        schema:
+          type: boolean
+          default: true
       - *id003
       - *id004
       - name: search
@@ -2680,6 +2692,12 @@ paths:
         '503':
           $ref: '#/components/responses/AdminError'
       parameters:
+      - name: include_member_count
+        in: query
+        description: 是否统计当前成员人数；选项加载可设为 false，此时 member_count 返回 0。
+        schema:
+          type: boolean
+          default: true
       - *id003
       - *id004
       - name: search
@@ -2886,6 +2904,12 @@ paths:
         '503':
           $ref: '#/components/responses/AdminError'
       parameters:
+      - name: include_member_count
+        in: query
+        description: 是否统计当前成员人数；选项加载可设为 false，此时 member_count 返回 0。
+        schema:
+          type: boolean
+          default: true
       - *id003
       - *id004
       - name: search

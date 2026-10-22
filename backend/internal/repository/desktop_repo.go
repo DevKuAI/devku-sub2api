@@ -171,21 +171,34 @@ func (r *desktopRepository) ListOrganizations(ctx context.Context, params pagina
 func (r *desktopRepository) GetOrganization(ctx context.Context, publicID string) (*service.DesktopOrganization, error) {
 	row, err := r.client.DesktopOrganization.Query().
 		Where(r.organizationPredicates(desktoporganization.PublicIDEQ(publicID))...).
-		WithGatewayUser().WithGroup().WithMembers().Only(ctx)
+		WithGatewayUser().WithGroup().Only(ctx)
 	if err != nil {
 		return nil, translatePersistenceError(err, service.ErrDesktopOrganizationNotFound, nil)
 	}
-	return desktopOrganizationEntityToService(row)
+	return r.organizationWithMemberCount(ctx, row)
 }
 
 func (r *desktopRepository) GetOrganizationForGatewayUser(ctx context.Context, userID int64) (*service.DesktopOrganization, error) {
 	row, err := r.client.DesktopOrganization.Query().
 		Where(r.organizationPredicates(desktoporganization.GatewayUserIDEQ(userID))...).
-		WithGatewayUser().WithGroup().WithMembers().Only(ctx)
+		WithGatewayUser().WithGroup().Only(ctx)
 	if err != nil {
 		return nil, translatePersistenceError(err, service.ErrDesktopOrganizationNotFound, nil)
 	}
-	return desktopOrganizationEntityToService(row)
+	return r.organizationWithMemberCount(ctx, row)
+}
+
+// organizationWithMemberCount avoids hydrating all members for a single enterprise.
+func (r *desktopRepository) organizationWithMemberCount(ctx context.Context, row *dbent.DesktopOrganization) (*service.DesktopOrganization, error) {
+	organization, err := desktopOrganizationEntityToService(row)
+	if err != nil {
+		return nil, err
+	}
+	organization.MemberCount, err = r.client.DesktopMember.Query().Where(desktopmember.OrganizationIDEQ(row.ID)).Count(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return organization, nil
 }
 
 func (r *desktopRepository) UpdateOrganization(ctx context.Context, publicID string, input service.DesktopUpdateOrganizationInput) (*service.DesktopOrganization, []string, error) {

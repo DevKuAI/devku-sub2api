@@ -372,6 +372,7 @@ import DesktopConversationStatistics from '@/components/desktop/DesktopConversat
 import DesktopAnalyticsRangePicker from '@/components/desktop/DesktopAnalyticsRangePicker.vue'
 import DesktopOrganizationUsageStatistics from '@/components/desktop/DesktopOrganizationUsageStatistics.vue'
 import { desktopOrganizationPath, desktopStructure, type OrganizationUnit } from '@/api/desktopStructure'
+import { useDesktopStructureOptions } from '@/features/desktop-structure/useDesktopStructureOptions'
 import DesktopOrganizationBusiness from '@/components/desktop/DesktopOrganizationBusiness.vue'
 import type { DesktopAnalyticsRange } from '@/api/desktopOrganizationUsage'
 import DesktopPeriodReports from '@/components/desktop/DesktopPeriodReports.vue'
@@ -422,9 +423,9 @@ const memberStatus = ref<DesktopStatus | ''>(route.query.member_status === 'acti
 const memberDepartment = ref(route.query.unassigned === 'true' ? '' : String(route.query.department_id || ''))
 const memberPosition = ref(route.query.unassigned === 'true' ? '' : String(route.query.position_id || ''))
 const memberUnassigned = ref(route.query.unassigned === 'true')
-const departmentChoices = ref<OrganizationUnit[]>([])
-const positionChoices = ref<OrganizationUnit[]>([])
-const structureChoicesLoading = ref(false), structureChoicesError = ref('')
+const structureOptions = useDesktopStructureOptions()
+const { departments: departmentChoices, positions: positionChoices, loading: structureChoicesLoading } = structureOptions
+const structureChoicesError = computed(() => structureOptions.error.value ? t('desktopStructure.structureFiltersLoadFailed') : '')
 const unitOptionLabel = (unit: OrganizationUnit) => unit.status === 'disabled' ? t('desktopStructure.disabledOption', { name: unit.name }) : unit.name
 const memberDepartmentOptions = computed(() => [{ value: '', label: t('desktopStructure.allDepartments') }, ...departmentChoices.value.map(unit => ({ value: unit.public_id, label: unitOptionLabel(unit) }))])
 const memberPositionOptions = computed(() => [{ value: '', label: t('desktopStructure.allPositions') }, ...positionChoices.value.filter(unit => !memberDepartment.value || unit.department?.public_id === memberDepartment.value).map(unit => ({ value: unit.public_id, label: unitOptionLabel(unit) }))])
@@ -676,21 +677,10 @@ async function saveOrganization() {
 }
 
 const structureBase = computed(() => desktopOrganizationPath(organizationID.value, selfManaged))
-let structureChoicesGeneration = 0
 async function loadMemberStructure() {
-  const id = organizationID.value, request = ++structureChoicesGeneration
-  structureChoicesError.value = ''
-  if (!id) { structureChoicesLoading.value = false; return }
-  structureChoicesLoading.value = true
-  try {
-    const api = desktopStructure(id, selfManaged)
-    const [departments, positions] = await Promise.all([api.all('departments'), api.all('positions')])
-    if (request === structureChoicesGeneration && id === organizationID.value) { departmentChoices.value = departments; positionChoices.value = positions }
-  } catch {
-    if (request === structureChoicesGeneration) structureChoicesError.value = t('desktopStructure.structureFiltersLoadFailed')
-  } finally { if (request === structureChoicesGeneration) structureChoicesLoading.value = false }
+  if (organizationID.value) await structureOptions.load(desktopStructure(organizationID.value, selfManaged))
 }
-watch(organizationID, () => { departmentChoices.value = []; positionChoices.value = []; void loadMemberStructure() }, { immediate: true })
+watch(organizationID, () => { structureOptions.reset(); void loadMemberStructure() }, { immediate: true })
 
 function memberReturnQuery() { return { return_to: router.resolve({ path: route.path, query: { ...route.query, tab: 'members', member_search: memberSearch.value || undefined, member_status: memberStatus.value || undefined, department_id: memberDepartment.value || undefined, position_id: memberPosition.value || undefined, unassigned: memberUnassigned.value ? 'true' : undefined, member_page: String(memberPagination.page) } }).fullPath } }
 function openCreateMember() { if (!canCreateMember.value) { appStore.showError(t(memberLimitReached.value ? 'admin.desktop.errors.MEMBER_LIMIT_REACHED' : 'admin.desktop.errors.ORGANIZATION_DISABLED')); return } void router.push({ path: `${structureBase.value}/members/new`, query: memberReturnQuery() }) }
@@ -778,5 +768,5 @@ onMounted(() => {
   }
   void Promise.all([loadOrganization(), loadMembers()])
 })
-onBeforeUnmount(() => { structureChoicesGeneration++; organizationGeneration++; clearTimeout(memberTimer); memberController?.abort(); gatewayController?.abort(); cancelMemberExport() })
+onBeforeUnmount(() => { organizationGeneration++; clearTimeout(memberTimer); memberController?.abort(); gatewayController?.abort(); cancelMemberExport() })
 </script>

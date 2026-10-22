@@ -2,6 +2,7 @@
   <StructurePage :title="t(id ? 'admin.desktop.editMember' : 'admin.desktop.createMember')" :subtitle="organization?.name" :description="t(id ? 'desktopStructure.memberEditHint' : 'desktopStructure.memberDetails')" :loading="loading" :error="error" :busy="busy" :dirty="guard.dirty.value" @back="guard.leave(returnTo)" @retry="reload">
     <template v-if="organization">
       <p v-if="organization.status !== 'active'" class="structure-notice" role="status">{{ t('desktopStructure.readonly') }}</p>
+      <div v-if="structureError" class="structure-error" role="alert"><p class="min-w-0 flex-1">{{ structureError }}</p><button type="button" class="btn btn-secondary" :disabled="structureLoading" @click="loadStructure">{{ t('desktopStructure.retryStructureFilters') }}</button></div>
       <form class="structure-panel structure-form" :aria-busy="busy" @submit.prevent="save">
         <p class="structure-caption">{{ t('desktopStructure.requiredHint') }}</p>
         <fieldset class="structure-section" :disabled="busy || organization.status !== 'active'">
@@ -16,8 +17,8 @@
           <p class="structure-caption">{{ t('desktopStructure.assignmentHint') }}</p>
           <template v-if="!id">
             <div class="structure-grid">
-              <label class="structure-field"><span>{{ t('desktopStructure.department') }} <span aria-hidden="true">*</span></span><select v-model="form.department_id" name="department" class="input" required aria-describedby="member-department-hint" @change="form.position_id = ''"><option value="">{{ t('desktopStructure.selectDepartment') }}</option><option v-for="d in departments" :key="d.public_id" :value="d.public_id">{{ d.name }}</option></select><p id="member-department-hint" class="structure-caption">{{ departments.find(d => d.public_id === form.department_id)?.name || t(departments.length ? 'desktopStructure.selectDepartmentFirst' : 'desktopStructure.noDepartments') }}</p></label>
-              <label class="structure-field"><span>{{ t('desktopStructure.position') }} <span aria-hidden="true">*</span></span><select v-model="form.position_id" name="position" class="input" required :disabled="!form.department_id" aria-describedby="member-position-hint"><option value="">{{ t('desktopStructure.selectPosition') }}</option><option v-for="p in availablePositions" :key="p.public_id" :value="p.public_id">{{ p.name }}</option></select><p id="member-position-hint" class="structure-caption">{{ selectedPosition?.name || t(!form.department_id ? 'desktopStructure.selectDepartmentFirst' : !availablePositions.length ? 'desktopStructure.noPositions' : 'desktopStructure.selectPosition') }}</p></label>
+              <label class="structure-field"><span>{{ t('desktopStructure.department') }} <span aria-hidden="true">*</span></span><select v-model="form.department_id" name="department" class="input" required :disabled="structureLoading || !!structureError" aria-describedby="member-department-hint" @change="form.position_id = ''"><option value="">{{ t('desktopStructure.selectDepartment') }}</option><option v-for="d in departments" :key="d.public_id" :value="d.public_id">{{ d.name }}</option></select><p id="member-department-hint" class="structure-caption">{{ departments.find(d => d.public_id === form.department_id)?.name || (structureLoading || structureError ? '' : t(departments.length ? 'desktopStructure.selectDepartmentFirst' : 'desktopStructure.noDepartments')) }}</p></label>
+              <label class="structure-field"><span>{{ t('desktopStructure.position') }} <span aria-hidden="true">*</span></span><select v-model="form.position_id" name="position" class="input" required :disabled="!form.department_id || structureLoading || !!structureError" aria-describedby="member-position-hint"><option value="">{{ t('desktopStructure.selectPosition') }}</option><option v-for="p in availablePositions" :key="p.public_id" :value="p.public_id">{{ p.name }}</option></select><p id="member-position-hint" class="structure-caption">{{ selectedPosition?.name || (structureLoading || structureError ? '' : t(!form.department_id ? 'desktopStructure.selectDepartmentFirst' : !availablePositions.length ? 'desktopStructure.noPositions' : 'desktopStructure.selectPosition')) }}</p></label>
             </div>
             <button type="button" class="structure-link" @click="createPosition"><Icon name="plus" size="sm" aria-hidden="true" />{{ t('desktopStructure.createPosition') }}</button>
           </template>
@@ -34,7 +35,7 @@
           </div>
         </fieldset>
         <label class="structure-field"><span>{{ t('admin.desktop.memberRemark') }} <span class="font-normal">· {{ t('desktopStructure.optional') }}</span></span><textarea v-model="form.remark" name="member-remark" class="input" rows="3" maxlength="500" :disabled="busy || organization.status !== 'active'" /></label>
-        <div class="structure-actions"><button type="button" class="btn btn-secondary" :disabled="busy" @click="guard.leave(returnTo)">{{ t('common.cancel') }}</button><button type="submit" class="btn btn-primary" :disabled="organization.status !== 'active'" :aria-disabled="busy || undefined"><Icon v-if="busy" name="clock" size="sm" aria-hidden="true" />{{ t('common.save') }}</button></div>
+        <div class="structure-actions"><button type="button" class="btn btn-secondary" :disabled="busy" @click="guard.leave(returnTo)">{{ t('common.cancel') }}</button><button type="submit" class="btn btn-primary" :disabled="organization.status !== 'active' || (!id && (structureLoading || !!structureError))" :aria-disabled="busy || undefined"><Icon v-if="busy" name="clock" size="sm" aria-hidden="true" />{{ t('common.save') }}</button></div>
       </form>
     </template>
   </StructurePage>
@@ -46,7 +47,8 @@ import { useI18n } from 'vue-i18n'
 import StructurePage from './StructurePage.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { useDesktopForm } from './useDesktopForm'
-import { desktopStructure, desktopStructureError, desktopOrganizationPath, safeDesktopReturn, structureIdempotencyKey, type OrganizationUnit } from '@/api/desktopStructure'
+import { useDesktopStructureOptions } from './useDesktopStructureOptions'
+import { desktopStructure, desktopStructureError, desktopOrganizationPath, safeDesktopReturn, structureIdempotencyKey } from '@/api/desktopStructure'
 import type { DesktopOrganization, DesktopMember } from '@/api/admin/desktop'
 const props = defineProps<{ selfManaged?: boolean }>()
 const route = useRoute(), { t } = useI18n()
@@ -54,19 +56,23 @@ const id = computed(() => String(route.params.memberId || '')), orgId = computed
 const base = computed(() => desktopOrganizationPath(orgId.value, !!props.selfManaged))
 const returnTo = computed(() => safeDesktopReturn(route.query.return_to, base.value, `${base.value}?tab=members`))
 const blank = () => ({ name: '', phone: '', remark: '', department_id: '', position_id: '', budget: { quota: 0, limit_1d: 0, limit_7d: 0 } })
-const form = reactive(blank()), organization = ref<DesktopOrganization | null>(null), member = ref<DesktopMember>(), departments = ref<OrganizationUnit[]>([]), positions = ref<OrganizationUnit[]>([])
+const form = reactive(blank()), organization = ref<DesktopOrganization | null>(null), member = ref<DesktopMember>()
+const structure = useDesktopStructureOptions()
+const { departments, positions, loading: structureLoading, error: structureError } = structure
 const availablePositions = computed(() => positions.value.filter(p => p.department?.public_id === form.department_id))
 const selectedPosition = computed(() => positions.value.find(p => p.public_id === form.position_id))
 const budgetFields = ['quota', 'limit_1d', 'limit_7d'] as const
 const loading = ref(true), busy = ref(false), error = ref('')
 const guard = useDesktopForm(() => form, () => busy.value, () => organization.value?.public_id || orgId.value)
 let generation = 0, key = structureIdempotencyKey(), keyPayload = ''
+function loadStructure() { return structure.load(desktopStructure(orgId.value, props.selfManaged), { status: 'active' }) }
 async function load() {
+  structure.reset()
   const g = ++generation, api = desktopStructure(orgId.value, props.selfManaged); loading.value = true; error.value = ''
   try {
-    const [org, deps, ps, m] = await Promise.all([api.organization(), api.all('departments', { status: 'active' }), api.all('positions', { status: 'active' }), id.value ? api.member(id.value) : undefined])
+    const [org, , m] = await Promise.all([api.organization(), id.value ? undefined : loadStructure(), id.value ? api.member(id.value) : undefined])
     if (g !== generation) return
-    organization.value = org; departments.value = deps; positions.value = ps; member.value = m
+    organization.value = org; member.value = m
     Object.assign(form, blank(), m ? { name: m.name, phone: m.phone, remark: m.remark || '', budget: { quota: m.budget?.quota || 0, limit_1d: m.budget?.limit_1d || 0, limit_7d: m.budget?.limit_7d || 0 } } : {})
     const draft = guard.restore(); guard.clean(); if (draft && !id.value) Object.assign(form, draft)
   } catch (e) { if (g === generation) error.value = desktopStructureError(e, t) }
@@ -75,7 +81,7 @@ async function load() {
 async function reload() { if (!guard.dirty.value || window.confirm(t('desktopStructure.reload'))) await load() }
 async function createPosition() { await guard.child(`${base.value}/positions/new?return_to=${encodeURIComponent(route.fullPath)}&department_id=${encodeURIComponent(form.department_id)}`) }
 async function save() {
-  if (busy.value) return
+  if (busy.value || (!id.value && (structureLoading.value || structureError.value))) return
   if (!id.value && organization.value && organization.value.member_count >= organization.value.member_limit) { error.value = t('admin.desktop.errors.MEMBER_LIMIT_REACHED'); return }
   busy.value = true; error.value = ''
   try {

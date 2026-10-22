@@ -10,7 +10,7 @@ vi.mock('@/api/admin/desktop', () => admin)
 vi.mock('@/api/desktopOrganization', () => ({ default: managed }))
 vi.mock('@/utils/desktopMemberImport', () => files)
 const structure = vi.hoisted(() => ({ all: vi.fn() }))
-vi.mock('@/api/desktopStructure', () => ({ desktopStructure: () => structure }))
+vi.mock('@/api/desktopStructure', async original => ({ ...await original<typeof import('@/api/desktopStructure')>(), desktopStructure: () => structure }))
 vi.mock('file-saver', () => ({ saveAs: vi.fn() }))
 vi.mock('vue-i18n', async (original) => ({ ...await original<typeof import('vue-i18n')>(), useI18n: () => ({ t: (key: string) => key, te: () => true }) }))
 import DesktopMemberImportDialog from '../DesktopMemberImportDialog.vue'
@@ -156,7 +156,7 @@ describe('Desktop member import page content', () => {
     const wrapper = view()
     await upload(wrapper)
     expect(wrapper.get('[data-testid="confirm-member-import"]').attributes('disabled')).toBeDefined()
-    expect(wrapper.text()).toContain('desktopStructure.failed')
+    expect(wrapper.text()).toContain('Network unavailable')
     expect(wrapper.text()).not.toContain('desktopStructure.noDepartments')
     const retry = wrapper.findAll('button').find(button => button.text().includes('desktopStructure.reloadAction'))!
     await retry.trigger('click'); await flushPromises()

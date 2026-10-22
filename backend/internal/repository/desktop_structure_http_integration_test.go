@@ -95,6 +95,8 @@ func TestDesktopStructureHTTPAuthorizationIdempotencyAndSafeDTO(t *testing.T) {
 	router.GET("/members/:member_id", h.GetMember)
 	router.PUT("/members/:member_id/position", h.Assign)
 	router.POST("/positions", h.Unit(service.DesktopPositionKind))
+	router.GET("/departments", h.Unit(service.DesktopDepartmentKind))
+	router.GET("/positions", h.Unit(service.DesktopPositionKind))
 	perform := func(method, path, body, key string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(method, path, strings.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
@@ -105,6 +107,16 @@ func TestDesktopStructureHTTPAuthorizationIdempotencyAndSafeDTO(t *testing.T) {
 		response := httptest.NewRecorder()
 		router.ServeHTTP(response, req)
 		return response
+	}
+	for _, kind := range []string{"departments", "positions"} {
+		counted := perform("GET", "/"+kind+"?include_member_count=true", "", "")
+		require.Equal(t, http.StatusOK, counted.Code, counted.Body.String())
+		require.Contains(t, counted.Body.String(), `"member_count":1`)
+		options := perform("GET", "/"+kind+"?include_member_count=false", "", "")
+		require.Equal(t, http.StatusOK, options.Code, options.Body.String())
+		require.NotContains(t, options.Body.String(), `"member_count":1`)
+		invalid := perform("GET", "/"+kind+"?include_member_count=invalid", "", "")
+		require.Equal(t, http.StatusUnprocessableEntity, invalid.Code, invalid.Body.String())
 	}
 	payload, _ := json.Marshal(map[string]any{"position_id": target.PublicID, "expected_revision": 1, "reason": "Confirmed"})
 	key := "structure-http-" + f.organization.PublicID
