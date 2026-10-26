@@ -12,6 +12,10 @@
 - `/me`、`/model-configuration`、`/usage/summary` 和 `/auth/logout` 同时接受 v1/v2，v2 请求均须携带绑定的安装 ID；校验失败不切换验证器。
 - 新客户端必须确认登录响应的 `auth_version` 为 2，不能将旧 JWT 当成长效凭证，也不能按 `idle_expires_at` 快照定时退出。
 
+## 统一客户端模型配置
+
+`GET /api/desktop/v1/model-configuration` 对 v1/v2 认证返回相同的统一 `models`。新客户端展示可见模型、按 `enabled` 控制选择并展示备注；收到空列表或仅含禁用项时清除旧可选模型。兼容 `targets` 和 ETag 行为见 [Model Configuration](DESKTOP_API_V1.md#6-model-configuration)。这次配置升级不改变认证版本和 Gateway 准入。
+
 ## 企业对话上报开关
 
 管理员在「创建企业」和「编辑企业」中勾选「上报对话记录」，对应 `conversation_reporting_enabled`。新企业默认关闭；migration 240 将已有企业也设为关闭，需要管理员明确开启。企业管理账号只读，不能自行修改此开关。
@@ -24,6 +28,7 @@
     "configuration_version": "cfg_example",
     "base_url": "https://gateway.example.com/v1",
     "model_token": "<Model Token>",
+    "models": [],
     "targets": {},
     "conversation_reporting_enabled": false
   }

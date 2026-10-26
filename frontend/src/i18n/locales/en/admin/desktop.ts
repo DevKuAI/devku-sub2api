@@ -27,7 +27,7 @@ export default {
       organizationInfo: 'Organization info',
       loadingOrganization: 'Loading organization…',
       membersHint: "Manage member profiles, client access and model budgets, and review each member’s costs and token usage.",
-      configurationHint: "Configure models and client version requirements for ChatGPT Codex and Workbuddy. Set the model for daily and period summaries in organization details.",
+      configurationHint: "Manage client models from the organization’s bound group. Set the model for daily and period summaries in organization details.",
       saveRetryHint: 'Check and correct the input, then save again.',
       membersLoadFailed: 'Unable to load members. Retry loading the list.',
       tableScrollHint: 'Scroll the table horizontally to view all information and actions.',
@@ -323,6 +323,13 @@ export default {
     phone: 'Phone',
 	phoneHint: 'Enter 13800138000 or +8613800138000; values are saved in +86 format',
     configuration: "Client models",
+    models: {
+      visible: "Visible to organization",
+      enabled: "Enabled for organization",
+      remark: "Remark",
+      empty: "No models to display",
+      hint: "Models come from the organization’s current group. New models are hidden and disabled by default; enabled status only controls client configuration delivery.",
+    },
     configurationReadOnly: "Client models are configured by platform administrators. This view is read-only; contact an administrator to request changes.",
     modelToken: "Model key",
     usageStatistics: {

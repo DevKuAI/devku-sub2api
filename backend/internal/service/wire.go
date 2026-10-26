@@ -1128,8 +1128,13 @@ func ProvideClaudeResetCreditService(accounts AccountRepository, tokens *ClaudeT
 }
 
 // ProvideDesktopService adds durable reports while preserving the existing test constructor.
-func ProvideDesktopService(repo DesktopRepository, usage DesktopUsageRepository, refresh DesktopRefreshStore, limiter DesktopLoginLimiter, tokens *DesktopTokenManager, apiKeys *APIKeyService, cfg *config.Config, sessions DesktopSessionStore, conversations DesktopConversationRepository, conversationLimiter DesktopConversationLimiter, reports DesktopReportRepository) *DesktopService {
+func ProvideDesktopService(repo DesktopRepository, usage DesktopUsageRepository, refresh DesktopRefreshStore, limiter DesktopLoginLimiter, tokens *DesktopTokenManager, apiKeys *APIKeyService, cfg *config.Config, sessions DesktopSessionStore, conversations DesktopConversationRepository, conversationLimiter DesktopConversationLimiter, reports DesktopReportRepository, groups GroupRepository, gateway *GatewayService, openai *OpenAIGatewayService) *DesktopService {
 	desktop := NewDesktopService(repo, usage, refresh, limiter, tokens, apiKeys, cfg, sessions, conversations, conversationLimiter)
+	maxAccountSwitches := 10
+	if cfg.Gateway.MaxAccountSwitches > 0 {
+		maxAccountSwitches = cfg.Gateway.MaxAccountSwitches
+	}
+	desktop.WithModelCatalog(&desktopGroupModelCatalog{groups: groups, gateway: gateway, openai: openai, maxAccountSwitches: maxAccountSwitches})
 	desktop.reports = NewDesktopReportService(desktop, reports)
 	return desktop
 }

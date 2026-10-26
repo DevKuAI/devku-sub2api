@@ -12,6 +12,7 @@ import (
 )
 
 type desktopRepositoryStub struct {
+	targetConfigUpdates            int
 	authorized                     *DesktopAuthorizedMember
 	organization                   *DesktopOrganization
 	members                        []DesktopMember
@@ -50,8 +51,12 @@ func (s *desktopRepositoryStub) UpdateOrganization(_ context.Context, _ string, 
 	s.updateOrganizationInputs = append(s.updateOrganizationInputs, input)
 	return s.organization, nil, nil
 }
-func (s *desktopRepositoryStub) UpdateTargetConfig(context.Context, string, *DesktopTargetConfig) (*DesktopOrganization, error) {
-	return nil, nil
+func (s *desktopRepositoryStub) UpdateTargetConfig(_ context.Context, _ string, configuration *DesktopTargetConfig) (*DesktopOrganization, error) {
+	s.targetConfigUpdates++
+	updated := *s.organization
+	updated.TargetConfig = configuration
+	s.organization = &updated
+	return &updated, nil
 }
 func (s *desktopRepositoryStub) CreateMember(context.Context, string, DesktopCreateMemberInput) (*DesktopMember, error) {
 	return nil, nil
@@ -192,23 +197,23 @@ func TestDesktopTargetConfigValidatesWireAPIByTarget(t *testing.T) {
 
 func TestDesktopModelConfigurationETagIgnoresRawKeyAndUpdatedAt(t *testing.T) {
 	authorized := activeDesktopAuthorization()
-	svc := &DesktopService{config: config.DesktopConfig{PublicGatewayBaseURL: "https://gateway.example.com/v1"}}
+	svc := (&DesktopService{config: config.DesktopConfig{PublicGatewayBaseURL: "https://gateway.example.com/v1"}}).WithModelCatalog(desktopCatalogStub{ids: []string{"model-one"}})
 
-	first, firstVersion, err := svc.ModelConfiguration(authorized, nil)
+	first, firstVersion, err := svc.ModelConfiguration(context.Background(), authorized, nil)
 	require.NoError(t, err)
 	require.Equal(t, "sk-model-one", first.ModelToken)
 
 	authorized.Member.CurrentAPIKey = "sk-model-two"
 	authorized.Member.UpdatedAt = time.Now().Add(24 * time.Hour)
 	authorized.Organization.UpdatedAt = time.Now().Add(48 * time.Hour)
-	second, secondVersion, err := svc.ModelConfiguration(authorized, nil)
+	second, secondVersion, err := svc.ModelConfiguration(context.Background(), authorized, nil)
 	require.NoError(t, err)
 	require.Equal(t, "sk-model-two", second.ModelToken)
 	require.Equal(t, firstVersion, secondVersion)
 
 	nextKeyID := *authorized.Member.CurrentAPIKeyID + 1
 	authorized.Member.CurrentAPIKeyID = &nextKeyID
-	_, rotatedVersion, err := svc.ModelConfiguration(authorized, nil)
+	_, rotatedVersion, err := svc.ModelConfiguration(context.Background(), authorized, nil)
 	require.NoError(t, err)
 	require.NotEqual(t, firstVersion, rotatedVersion)
 }
@@ -364,19 +369,19 @@ func TestDesktopDependencyGuards(t *testing.T) {
 
 func TestDesktopReportingFlagIsReturnedAndInvalidatesConfigurationETag(t *testing.T) {
 	authorized := activeDesktopAuthorization()
-	svc := &DesktopService{config: config.DesktopConfig{PublicGatewayBaseURL: "https://gateway.example.com/v1"}}
+	svc := (&DesktopService{config: config.DesktopConfig{PublicGatewayBaseURL: "https://gateway.example.com/v1"}}).WithModelCatalog(desktopCatalogStub{ids: []string{"model-one"}})
 	beforeVersion := authorized.Organization.AuthVersion
-	disabled, disabledTag, err := svc.ModelConfiguration(authorized, nil)
+	disabled, disabledTag, err := svc.ModelConfiguration(context.Background(), authorized, nil)
 	require.NoError(t, err)
 	require.False(t, disabled.ConversationReportingEnabled)
 	authorized.Organization.ConversationReportingEnabled = true
-	enabled, enabledTag, err := svc.ModelConfiguration(authorized, nil)
+	enabled, enabledTag, err := svc.ModelConfiguration(context.Background(), authorized, nil)
 	require.NoError(t, err)
 	require.True(t, enabled.ConversationReportingEnabled)
 	require.NotEqual(t, disabledTag, enabledTag)
 	require.Equal(t, beforeVersion, authorized.Organization.AuthVersion)
 	authorized.Organization.ConversationReportingEnabled = false
-	disabledAgain, afterTag, err := svc.ModelConfiguration(authorized, nil)
+	disabledAgain, afterTag, err := svc.ModelConfiguration(context.Background(), authorized, nil)
 	require.NoError(t, err)
 	require.False(t, disabledAgain.ConversationReportingEnabled)
 	require.Equal(t, disabledTag, afterTag)

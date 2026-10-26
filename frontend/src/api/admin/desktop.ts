@@ -64,9 +64,17 @@ export interface DesktopTarget {
   restart_required: boolean
 }
 
+export interface DesktopModel {
+  model: string
+  visible: boolean
+  enabled: boolean
+  remark: string
+}
+
 export interface DesktopTargetConfig {
-  schema_version: 1
-  targets: {
+  schema_version: 1 | 2
+  models?: DesktopModel[]
+  targets?: {
     chatgpt_codex?: DesktopTarget
     workbuddy?: DesktopTarget
   }

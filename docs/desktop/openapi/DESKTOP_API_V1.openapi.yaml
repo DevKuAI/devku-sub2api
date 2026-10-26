@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: DevKu Sub2API Desktop API
-  version: 1.1.0
+  version: 1.2.0
   license:
     name: LGPL-3.0
     url: https://www.gnu.org/licenses/lgpl-3.0.html
@@ -179,7 +179,7 @@ paths:
       tags: [Desktop Admin - Organizations]
       operationId: updateDesktopModelConfiguration
       summary: 更新企业 Model Configuration
-      description: 请求体上限为 64 KiB。`chatgpt_codex` 和 `workbuddy` 可以独立配置。
+      description: 请求体上限为 64 KiB。统一维护企业绑定分组的 models；targets 仅用于旧客户端兼容。
       security:
         - AdminBearer: []
       requestBody:
@@ -190,24 +190,16 @@ paths:
               $ref: '#/components/schemas/UpdateTargetConfigRequest'
             example:
               target_config:
-                schema_version: 1
-                targets:
-                  chatgpt_codex:
+                schema_version: 2
+                models:
+                  - model: enterprise-model-1
+                    visible: true
                     enabled: true
-                    provider_id: devku_enterprise
-                    display_name: 东恒锦洋企业模型
-                    requested_model: enterprise-model-1
-                    wire_api: responses
-                    minimum_app_version: null
-                    restart_required: true
-                  workbuddy:
-                    enabled: true
-                    provider_id: devku_enterprise
-                    display_name: 东恒锦洋企业模型
-                    requested_model: enterprise-model-1
-                    wire_api: chat_completions
-                    minimum_app_version: null
-                    restart_required: false
+                    remark: 日常开发
+                  - model: enterprise-model-2
+                    visible: true
+                    enabled: false
+                    remark: 维护中
       responses:
         '200':
           description: Model Configuration 已更新
@@ -1398,14 +1390,14 @@ paths:
       operationId: getDesktopModelConfiguration
       summary: 获取 Desktop Model Configuration
       description: |
-        返回 Gateway Base URL、raw Model Token 和目标配置。响应包含 `ETag` 和 `Cache-Control: no-store`。
+        返回 Gateway Base URL、raw Model Token、统一 models 和兼容 targets。无开放模型时仍返回 200，客户端应清除旧模型列表。响应包含 `ETag` 和 `Cache-Control: no-store`。
         首次部署、本机配置丢失或凭证恢复时不要发送 `If-None-Match`。
       security:
         - DesktopBearer: []
       parameters:
         - name: targets
           in: query
-          description: 逗号分隔的目标名称；不传时返回全部已配置目标
+          description: 仅筛选兼容 targets 的逗号分隔目标名称；不传返回全部目标，不影响统一 models
           schema:
             type: string
           example: chatgpt_codex,workbuddy
@@ -3718,18 +3710,46 @@ components:
         restart_required:
           type: boolean
 
+    DesktopModel:
+      type: object
+      additionalProperties: false
+      required: [model, visible, enabled, remark]
+      properties:
+        model:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: 企业当前绑定分组中的具体 Model ID，不接受通配符配置项
+        visible:
+          type: boolean
+          default: false
+          description: 是否在企业管理页面和客户端配置接口中展示
+        enabled:
+          type: boolean
+          default: false
+          description: 客户端配置可用状态，独立于 visible；不改变 Gateway 调用权限
+        remark:
+          type: string
+          maxLength: 2000
+          description: 企业可见模型的备注，同时返回给企业和客户端
+
     DesktopTargetConfig:
       type: object
       additionalProperties: false
-      required: [schema_version, targets]
+      required: [schema_version]
+      description: 管理员维护统一 models；targets 仅用于兼容旧客户端。企业只读响应过滤隐藏模型。
       properties:
         schema_version:
           type: integer
-          enum: [1]
+          enum: [1, 2]
+        models:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/DesktopModel'
         targets:
           type: object
           additionalProperties: false
-          minProperties: 1
           properties:
             chatgpt_codex:
               allOf:
@@ -3739,6 +3759,20 @@ components:
               allOf:
                 - $ref: '#/components/schemas/DesktopTarget'
               description: '`wire_api` 必须为 `chat_completions`'
+      oneOf:
+        - required: [targets]
+          properties:
+            schema_version:
+              enum: [1]
+            targets:
+              minProperties: 1
+        - required: [models]
+          properties:
+            schema_version:
+              enum: [2]
+            models:
+              type: array
+              nullable: false
 
     DesktopGatewayUser:
       type: object
@@ -4587,7 +4621,7 @@ components:
 
     DesktopModelConfiguration:
       type: object
-      required: [configuration_version, base_url, model_token, targets, conversation_reporting_enabled]
+      required: [configuration_version, base_url, model_token, models, targets, conversation_reporting_enabled]
       properties:
         conversation_reporting_enabled:
           type: boolean
@@ -4603,6 +4637,11 @@ components:
         model_token:
           type: string
           description: raw Model Token，只返回给已认证 Desktop 客户端
+        models:
+          type: array
+          description: 统一模型列表，只返回可见模型；包含禁用项及备注，空数组表示清除本地可选模型
+          items:
+            $ref: '#/components/schemas/DesktopModel'
         targets:
           type: object
           additionalProperties:

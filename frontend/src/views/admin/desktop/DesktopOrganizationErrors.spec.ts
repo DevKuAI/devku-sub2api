@@ -22,6 +22,8 @@ vi.mock('@/api/desktopOrganization', () => ({ default: {} }))
 vi.mock('@/stores/app', () => ({ useAppStore: () => appStore }))
 vi.mock('@/stores/auth', () => ({ useAuthStore: () => ({ isAdmin: true }) }))
 vi.mock('vue-router', () => ({
+  onBeforeRouteLeave: vi.fn(),
+  onBeforeRouteUpdate: vi.fn(),
   useRouter: () => router,
   useRoute: () => ({ params: { organizationId: 'org_one' }, query: {} }),
 }))

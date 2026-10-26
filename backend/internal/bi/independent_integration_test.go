@@ -69,7 +69,7 @@ func independentFixture(t *testing.T) *biFixture {
 	keys := repository.NewAPIKeyRepository(client, db)
 	keyService := service.NewAPIKeyService(keys, nil, nil, nil, nil, nil, cfg)
 	t.Cleanup(keyService.StopAuthCacheInvalidationSubscriber)
-	desk := service.ProvideDesktopService(repository.NewDesktopRepository(client, keys), repository.NewUsageLogRepository(client, db).(service.DesktopUsageRepository), nil, nil, nil, keyService, cfg, nil, repository.NewDesktopConversationRepository(client), nil, repository.NewDesktopReportRepository(db, client))
+	desk := service.ProvideDesktopService(repository.NewDesktopRepository(client, keys), repository.NewUsageLogRepository(client, db).(service.DesktopUsageRepository), nil, nil, nil, keyService, cfg, nil, repository.NewDesktopConversationRepository(client), nil, repository.NewDesktopReportRepository(db, client), nil, nil, nil)
 	s := NewService(db, cfg.BI, desk, identityWX{})
 	r := miniredis.RunT(t)
 	redisClient := redis.NewClient(&redis.Options{Addr: r.Addr()})

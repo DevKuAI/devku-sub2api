@@ -99,6 +99,10 @@ func (h *DesktopHandler) GetManagedOrganization(c *gin.Context) {
 	if response.ErrorFrom(c, err) {
 		return
 	}
+	organization, err = h.desktop.ResolveOrganizationModels(c.Request.Context(), organization, true)
+	if response.ErrorFrom(c, err) {
+		return
+	}
 	response.Success(c, desktopManagedOrganizationFromService(organization))
 }
 

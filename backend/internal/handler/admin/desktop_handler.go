@@ -169,6 +169,10 @@ func (h *DesktopHandler) GetOrganization(c *gin.Context) {
 	if response.ErrorFrom(c, err) {
 		return
 	}
+	organization, err = h.desktop.ResolveOrganizationModels(c.Request.Context(), organization, false)
+	if response.ErrorFrom(c, err) {
+		return
+	}
 	response.Success(c, desktopOrganizationFromService(organization, true))
 }
 

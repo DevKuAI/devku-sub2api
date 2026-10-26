@@ -143,7 +143,7 @@ func (h *DesktopHandler) ModelConfiguration(c *gin.Context) {
 	if !h.touchDesktopSession(c) {
 		return
 	}
-	configuration, version, err := h.desktop.ModelConfiguration(authorized, requested)
+	configuration, version, err := h.desktop.ModelConfiguration(c.Request.Context(), authorized, requested)
 	if err != nil {
 		desktopError(c, err)
 		return

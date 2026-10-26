@@ -42,7 +42,7 @@ func TestDesktopStructureHTTPActualTypeScriptClient(t *testing.T) {
 	cfg := &config.Config{Desktop: config.DesktopConfig{Enabled: true}}
 	keys := service.NewAPIKeyService(f.apiKeys, nil, nil, nil, nil, nil, cfg)
 	t.Cleanup(keys.StopAuthCacheInvalidationSubscriber)
-	svc := service.NewDesktopService(f.repo, nil, nil, nil, nil, keys, cfg, nil, nil, nil)
+	svc := service.NewDesktopService(f.repo, nil, nil, nil, nil, keys, cfg, nil, nil, nil).WithModelCatalog(desktopHTTPModelCatalog{})
 	previous := service.DefaultIdempotencyCoordinator()
 	service.SetDefaultIdempotencyCoordinator(service.NewIdempotencyCoordinator(NewIdempotencyRepository(integrationEntClient, integrationDB), service.DefaultIdempotencyConfig()))
 	t.Cleanup(func() { service.SetDefaultIdempotencyCoordinator(previous) })
@@ -81,7 +81,7 @@ func TestDesktopStructureHTTPAuthorizationIdempotencyAndSafeDTO(t *testing.T) {
 	member := f.createMember(t, "http", 1)
 	structure := f.repo.(service.DesktopStructureRepository)
 	target := createDesktopTestUnit(t, structure, f.organization.PublicID, service.DesktopPositionKind, f.position.Department.PublicID, "HTTP Target")
-	desktop := service.NewDesktopService(f.repo, nil, nil, nil, nil, nil, &config.Config{Desktop: config.DesktopConfig{Enabled: true}}, nil, nil, nil)
+	desktop := service.NewDesktopService(f.repo, nil, nil, nil, nil, nil, &config.Config{Desktop: config.DesktopConfig{Enabled: true}}, nil, nil, nil).WithModelCatalog(desktopHTTPModelCatalog{})
 	h := handler.NewDesktopStructureHandler(desktop, true)
 	previous := service.DefaultIdempotencyCoordinator()
 	service.SetDefaultIdempotencyCoordinator(service.NewIdempotencyCoordinator(NewIdempotencyRepository(integrationEntClient, integrationDB), service.DefaultIdempotencyConfig()))
@@ -145,4 +145,11 @@ func TestDesktopStructureHTTPAuthorizationIdempotencyAndSafeDTO(t *testing.T) {
 	var requestID string
 	require.NoError(t, integrationDB.QueryRow("SELECT request_id FROM desktop_member_position_history WHERE member_id=$1 AND position_revision=2", member.ID).Scan(&requestID))
 	require.Equal(t, "structure-http-request", requestID)
+}
+
+// desktopHTTPModelCatalog isolates structure HTTP tests from upstream discovery.
+type desktopHTTPModelCatalog struct{}
+
+func (desktopHTTPModelCatalog) Models(context.Context, int64) ([]string, error) {
+	return []string{}, nil
 }

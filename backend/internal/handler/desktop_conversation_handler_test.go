@@ -101,7 +101,7 @@ func (conversationRefreshStore) Create(context.Context, string, service.DesktopR
 func conversationRouter(t *testing.T, reporting ...bool) (*gin.Engine, *conversationSessions, *conversationWriteRepo, *conversationRateLimiter) {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
-	cfg := &config.Config{Desktop: config.DesktopConfig{JWTSecret: base64.StdEncoding.EncodeToString(make([]byte, 32)), AccessTokenTTLMinutes: 15, RefreshFamilyTTLDays: 30}}
+	cfg := &config.Config{Desktop: config.DesktopConfig{Enabled: true, JWTSecret: base64.StdEncoding.EncodeToString(make([]byte, 32)), AccessTokenTTLMinutes: 15, RefreshFamilyTTLDays: 30}}
 	tokens, err := service.NewDesktopTokenManager(cfg)
 	require.NoError(t, err)
 	repo := &conversationAuthRepo{authorized: &service.DesktopAuthorizedMember{
@@ -117,7 +117,7 @@ func conversationRouter(t *testing.T, reporting ...bool) (*gin.Engine, *conversa
 	sessions := &conversationSessions{session: &service.DesktopSession{MemberPublicID: "mem_one", OrganizationPublicID: "org_one", InstallationID: conversationTestInstallation, MemberVersion: 1, OrganizationVersion: 1}}
 	records := &conversationWriteRepo{}
 	limiter := &conversationRateLimiter{}
-	svc := service.NewDesktopService(repo, nil, conversationRefreshStore{}, conversationLoginLimiter{}, tokens, nil, cfg, sessions, records, limiter)
+	svc := service.NewDesktopService(repo, nil, conversationRefreshStore{}, conversationLoginLimiter{}, tokens, nil, cfg, sessions, records, limiter).WithModelCatalog(conversationModelCatalog{})
 	h := NewDesktopHandler(svc)
 	router := gin.New()
 	router.Use(middleware.RequestLogger())
@@ -353,4 +353,52 @@ func TestDesktopReportingChangeReturnsFreshConfigurationInsteadOf304(t *testing.
 	require.NotEqual(t, disabled.Header().Get("ETag"), enabled.Header().Get("ETag"))
 	require.Equal(t, 304, fetch(true, enabled.Header().Get("ETag")).Code)
 	require.Equal(t, 200, fetch(false, enabled.Header().Get("ETag")).Code)
+}
+
+// conversationModelCatalog keeps model discovery independent of session fixtures.
+type conversationModelCatalog struct{}
+
+func (conversationModelCatalog) Models(context.Context, int64) ([]string, error) {
+	return []string{"model"}, nil
+}
+
+func TestDesktopUnifiedConfigurationAcceptsBothAuthenticationVersions(t *testing.T) {
+	for _, version := range []string{"1", "2"} {
+		t.Run(version, func(t *testing.T) {
+			router, _, _, _ := conversationRouter(t)
+			login := httptest.NewRequest(http.MethodPost, "/login", strings.NewReader(`{"organization_code":"desktop","name":"Member","phone":"13800138000"}`))
+			login.Header.Set("Content-Type", "application/json")
+			login.Header.Set("X-Desktop-Auth-Version", version)
+			login.Header.Set("X-Installation-ID", conversationTestInstallation)
+			loggedIn := httptest.NewRecorder()
+			router.ServeHTTP(loggedIn, login)
+			require.Equal(t, http.StatusOK, loggedIn.Code, loggedIn.Body.String())
+			var tokens struct {
+				Data struct {
+					AccessToken string `json:"access_token"`
+				} `json:"data"`
+			}
+			require.NoError(t, json.Unmarshal(loggedIn.Body.Bytes(), &tokens))
+			fetch := func(etag string) *httptest.ResponseRecorder {
+				req := httptest.NewRequest(http.MethodGet, "/configuration?targets=workbuddy", nil)
+				req.Header.Set("Authorization", "Bearer "+tokens.Data.AccessToken)
+				req.Header.Set("X-Installation-ID", conversationTestInstallation)
+				req.Header.Set("If-None-Match", etag)
+				recorder := httptest.NewRecorder()
+				router.ServeHTTP(recorder, req)
+				return recorder
+			}
+			first := fetch("")
+			require.Equal(t, http.StatusOK, first.Code, first.Body.String())
+			require.Equal(t, "no-store", first.Header().Get("Cache-Control"))
+			var payload struct {
+				Data service.DesktopModelConfiguration `json:"data"`
+			}
+			require.NoError(t, json.Unmarshal(first.Body.Bytes(), &payload))
+			require.Equal(t, []service.DesktopModel{{Model: "model", Visible: true, Enabled: true}}, payload.Data.Models)
+			require.Len(t, payload.Data.Targets, 1)
+			require.Equal(t, "model", payload.Data.Targets["workbuddy"].RequestedModel)
+			require.Equal(t, http.StatusNotModified, fetch(first.Header().Get("ETag")).Code)
+		})
+	}
 }

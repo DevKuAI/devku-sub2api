@@ -125,6 +125,14 @@ func (m *DesktopMember) ModelTokenStatus() string {
 type DesktopTargetConfig struct {
 	SchemaVersion int            `json:"schema_version"`
 	Targets       DesktopTargets `json:"targets"`
+	Models        []DesktopModel `json:"models"`
+}
+
+type DesktopModel struct {
+	Model   string `json:"model"`
+	Visible bool   `json:"visible"`
+	Enabled bool   `json:"enabled"`
+	Remark  string `json:"remark"`
 }
 
 type DesktopTargets struct {
@@ -143,8 +151,19 @@ type DesktopTarget struct {
 }
 
 func (c *DesktopTargetConfig) Validate() error {
-	if c == nil || c.SchemaVersion != 1 {
+	if c == nil || (c.SchemaVersion != 1 && c.SchemaVersion != 2) {
 		return ErrDesktopValidation.WithMetadata(map[string]string{"field": "target_config.schema_version"})
+	}
+	if c.SchemaVersion == 2 {
+		seen := make(map[string]bool, len(c.Models))
+		for _, model := range c.Models {
+			key := strings.ToLower(strings.TrimSpace(model.Model))
+			if key == "" || seen[key] || len([]rune(model.Model)) > 200 || len([]rune(model.Remark)) > 2000 {
+				return ErrDesktopValidation.WithMetadata(map[string]string{"field": "target_config.models"})
+			}
+			seen[key] = true
+		}
+		return nil
 	}
 	if c.Targets.ChatGPTCodex == nil && c.Targets.Workbuddy == nil {
 		return ErrDesktopValidation.WithMetadata(map[string]string{"field": "target_config.targets"})

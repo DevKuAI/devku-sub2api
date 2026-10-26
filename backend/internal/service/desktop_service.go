@@ -17,6 +17,7 @@ import (
 )
 
 type DesktopService struct {
+	modelCatalog        DesktopModelCatalog
 	reports             *DesktopReportService
 	sessions            DesktopSessionStore
 	conversations       DesktopConversationRepository
@@ -204,7 +205,48 @@ func (s *DesktopService) UpdateTargetConfig(ctx context.Context, publicID string
 	if err := target.Validate(); err != nil {
 		return nil, err
 	}
-	return s.repo.UpdateTargetConfig(ctx, publicID, target)
+	organization, err := s.repo.GetOrganization(ctx, publicID)
+	if err != nil {
+		return nil, err
+	}
+	resolved, err := s.resolveModelConfiguration(ctx, organization, false)
+	if err != nil {
+		return nil, err
+	}
+	if target.SchemaVersion == 2 {
+		allowed := make(map[string]string, len(resolved.Models))
+		for _, model := range resolved.Models {
+			allowed[strings.ToLower(model.Model)] = model.Model
+		}
+		models := make([]DesktopModel, 0, len(target.Models))
+		for _, model := range target.Models {
+			id, ok := allowed[strings.ToLower(strings.TrimSpace(model.Model))]
+			if !ok {
+				return nil, ErrDesktopValidation.WithMetadata(map[string]string{"field": "target_config.models"})
+			}
+			model.Model = id
+			model.Remark = strings.TrimSpace(model.Remark)
+			models = append(models, model)
+		}
+		// Legacy metadata is server-owned once model policies are unified.
+		legacy := DesktopTargets{}
+		if organization.TargetConfig != nil {
+			legacy = organization.TargetConfig.Targets
+		}
+		target = &DesktopTargetConfig{SchemaVersion: 2, Models: models, Targets: legacy}
+	}
+	updated, err := s.repo.UpdateTargetConfig(ctx, publicID, target)
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]string, 0, len(resolved.Models))
+	for _, model := range resolved.Models {
+		ids = append(ids, model.Model)
+	}
+	result := *updated
+	result.TargetConfig = resolveDesktopModels(updated, ids, false)
+	result.TargetConfigAssigned = true
+	return &result, nil
 }
 
 func (s *DesktopService) CreateMember(ctx context.Context, organizationPublicID string, input DesktopMemberCreateInput) (*DesktopMember, error) {
@@ -559,18 +601,20 @@ type DesktopModelConfiguration struct {
 	BaseURL                      string                   `json:"base_url"`
 	ModelToken                   string                   `json:"model_token"`
 	Targets                      map[string]DesktopTarget `json:"targets"`
+	Models                       []DesktopModel           `json:"models"`
 }
 
-func (s *DesktopService) ModelConfiguration(authorized *DesktopAuthorizedMember, requestedTargets []string) (*DesktopModelConfiguration, string, error) {
+func (s *DesktopService) ModelConfiguration(ctx context.Context, authorized *DesktopAuthorizedMember, requestedTargets []string) (*DesktopModelConfiguration, string, error) {
 	member, organization := authorized.Member, authorized.Organization
-	if member.CurrentAPIKeyID == nil || member.CurrentAPIKeyDeleted || member.CurrentAPIKeyStatus != StatusAPIKeyActive || member.CurrentAPIKey == "" || organization.TargetConfig == nil {
+	if member.CurrentAPIKeyID == nil || member.CurrentAPIKeyDeleted || member.CurrentAPIKeyStatus != StatusAPIKeyActive || member.CurrentAPIKey == "" {
 		return nil, "", ErrDesktopConfigurationMissing
 	}
-	selected := selectDesktopTargets(organization.TargetConfig, requestedTargets)
-	if len(selected) == 0 {
-		return nil, "", ErrDesktopConfigurationMissing
+	resolved, err := s.resolveModelConfiguration(ctx, organization, true)
+	if err != nil {
+		return nil, "", err
 	}
-	canonical, err := organization.TargetConfig.CanonicalJSON()
+	selected := selectDesktopTargets(resolved, requestedTargets)
+	canonical, err := resolved.CanonicalJSON()
 	if err != nil {
 		return nil, "", ErrDesktopConfigurationMissing.WithCause(err)
 	}
@@ -578,7 +622,7 @@ func (s *DesktopService) ModelConfiguration(authorized *DesktopAuthorizedMember,
 	return &DesktopModelConfiguration{
 		ConversationReportingEnabled: organization.ConversationReportingEnabled,
 		ConfigurationVersion:         version, BaseURL: s.config.PublicGatewayBaseURL,
-		ModelToken: member.CurrentAPIKey, Targets: selected,
+		ModelToken: member.CurrentAPIKey, Targets: selected, Models: resolved.Models,
 	}, version, nil
 }
 

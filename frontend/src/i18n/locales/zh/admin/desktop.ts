@@ -27,7 +27,7 @@ export default {
       organizationInfo: '企业信息',
       loadingOrganization: '正在加载企业信息…',
       membersHint: "管理成员资料、客户端访问权限和模型预算，查看每位成员的费用与 Token 用量。",
-      configurationHint: "配置 ChatGPT Codex 和 Workbuddy 使用的模型及客户端版本要求。日报与周期总结的分析模型在企业信息中设置。",
+      configurationHint: "统一管理企业绑定分组中的客户端模型。日报与周期总结的分析模型在企业信息中设置。",
       saveRetryHint: '检查并修正输入后，再次保存。',
       membersLoadFailed: '成员列表加载失败，请重试加载。',
       tableScrollHint: '表格可横向滚动，查看完整信息和操作。',
@@ -323,6 +323,13 @@ export default {
     phone: '手机号',
     phoneHint: '支持 13800138000 或 +8613800138000，保存后统一为 +86 格式',
     configuration: "客户端模型",
+    models: {
+      visible: "对企业可见",
+      enabled: "对企业可用",
+      remark: "备注",
+      empty: "暂无可展示的模型",
+      hint: "模型来自企业当前绑定分组。新增模型默认隐藏且禁用；可用状态仅用于客户端配置下发。",
+    },
     configurationReadOnly: "客户端模型由平台管理员配置，此处仅供查看。如需调整，请联系平台管理员。",
     modelToken: "模型密钥",
     usageStatistics: {
