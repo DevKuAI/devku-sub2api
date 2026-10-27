@@ -106,7 +106,7 @@ func conversationRouter(t *testing.T, reporting ...bool) (*gin.Engine, *conversa
 	require.NoError(t, err)
 	repo := &conversationAuthRepo{authorized: &service.DesktopAuthorizedMember{
 		Member:       &service.DesktopMember{ID: 1, PublicID: "mem_one", OrganizationID: 2, Name: "Member", NameNormalized: "Member", Status: "active", AuthVersion: 1},
-		Organization: &service.DesktopOrganization{ID: 2, PublicID: "org_one", Status: "active", AuthVersion: 1}, GatewayUser: &service.User{Status: "active"},
+		Organization: &service.DesktopOrganization{ID: 2, PublicID: "org_one", Code: "desktop", Name: "Desktop organization", Status: "active", AuthVersion: 1}, GatewayUser: &service.User{Status: "active"},
 	}}
 	repo.authorized.Organization.ConversationReportingEnabled = len(reporting) == 0 || reporting[0]
 	keyID := int64(7)
@@ -398,6 +398,17 @@ func TestDesktopUnifiedConfigurationAcceptsBothAuthenticationVersions(t *testing
 			require.Equal(t, []service.DesktopModel{{Model: "model", Visible: true, Enabled: true}}, payload.Data.Models)
 			require.Len(t, payload.Data.Targets, 1)
 			require.Equal(t, "model", payload.Data.Targets["workbuddy"].RequestedModel)
+			var fields struct {
+				Data struct {
+					Targets map[string]map[string]json.RawMessage
+				}
+			}
+			require.NoError(t, json.Unmarshal(first.Body.Bytes(), &fields))
+			require.Len(t, fields.Data.Targets["workbuddy"], 7)
+			for _, field := range []string{"enabled", "provider_id", "display_name", "requested_model", "wire_api", "minimum_app_version", "restart_required"} {
+				require.Contains(t, fields.Data.Targets["workbuddy"], field)
+			}
+			require.Equal(t, "Desktop organization", payload.Data.Targets["workbuddy"].DisplayName)
 			require.Equal(t, http.StatusNotModified, fetch(first.Header().Get("ETag")).Code)
 		})
 	}

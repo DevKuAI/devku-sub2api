@@ -542,10 +542,12 @@ describe('DesktopOrganizationDetailView', () => {
     await flushPromises()
     const panel = wrapper.get('[role="tabpanel"]')
 
-    for (const value of ['model-one', 'Ready', 'model-two', 'Maintenance', 'common.enabled', 'common.disabled']) {
+    for (const value of ['model-one', 'Ready', 'common.enabled']) {
       expect(panel.text()).toContain(value)
     }
     expect(panel.text()).not.toContain('Private')
+    expect(panel.text()).not.toContain('model-two')
+    expect(panel.text()).not.toContain('Maintenance')
     expect(panel.find('form, input, input-stub, select, textarea, button').exists()).toBe(false)
     expect(wrapper.findAll('button').some((button) => button.text() === 'common.edit')).toBe(false)
     await (wrapper.vm as any).saveConfiguration()
@@ -727,14 +729,19 @@ describe('DesktopOrganizationDetailView', () => {
     wrapper.unmount()
   })
 
-  it('edits independent model switches, cancels drafts, and protects unsaved changes', async () => {
+  it('links model visibility to availability, cancels drafts, and protects unsaved changes', async () => {
     route.query.tab = 'configuration'
     const initial = { model: 'model-one', visible: false, enabled: false, remark: '' }
     desktopAPI.getOrganization.mockResolvedValue({ ...organization, target_config: { schema_version: 2, models: [initial] } })
     const wrapper = mountView(); await flushPromises()
     const row = wrapper.get('[data-model="model-one"]')
-    await row.findAll('input')[1]!.setValue(true)
-    await row.get('textarea').setValue('Internal')
+    await row.findAll('input[type="checkbox"]')[0]!.setValue(true)
+    expect((wrapper.vm as any).configForm.models[0]).toEqual({ ...initial, visible: true, enabled: true })
+    await row.findAll('input[type="checkbox"]')[1]!.setValue(false)
+    expect((wrapper.vm as any).configForm.models[0]).toEqual(initial)
+    await row.findAll('input[type="checkbox"]')[1]!.setValue(true)
+    expect(row.find('textarea').exists()).toBe(false)
+    await row.get('input[type="text"]').setValue('Internal')
     const vm = wrapper.vm as any
     expect(vm.configForm.models[0]).toEqual({ ...initial, enabled: true, remark: 'Internal' })
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
@@ -775,10 +782,100 @@ describe('DesktopOrganizationDetailView', () => {
     const models = [{ ...initial, remark: 'Updated' }]
     desktopAPI.updateModelConfiguration.mockResolvedValueOnce({ ...organization, target_config: { schema_version: 2, models } })
     await vm.saveConfiguration()
-    expect(desktopAPI.updateModelConfiguration).toHaveBeenLastCalledWith('org_one', { schema_version: 2, models })
+    expect(desktopAPI.updateModelConfiguration).toHaveBeenLastCalledWith('org_one', expect.objectContaining({ schema_version: 2, models }))
+    const payload = desktopAPI.updateModelConfiguration.mock.calls.at(-1)![1]
+    expect(payload.targets.chatgpt_codex.requested_model).toBe('model-one')
+    expect(payload.targets.workbuddy.requested_model).toBe('model-one')
     expect(vm.configurationDirty).toBe(false)
     wrapper.unmount()
   })
+  it('saves separate client metadata with the shared model list and cancels metadata drafts', async () => {
+    route.query.tab = 'configuration'
+    const initial = { model: 'model-one', visible: true, enabled: true, remark: 'Shared' }
+    const chat = { enabled: true, provider_id: 'chat', display_name: 'Codex display', wire_api: 'responses', requested_model: 'model-one', minimum_app_version: '1.0.0', restart_required: true }
+    const work = { enabled: false, provider_id: 'work', display_name: 'Workbuddy display', wire_api: 'chat_completions', requested_model: 'model-one', minimum_app_version: null, restart_required: false }
+    const configured = { ...organization, target_config: { schema_version: 2, models: [initial], targets: { chatgpt_codex: chat, workbuddy: work } } }
+    desktopAPI.getOrganization.mockResolvedValue(configured)
+    const wrapper = mountView(); await flushPromises()
+    const vm = wrapper.vm as any
+    expect(wrapper.findAll('[data-client]')).toHaveLength(2)
+    expect(wrapper.findAll('[data-model]')).toHaveLength(1)
+    vm.configForm.targets.workbuddy.display_name = 'New name'
+    expect(vm.configurationDirty).toBe(true)
+    vm.cancelConfiguration()
+    expect(vm.configForm.targets.workbuddy.display_name).toBe('Workbuddy display')
+    vm.configForm.targets.workbuddy.display_name = 'New name'
+    vm.configForm.targets.workbuddy.minimum_app_version = '2.0.0'
+    vm.configForm.targets.workbuddy.restart_required = true
+    desktopAPI.updateModelConfiguration.mockResolvedValue(configured)
+    await vm.saveConfiguration()
+    expect(desktopAPI.updateModelConfiguration).toHaveBeenLastCalledWith('org_one', {
+      schema_version: 2, models: [initial], targets: { chatgpt_codex: chat, workbuddy: { ...work, display_name: 'New name', minimum_app_version: '2.0.0', restart_required: true } },
+    })
+    wrapper.unmount()
+  })
+
+  it('shows separate client metadata to the organization as read-only', async () => {
+    route.query.tab = 'configuration'
+    managedDesktopAPI.getOrganization.mockResolvedValue({ ...organization, target_config: { schema_version: 2, models: [], targets: {
+      chatgpt_codex: { enabled: true, provider_id: 'chat-provider', display_name: 'Codex display', requested_model: '', wire_api: 'responses', minimum_app_version: '1.2.3', restart_required: true },
+      workbuddy: { enabled: false, provider_id: 'work-provider', display_name: 'Workbuddy display', requested_model: '', wire_api: 'chat_completions', minimum_app_version: null, restart_required: false },
+    } } })
+    const wrapper = mountManagedView(); await flushPromises()
+    const panel = wrapper.get('[role="tabpanel"]')
+    for (const value of ['chat-provider', 'work-provider', 'Codex display', 'Workbuddy display', '/responses', '/chat/completions', '1.2.3', 'common.yes', 'common.no']) expect(panel.text()).toContain(value)
+    expect(panel.find('form, input, textarea').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('labels client activation as an action and separately reports its disabled state', async () => {
+    route.query.tab = 'configuration'
+    desktopAPI.getOrganization.mockResolvedValue({ ...organization, target_config: { schema_version: 2, models: [], targets: {
+      workbuddy: { enabled: false, provider_id: 'work', display_name: 'Workbuddy', requested_model: '', wire_api: 'chat_completions', minimum_app_version: null, restart_required: false },
+    } } })
+    const wrapper = mountView(); await flushPromises()
+    const client = wrapper.get('[data-client="workbuddy"]')
+    const toggle = client.findAll('input[type="checkbox"]')[0]!
+    expect(toggle.attributes('aria-label')).toContain('admin.desktop.models.enableClient')
+    expect((toggle.element as HTMLInputElement).checked).toBe(false)
+    expect(client.text()).toContain('common.disabled')
+    await toggle.setValue(true)
+    expect(client.text()).toContain('common.enabled')
+    wrapper.unmount()
+  })
+
+  it('keeps the model empty state actionable while client settings remain editable', async () => {
+    route.query.tab = 'configuration'
+    const wrapper = mountView(); await flushPromises()
+    const panel = wrapper.get('[role="tabpanel"]')
+    expect(panel.text()).toContain('admin.desktop.models.emptyHint')
+    expect(wrapper.findAllComponents({ name: 'RouterLink' }).some(link => link.props('to') === '/admin/groups')).toBe(true)
+    expect(panel.findAll('[data-client]')).toHaveLength(2)
+    wrapper.unmount()
+  })
+
+  it('keeps the save control focusable while saving and ignores repeated submissions', async () => {
+    route.query.tab = 'configuration'
+    const model = { model: 'model-one', visible: true, enabled: true, remark: '' }
+    desktopAPI.getOrganization.mockResolvedValue({ ...organization, target_config: { schema_version: 2, models: [model] } })
+    const wrapper = mountView(); await flushPromises()
+    const vm = wrapper.vm as any
+    vm.configForm.models[0].remark = 'Draft'
+    let failSave!: (cause: Error) => void
+    desktopAPI.updateModelConfiguration.mockReturnValueOnce(new Promise((_resolve, reject) => { failSave = reject }))
+    const pending = vm.saveConfiguration(); await flushPromises()
+    const save = wrapper.get('.desktop-model-config button[type="submit"]')
+    expect(save.attributes('disabled')).toBeUndefined()
+    expect(save.attributes('aria-disabled')).toBe('true')
+    await vm.saveConfiguration()
+    expect(desktopAPI.updateModelConfiguration).toHaveBeenCalledTimes(1)
+    failSave(new Error('Unavailable')); await pending; await flushPromises()
+    expect(save.attributes('disabled')).toBeUndefined()
+    expect(save.attributes('aria-disabled')).toBeUndefined()
+    expect(vm.configForm.models[0].remark).toBe('Draft')
+    wrapper.unmount()
+  })
+
   it('keeps unavailable organization configuration out of the interactive flow', async () => {
     route.query.tab = 'configuration'
     desktopAPI.getOrganization.mockRejectedValueOnce(new Error('Unavailable'))

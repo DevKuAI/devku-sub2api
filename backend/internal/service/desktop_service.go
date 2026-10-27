@@ -213,6 +213,10 @@ func (s *DesktopService) UpdateTargetConfig(ctx context.Context, publicID string
 	if err != nil {
 		return nil, err
 	}
+	ids := make([]string, 0, len(resolved.Models))
+	for _, model := range resolved.Models {
+		ids = append(ids, model.Model)
+	}
 	if target.SchemaVersion == 2 {
 		allowed := make(map[string]string, len(resolved.Models))
 		for _, model := range resolved.Models {
@@ -228,20 +232,21 @@ func (s *DesktopService) UpdateTargetConfig(ctx context.Context, publicID string
 			model.Remark = strings.TrimSpace(model.Remark)
 			models = append(models, model)
 		}
-		// Legacy metadata is server-owned once model policies are unified.
-		legacy := DesktopTargets{}
-		if organization.TargetConfig != nil {
-			legacy = organization.TargetConfig.Targets
+		// Models are shared; omitted client settings retain their current values.
+		clients := resolved.Targets
+		if target.Targets.ChatGPTCodex != nil {
+			clients.ChatGPTCodex = target.Targets.ChatGPTCodex
 		}
-		target = &DesktopTargetConfig{SchemaVersion: 2, Models: models, Targets: legacy}
+		if target.Targets.Workbuddy != nil {
+			clients.Workbuddy = target.Targets.Workbuddy
+		}
+		configured := *organization
+		configured.TargetConfig = &DesktopTargetConfig{SchemaVersion: 2, Models: models, Targets: clients}
+		target = resolveDesktopModels(&configured, ids, false)
 	}
 	updated, err := s.repo.UpdateTargetConfig(ctx, publicID, target)
 	if err != nil {
 		return nil, err
-	}
-	ids := make([]string, 0, len(resolved.Models))
-	for _, model := range resolved.Models {
-		ids = append(ids, model.Model)
 	}
 	result := *updated
 	result.TargetConfig = resolveDesktopModels(updated, ids, false)
@@ -780,10 +785,10 @@ func selectDesktopTargets(targetConfig *DesktopTargetConfig, requested []string)
 	}
 	include := func(name string) bool { return len(wanted) == 0 || wanted[name] }
 	selected := make(map[string]DesktopTarget, 2)
-	if target := targetConfig.Targets.ChatGPTCodex; target != nil && target.Enabled && include("chatgpt_codex") {
+	if target := targetConfig.Targets.ChatGPTCodex; target != nil && include("chatgpt_codex") {
 		selected["chatgpt_codex"] = *target
 	}
-	if target := targetConfig.Targets.Workbuddy; target != nil && target.Enabled && include("workbuddy") {
+	if target := targetConfig.Targets.Workbuddy; target != nil && include("workbuddy") {
 		selected["workbuddy"] = *target
 	}
 	return selected

@@ -1,0 +1,62 @@
+/* Model permissions and client settings stay within the existing detail page. */
+.desktop-model-config { container: model-config / inline-size; display: grid; width: 100%; min-width: 0; gap: 28px; padding-block-end: 12px; }
+.desktop-model-config :where(input, textarea, button, a) { scroll-margin-block: 10rem 6rem; }
+.desktop-model-config .model-config-intro { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px 24px; }
+.desktop-model-config .model-config-title { @apply text-xl font-semibold text-gray-900 dark:text-white; line-height: 1.3; }
+.desktop-model-config .model-section-title { @apply text-base font-semibold text-gray-900 dark:text-gray-100; line-height: 1.4; }
+.desktop-model-config .model-config-description { @apply mt-1.5 text-sm text-gray-600 dark:text-dark-300; max-width: 68ch; line-height: 1.6; overflow-wrap: anywhere; }
+.desktop-model-config .model-config-counts { @apply text-sm text-gray-700 dark:text-dark-200; padding-block: 4px; line-height: 1.6; font-variant-numeric: tabular-nums; }
+.desktop-model-config .model-catalog { @apply rounded-2xl border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-900; padding: 20px; min-width: 0; transition: none; }
+.desktop-model-config .model-section-header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px 20px; }
+.desktop-model-config .model-scope-label { @apply inline-flex rounded-full bg-primary-50 px-3 py-1 text-xs font-medium text-primary-800 dark:bg-primary-950 dark:text-primary-200; max-width: 100%; line-height: 1.5; }
+.desktop-model-config .model-permissions-hint { @apply mt-4 text-sm text-gray-600 dark:text-dark-300; max-width: 75ch; line-height: 1.6; }
+.desktop-model-config .model-catalog-columns { display: none; }
+.desktop-model-config .model-catalog-list { @apply mt-5; min-width: 0; }
+.desktop-model-config .model-catalog-row { @apply border-t border-gray-200 dark:border-dark-700; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; padding-block: 16px; min-width: 0; }
+.desktop-model-config .model-identity, .desktop-model-config .model-remark-field { display: grid; align-content: start; gap: 6px; min-width: 0; }
+.desktop-model-config .model-field-label { @apply text-sm font-medium text-gray-700 dark:text-dark-200; line-height: 1.5; }
+.desktop-model-config .model-identifier { @apply font-mono text-sm font-medium text-gray-900 dark:text-gray-100; line-height: 1.5; overflow-wrap: anywhere; }
+.desktop-model-config .model-permission-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-width: 0; }
+.desktop-model-config .model-permission-option { @apply rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700 dark:bg-dark-800 dark:text-dark-200; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; min-width: 0; cursor: pointer; line-height: 1.5; }
+.desktop-model-config input[type='checkbox'] { width: 18px; height: 18px; flex-shrink: 0; accent-color: theme('colors.primary.600'); }
+.desktop-model-config :where(.model-client-enable, .model-restart-option) { @apply text-sm text-gray-700 dark:text-dark-200; display: inline-flex; align-items: center; gap: 10px; min-height: 44px; max-width: 100%; cursor: pointer; line-height: 1.5; }
+.desktop-model-config :where(label, span) { overflow-wrap: anywhere; }
+.desktop-model-config .input { @apply border-gray-500 dark:border-dark-400; min-width: 0; min-height: 44px; line-height: 1.5; transition: none; }
+.desktop-model-config .model-empty-state { @apply mt-5 rounded-xl bg-gray-50 p-5 dark:bg-dark-800; min-width: 0; }
+.desktop-model-config .model-settings-link { @apply mt-3 inline-flex items-center text-sm font-medium text-primary-700 underline underline-offset-4 dark:text-primary-300; min-height: 44px; line-height: 1.5; }
+.desktop-model-config .model-clients-section { display: grid; gap: 16px; min-width: 0; }
+.desktop-model-config .model-client-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; min-width: 0; }
+.desktop-model-config .model-client-card { @apply rounded-2xl border border-gray-200 bg-white shadow-card dark:border-dark-700 dark:bg-dark-900; container: model-client / inline-size; width: 100%; min-inline-size: 0; padding: 20px; }
+.desktop-model-config .model-client-header { display: grid; gap: 8px; min-width: 0; margin-block-end: 20px; }
+.desktop-model-config .model-client-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px; }
+.desktop-model-config .model-client-status { @apply rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700 dark:bg-dark-700 dark:text-dark-200; line-height: 1.5; }
+.desktop-model-config .model-client-status-enabled { @apply bg-primary-50 text-primary-800 dark:bg-primary-950 dark:text-primary-200; }
+.desktop-model-config .model-client-fields { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; }
+.desktop-model-config .model-client-name { grid-column: 1 / -1; min-width: 0; }
+.desktop-model-config .model-client-footer { display: grid; gap: 12px; margin-block-start: 20px; min-width: 0; }
+.desktop-model-config .model-protocol { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; min-width: 0; }
+.desktop-model-config .model-protocol code { @apply rounded-lg bg-gray-100 px-2.5 py-1.5 font-mono text-sm text-gray-700 dark:bg-dark-800 dark:text-dark-200; line-height: 1.5; overflow-wrap: anywhere; }
+.desktop-model-config .model-config-actions { @apply rounded-xl border border-gray-200 bg-white shadow-card dark:border-dark-700 dark:bg-dark-900; position: sticky; z-index: 10; bottom: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 20px; padding: 12px 16px; }
+.desktop-model-config .model-save-state { @apply text-sm text-gray-700 dark:text-dark-200; line-height: 1.5; }
+.desktop-model-config .model-config-buttons { display: flex; flex-wrap: wrap; gap: 12px; }
+.desktop-model-config .model-config-buttons .btn[aria-disabled='true'] { opacity: 0.5; cursor: wait; transform: none; }
+.desktop-model-config .model-config-buttons .btn { min-height: 44px; white-space: normal; line-height: 1.5; }
+@container model-config (min-width: 48rem) {
+  .desktop-model-config .model-catalog-columns { @apply text-sm font-medium text-gray-600 dark:text-dark-300; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 1.25fr); gap: 20px; margin-block-start: 20px; padding-block-end: 10px; line-height: 1.5; }
+  .desktop-model-config .model-catalog-list { margin-block-start: 0; }
+  .desktop-model-config .model-catalog-row .model-field-label { @apply sr-only; }
+  .desktop-model-config .model-catalog-row { padding-block: 12px; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 1.25fr); align-items: center; gap: 20px; }
+}
+@container model-config (min-width: 60rem) {
+  .desktop-model-config .model-client-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container model-config (max-width: 35.999rem) {
+  .desktop-model-config .model-catalog, .desktop-model-config .model-client-card { padding: 16px; }
+  .desktop-model-config .model-config-actions { align-items: stretch; }
+  .desktop-model-config .model-save-state, .desktop-model-config .model-config-buttons { width: 100%; }
+  .desktop-model-config .model-config-buttons .btn { flex: 1 1 0; }
+  .desktop-model-config .input { font-size: 1rem; }
+}
+@container model-client (min-width: 26rem) {
+  .desktop-model-config .model-client-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
