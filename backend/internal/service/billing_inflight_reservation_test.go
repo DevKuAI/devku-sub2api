@@ -449,19 +449,25 @@ func TestInflightEstimate_AccountMappingNoDBAndBoundedMemory(t *testing.T) {
 	}
 	require.Zero(t, snap.reads.Load(), "priced models must never trigger account-mapping lookup")
 
-	var before, after runtime.MemStats
-	runtime.GC()
-	runtime.ReadMemStats(&before)
-	const n = 20000
-	for i := 0; i < n; i++ {
-		_, priced := svc.EstimateInflightReservation(ctx, apiKey, InflightEstimateRequest{Model: fmt.Sprintf("rand-%d-%d", i, time.Now().UnixNano()), BodyBytes: 4000, MaxTokens: 1000})
-		require.False(t, priced)
+	// 同包其他测试遗留的 goroutine 会让单次 HeapAlloc 差值抖动到阈值附近。
+	// 每轮都用新的模型名：若存在按模型名的缓存，每轮都会增长，取最小值不会漏检。
+	const n, rounds = 20000, 3
+	minGrowth := int64(math.MaxInt64)
+	for round := 0; round < rounds; round++ {
+		var before, after runtime.MemStats
+		runtime.GC()
+		runtime.ReadMemStats(&before)
+		for i := 0; i < n; i++ {
+			_, priced := svc.EstimateInflightReservation(ctx, apiKey, InflightEstimateRequest{Model: fmt.Sprintf("rand-%d-%d-%d", round, i, time.Now().UnixNano()), BodyBytes: 4000, MaxTokens: 1000})
+			require.False(t, priced)
+		}
+		runtime.GC()
+		runtime.ReadMemStats(&after)
+		minGrowth = min(minGrowth, int64(after.HeapAlloc)-int64(before.HeapAlloc))
 	}
-	runtime.GC()
-	runtime.ReadMemStats(&after)
 	require.Zero(t, repo.dbCalls.Load(), "no direct DB query on the request path")
-	require.Equal(t, int64(n), snap.reads.Load(), "unpriced lookups read the scheduler snapshot only")
-	require.Less(t, int64(after.HeapAlloc)-int64(before.HeapAlloc), int64(8<<20), "no per-model cache growth")
+	require.Equal(t, int64(n*rounds), snap.reads.Load(), "unpriced lookups read the scheduler snapshot only")
+	require.Less(t, minGrowth, int64(8<<20), "no per-model cache growth")
 }
 
 // 无分组 API Key：使用调度器的未分组账号池，估算与计费回退的账号映射模型同口径。
