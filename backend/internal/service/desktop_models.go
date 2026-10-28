@@ -163,6 +163,16 @@ func (c *DesktopTargetConfig) Validate() error {
 			}
 			seen[key] = true
 		}
+		if target := c.Targets.ChatGPTCodex; target != nil {
+			if err := validateDesktopTargetMetadata("chatgpt_codex", target, DesktopWireAPIResponses); err != nil {
+				return err
+			}
+		}
+		if target := c.Targets.Workbuddy; target != nil {
+			if err := validateDesktopTargetMetadata("workbuddy", target, DesktopWireAPIChatCompletions); err != nil {
+				return err
+			}
+		}
 		return nil
 	}
 	if c.Targets.ChatGPTCodex == nil && c.Targets.Workbuddy == nil {
@@ -182,10 +192,20 @@ func (c *DesktopTargetConfig) Validate() error {
 }
 
 func validateDesktopTarget(name string, target *DesktopTarget, expectedWireAPI string) error {
+	if err := validateDesktopTargetMetadata(name, target, expectedWireAPI); err != nil {
+		return err
+	}
+	if strings.TrimSpace(target.RequestedModel) == "" {
+		return ErrDesktopValidation.WithMetadata(map[string]string{"field": "target_config.targets." + name})
+	}
+	return nil
+}
+
+func validateDesktopTargetMetadata(name string, target *DesktopTarget, expectedWireAPI string) error {
 	if target.WireAPI != expectedWireAPI {
 		return ErrDesktopValidation.WithMetadata(map[string]string{"field": "target_config.targets." + name + ".wire_api"})
 	}
-	if strings.TrimSpace(target.ProviderID) == "" || strings.TrimSpace(target.DisplayName) == "" || strings.TrimSpace(target.RequestedModel) == "" {
+	if strings.TrimSpace(target.ProviderID) == "" || strings.TrimSpace(target.DisplayName) == "" {
 		return ErrDesktopValidation.WithMetadata(map[string]string{"field": "target_config.targets." + name})
 	}
 	return nil
@@ -210,6 +230,9 @@ func DecodeDesktopTargetConfig(raw []byte) (*DesktopTargetConfig, error) {
 	}
 	if err := config.Validate(); err != nil {
 		return nil, err
+	}
+	for i := range config.Models {
+		config.Models[i].Visible = config.Models[i].Visible && config.Models[i].Enabled
 	}
 	return &config, nil
 }

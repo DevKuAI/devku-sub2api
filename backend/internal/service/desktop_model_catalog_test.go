@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -38,22 +39,24 @@ func TestDesktopUnifiedModelsVisibilityAndLegacyTargets(t *testing.T) {
 	configuration, tag, err := svc.ModelConfiguration(context.Background(), authorized, []string{"workbuddy"})
 	require.NoError(t, err)
 	require.Equal(t, []int64{12}, groups)
-	require.Len(t, configuration.Models, 2)
-	require.Equal(t, "maintenance", configuration.Models[1].Remark)
-	require.False(t, configuration.Models[1].Enabled)
+	require.Len(t, configuration.Models, 1)
+	require.Equal(t, "ready", configuration.Models[0].Remark)
 	require.Len(t, configuration.Targets, 1)
 	require.Equal(t, "visible-enabled", configuration.Targets["workbuddy"].RequestedModel)
 	require.Equal(t, DesktopWireAPIChatCompletions, configuration.Targets["workbuddy"].WireAPI)
 	admin, err := svc.ResolveOrganizationModels(context.Background(), authorized.Organization, false)
 	require.NoError(t, err)
 	require.Len(t, admin.TargetConfig.Models, 5)
+	require.False(t, admin.TargetConfig.Models[1].Visible)
+	require.False(t, admin.TargetConfig.Models[1].Enabled)
 	require.Equal(t, DesktopModel{Model: "new-model"}, admin.TargetConfig.Models[4])
 	require.Equal(t, "visible-enabled", admin.TargetConfig.Targets.ChatGPTCodex.RequestedModel)
 	require.Equal(t, "visible-enabled", admin.TargetConfig.Targets.Workbuddy.RequestedModel)
 	// A projection must never overwrite stored policy or legacy provider metadata.
 	require.Len(t, authorized.Organization.TargetConfig.Models, 5)
+	require.True(t, authorized.Organization.TargetConfig.Models[1].Visible)
 	require.Nil(t, authorized.Organization.TargetConfig.Targets.Workbuddy)
-	authorized.Organization.TargetConfig.Models[1].Remark = "updated"
+	authorized.Organization.TargetConfig.Models[0].Remark = "updated"
 	_, changed, err := svc.ModelConfiguration(context.Background(), authorized, []string{"workbuddy"})
 	require.NoError(t, err)
 	require.NotEqual(t, tag, changed)
@@ -77,7 +80,9 @@ func TestDesktopUnifiedModelsLegacyUnionAndEmptyConfigurations(t *testing.T) {
 		require.NotNil(t, configuration.Models)
 		require.Empty(t, configuration.Models)
 		require.NotNil(t, configuration.Targets)
-		require.Empty(t, configuration.Targets)
+		require.Len(t, configuration.Targets, 2)
+		require.Empty(t, configuration.Targets["workbuddy"].RequestedModel)
+		require.Equal(t, authorized.Organization.Name, configuration.Targets["workbuddy"].DisplayName)
 	}
 	svc.WithModelCatalog(desktopCatalogStub{err: errors.New("catalog unavailable")})
 	_, _, err = svc.ModelConfiguration(context.Background(), authorized, nil)
@@ -94,6 +99,11 @@ func TestDesktopUnifiedModelValidation(t *testing.T) {
 	decoded, err := DecodeDesktopTargetConfig([]byte(`{"schema_version":2,"models":[],"targets":{}}`))
 	require.NoError(t, err)
 	require.Equal(t, 2, decoded.SchemaVersion)
+	decoded, err = DecodeDesktopTargetConfig([]byte(`{"schema_version":2,"models":[{"model":"disabled","visible":true,"enabled":false,"remark":"maintenance"}],"targets":{}}`))
+	require.NoError(t, err)
+	require.False(t, decoded.Models[0].Visible)
+	require.False(t, decoded.Models[0].Enabled)
+	require.Equal(t, "maintenance", decoded.Models[0].Remark)
 }
 
 type desktopCatalogGroupRepo struct {
@@ -147,7 +157,117 @@ func TestDesktopUnifiedModelSaveValidatesCurrentCatalogBeforePersistence(t *test
 	require.Equal(t, 1, repo.targetConfigUpdates)
 	require.Equal(t, 2, repo.organization.TargetConfig.SchemaVersion)
 	require.Equal(t, "maintenance", updated.TargetConfig.Models[0].Remark)
+	require.False(t, repo.organization.TargetConfig.Models[0].Visible)
+	require.False(t, updated.TargetConfig.Models[0].Visible)
 	require.False(t, updated.TargetConfig.Models[1].Visible)
-	require.Empty(t, updated.TargetConfig.Targets)
+	require.Empty(t, updated.TargetConfig.Targets.ChatGPTCodex.RequestedModel)
+	require.Empty(t, updated.TargetConfig.Targets.Workbuddy.RequestedModel)
 	require.Equal(t, "provider", repo.organization.TargetConfig.Targets.ChatGPTCodex.ProviderID)
+}
+
+func TestDesktopUnifiedModelsSaveIndependentClientSettings(t *testing.T) {
+	org := activeDesktopAuthorization().Organization
+	repo := &desktopRepositoryStub{organization: org}
+	svc := (&DesktopService{repo: repo}).WithModelCatalog(desktopCatalogStub{ids: []string{"model-one"}})
+	version := "2.3.4"
+	chat := &DesktopTarget{Enabled: true, ProviderID: "chat-provider", DisplayName: "Codex display", WireAPI: DesktopWireAPIResponses, MinimumAppVersion: &version, RestartRequired: true}
+	work := &DesktopTarget{Enabled: false, ProviderID: "work-provider", DisplayName: "Workbuddy display", WireAPI: DesktopWireAPIChatCompletions}
+	updated, err := svc.UpdateTargetConfig(context.Background(), org.PublicID, &DesktopTargetConfig{
+		SchemaVersion: 2, Models: []DesktopModel{{Model: "model-one", Visible: true, Enabled: true}},
+		Targets: DesktopTargets{ChatGPTCodex: chat, Workbuddy: work},
+	})
+	require.NoError(t, err)
+	require.Equal(t, "Codex display", repo.organization.TargetConfig.Targets.ChatGPTCodex.DisplayName)
+	require.Equal(t, "Workbuddy display", repo.organization.TargetConfig.Targets.Workbuddy.DisplayName)
+	require.False(t, updated.TargetConfig.Targets.Workbuddy.Enabled)
+	require.Equal(t, "model-one", updated.TargetConfig.Targets.ChatGPTCodex.RequestedModel)
+	require.Equal(t, "model-one", updated.TargetConfig.Targets.Workbuddy.RequestedModel)
+	require.Equal(t, &version, updated.TargetConfig.Targets.ChatGPTCodex.MinimumAppVersion)
+	require.True(t, updated.TargetConfig.Targets.ChatGPTCodex.RestartRequired)
+	require.Nil(t, updated.TargetConfig.Targets.Workbuddy.MinimumAppVersion)
+	require.False(t, updated.TargetConfig.Targets.Workbuddy.RestartRequired)
+	authorized := activeDesktopAuthorization()
+	authorized.Organization = repo.organization
+	payload, _, err := svc.ModelConfiguration(context.Background(), authorized, nil)
+	require.NoError(t, err)
+	require.Len(t, payload.Targets, 2)
+	require.Equal(t, "Workbuddy display", payload.Targets["workbuddy"].DisplayName)
+	require.False(t, payload.Targets["workbuddy"].Enabled)
+}
+
+func TestDesktopUnifiedModelsKeepClientFieldsWithoutUsableModels(t *testing.T) {
+	authorized := activeDesktopAuthorization()
+	version := "1.2.3"
+	authorized.Organization.TargetConfig = &DesktopTargetConfig{
+		SchemaVersion: 2, Models: []DesktopModel{{Model: "model-one", Visible: true, Enabled: false}},
+		Targets: DesktopTargets{Workbuddy: &DesktopTarget{Enabled: false, ProviderID: "provider", DisplayName: "Workbuddy name", WireAPI: DesktopWireAPIChatCompletions, MinimumAppVersion: &version, RestartRequired: true}},
+	}
+	svc := (&DesktopService{}).WithModelCatalog(desktopCatalogStub{ids: []string{"model-one"}})
+	payload, _, err := svc.ModelConfiguration(context.Background(), authorized, nil)
+	require.NoError(t, err)
+	require.Len(t, payload.Targets, 2)
+	raw, err := json.Marshal(payload)
+	require.NoError(t, err)
+	var decoded map[string]any
+	require.NoError(t, json.Unmarshal(raw, &decoded))
+	targets, ok := decoded["targets"].(map[string]any)
+	require.True(t, ok)
+	work, ok := targets["workbuddy"].(map[string]any)
+	require.True(t, ok)
+	require.Len(t, work, 7)
+	require.Equal(t, "Workbuddy name", work["display_name"])
+	require.Equal(t, "", work["requested_model"])
+	require.Equal(t, false, work["enabled"])
+	require.Equal(t, "1.2.3", work["minimum_app_version"])
+	require.Equal(t, true, work["restart_required"])
+}
+
+func TestDesktopUnifiedModelsKeepOmittedClientSettings(t *testing.T) {
+	org := activeDesktopAuthorization().Organization
+	repo := &desktopRepositoryStub{organization: org}
+	svc := (&DesktopService{repo: repo}).WithModelCatalog(desktopCatalogStub{ids: []string{"model-one"}})
+	models := []DesktopModel{{Model: "model-one", Visible: true, Enabled: true}}
+	work := &DesktopTarget{Enabled: false, ProviderID: "work-provider", DisplayName: "Workbuddy display", WireAPI: DesktopWireAPIChatCompletions}
+	_, err := svc.UpdateTargetConfig(context.Background(), org.PublicID, &DesktopTargetConfig{SchemaVersion: 2, Models: models, Targets: DesktopTargets{Workbuddy: work}})
+	require.NoError(t, err)
+	require.Equal(t, "Model", repo.organization.TargetConfig.Targets.ChatGPTCodex.DisplayName)
+	updated, err := svc.UpdateTargetConfig(context.Background(), org.PublicID, &DesktopTargetConfig{SchemaVersion: 2, Models: models})
+	require.NoError(t, err)
+	require.Equal(t, "Workbuddy display", updated.TargetConfig.Targets.Workbuddy.DisplayName)
+	require.False(t, updated.TargetConfig.Targets.Workbuddy.Enabled)
+}
+
+func TestDesktopUnifiedClientSettingsValidation(t *testing.T) {
+	for _, target := range []*DesktopTarget{
+		{ProviderID: "provider", DisplayName: "", WireAPI: DesktopWireAPIChatCompletions},
+		{ProviderID: "", DisplayName: "Workbuddy", WireAPI: DesktopWireAPIChatCompletions},
+		{ProviderID: "provider", DisplayName: "Workbuddy", WireAPI: DesktopWireAPIResponses},
+	} {
+		cfg := &DesktopTargetConfig{SchemaVersion: 2, Models: []DesktopModel{}, Targets: DesktopTargets{Workbuddy: target}}
+		require.ErrorIs(t, cfg.Validate(), ErrDesktopValidation)
+	}
+}
+
+func TestDesktopClientSettingsChangeConfigurationVersion(t *testing.T) {
+	for _, change := range []struct {
+		name  string
+		apply func(*DesktopTarget)
+	}{
+		{"display_name", func(target *DesktopTarget) { target.DisplayName = "Updated" }},
+		{"provider_id", func(target *DesktopTarget) { target.ProviderID = "updated" }},
+		{"enabled", func(target *DesktopTarget) { target.Enabled = false }},
+		{"minimum_app_version", func(target *DesktopTarget) { version := "2.3.4"; target.MinimumAppVersion = &version }},
+		{"restart_required", func(target *DesktopTarget) { target.RestartRequired = true }},
+	} {
+		t.Run(change.name, func(t *testing.T) {
+			authorized := activeDesktopAuthorization()
+			svc := (&DesktopService{}).WithModelCatalog(desktopCatalogStub{ids: []string{"model-one"}})
+			_, before, err := svc.ModelConfiguration(context.Background(), authorized, nil)
+			require.NoError(t, err)
+			change.apply(authorized.Organization.TargetConfig.Targets.ChatGPTCodex)
+			_, after, err := svc.ModelConfiguration(context.Background(), authorized, nil)
+			require.NoError(t, err)
+			require.NotEqual(t, before, after)
+		})
+	}
 }

@@ -179,7 +179,7 @@ paths:
       tags: [Desktop Admin - Organizations]
       operationId: updateDesktopModelConfiguration
       summary: 更新企业 Model Configuration
-      description: 请求体上限为 64 KiB。统一维护企业绑定分组的 models；targets 仅用于旧客户端兼容。
+      description: 请求体上限为 64 KiB。统一维护企业绑定分组的 models，分别保存两个客户端的 targets 元数据和启用状态。requested_model 由统一模型列表生成。
       security:
         - AdminBearer: []
       requestBody:
@@ -197,9 +197,26 @@ paths:
                     enabled: true
                     remark: 日常开发
                   - model: enterprise-model-2
-                    visible: true
+                    visible: false
                     enabled: false
                     remark: 维护中
+                targets:
+                  chatgpt_codex:
+                    enabled: true
+                    provider_id: codex-provider
+                    display_name: 企业 Codex
+                    requested_model: enterprise-model-1
+                    wire_api: responses
+                    minimum_app_version: '1.2.3'
+                    restart_required: true
+                  workbuddy:
+                    enabled: false
+                    provider_id: workbuddy-provider
+                    display_name: 企业 Workbuddy
+                    requested_model: enterprise-model-1
+                    wire_api: chat_completions
+                    minimum_app_version: null
+                    restart_required: false
       responses:
         '200':
           description: Model Configuration 已更新
@@ -1390,7 +1407,7 @@ paths:
       operationId: getDesktopModelConfiguration
       summary: 获取 Desktop Model Configuration
       description: |
-        返回 Gateway Base URL、raw Model Token、统一 models 和兼容 targets。无开放模型时仍返回 200，客户端应清除旧模型列表。响应包含 `ETag` 和 `Cache-Control: no-store`。
+        返回 Gateway Base URL、raw Model Token、统一 models 和完整 targets。目标停用或无开放模型时仍保留目标全部字段，无开放模型时 requested_model 为空，客户端应清除旧模型列表。响应包含 `ETag` 和 `Cache-Control: no-store`。
         首次部署、本机配置丢失或凭证恢复时不要发送 `If-None-Match`。
       security:
         - DesktopBearer: []
@@ -3687,6 +3704,7 @@ components:
         - display_name
         - requested_model
         - wire_api
+        - minimum_app_version
         - restart_required
       properties:
         enabled:
@@ -3699,7 +3717,7 @@ components:
           minLength: 1
         requested_model:
           type: string
-          minLength: 1
+          description: schema_version=2 时由统一模型列表生成，无可下发模型时为空字符串；schema_version=1 写入时仍要求非空
         wire_api:
           type: string
           enum: [responses, chat_completions]
@@ -3723,11 +3741,11 @@ components:
         visible:
           type: boolean
           default: false
-          description: 是否在企业管理页面和客户端配置接口中展示
+          description: 是否在企业管理页面和客户端配置接口中展示；不可用模型会自动归一化为不可见
         enabled:
           type: boolean
           default: false
-          description: 客户端配置可用状态，独立于 visible；不改变 Gateway 调用权限
+          description: 客户端配置可用状态，关闭时 visible 同步为 false；不改变 Gateway 调用权限
         remark:
           type: string
           maxLength: 2000
@@ -3737,7 +3755,7 @@ components:
       type: object
       additionalProperties: false
       required: [schema_version]
-      description: 管理员维护统一 models；targets 仅用于兼容旧客户端。企业只读响应过滤隐藏模型。
+      description: 管理员维护统一 models，并分别维护两个客户端的 targets 元数据和启用状态。v2 写请求省略某个 target 时保留其已有设置；requested_model 统一生成。企业只读响应过滤隐藏模型。
       properties:
         schema_version:
           type: integer
@@ -4639,11 +4657,12 @@ components:
           description: raw Model Token，只返回给已认证 Desktop 客户端
         models:
           type: array
-          description: 统一模型列表，只返回可见模型；包含禁用项及备注，空数组表示清除本地可选模型
+          description: 统一模型列表，只返回可见且可用的模型及备注，空数组表示清除本地可选模型
           items:
             $ref: '#/components/schemas/DesktopModel'
         targets:
           type: object
+          description: 两个客户端独立配置，目标停用或模型为空时仍保留完整字段；targets 查询参数仅筛选目标名称
           additionalProperties:
             $ref: '#/components/schemas/DesktopTarget'
 

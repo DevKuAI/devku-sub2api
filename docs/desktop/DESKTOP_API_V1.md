@@ -143,24 +143,24 @@ Desktop auth 写请求进入 Audit Middleware，但审计记录只保存脱敏�
 
 ### Target Config
 
-统一模型配置使用 `schema_version: 2`。管理员从企业当前绑定分组的有效模型目录中配置模型，不能手填分组外的模型。分组新增模型默认 `visible=false`、`enabled=false`；两个状态独立保存。备注最多 2000 个字符，随可见模型返回给企业和客户端。
+统一模型配置使用 `schema_version: 2`。管理员从企业当前绑定分组的有效模型目录中配置模型，不能手填分组外的模型。分组新增模型默认 `visible=false`、`enabled=false`；不可用模型必须同时不可见。关闭可用时同步隐藏，开启可见时同步启用；可用模型仍可选择隐藏。备注最多 2000 个字符，随可见模型返回给企业和客户端。
 
 ```json
 {
   "schema_version": 2,
   "models": [
     { "model": "enterprise-model-1", "visible": true, "enabled": true, "remark": "日常开发" },
-    { "model": "enterprise-model-2", "visible": true, "enabled": false, "remark": "维护中" },
+    { "model": "enterprise-model-2", "visible": false, "enabled": false, "remark": "维护中" },
     { "model": "enterprise-model-3", "visible": false, "enabled": true, "remark": "内部配置" }
   ]
 }
 ```
 
-管理员详情返回完整 `models`；企业管理页面和客户端配置接口只返回 `visible=true` 的条目，包括禁用模型及备注。`enabled` 仅为客户端配置状态，不改变 Gateway 准入、普通模型列表、日报分析或手填 Model ID 调用的既有行为。
+管理员详情返回完整 `models`；企业管理页面和客户端配置接口仅返回可见且可用的模型及备注。历史配置读取时按「不可用即不可见」处理，保存时将不可用模型的 `visible` 归一化为 `false`。`enabled` 仅为客户端配置状态，不改变 Gateway 准入、普通模型列表、日报分析或手填 Model ID 调用的既有行为。
 
 旧 `schema_version: 1` 配置继续可读。读取时将两客户端已启用模型按逗号拆分、去重、取并集，再与当前分组模型取交集，初始化为可见且可用；读取不写库，管理员首次保存后持久化新版配置。已移出分组的模型不再展示或下发。
 
-`targets` 保留为兼容输出，由同一份统一模型列表生成。`chatgpt_codex.wire_api` 固定为 `responses`，`workbuddy.wire_api` 固定为 `chat_completions`，两个 target 的模型字符串均仅包含可见且可用的模型。提供方、显示名称、最低版本和重启要求沿用旧元数据；缺失时使用企业 code/name、空最低版本及 false 重启要求。
+`targets` 继续完整保留，并分别保存 ChatGPT Codex、Workbuddy 的启用状态、提供方标识、显示名称、最低客户端版本和重启要求。只有 `requested_model` 使用同一份统一模型列表生成。`chatgpt_codex.wire_api` 固定为 `responses`，`workbuddy.wire_api` 固定为 `chat_completions`，两个 target 的模型字符串均仅包含可见且可用的模型。已有客户端元数据原样继承；尚无配置时使用企业 code/name、空最低版本及 false 重启要求，目标默认启用。管理员可分别修改两个客户端的配置，`wire_api` 按客户端固定，不允许任意更换协议。v2 请求省略某个 target 时保留该客户端已有设置；仅提交 `models` 的旧管理端仍可使用。
 
 ## Admin API
 
@@ -230,8 +230,28 @@ Header：`Idempotency-Key` 必填。首次成功返回 `201`；相同 actor、ro
     "schema_version": 2,
     "models": [
       { "model": "enterprise-model-1", "visible": true, "enabled": true, "remark": "日常开发" },
-      { "model": "enterprise-model-2", "visible": true, "enabled": false, "remark": "维护中" }
-    ]
+      { "model": "enterprise-model-2", "visible": false, "enabled": false, "remark": "维护中" }
+    ],
+    "targets": {
+      "chatgpt_codex": {
+        "enabled": true,
+        "provider_id": "codex-provider",
+        "display_name": "企业 Codex",
+        "requested_model": "enterprise-model-1",
+        "wire_api": "responses",
+        "minimum_app_version": "1.2.3",
+        "restart_required": true
+      },
+      "workbuddy": {
+        "enabled": false,
+        "provider_id": "workbuddy-provider",
+        "display_name": "企业 Workbuddy",
+        "requested_model": "enterprise-model-1",
+        "wire_api": "chat_completions",
+        "minimum_app_version": null,
+        "restart_required": false
+      }
+    }
   }
 }
 ```
@@ -404,7 +424,7 @@ Header：
 - `Authorization: Bearer <desktop-access-token>`，接受 v1 JWT 和 v2 Session；v2 须携带绑定的 `X-Installation-ID`。
 - `If-None-Match: "cfg_xxx"`，可选，仅用于常规更新检查。
 
-新客户端直接消费统一 `models`，不按客户端名称选择配置。仅展示返回的模型，根据 `enabled` 决定是否可选择，并展示 `remark`。可见但禁用的模型仍会返回，隐藏模型不返回。
+新客户端直接消费统一 `models`，不按客户端名称选择配置。仅展示返回的模型及 `remark`；不可用模型自动隐藏，不会返回给企业或客户端。`enabled` 字段继续保留。
 
 ```json
 {
@@ -414,8 +434,7 @@ Header：
     "model_token": "<raw-model-token>",
     "conversation_reporting_enabled": false,
     "models": [
-      { "model": "enterprise-model-1", "visible": true, "enabled": true, "remark": "日常开发" },
-      { "model": "enterprise-model-2", "visible": true, "enabled": false, "remark": "维护中" }
+      { "model": "enterprise-model-1", "visible": true, "enabled": true, "remark": "日常开发" }
     ],
     "targets": {
       "chatgpt_codex": {
@@ -441,9 +460,9 @@ Header：
 }
 ```
 
-旧 `targets=chatgpt_codex,workbuddy` 查询参数继续支持，仅筛选兼容 `targets`，不影响 `models`。两个 target 来自统一模型策略；旧客户端不接收禁用模型。
+旧 `targets=chatgpt_codex,workbuddy` 查询参数继续支持，仅筛选返回的 `targets`，不影响 `models`。只有两个 target 的 `requested_model` 来自统一模型策略，均只包含可见且可用的模型。客户端启用开关独立保存，`enabled=false` 的目标仍完整返回全部 7 个字段；客户端应停用该目标。
 
-凭据有效但没有开放模型时仍返回 `200`。`models` 可以为空数组或仅包含禁用模型，`targets` 为 `{}`。客户端收到完整 `200` 响应后必须替换本地模型配置，清除旧可选模型，不能因为列表为空而沿用旧值。目录加载失败返回错误，不按空列表处理；凭据缺失或失效保留原有错误行为。
+凭据有效但没有开放模型时仍返回 `200`。没有可见且可用模型时，`models` 为空数组。`targets` 保留两个客户端的全部字段及独立配置，此时两个 `requested_model` 均为空字符串；客户端不得用空模型列表发起请求。客户端收到完整 `200` 响应后必须替换本地模型配置，清除旧可选模型，不能因为列表为空而沿用旧值。目录加载失败返回错误，不按空列表处理；凭据缺失或失效保留原有错误行为。
 
 成功响应包含 `Cache-Control: no-store` 和 `ETag`。ETag 匹配时返回 `304` 且无 body，客户端保留已有配置。首次部署、本机配置丢失或凭证恢复时不得发送 `If-None-Match`。`configuration_version` 覆盖有效模型列表、状态、备注、兼容配置、Gateway URL、API Key ID/状态和对话上报开关，不读取 raw Key，不依赖用量更新的 `updated_at`。登录和刷新响应不重复返回模型配置。
 
@@ -527,7 +546,7 @@ Authorization: Bearer <model_token>
 Content-Type: application/json
 ```
 
-Workbuddy target 仅在 `enabled: true` 时下发给 Desktop 客户端。
+Workbuddy target 包括独立的 `enabled` 状态，始终完整返回；客户端在该目标停用时不应用其配置。
 
 成员、企业或承载 User 撤销后，Desktop API 与 Refresh 通过数据库状态立即拒绝；Model Token 通过 API Key 状态、即时缓存失效和 auth cache invalidation outbox 失效。
 

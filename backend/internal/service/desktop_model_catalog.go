@@ -148,6 +148,7 @@ func resolveDesktopModels(organization *DesktopOrganization, ids []string, enter
 		seen[key] = true
 		model := policies[key]
 		model.Model = id
+		model.Visible = model.Visible && model.Enabled
 		if model.Visible && model.Enabled {
 			usable = append(usable, id)
 		}
@@ -155,19 +156,17 @@ func resolveDesktopModels(organization *DesktopOrganization, ids []string, enter
 			result.Models = append(result.Models, model)
 		}
 	}
-	if len(usable) > 0 {
-		legacy := DesktopTargets{}
-		if stored != nil {
-			legacy = stored.Targets
-		}
-		result.Targets.ChatGPTCodex = desktopLegacyTarget(organization, legacy.ChatGPTCodex, usable, DesktopWireAPIResponses)
-		result.Targets.Workbuddy = desktopLegacyTarget(organization, legacy.Workbuddy, usable, DesktopWireAPIChatCompletions)
+	legacy := DesktopTargets{}
+	if stored != nil {
+		legacy = stored.Targets
 	}
+	result.Targets.ChatGPTCodex = desktopLegacyTarget(organization, legacy.ChatGPTCodex, usable, DesktopWireAPIResponses)
+	result.Targets.Workbuddy = desktopLegacyTarget(organization, legacy.Workbuddy, usable, DesktopWireAPIChatCompletions)
 	return result
 }
 
 func desktopLegacyTarget(organization *DesktopOrganization, previous *DesktopTarget, models []string, wireAPI string) *DesktopTarget {
-	result := DesktopTarget{ProviderID: organization.Code, DisplayName: organization.Name}
+	result := DesktopTarget{Enabled: true, ProviderID: organization.Code, DisplayName: organization.Name}
 	if previous != nil {
 		result = *previous
 	}
@@ -177,6 +176,8 @@ func desktopLegacyTarget(organization *DesktopOrganization, previous *DesktopTar
 	if strings.TrimSpace(result.DisplayName) == "" {
 		result.DisplayName = organization.Name
 	}
-	result.Enabled, result.RequestedModel, result.WireAPI = true, strings.Join(models, ","), wireAPI
+	result.ProviderID = strings.TrimSpace(result.ProviderID)
+	result.DisplayName = strings.TrimSpace(result.DisplayName)
+	result.RequestedModel, result.WireAPI = strings.Join(models, ","), wireAPI
 	return &result
 }

@@ -84,6 +84,16 @@
             </section>
             <p v-if="!organization.target_config?.models?.length" class="detail-caption">{{ t('admin.desktop.models.empty') }}</p>
           </div>
+          <div class="detail-target-grid">
+            <section v-for="client in clientTargets" :key="client.key" class="detail-target-summary space-y-3">
+              <h3 class="detail-section-title">{{ client.name }}</h3>
+              <dl v-if="client.config" class="detail-config-metadata">
+                <div><dt>{{ t('common.status') }}</dt><dd>{{ t(client.config.enabled ? 'common.enabled' : 'common.disabled') }}</dd></div>
+                <div v-for="field in configurationFields(client.config)" :key="field.label"><dt>{{ t(`admin.desktop.${field.label}`) }}</dt><dd class="whitespace-pre-wrap break-words">{{ field.value }}</dd></div>
+              </dl>
+              <p v-else class="detail-caption">{{ t('admin.desktop.notConfigured') }}</p>
+            </section>
+          </div>
         </div>
       </section>
 
@@ -213,6 +223,14 @@
           <p class="text-sm text-gray-500 dark:text-dark-400">{{ t('admin.desktop.configurationReadOnly') }}</p>
           <section class="card detail-panel"><h2 class="detail-section-title mb-4">{{ t('admin.desktop.reports.title') }}</h2><dl class="detail-config-metadata"><div><dt class="detail-caption">{{ t('admin.desktop.reports.enabled') }}</dt><dd>{{ t(organization?.conversation_summary_enabled ? 'common.enabled' : 'common.disabled') }}</dd></div><div><dt class="detail-caption">{{ t('admin.desktop.reports.model') }}</dt><dd><bdi>{{ organization?.analysis_model || t('admin.desktop.notConfigured') }}</bdi></dd></div></dl></section>
           <section class="card detail-panel space-y-3"><h2 class="detail-section-title">{{ t('admin.desktop.managementPolicy.title') }}</h2><dl class="detail-config-metadata"><div><dt class="detail-caption">{{ t('admin.desktop.managementPolicy.analysisLimit') }}</dt><dd>{{ analysisLimitLabel }}</dd></div><div v-for="field in retentionFields" :key="field"><dt class="detail-caption">{{ t(`admin.desktop.managementPolicy.${field}`) }}</dt><dd>{{ organization.management_policy ? retentionLabel(organization.management_policy[field]) : '—' }}</dd></div></dl><p class="detail-caption">{{ t('admin.desktop.managementPolicy.hint') }}</p></section>
+          <section v-for="client in clientTargets" :key="client.key" class="card detail-panel space-y-3">
+            <h2 class="detail-section-title">{{ client.name }}</h2>
+            <dl v-if="client.config" class="detail-config-metadata">
+              <div><dt class="detail-caption">{{ t('common.status') }}</dt><dd>{{ t(client.config.enabled ? 'common.enabled' : 'common.disabled') }}</dd></div>
+              <div v-for="field in configurationFields(client.config)" :key="field.label"><dt class="detail-caption">{{ t(`admin.desktop.${field.label}`) }}</dt><dd class="whitespace-pre-wrap break-words">{{ field.value }}</dd></div>
+            </dl>
+            <p v-else class="detail-caption">{{ t('admin.desktop.notConfigured') }}</p>
+          </section>
           <div class="card detail-panel space-y-4">
             <h2 class="detail-section-title">{{ t('admin.desktop.configuration') }}</h2>
             <p v-if="!visibleModels.length" class="detail-caption">{{ t('admin.desktop.models.empty') }}</p>
@@ -223,29 +241,92 @@
             </dl>
           </div>
         </div>
-        <form v-else class="space-y-6" @submit.prevent="saveConfiguration">
-          <header><h2 class="detail-section-title">{{ t('admin.desktop.configuration') }}</h2><p class="detail-caption mt-1">{{ t('admin.desktop.detail.configurationHint') }}</p></header>
-          <div v-if="configurationError" class="detail-error" role="alert">{{ configurationError }} {{ t('admin.desktop.detail.saveRetryHint') }}</div>
-          <div class="card detail-panel overflow-x-auto">
-            <p class="detail-caption mb-4">{{ t('admin.desktop.models.hint') }}</p>
-            <p v-if="!configForm.models.length" class="detail-caption">{{ t('admin.desktop.models.empty') }}</p>
-            <table v-else class="w-full text-left text-sm">
-              <thead><tr><th class="p-2">Model ID</th><th class="p-2">{{ t('admin.desktop.models.visible') }}</th><th class="p-2">{{ t('admin.desktop.models.enabled') }}</th><th class="p-2">{{ t('admin.desktop.models.remark') }}</th></tr></thead>
-              <tbody>
-                <tr v-for="model in configForm.models" :key="model.model" :data-model="model.model" class="border-t border-gray-100 dark:border-dark-700">
-                  <th scope="row" class="min-w-40 break-all p-2 font-mono font-normal">{{ model.model }}</th>
-                  <td class="p-2"><input v-model="model.visible" type="checkbox" class="h-4 w-4 rounded" :disabled="configSaving" :aria-label="`${model.model} ${t('admin.desktop.models.visible')}`" /></td>
-                  <td class="p-2"><input v-model="model.enabled" type="checkbox" class="h-4 w-4 rounded" :disabled="configSaving" :aria-label="`${model.model} ${t('admin.desktop.models.enabled')}`" /></td>
-                  <td class="min-w-64 p-2"><textarea v-model="model.remark" class="input" rows="2" maxlength="2000" :disabled="configSaving" :aria-label="`${model.model} ${t('admin.desktop.models.remark')}`" /></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div class="flex flex-wrap items-center justify-end gap-3">
-            <span v-if="configurationDirty" class="detail-caption" role="status">{{ t('desktopStructure.unsaved') }}</span>
-            <button class="btn btn-secondary" type="button" :disabled="configSaving || !configurationDirty" @click="cancelConfiguration">{{ t('common.cancel') }}</button>
-            <button class="btn btn-primary" type="submit" :disabled="configSaving || !configurationDirty">{{ configSaving ? t('common.saving') : t('common.save') }}</button>
-          </div>
+        <form v-else class="desktop-model-config" @submit.prevent="saveConfiguration">
+          <header class="model-config-intro">
+            <div>
+              <h2 class="model-config-title">{{ t('admin.desktop.configuration') }}</h2>
+              <p class="model-config-description">{{ t('admin.desktop.models.pageHint') }}</p>
+            </div>
+            <p class="model-config-counts">{{ t('admin.desktop.models.counts', modelCounts) }}</p>
+          </header>
+          <div v-if="configurationError" class="detail-error" role="alert">{{ configurationError }} {{ t('admin.desktop.models.saveRecovery') }}</div>
+          <section class="card model-catalog" aria-labelledby="shared-models-title">
+            <header class="model-section-header">
+              <div>
+                <h3 id="shared-models-title" class="model-section-title">{{ t('admin.desktop.models.sharedTitle') }}</h3>
+                <p class="model-config-description">{{ t('admin.desktop.models.groupSource', { group: organization.group.name }) }}</p>
+              </div>
+              <span class="model-scope-label">{{ t('admin.desktop.models.sharedByClients') }}</span>
+            </header>
+            <p id="model-permissions-hint" class="model-permissions-hint">{{ t('admin.desktop.models.permissionsHint') }}</p>
+            <div v-if="!configForm.models.length" class="model-empty-state">
+              <p class="model-section-title">{{ t('admin.desktop.models.empty') }}</p>
+              <p class="model-config-description">{{ t('admin.desktop.models.emptyHint') }}</p>
+              <router-link class="model-settings-link" to="/admin/groups">{{ t('admin.desktop.models.manageGroup') }}</router-link>
+            </div>
+            <div v-if="configForm.models.length" class="model-catalog-columns" aria-hidden="true"><span>Model ID</span><span>{{ t('admin.desktop.models.permissionsTitle') }}</span><span>{{ t('admin.desktop.models.remark') }}</span></div>
+            <ul v-if="configForm.models.length" class="model-catalog-list" :aria-label="t('admin.desktop.models.sharedTitle')">
+              <li v-for="(model, index) in configForm.models" :key="model.model" :data-model="model.model" class="model-catalog-row">
+                <div class="model-identity">
+                  <span class="model-field-label">Model ID</span>
+                  <bdi class="model-identifier">{{ model.model }}</bdi>
+                </div>
+                <div class="model-permission-controls">
+                  <label class="model-permission-option">
+                    <input v-model="model.visible" type="checkbox" @change="onModelVisibilityChange(model)" :disabled="configSaving" :aria-label="`${model.model} ${t('admin.desktop.models.visible')}`" aria-describedby="model-permissions-hint" />
+                    <span>{{ t('admin.desktop.models.visible') }}</span>
+                  </label>
+                  <label class="model-permission-option">
+                    <input v-model="model.enabled" type="checkbox" @change="onModelAvailabilityChange(model)" :disabled="configSaving" :aria-label="`${model.model} ${t('admin.desktop.models.enabled')}`" aria-describedby="model-permissions-hint" />
+                    <span>{{ t('admin.desktop.models.enabled') }}</span>
+                  </label>
+                </div>
+                <div class="model-remark-field">
+                  <label :for="`desktop-model-${index}-remark`" class="model-field-label">{{ t('admin.desktop.models.remark') }}</label>
+                  <input :id="`desktop-model-${index}-remark`" v-model="model.remark" class="input" type="text" maxlength="2000" :disabled="configSaving" :aria-label="`${model.model} ${t('admin.desktop.models.remark')}`" :placeholder="t('admin.desktop.models.remarkExample')" />
+                </div>
+              </li>
+            </ul>
+          </section>
+          <section aria-labelledby="client-settings-title" class="model-clients-section">
+            <header class="model-section-header">
+              <div>
+                <h3 id="client-settings-title" class="model-section-title">{{ t('admin.desktop.models.clientsTitle') }}</h3>
+                <p class="model-config-description">{{ t('admin.desktop.models.clientsHint') }}</p>
+              </div>
+            </header>
+            <div class="model-client-grid">
+              <fieldset v-for="client in configurationClients" :key="client.key" :data-client="client.key" class="model-client-card" :disabled="configSaving">
+                <legend class="sr-only">{{ client.name }}</legend>
+                <header class="model-client-header">
+                  <div class="model-client-heading">
+                    <h4 class="model-section-title">{{ client.name }}</h4>
+                    <span class="model-client-status" :class="{ 'model-client-status-enabled': configForm.targets[client.key].enabled }">{{ t(configForm.targets[client.key].enabled ? 'common.enabled' : 'common.disabled') }}</span>
+                  </div>
+                  <label class="model-client-enable">
+                    <input v-model="configForm.targets[client.key].enabled" type="checkbox" :aria-label="`${client.name} ${t('admin.desktop.models.enableClient')}`" />
+                    <span>{{ t('admin.desktop.models.enableClient') }}</span>
+                  </label>
+                </header>
+                <div class="model-client-fields">
+                  <div class="model-client-name"><Input :id="`${client.key}-display-name`" v-model="configForm.targets[client.key].display_name" :label="t('admin.desktop.displayName')" required /></div>
+                  <Input :id="`${client.key}-provider-id`" v-model="configForm.targets[client.key].provider_id" :label="t('admin.desktop.providerId')" required />
+                  <Input :id="`${client.key}-minimum-app-version`" v-model="configForm.targets[client.key].minimum_app_version" :label="t('admin.desktop.minimumAppVersion')" />
+                </div>
+                <div class="model-client-footer">
+                  <div class="model-protocol"><span class="model-field-label">{{ t('admin.desktop.wireApi') }}</span><code>{{ client.wireAPI === 'responses' ? '/responses' : '/chat/completions' }}</code></div>
+                  <label class="model-restart-option"><input v-model="configForm.targets[client.key].restart_required" type="checkbox" :aria-label="`${client.name} ${t('admin.desktop.restartRequired')}`" /><span>{{ t('admin.desktop.restartRequired') }}</span></label>
+                </div>
+              </fieldset>
+            </div>
+          </section>
+          <footer class="model-config-actions">
+            <p class="model-save-state" role="status">{{ configSaving ? t('common.saving') : configurationDirty ? t('desktopStructure.unsaved') : t('admin.desktop.models.noChanges') }}</p>
+            <div class="model-config-buttons">
+              <button class="btn btn-secondary" type="button" :disabled="configSaving || !configurationDirty" @click="cancelConfiguration">{{ t('common.cancel') }}</button>
+              <button class="btn btn-primary" type="submit" :disabled="!configurationDirty && !configSaving" :aria-disabled="configSaving || undefined" :aria-busy="configSaving || undefined">{{ configSaving ? t('common.saving') : t('common.save') }}</button>
+            </div>
+          </footer>
         </form>
       </section>
     </div>
@@ -345,7 +426,7 @@ import { useI18n } from 'vue-i18n'
 import { saveAs } from 'file-saver'
 import { adminAPI } from '@/api/admin'
 import desktopOrganizationAPI from '@/api/desktopOrganization'
-import type { DesktopMember, DesktopModelTokenStatus, DesktopOrganization, DesktopStatus, DesktopModel, DesktopTargetConfig, UpdateDesktopOrganizationRequest } from '@/api/admin/desktop'
+import type { DesktopMember, DesktopModelTokenStatus, DesktopOrganization, DesktopStatus, DesktopModel, DesktopTarget, DesktopTargetConfig, UpdateDesktopOrganizationRequest } from '@/api/admin/desktop'
 import type { AdminGroup, AdminUser } from '@/types'
 import type { Column } from '@/components/common/types'
 import { useAppStore } from '@/stores/app'
@@ -376,6 +457,7 @@ import DesktopPeriodReports from '@/components/desktop/DesktopPeriodReports.vue'
 import { biAccessPath } from '@/components/bi/navigation'
 import { biDate } from '@/components/bi/display'
 import '@/styles/desktopDetail.css'
+import '@/styles/desktopModels.css'
 
 type DetailTab = 'overview' | 'business' | 'usage' | 'members' | 'configuration' | 'conversations' | 'grants' | 'reports'
 const { selfManaged = false } = defineProps<{ selfManaged?: boolean }>()
@@ -390,7 +472,12 @@ const organizationLoading = ref(false)
 const membersError = ref('')
 const organizationEditError = ref('')
 const configurationError = ref('')
-const visibleModels = computed(() => (organization.value?.target_config?.models ?? []).filter(model => model.visible))
+const visibleModels = computed(() => (organization.value?.target_config?.models ?? []).filter(model => model.visible && model.enabled))
+const configurationClients = [
+  { key: 'chatgpt_codex', name: 'ChatGPT Codex', wireAPI: 'responses' },
+  { key: 'workbuddy', name: 'Workbuddy', wireAPI: 'chat_completions' },
+] as const
+const clientTargets = computed(() => configurationClients.map(client => ({ ...client, config: organization.value?.target_config?.targets?.[client.key] })))
 const organizationID = computed(() => selfManaged ? (organization.value?.public_id || '') : String(route.params.organizationId || ''))
 const organizationAPI = computed(() => selfManaged ? desktopOrganizationAPI : adminAPI.desktop)
 const dashboardPath = computed(() => authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
@@ -443,9 +530,21 @@ const reportingFields = [
   { field: 'monthly_summary_enabled', label: 'biNative.monthlyAuto' },
 ] as const
 const configSaving = ref(false)
-const configForm = reactive<{ models: DesktopModel[] }>({ models: [] })
-const configurationForm = useDesktopForm(() => configForm.models, () => configSaving.value, () => organizationID.value)
+type ClientKey = typeof configurationClients[number]['key']
+type ClientTargetForm = Omit<DesktopTarget, 'minimum_app_version'> & { minimum_app_version: string }
+function blankClientTarget(wireAPI: DesktopTarget['wire_api']): ClientTargetForm {
+  return { enabled: true, provider_id: organization.value?.code || '', display_name: organization.value?.name || '', requested_model: '', wire_api: wireAPI, minimum_app_version: '', restart_required: false }
+}
+const configForm = reactive<{ models: DesktopModel[]; targets: Record<ClientKey, ClientTargetForm> }>({
+  models: [], targets: { chatgpt_codex: blankClientTarget('responses'), workbuddy: blankClientTarget('chat_completions') },
+})
+const configurationForm = useDesktopForm(() => configForm, () => configSaving.value, () => organizationID.value)
 const configurationDirty = configurationForm.dirty
+const modelCounts = computed(() => ({
+  total: configForm.models.length,
+  visible: configForm.models.filter(model => model.visible).length,
+  usable: configForm.models.filter(model => model.visible && model.enabled).length,
+}))
 const confirmState = reactive({ show: false, title: '', message: '', confirmText: '', action: null as null | (() => Promise<void>) })
 const confirmPending = ref(false)
 const confirmError = ref('')
@@ -685,8 +784,27 @@ async function runConfirmedAction() {
   try { await confirmState.action() } finally { confirmPending.value = false }
 }
 
+function configurationFields(target: DesktopTarget) {
+  return [
+    { label: 'providerId', value: target.provider_id },
+    { label: 'displayName', value: target.display_name },
+    { label: 'wireApi', value: target.wire_api === 'responses' ? '/responses' : '/chat/completions' },
+    { label: 'minimumAppVersion', value: target.minimum_app_version || '—' },
+    { label: 'restartRequired', value: t(target.restart_required ? 'common.yes' : 'common.no') },
+  ]
+}
+function onModelVisibilityChange(model: DesktopModel) {
+  if (model.visible) model.enabled = true
+}
+function onModelAvailabilityChange(model: DesktopModel) {
+  if (!model.enabled) model.visible = false
+}
 function applyConfiguration(value?: DesktopTargetConfig | null) {
-  configForm.models = (value?.models ?? []).map(model => ({ ...model }))
+  configForm.models = (value?.models ?? []).map(model => ({ ...model, visible: model.visible && model.enabled }))
+  for (const client of configurationClients) {
+    const target = value?.targets?.[client.key]
+    configForm.targets[client.key] = { ...blankClientTarget(client.wireAPI), ...target, minimum_app_version: target?.minimum_app_version || '' }
+  }
   configurationForm.clean()
 }
 function cancelConfiguration() {
@@ -697,9 +815,17 @@ async function saveConfiguration() {
   if (selfManaged || configSaving.value || !configurationDirty.value) return
   const requestedID = organizationID.value
   configurationError.value = ''
+  if (!configurationClients.every(client => configForm.targets[client.key].provider_id.trim() && configForm.targets[client.key].display_name.trim())) {
+    configurationError.value = t('admin.desktop.errors.VALIDATION_FAILED'); appStore.showError(configurationError.value); return
+  }
+  const requestedModel = configForm.models.filter(model => model.visible && model.enabled).map(model => model.model).join(',')
+  const targets = Object.fromEntries(configurationClients.map(client => {
+    const target = configForm.targets[client.key]
+    return [client.key, { ...target, provider_id: target.provider_id.trim(), display_name: target.display_name.trim(), requested_model: requestedModel, wire_api: client.wireAPI, minimum_app_version: target.minimum_app_version.trim() || null }]
+  }))
   configSaving.value = true
   try {
-    const updated = await adminAPI.desktop.updateModelConfiguration(requestedID, { schema_version: 2, models: configForm.models.map(model => ({ ...model })) })
+    const updated = await adminAPI.desktop.updateModelConfiguration(requestedID, { schema_version: 2, models: configForm.models.map(model => ({ ...model })), targets })
     if (requestedID !== organizationID.value) return
     organization.value = updated
     applyConfiguration(updated.target_config)

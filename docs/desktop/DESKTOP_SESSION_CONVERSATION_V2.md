@@ -14,7 +14,7 @@
 
 ## 统一客户端模型配置
 
-`GET /api/desktop/v1/model-configuration` 对 v1/v2 认证返回相同的统一 `models`。新客户端展示可见模型、按 `enabled` 控制选择并展示备注；收到空列表或仅含禁用项时清除旧可选模型。兼容 `targets` 和 ETag 行为见 [Model Configuration](DESKTOP_API_V1.md#6-model-configuration)。这次配置升级不改变认证版本和 Gateway 准入。
+`GET /api/desktop/v1/model-configuration` 对 v1/v2 认证返回相同的统一 `models`。新客户端展示可见且可用的模型及备注；不可用模型自动隐藏，收到空列表时清除旧可选模型。两个客户端的 `targets` 元数据和启用状态分别配置并完整返回；仅模型列表共享。目标停用或模型列表为空时应清除对应本地可选模型。`targets` 和 ETag 行为见 [Model Configuration](DESKTOP_API_V1.md#6-model-configuration)。这次配置升级不改变认证版本和 Gateway 准入。
 
 ## 企业对话上报开关
 
