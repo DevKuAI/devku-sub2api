@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SUNRATE 资金架构与记账口径</title>
+<style>
+  :root {
+    --ink: #1f2933; --muted: #616e7c; --line: #cbd2d9; --bg: #f5f7fa; --card: #fff;
+    --hkd: #b7791f; --hkd-bg: #fffaf0; --usd: #2b6cb0; --usd-bg: #ebf4ff;
+    --card-c: #2f855a; --card-bg: #f0fff4; --cost: #c53030; --cost-bg: #fff5f5;
+    --ext: #4a5568; --ext-bg: #edf2f7;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.6 -apple-system, "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif; color: var(--ink); background: var(--bg); }
+  main { max-width: 1340px; margin: 0 auto; padding: 32px 24px 64px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 18px; margin: 40px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+  .sub { color: var(--muted); margin: 0 0 8px; }
+  .num { font-variant-numeric: tabular-nums; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+
+  /* 资金流向 */
+  .flow-wrap { overflow-x: auto; padding: 4px 2px 8px; }
+  .flow { display: flex; align-items: stretch; min-width: 1240px; }
+  .flow > .node, .flow > .group { flex: 1 1 0; }
+  .flow > .node.ext { flex: 0.85 1 0; }
+  .flow > .node.ext dl { grid-template-columns: 1fr; }
+  .flow > .node.ext dd { text-align: left; margin-bottom: 4px; }
+  .flow > .node.dest { flex: 1.25 1 0; }
+  .node .src { overflow-wrap: anywhere; }
+  .flow > .group { flex: 2.6 1 0; }
+  .node { background: var(--card); border: 2px solid var(--line); border-radius: 10px; padding: 12px 14px; position: relative; min-width: 0; }
+  .node h3 { margin: 0 0 2px; font-size: 15px; }
+  .node .tag { display: inline-block; font-size: 12px; padding: 0 6px; border-radius: 4px; margin-bottom: 6px; white-space: nowrap; }
+  .node dl { margin: 6px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 13px; }
+  .node dt { color: var(--muted); white-space: nowrap; }
+  .node dd { margin: 0; text-align: right; white-space: nowrap; }
+  .node .src { margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--line); font-size: 12px; color: var(--muted); }
+  .node .src b { color: var(--ink); font-weight: 600; }
+  .ext { border-color: var(--ext); background: var(--ext-bg); }
+  .ext .tag { background: var(--ext); color: #fff; }
+  .hkd { border-color: var(--hkd); background: var(--hkd-bg); }
+  .hkd .tag { background: var(--hkd); color: #fff; }
+  .usd { border-color: var(--usd); background: var(--usd-bg); }
+  .usd .tag { background: var(--usd); color: #fff; }
+  .pool { border-color: var(--card-c); background: var(--card-bg); }
+  .pool .tag { background: var(--card-c); color: #fff; }
+  .group { border: 2px dashed var(--usd); border-radius: 14px; padding: 8px; display: flex; flex-direction: column; }
+  .group-inner { display: flex; align-items: stretch; flex: 1; }
+  .group-inner > .node { flex: 1 1 0; }
+  .group-label { text-align: center; font-size: 12px; color: var(--usd); margin-top: 6px; }
+  .arrow { flex: 0 0 68px; }
+  .arrow { display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; color: var(--muted); text-align: center; }
+  .arrow::before { content: ""; width: 100%; height: 2px; background: var(--muted); }
+  .arrow::after { content: ""; border: 6px solid transparent; border-left-color: var(--muted); margin-top: -7px; align-self: flex-end; margin-right: -6px; }
+  .arrow span { order: -1; margin-bottom: 4px; line-height: 1.3; }
+  .cards { display: flex; flex-direction: column; gap: 6px; }
+  .cards .c { background: #fff; border: 1px solid var(--card-c); border-radius: 6px; padding: 4px 8px; font-size: 12px; display: flex; justify-content: space-between; gap: 8px; white-space: nowrap; }
+  .cards .c.pending { border-style: dashed; color: var(--muted); }
+  .costs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 18px; }
+  .cost { background: var(--cost-bg); border: 1px solid var(--cost); border-radius: 8px; padding: 8px 12px; font-size: 13px; }
+  .cost b { color: var(--cost); }
+
+  /* 头寸 */
+  .position { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .pos { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; }
+  .pos .label { color: var(--muted); font-size: 12px; }
+  .pos .v { font-size: 22px; font-weight: 600; }
+  .pos.total { border-color: var(--ink); }
+  .pos .note { font-size: 12px; color: var(--muted); }
+  .warn { color: #b7791f; }
+
+  /* 时间线 */
+  table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; font-size: 13px; }
+  th, td { padding: 6px 10px; border-bottom: 1px solid #e4e7eb; text-align: left; vertical-align: top; }
+  th { background: #f0f4f8; font-weight: 600; }
+  td.r, th.r { text-align: right; }
+  tr.h td { background: var(--hkd-bg); }
+  tr.u td { background: var(--usd-bg); }
+  tr.p td { background: var(--card-bg); }
+  .pill { display: inline-block; padding: 0 6px; border-radius: 4px; font-size: 12px; color: #fff; }
+  .pill.hkd { background: var(--hkd); } .pill.usd { background: var(--usd); } .pill.pool { background: var(--card-c); }
+  .pill.ok { background: #2f855a; } .pill.todo { background: #b7791f; }
+
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .box { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; }
+  .box h3 { margin: 0 0 6px; font-size: 15px; }
+  .box ul { margin: 0; padding-left: 18px; }
+  code { background: #edf2f7; padding: 0 4px; border-radius: 3px; font-size: 12px; }
+  footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>SUNRATE 资金架构与记账口径</h1>
+  <p class="sub">数据来源：8 份 SUNRATE 导出（入金、购汇、HKD 和 USD 收付款余额对账单、卡余额流水、授权、手续费）。截至 2026-10-28，金额均为平台原值。</p>
+  <p class="sub"><b>同一个 SUNRATE 账户 72778936</b>（Hong Kong Rich Sum Technology Co. Limited，即香港阜森科技有限公司），下设两类余额：<b>收付款余额</b>（Payment Balance，按币种分 HKD、USD）和<b>卡余额</b>（Card Balance，USD，多卡共用）。全部为我方自有资金。</p>
+
+  <h2>1. 资金流向</h2>
+  <div class="flow-wrap"><div class="flow">
+    <div class="node ext">
+      <span class="tag">外部</span>
+      <h3>汇款方</h3>
+      <dl>
+        <dt>QIU QIN</dt><dd class="num">HKD 23,463.27</dd>
+        <dt>QIU QIN AND TSANG…</dt><dd class="num">HKD 11,180.00</dd>
+      </dl>
+      <div class="src">我方<b>自有资金</b>（头寸入金），不是客户付款</div>
+    </div>
+    <div class="arrow"><span>入金<br>扣 0.1%</span></div>
+    <div class="group"><div class="group-inner">
+    <div class="node hkd">
+      <span class="tag">收付款余额 · HKD</span>
+      <h3>港币余额</h3>
+      <dl>
+        <dt>入金（毛额）</dt><dd class="num">34,643.27</dd>
+        <dt>收款手续费</dt><dd class="num">−34.64</dd>
+        <dt>购汇卖出</dt><dd class="num">−34,608.63</dd>
+        <dt>余额</dt><dd class="num"><b>0.00</b></dd>
+      </dl>
+      <div class="src">报表：<b>Statement_Payment_Balance</b>（HKD）<span style="color:#2f855a">✓ 已对平</span><br><b>Record_Collection</b>（毛额、手续费）<br>收款账号 36898961161</div>
+    </div>
+    <div class="arrow"><span>购汇<br>≈7.86</span></div>
+    <div class="node usd">
+      <span class="tag">收付款余额 · USD</span>
+      <h3>美元余额</h3>
+      <dl>
+        <dt>购汇买入</dt><dd class="num">4,403.62</dd>
+        <dt>划转到卡余额</dt><dd class="num">−2,230.75</dd>
+        <dt>余额</dt><dd class="num"><b>2,172.87</b></dd>
+      </dl>
+      <div class="src">报表：<b>Statement_Payment_Balance</b>（USD）<span style="color:#2f855a">✓ 已对平</span><br><b>Record_Currency_Conversion</b>（汇率）</div>
+    </div>
+    </div><div class="group-label">收付款余额 Payment Balance（按币种）</div></div>
+    <div class="arrow"><span>划转到卡<br>Transfer In</span></div>
+    <div class="node pool">
+      <span class="tag">卡余额 · USD</span>
+      <h3>卡资金池（多卡共用）</h3>
+      <dl>
+        <dt>划转入</dt><dd class="num">2,230.75</dd>
+        <dt>卡消费结算</dt><dd class="num">−1,200.00</dd>
+        <dt>授权手续费</dt><dd class="num">−4.25</dd>
+        <dt>余额</dt><dd class="num"><b>1,026.50</b></dd>
+      </dl>
+      <div class="src">报表：<b>CARD_BALANCES</b>（资金）<br><b>AUTHORISATIONS</b>（商户、拒付）· <b>FEES</b>（明细）</div>
+    </div>
+    <div class="arrow"><span>刷卡</span></div>
+    <div class="node dest">
+      <h3>企业卡 → 商户</h3>
+      <div class="cards">
+        <div class="c"><span>东恒锦洋 ****2516</span><span class="num">400.00</span></div>
+        <div class="c"><span>中新软件 ****3926</span><span class="num">400.00</span></div>
+        <div class="c"><span>匠心CC ****0777</span><span class="num">200.00</span></div>
+        <div class="c pending"><span>无昵称 ****0956</span><span class="num">200.00</span></div>
+      </div>
+      <div class="src">OpenAI ChatGPT ×5 · Anthropic Claude ×1<br>拒付 7 次（6 次超限、1 次余额不足）</div>
+    </div>
+  </div></div>
+
+  <div class="costs">
+    <div class="cost"><b>收款手续费</b>：HKD 34.64（0.1%，2 笔）</div>
+    <div class="cost"><b>购汇</b>：手续费 0；成本体现在汇率 7.8563 – 7.8599</div>
+    <div class="cost"><b>授权手续费</b>：USD 4.25（17 笔 × 0.25，其中 11 笔来自拒付和 0 元验卡）</div>
+  </div>
+
+  <h2>2. 头寸总览（2026-10-27）</h2>
+  <div class="position">
+    <div class="pos"><div class="label">收付款余额 HKD</div><div class="v num">0.00</div><div class="note">与对账单一致（期末 0.00）</div></div>
+    <div class="pos"><div class="label">收付款余额 USD</div><div class="v num">2,172.87</div><div class="note">与对账单一致（期末 2,172.87）</div></div>
+    <div class="pos"><div class="label">卡余额 USD</div><div class="v num">1,026.50</div><div class="note">与平台余额流水一致</div></div>
+    <div class="pos total"><div class="label">账户 72778936 总头寸</div><div class="v num">USD 3,199.37</div><div class="note">= 购汇 4,403.62 − 消费 1,200.00 − 授权费 4.25</div></div>
+  </div>
+
+  <h2>3. 资金时间线</h2>
+  <table>
+    <thead><tr><th>时间（GMT+8）</th><th>余额</th><th>动作</th><th class="r">金额</th><th class="r">本账户余额</th><th>来源单号</th></tr></thead>
+    <tbody>
+      <tr class="h"><td>2026-08-31<br><small>08-27 17:04 提交</small></td><td><span class="pill hkd">收付 HKD</span></td><td>入金 11,180.00，扣费 11.18</td><td class="r num">+11,168.82</td><td class="r num">11,168.82</td><td>C268277BP9</td></tr>
+      <tr class="h"><td>2026-09-02 09:42</td><td><span class="pill hkd">收付 HKD</span></td><td>购汇卖出</td><td class="r num">−4,713.78</td><td class="r num">6,455.04</td><td rowspan="2">TXN2094964093064048641 @7.8563</td></tr>
+      <tr class="u"><td>2026-09-02 09:42</td><td><span class="pill usd">收付 USD</span></td><td>购汇买入</td><td class="r num">+600.00</td><td class="r num">600.00</td></tr>
+      <tr class="u"><td>2026-09-02 09:42</td><td><span class="pill usd">收付 USD</span> → <span class="pill pool">卡余额</span></td><td>划转</td><td class="r num">600.00</td><td class="r num">0.00 / 600.00</td><td>IO2094964235537879042</td></tr>
+      <tr class="p"><td>2026-09-02 ~ 09-04</td><td><span class="pill pool">卡余额</span></td><td>结算 2 笔、授权费</td><td class="r num">−400.75</td><td class="r num">199.25</td><td>见余额流水</td></tr>
+      <tr class="h"><td>2026-09-28 10:56</td><td><span class="pill hkd">收付 HKD</span></td><td>购汇卖出</td><td class="r num">−6,455.04</td><td class="r num">0.00</td><td rowspan="2">TXN2104404905170464770 @7.8584</td></tr>
+      <tr class="u"><td>2026-09-28 10:56</td><td><span class="pill usd">收付 USD</span></td><td>购汇买入</td><td class="r num">+821.42</td><td class="r num">821.42</td></tr>
+      <tr class="u"><td>2026-09-28 10:57</td><td><span class="pill usd">收付 USD</span> → <span class="pill pool">卡余额</span></td><td>划转</td><td class="r num">201.75</td><td class="r num">619.67 / 401.00</td><td>IO2104405063469502466</td></tr>
+      <tr class="p"><td>2026-10-02 ~ 10-15</td><td><span class="pill pool">卡余额</span></td><td>结算 2 笔、授权费 8 笔；10-10 起余额为负</td><td class="r num">−402.00</td><td class="r num">−1.00</td><td>见余额流水</td></tr>
+      <tr class="u"><td>2026-10-15 09:41</td><td><span class="pill usd">收付 USD</span> → <span class="pill pool">卡余额</span></td><td>划转</td><td class="r num">202.00</td><td class="r num">417.67 / 201.00</td><td>IO2110546566206066690</td></tr>
+      <tr class="p"><td>2026-10-16 ~ 10-17</td><td><span class="pill pool">卡余额</span></td><td>结算 1 笔、授权费</td><td class="r num">−200.25</td><td class="r num">0.75</td><td>见余额流水</td></tr>
+      <tr class="u"><td>2026-10-22 10:31</td><td><span class="pill usd">收付 USD</span> → <span class="pill pool">卡余额</span></td><td>划转</td><td class="r num">417.00</td><td class="r num">0.67 / 417.75</td><td>IO2113095981110267905</td></tr>
+      <tr class="p"><td>2026-10-22 ~ 10-23</td><td><span class="pill pool">卡余额</span></td><td>结算 1 笔、授权费（10-22 共 5 次授权）</td><td class="r num">−201.25</td><td class="r num">216.50</td><td>见余额流水</td></tr>
+      <tr class="h"><td>2026-10-26 10:07</td><td><span class="pill hkd">收付 HKD</span></td><td>入金 23,463.27，扣费 23.46</td><td class="r num">+23,439.81</td><td class="r num">23,439.81</td><td>C26A26JRZ9</td></tr>
+      <tr class="h"><td>2026-10-27 10:59</td><td><span class="pill hkd">收付 HKD</span></td><td>购汇卖出</td><td class="r num">−23,439.81</td><td class="r num">0.00</td><td rowspan="2">TXN2114914760160301057 @7.8599</td></tr>
+      <tr class="u"><td>2026-10-27 10:59</td><td><span class="pill usd">收付 USD</span></td><td>购汇买入</td><td class="r num">+2,982.20</td><td class="r num">2,982.87</td></tr>
+      <tr class="u"><td>2026-10-27 10:59</td><td><span class="pill usd">收付 USD</span> → <span class="pill pool">卡余额</span></td><td>划转</td><td class="r num">810.00</td><td class="r num">2,172.87 / 1,026.50</td><td>IO2114914845284503554</td></tr>
+    </tbody>
+  </table>
+
+  <h2>4. 核对结果</h2>
+  <table>
+    <thead><tr><th>检查</th><th>结果</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td>HKD 入金净额 = 购汇卖出</td><td><span class="pill ok">一致</span></td><td>11,168.82 = 4,713.78 + 6,455.04；23,439.81 全额购汇</td></tr>
+      <tr><td>购汇汇率</td><td><span class="pill ok">一致</span></td><td>三笔卖出 ÷ 买入均等于报表汇率</td></tr>
+      <tr><td>卡余额流水连续性</td><td><span class="pill ok">一致</span></td><td>23 笔逐行连续，期末 1,026.50</td></tr>
+      <tr><td>结算 ↔ 授权</td><td><span class="pill ok">一致</span></td><td>6 笔结算全部匹配授权记录</td></tr>
+      <tr><td>授权费汇总 ↔ 明细</td><td><span class="pill ok">一致</span></td><td>余额流水按日汇总 4.25 = FEES 表 17 × 0.25</td></tr>
+      <tr><td>HKD 收付款余额 ↔ 对账单</td><td><span class="pill ok">一致</span></td><td>对账单 5 笔：2 笔入金（净额）、3 笔购汇卖出，期初、期末均为 0.00；单号与入金、购汇记录一一对应</td></tr>
+      <tr><td>入金金额口径</td><td><span class="pill ok">已明确</span></td><td>对账单按净额入账（11,168.82 / 23,439.81），手续费只在入金记录里；入账日期以对账单为准（C268277BP9 为 08-31，提交时间是 08-27）</td></tr>
+      <tr><td>USD 收付款余额 ↔ 对账单</td><td><span class="pill ok">一致</span></td><td>对账单 8 笔：3 笔 Buy、5 笔 Transfer to Card Balance，期末 2,172.87，与推算一致</td></tr>
+      <tr><td>购汇两端配对</td><td><span class="pill ok">一致</span></td><td>HKD Sell 与 USD Buy 使用同一交易号（TXN…），与购汇记录一致</td></tr>
+      <tr><td>划转两端配对</td><td><span class="pill ok">一致</span></td><td>5 笔 Transfer to Card Balance 与卡余额 Transfer In 同日同金额一一对应；两端单号不同（如 2114914845280309249 ↔ IO2114914845284503554），只能按日期 + 金额配对</td></tr>
+      <tr><td>账户主体</td><td><span class="pill ok">已确认</span></td><td>同一账户 72778936，Rich Sum 与阜森为同一主体</td></tr>
+    </tbody>
+  </table>
+
+  <h2>5. 记账口径</h2>
+  <div class="two">
+    <div class="box">
+      <h3>渠道账（我方头寸，本图全部内容）</h3>
+      <ul>
+        <li>一个渠道账户 <code>72778936</code>，下分<b>余额类型</b>：<code>PAYMENT</code>（收付款余额）和 <code>CARD</code>（卡余额）。余额按 账户 + 余额类型 + 币种 分别校验。</li>
+        <li>入金记 <code>FUNDING_IN</code>，金额取对账单净额，以保证余额连续；手续费写在同一行的 <code>fee_amount</code>，计入我方成本，毛额 = 净额 + 手续费。</li>
+        <li>购汇记一对 <code>FX_OUT</code>（HKD）/ <code>FX_IN</code>（USD），用交易编号配对，记录汇率；不产生收入或成本。</li>
+        <li>收付款 USD → 卡余额记一对 <code>TRANSFER_OUT</code> / <code>TRANSFER_IN</code>，内部划转，总头寸不变。</li>
+        <li>卡消费、退款、授权费沿用现有设计。</li>
+        <li>入金、购汇、划转都是自有资金的内部变动，不形成收入。</li>
+      </ul>
+    </div>
+    <div class="box">
+      <h3>企业账（客户视角，与订单相关的部分）</h3>
+      <ul>
+        <li>只有<b>卡消费、退款</b>进入企业账，按卡归属企业，挂入最近一个未关闭订单（第二期）。</li>
+        <li>入金、购汇、划转、各类手续费都不进企业账，也不产生到账记录。</li>
+        <li>现有 <code>accounting_fx_exchanges</code> 是企业维度的换汇，不复用；渠道购汇只记在渠道账。</li>
+              </ul>
+    </div>
+  </div>
+
+  <h2>6. 待确认</h2>
+  <div class="box">
+    <ul>
+      <li>收付款余额对账单除了 PDF，平台能否导出 Excel 或 CSV？能的话，转换器优先读表格；只有 PDF 时也能解析，但对版式变化更敏感。</li>
+    </ul>
+  </div>
+
+  <footer>更新于 2026-10-28，依据 SUNRATE 导出数据；标准化结果见 samples/sunrate-72778936-standard.csv。</footer>
+</main>
+</body>
+</html>

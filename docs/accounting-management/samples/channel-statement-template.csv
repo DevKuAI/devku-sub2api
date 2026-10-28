@@ -1,1 +1,1 @@
-﻿platform,account_ref,external_id,occurred_at,type,amount,currency,balance_after,card_ref,card_last4,card_name,merchant,related_id,original_amount,original_currency,remark
+﻿platform,account_ref,wallet,external_id,occurred_at,type,amount,currency,balance_after,fee_amount,card_ref,card_last4,card_name,merchant,related_id,original_amount,original_currency,remark
