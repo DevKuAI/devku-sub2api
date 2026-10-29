@@ -11,6 +11,14 @@ import type {
   AuditRow,
   AllocationRow,
   AccountingOrder,
+  ChannelAccountDetail,
+  ChannelAccountSummary,
+  ChannelConversionResult,
+  ChannelImport,
+  ChannelImportResult,
+  ChannelLine,
+  ChannelLineFilter,
+  ChannelProof,
   OrderEntryInput,
   OrderFilter,
   OrderItemKind,
@@ -399,4 +407,64 @@ export async function updateEntry(orderId: string, kind: OrderItemKind, id: stri
 }
 export async function removeEntry(orderId: string, kind: OrderItemKind, id: string, idempotencyKey: string = key()) {
   return (await mutate(entryPath(orderId, kind, id), {}, idempotencyKey, 'delete')) as AccountingRecord
+}
+
+// Channel accounts and statement imports.
+export async function channelAccounts() {
+  return (await apiClient.get<ChannelAccountSummary[]>(`${adminBase}/channel-accounts`)).data
+}
+export async function channelAccount(id: string) {
+  return (await apiClient.get<ChannelAccountDetail>(`${adminBase}/channel-accounts/${encodeURIComponent(id)}`)).data
+}
+export async function channelLines(id: string, filter: ChannelLineFilter, signal?: AbortSignal) {
+  return (
+    await apiClient.get<PaginatedResponse<ChannelLine>>(`${adminBase}/channel-accounts/${encodeURIComponent(id)}/lines`, { params: filter, signal })
+  ).data
+}
+function channelForm(files: File[]) {
+  const form = new FormData()
+  for (const file of files) form.append('files', file, file.name)
+  return form
+}
+// Booking happens as soon as the files pass every check.
+export async function importChannel(files: File[], idempotencyKey: string) {
+  return (
+    await apiClient.post<ChannelImportResult>(`${adminBase}/channel-imports`, channelForm(files), {
+      headers: { 'Content-Type': 'multipart/form-data', 'Idempotency-Key': idempotencyKey },
+      timeout: 120000,
+    })
+  ).data
+}
+export async function convertChannel(files: File[]) {
+  return (
+    await apiClient.post<ChannelConversionResult>(`${adminBase}/channel-imports/convert`, channelForm(files), {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000,
+    })
+  ).data
+}
+export async function channelTemplate() {
+  return (await apiClient.get<Blob>(`${adminBase}/channel-template`, { responseType: 'blob' })).data
+}
+export async function revokeChannelImport(id: string, reason: string, idempotencyKey: string) {
+  return (await mutate(`channel-imports/${encodeURIComponent(id)}/revoke`, { reason }, idempotencyKey)) as ChannelImport
+}
+export async function channelFileURL(id: string, index: number) {
+  return (await apiClient.get<{ url: string }>(`${adminBase}/channel-imports/${encodeURIComponent(id)}/files/${index}/download-url`)).data.url
+}
+export async function uploadChannelProof(lineId: string, file: File, idempotencyKey: string) {
+  const form = new FormData()
+  form.append('file', file, file.name)
+  return (
+    await apiClient.post<ChannelProof>(`${adminBase}/channel-lines/${encodeURIComponent(lineId)}/proofs`, form, {
+      headers: { 'Content-Type': 'multipart/form-data', 'Idempotency-Key': idempotencyKey },
+      timeout: 120000,
+    })
+  ).data
+}
+export async function channelProofURL(id: string) {
+  return (await apiClient.get<{ url: string }>(`${adminBase}/channel-proofs/${encodeURIComponent(id)}/download-url`)).data.url
+}
+export async function deleteChannelProof(id: string, idempotencyKey: string) {
+  return (await mutate(`channel-proofs/${encodeURIComponent(id)}`, {}, idempotencyKey, 'delete')) as ChannelProof
 }

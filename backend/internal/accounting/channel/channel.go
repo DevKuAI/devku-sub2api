@@ -67,7 +67,12 @@ type Line struct {
 }
 
 // Key identifies the balance a line belongs to.
-type Key struct{ Platform, AccountRef, Wallet, Currency string }
+type Key struct {
+	Platform   string `json:"platform"`
+	AccountRef string `json:"account_ref"`
+	Wallet     string `json:"wallet"`
+	Currency   string `json:"currency"`
+}
 
 func (l *Line) Key() Key { return Key{l.Platform, l.AccountRef, l.Wallet, l.Currency} }
 func (k Key) String() string {

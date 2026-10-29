@@ -84,7 +84,9 @@ func readTemplates(files []SourceFile) (*Result, error) {
 
 func parseTemplateRow(file string, row int, v map[string]string) (*Line, Problems) {
 	var problems Problems
-	bad := func(column, message string) { problems = append(problems, Problem{File: file, Row: row, Column: column, Message: message}) }
+	bad := func(column, message string) {
+		problems = append(problems, Problem{File: file, Row: row, Column: column, Message: message})
+	}
 	l := &Line{
 		Platform: v["platform"], AccountRef: v["account_ref"], Wallet: v["wallet"], ExternalID: v["external_id"],
 		Type: strings.ToUpper(v["type"]), Currency: strings.ToUpper(v["currency"]), CardRef: v["card_ref"],
@@ -193,7 +195,7 @@ const (
 // WriteCSV renders lines as a standard template with a UTF-8 BOM so spreadsheet tools read it correctly.
 func WriteCSV(lines []Line) []byte {
 	var buf bytes.Buffer
-	buf.WriteString("\xef\xbb\xbf")
+	_, _ = buf.WriteString("\xef\xbb\xbf")
 	w := csv.NewWriter(&buf)
 	_ = w.Write(Columns)
 	text := func(d *decimal.Decimal) string {

@@ -193,6 +193,8 @@ func readSunrateStatement(f SourceFile) (*sunrateStatement, error) {
 			if st.closingAt, err = time.ParseInLocation("Jan 2 2006", m[1], sunrateZone); err != nil {
 				return nil, problem(f.Name, 0, "", "unreadable closing date %q", m[1])
 			}
+			// The closing balance is the balance at the end of that day.
+			st.closingAt = st.closingAt.Add(24*time.Hour - time.Second)
 			if st.closing, err = statementMoney(cells[3]); err != nil {
 				return nil, problem(f.Name, 0, "", "unreadable closing balance %q", cells[3])
 			}

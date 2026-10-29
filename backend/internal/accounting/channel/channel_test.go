@@ -38,7 +38,7 @@ func sunrateFiles(t *testing.T, skip ...string) []SourceFile {
 func balances(r *Result) map[string]string {
 	out := map[string]string{}
 	for _, b := range r.Balances {
-		out[b.Key.String()] = b.Amount.StringFixed(2)
+		out[b.String()] = b.Amount.StringFixed(2)
 	}
 	return out
 }

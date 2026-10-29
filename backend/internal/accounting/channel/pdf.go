@@ -80,7 +80,7 @@ func pdfRows(data []byte) (rows []pdfRow, err error) {
 					flush()
 					start = g.X
 				}
-				text.WriteString(g.S)
+				_, _ = text.WriteString(g.S)
 				end = g.X + g.W
 			}
 			flush()

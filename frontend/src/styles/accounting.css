@@ -286,3 +286,60 @@
     @apply col-span-2;
   }
 }
+
+/* Channel accounts: balances drawn in the order money moves through them. */
+.channel-account {
+  @apply space-y-4 p-5;
+}
+.channel-account-header {
+  @apply flex items-start justify-between gap-4;
+}
+.channel-flow {
+  @apply flex flex-wrap items-stretch gap-2;
+}
+.channel-flow-step {
+  @apply flex min-w-0 flex-1 basis-56 items-center gap-2;
+}
+.channel-flow-arrow {
+  @apply shrink-0 text-lg text-gray-400 dark:text-dark-500;
+}
+.channel-wallet {
+  @apply min-w-0 flex-1 rounded-xl border px-4 py-3;
+}
+.channel-wallet.is-matched {
+  @apply border-emerald-200 bg-emerald-50/60 dark:border-emerald-900/60 dark:bg-emerald-950/20;
+}
+.channel-wallet.is-mismatched {
+  @apply border-red-200 bg-red-50/60 dark:border-red-900/60 dark:bg-red-950/20;
+}
+.channel-wallet.is-unknown {
+  @apply border-gray-200 bg-gray-50 dark:border-dark-700 dark:bg-dark-800/40;
+}
+.channel-wallet-label {
+  @apply text-xs font-medium text-gray-500 dark:text-dark-400;
+}
+.channel-wallet-balance {
+  @apply mt-1 text-xl font-semibold text-gray-950 dark:text-white;
+}
+.channel-wallet-meta {
+  @apply mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-dark-400;
+}
+.channel-figures {
+  @apply grid gap-4 border-t border-gray-100 pt-4 sm:grid-cols-3 dark:border-dark-700;
+}
+.channel-figures dt {
+  @apply text-xs text-gray-500 dark:text-dark-400;
+}
+.channel-figures dd {
+  @apply text-sm font-medium text-gray-900 dark:text-white;
+}
+.channel-warnings {
+  @apply flex flex-wrap gap-2;
+}
+.channel-dropzone {
+  @apply flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-300 bg-white px-6 py-10 text-center text-gray-500 transition-colors hover:border-primary-400 dark:border-dark-600 dark:bg-dark-900;
+}
+.channel-dropzone.is-active,
+.channel-dropzone:focus-within {
+  @apply border-primary-500 bg-primary-50/40 dark:bg-primary-950/20;
+}
