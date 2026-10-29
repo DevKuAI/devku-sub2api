@@ -31,7 +31,7 @@ func TestBIPrivacyAdminPublishPublicReadAndBootstrap(t *testing.T) {
 			c.Abort()
 		}
 	})
-	registerSettingsRoutes(group, h)
+	registerSettingsRoutes(group, h, func(c *gin.Context) { c.Next() })
 	r.GET("/api/v1/settings/bi-privacy", handler.NewSettingHandler(settings, "test").GetBIPrivacyNotice)
 	r.GET("/api/bi/v1/bootstrap", bi.Headers, bi.NewHandler(nil, nil, cfg, nil, settings).Bootstrap)
 	var spec struct {
