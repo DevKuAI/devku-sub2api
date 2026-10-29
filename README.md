@@ -4,7 +4,7 @@
 
 # Sub2API · DevKu
 
-[![Go](https://img.shields.io/badge/Go-1.27.2-00ADD8.svg)](https://go.dev/)
+[![Go](https://img.shields.io/badge/Go-1.27.3-00ADD8.svg)](https://go.dev/)
 [![Vue](https://img.shields.io/badge/Vue-3.5-4FC08D.svg)](https://vuejs.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-336791.svg)](https://www.postgresql.org/)
 [![Redis](https://img.shields.io/badge/Redis-7+-DC382D.svg)](https://redis.io/)
@@ -46,7 +46,7 @@ Use this README to choose a deployment method and configure the service. See the
 | Desktop resources and updates | MCP/Skill package management and authenticated distribution, plus Desktop update publishing backed by S3-compatible storage. Private resource storage is separate from public update artifacts. |
 | Enterprise accounting | Transfers and tax calculations, VCC allocations/transactions/refunds, contracts, invoices, AI Invoice, expenses and installments, reconciliation, CSV export, private attachments and audits. Currencies are tracked separately. |
 | Enterprise BI | Independent WeChat identity, enterprise invitations and feature grants, Desktop usage and daily/weekly/monthly reports, and administrative metadata. WeChat-device and production-capacity acceptance remains tracked in the [BI documentation](docs/mobile-bi/README.md). |
-| Administration and extensions | Web administration, operational monitoring, plugin host services and iframe integration with external systems. |
+| Administration and extensions | Web administration, [Admin API keys scoped by operation and resource](docs/admin-api-keys.md), operational monitoring, plugin host services and iframe integration with external systems. |
 
 ### Enterprise account access
 
@@ -62,7 +62,7 @@ Use this README to choose a deployment method and configure the service. See the
 | **Docker Compose (recommended)** | Docker 20.10+ and Compose v2+ | Includes PostgreSQL and Redis; automatic first-run setup. |
 | Linux binary | Linux amd64/arm64, systemd, root for installation; PostgreSQL 15+ and Redis 7+ already running | Web setup wizard or CLI `--setup`. |
 | Apple `container` | Apple silicon, macOS 26, `container` 1.1.0+ | Local three-service stack; [operations and limitations](deploy/APPLE_CONTAINER.md). |
-| Source build | Go 1.27.2, Node.js 20, pnpm 9, PostgreSQL and Redis | See [Development](#development). |
+| Source build | Go 1.27.3, Node.js 24, pnpm 9, PostgreSQL and Redis | See [Development](#development). |
 
 ### Docker Compose quick start
 
@@ -468,7 +468,7 @@ Antigravity accounts support optional **hybrid scheduling**. When enabled, the g
 
 ## Development
 
-The current backend requires **Go 1.27.2** (`backend/go.mod`). CI uses **Node.js 20 and pnpm 9**; use those versions and the committed lockfile. The frontend uses Vue 3.5, TypeScript, Vite 5, Pinia and Tailwind CSS; the backend uses Gin, Ent, SQL repositories, PostgreSQL and Redis. Compose currently ships PostgreSQL 18 and Redis 8.
+The current backend requires **Go 1.27.3** (`backend/go.mod`). CI uses **Node.js 24 and pnpm 9**; use those versions and the committed lockfile. The frontend uses Vue 3.5, TypeScript, Vite 5, Pinia and Tailwind CSS; the backend uses Gin, Ent, SQL repositories, PostgreSQL and Redis. Compose currently ships PostgreSQL 18 and Redis 8.
 
 ### Build a binary with the Web UI
 

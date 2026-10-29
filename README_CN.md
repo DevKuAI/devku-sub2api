@@ -4,7 +4,7 @@
 
 # Sub2API · DevKu
 
-[![Go](https://img.shields.io/badge/Go-1.27.2-00ADD8.svg)](https://go.dev/)
+[![Go](https://img.shields.io/badge/Go-1.27.3-00ADD8.svg)](https://go.dev/)
 [![Vue](https://img.shields.io/badge/Vue-3.5-4FC08D.svg)](https://vuejs.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-336791.svg)](https://www.postgresql.org/)
 [![Redis](https://img.shields.io/badge/Redis-7+-DC382D.svg)](https://redis.io/)
@@ -46,7 +46,7 @@ Sub2API 是可自行部署的 AI API 网关，用于管理上游 OAuth 和 API K
 | Desktop 资源与更新 | MCP/Skill 包管理与鉴权分发，以及基于 S3 兼容存储的 Desktop 更新发布。私有资源与公开更新文件使用独立 bucket。 |
 | 企业账目 | 到账与税务、VCC 分配/消费/退款、合同、发票、AI Invoice、支出与分次付款、对账、CSV 导出、私有附件和审计。不同币种分别记账。 |
 | 企业 BI | 独立微信身份、企业邀请与功能授权，读取 Desktop 用量及日／周／月总结，提供管理端 metadata 运维。微信设备和生产容量验收仍按 [BI 文档](docs/mobile-bi/README.md) 跟踪。 |
-| 管理与扩展 | Web 管理后台、运行监控、插件宿主服务，以及通过 iframe 接入外部系统。 |
+| 管理与扩展 | Web 管理后台、[按操作与资源范围授权的 Admin API keys](docs/admin-api-keys.md)、运行监控、插件宿主服务，以及通过 iframe 接入外部系统。 |
 
 ### 企业账户入口
 
@@ -62,7 +62,7 @@ Sub2API 是可自行部署的 AI API 网关，用于管理上游 OAuth 和 API K
 | **Docker Compose（推荐）** | Docker 20.10+、Compose v2+ | 包含 PostgreSQL 和 Redis，首次启动自动初始化。 |
 | Linux 二进制 | Linux amd64/arm64、systemd、安装时需要 root；已运行的 PostgreSQL 15+ 和 Redis 7+ | Web setup 向导或 CLI `--setup`。 |
 | Apple `container` | Apple silicon、macOS 26、`container` 1.1.0+ | 本地三服务环境；见 [操作说明与限制](deploy/APPLE_CONTAINER.md)。 |
-| 源码编译 | Go 1.27.2、Node.js 20、pnpm 9、PostgreSQL 和 Redis | 见 [开发](#开发)。 |
+| 源码编译 | Go 1.27.3、Node.js 24、pnpm 9、PostgreSQL 和 Redis | 见 [开发](#开发)。 |
 
 ### Docker Compose 快速开始
 
@@ -453,7 +453,7 @@ Antigravity 账户支持可选的**混合调度**功能。开启后，通用端�
 
 ## 开发
 
-当前后端要求 **Go 1.27.2**（`backend/go.mod`）。CI 使用 **Node.js 20 和 pnpm 9**，应使用对应版本及仓库 lockfile。前端采用 Vue 3.5、TypeScript、Vite 5、Pinia 和 Tailwind CSS；后端采用 Gin、Ent、SQL Repository、PostgreSQL 和 Redis。当前 Compose 使用 PostgreSQL 18 和 Redis 8。
+当前后端要求 **Go 1.27.3**（`backend/go.mod`）。CI 使用 **Node.js 24 和 pnpm 9**，应使用对应版本及仓库 lockfile。前端采用 Vue 3.5、TypeScript、Vite 5、Pinia 和 Tailwind CSS；后端采用 Gin、Ent、SQL Repository、PostgreSQL 和 Redis。当前 Compose 使用 PostgreSQL 18 和 Redis 8。
 
 ### 编译包含 Web UI 的二进制
 
