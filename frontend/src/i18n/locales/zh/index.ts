@@ -1,5 +1,6 @@
 import desktopStructure from './desktopStructure'
 import accounting from './accounting'
+import adminAccessKeys from './adminAccessKeys'
 import landing from './landing'
 import common from './common'
 import dashboard from './dashboard'
@@ -13,6 +14,7 @@ import misc from './misc'
 export default {
   ...desktopStructure,
   ...accounting,
+  adminAccessKeys,
   ...landing,
   ...common,
   ...dashboard,

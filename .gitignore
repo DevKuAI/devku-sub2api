@@ -166,6 +166,7 @@ docs/media/*
 !docs/media/*.md
 !docs/accounting-management/
 !docs/accounting-management/*.md
+!docs/admin-api-keys.md
 !docs/codex-credits.md
 !docs/legal/
 !docs/legal/*.md
