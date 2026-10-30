@@ -228,9 +228,17 @@ export interface AccountingOrder {
   closed_at?: string
   created_at: string
   version: number
+  contract?: OrderContract
   progress: Record<OrderStep, boolean>
   totals: OrderTotal[]
   items?: Partial<Record<OrderItemKind, AccountingRecord[]>>
+}
+// The sales contract an order is done under.
+export interface OrderContract {
+  id: string
+  name: string
+  contract_number: string
+  status: string
 }
 export interface OrderFilter {
   organization_id?: string

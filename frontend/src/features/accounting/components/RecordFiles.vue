@@ -54,7 +54,7 @@ import { errorMessage } from '../shared'
 import type { AccountingAttachment, AccountingKind, AccountingRecord } from '../types'
 
 const props = defineProps<{ kind: AccountingKind; record: AccountingRecord; customer?: boolean }>()
-const emit = defineEmits<{ changed: [] }>()
+const emit = defineEmits<{ changed: []; uploaded: [] }>()
 const { t, te } = useI18n()
 const files = ref<AccountingAttachment[]>([])
 const loading = ref(false)
@@ -108,6 +108,7 @@ async function upload(file: File | null) {
     await load()
     selectedFile.value = null
     emit('changed')
+    emit('uploaded')
   })
   uploading.value = false
 }

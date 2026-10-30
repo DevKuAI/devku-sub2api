@@ -26,6 +26,17 @@ export default {
       invoices: 'Invoices',
       periods: 'Statements',
     },
+    contractForm: {
+      createTitle: 'Add sales contract',
+      editTitle: 'Edit sales contract',
+      description: 'A contract is a document record of the organization: who signed what and when, with its scan. Orders can name one contract.',
+      contract: 'Contract',
+      amount: 'Contract amount',
+      share: 'Share with the organization (its users see it under Financial records)',
+      files: 'Scans',
+      filesHint: 'Optionally choose a PDF or image; it uploads after saving. More can be added on the edit page.',
+      uploadFailed: 'The contract was saved, but the scan failed to upload. Add it again below.',
+    },
     vendors: {
       description: 'Cards, card spend and AI invoices choose from these lists, so names stay consistent. Aliases recognise how older records and platform statements spell a vendor.',
       kinds: { CARD_PROVIDER: 'Card providers', AI_VENDOR: 'AI vendors' },
@@ -292,6 +303,9 @@ export default {
       },
     },
     orders: {
+      contract: 'Contract: {name} ({number})',
+      contractField: 'Sales contract',
+      noContract: 'No contract',
       createdOn: 'Created {date}',
       progressOf: '{done} of {total} steps done',
       nextStep: 'Next step',
@@ -438,6 +452,8 @@ export default {
       channelConflict: 'Platform reference {id} was imported before with a different amount or type. Check the reports.',
       fields: {
         entry_locked: 'This cannot change once effective. Delete the entry and add it again.',
+        contract_in_use: 'Orders still name this contract. Remove it from those orders first.',
+        contract_id: 'Choose a sales contract of this organization that is not void.',
         not_latest_import: 'A newer batch exists. Revoke the latest batch first.',
         receipt_in_use: 'This payment already funds card spend, so it cannot be deleted or change currency. Change its amount, or delete that spend first.',
         receipt_below_spend: 'The payment cannot be less than what card spend already used from it.',

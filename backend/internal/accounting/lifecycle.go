@@ -136,9 +136,13 @@ func (e *Engine) Void(ctx context.Context, tx *sql.Tx, kind string, r *Record, r
 		case "vendor-invoices", "invoices", "contracts":
 			var linked bool
 			field := map[string]string{"vendor-invoices": "vendor_invoice_id", "invoices": "invoice_id", "contracts": "contract_id"}[kind]
-			err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM accounting_expenses WHERE details->>$2=$1 AND status IN ('PENDING','PAID')) OR EXISTS(SELECT 1 FROM accounting_vcc_transactions WHERE details->>$2=$1 AND status='CONFIRMED')`, r.ID, field).Scan(&linked)
+			err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM accounting_expenses WHERE details->>$2=$1 AND status IN ('PENDING','PAID')) OR EXISTS(SELECT 1 FROM accounting_vcc_transactions WHERE details->>$2=$1 AND status='CONFIRMED')
+ OR ($2='contract_id' AND EXISTS(SELECT 1 FROM accounting_orders WHERE contract_id::text=$1))`, r.ID, field).Scan(&linked)
 			if err != nil {
 				return err
+			}
+			if linked && kind == "contracts" {
+				return ErrState.WithMetadata(map[string]string{"field": "contract_in_use"})
 			}
 			if linked {
 				return ErrState

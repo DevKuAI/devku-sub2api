@@ -6,10 +6,10 @@
           <h2 class="detail-section-title">{{ t('admin.desktop.business.contacts') }}</h2>
           <p class="detail-caption mt-1">{{ t('admin.desktop.business.contactsHint') }}</p>
         </div>
-        <button ref="addContactButton" class="btn btn-primary" type="button" @click="creatingContact = true">
+        <router-link class="btn btn-primary" :to="newContactRoute" data-testid="organization-contact-new">
           <Icon name="userPlus" size="sm" />
           <span>{{ t('admin.desktop.business.addContact') }}</span>
-        </button>
+        </router-link>
       </header>
 
       <p v-if="error" class="detail-error" role="alert">{{ error }}</p>
@@ -66,6 +66,10 @@
           <h2 class="detail-section-title">{{ t('admin.desktop.business.contracts') }}</h2>
           <p class="detail-caption mt-1">{{ t('admin.desktop.business.contractsHint') }}</p>
         </div>
+        <router-link class="btn btn-primary" :to="newContractRoute" data-testid="organization-contract-new">
+          <Icon name="plus" size="sm" />
+          <span>{{ t('admin.desktop.business.addContract') }}</span>
+        </router-link>
       </header>
 
       <div v-if="contracts.length" class="table-responsive">
@@ -77,6 +81,7 @@
               <th class="px-3 py-2 text-right font-medium">{{ t('accounting.amount') }}</th>
               <th class="px-3 py-2 font-medium">{{ t('common.status') }}</th>
               <th class="px-3 py-2 font-medium">{{ t('admin.desktop.business.validity') }}</th>
+              <th class="px-3 py-2 text-right font-medium">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -89,21 +94,33 @@
               <td class="px-3 py-3 text-right align-top tabular-nums">{{ formatMoney(contract.amount, contract.currency) }}</td>
               <td class="px-3 py-3 align-top">{{ t(`accounting.statuses.${contract.status}`) }}</td>
               <td class="px-3 py-3 align-top text-gray-600 dark:text-dark-300">{{ validity(contract) }}</td>
+              <td class="px-3 py-3 align-top">
+                <div class="flex justify-end">
+                  <router-link
+                    v-if="contract.status !== 'VOID'"
+                    class="detail-row-action"
+                    :to="editContractRoute(contract)"
+                    :title="t('common.edit')"
+                    :aria-label="`${t('common.edit')} ${contract.details.name || ''}`"
+                  >
+                    <Icon name="edit" size="sm" />
+                  </router-link>
+                </div>
+              </td>
             </tr>
           </tbody>
         </table>
       </div>
       <p v-else-if="!loading" class="py-8 text-center text-sm text-gray-500 dark:text-dark-400">{{ t('admin.desktop.business.noContracts') }}</p>
     </section>
-    <OrganizationContactCreateDialog v-if="creatingContact" :key="organizationId" :organization-id="organizationId" @close="closeContact" @saved="contactCreated" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { nextTick, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
-import OrganizationContactCreateDialog from '@/features/accounting/components/OrganizationContactCreateDialog.vue'
 import * as accountingAPI from '@/features/accounting/api'
 import { formatMoney } from '@/features/accounting/format'
 import type { AccountingRecord, OrganizationContact } from '@/features/accounting/types'
@@ -114,15 +131,13 @@ const contacts = ref<OrganizationContact[]>([])
 const contracts = ref<AccountingRecord[]>([])
 const loading = ref(false)
 const error = ref('')
-const creatingContact = ref(false)
-const addContactButton = ref<HTMLButtonElement>()
-function contactCreated() {
-  closeContact()
-  void loadBusiness()
-}
-function closeContact() {
-  creatingContact.value = false
-  void nextTick(() => addContactButton.value?.focus())
+const route = useRoute()
+// Forms open as their own pages and come back to this tab.
+const returnTo = computed(() => ({ return_to: route.fullPath }))
+const newContactRoute = computed(() => ({ name: 'AdminAccountingOrganizationContactNew', params: { organizationId: props.organizationId }, query: returnTo.value }))
+const newContractRoute = computed(() => ({ name: 'AdminAccountingContractNew', params: { organizationId: props.organizationId }, query: returnTo.value }))
+function editContractRoute(contract: AccountingRecord) {
+  return { name: 'AdminAccountingContractEdit', params: { organizationId: props.organizationId, contractId: contract.id }, query: returnTo.value }
 }
 function editContactRoute(contact: OrganizationContact) {
   return {
@@ -167,9 +182,6 @@ async function removeContact(contact: OrganizationContact) {
   }
 }
 
-watch(() => props.organizationId, () => {
-  creatingContact.value = false
-  void loadBusiness()
-})
+watch(() => props.organizationId, () => void loadBusiness())
 onMounted(loadBusiness)
 </script>

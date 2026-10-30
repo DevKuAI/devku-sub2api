@@ -9,6 +9,12 @@
         <template v-if="order" #subtitle>
           <router-link class="accounting-link" :to="ordersRoute({ organization: order.organization_id })">{{ order.organization_name }}</router-link>
           · {{ t('accounting.orders.createdOn', { date: formatDate(order.created_at) }) }}
+          <template v-if="order.contract">
+            ·
+            <router-link class="accounting-link" data-testid="order-contract" :to="{ name: 'AdminAccountingContractEdit', params: { organizationId: order.organization_id, contractId: order.contract.id } }">
+              {{ t('accounting.orders.contract', { name: order.contract.name, number: order.contract.contract_number }) }}
+            </router-link>
+          </template>
           <template v-if="order.remark"> · {{ order.remark }}</template>
         </template>
         <template v-if="order && !panel" #actions>
@@ -29,6 +35,13 @@
           <label class="block min-w-0 sm:col-span-2 lg:col-span-3">
             <span class="input-label">{{ t('accounting.orders.name') }}</span>
             <input v-model="orderForm.name" class="input w-full" maxlength="200" required />
+          </label>
+          <label class="block min-w-0 sm:col-span-2 lg:col-span-3">
+            <span class="input-label">{{ t('accounting.orders.contractField') }}<span class="accounting-optional">{{ t('accounting.form.optional') }}</span></span>
+            <select v-model="orderForm.contract_id" class="input w-full" data-testid="order-contract-select">
+              <option value="">{{ t('accounting.orders.noContract') }}</option>
+              <option v-for="contract in contracts" :key="contract.id" :value="contract.id">{{ contractLabel(contract) }}</option>
+            </select>
           </label>
           <label class="block min-w-0 sm:col-span-2 lg:col-span-3">
             <span class="input-label">{{ t('accounting.entries.fields.remark') }}<span class="accounting-optional">{{ t('accounting.form.optional') }}</span></span>
@@ -216,7 +229,11 @@ const busy = ref(false)
 const error = ref('')
 const notice = ref('')
 const panel = ref<'' | 'edit' | 'close'>('')
-const orderForm = reactive({ name: '', remark: '', reason: '' })
+const orderForm = reactive({ name: '', remark: '', reason: '', contract_id: '' })
+const contracts = ref<AccountingRecord[]>([])
+function contractLabel(contract: AccountingRecord) {
+  return [contract.details.name, contract.details.contract_number].filter(Boolean).join(' · ')
+}
 const reopening = ref(false)
 const editor = ref<Editor | null>(null)
 const dirty = ref(false)
@@ -317,8 +334,11 @@ async function saved(_record: AccountingRecord, uploadFailed: boolean) {
 }
 function startPanel(next: 'edit' | 'close') {
   if (!order.value) return
-  Object.assign(orderForm, { name: order.value.name, remark: order.value.remark, reason: '' })
+  Object.assign(orderForm, { name: order.value.name, remark: order.value.remark, reason: '', contract_id: order.value.contract?.id || '' })
   panel.value = next
+  if (next === 'edit') {
+    api.organizationContracts(order.value.organization_id).then((list) => (contracts.value = list)).catch((cause) => (error.value = errorMessage(cause, t, te)))
+  }
 }
 
 async function run(path: string, payload: unknown, method: 'post' | 'patch' | 'delete' = 'post') {
@@ -337,7 +357,8 @@ async function run(path: string, payload: unknown, method: 'post' | 'patch' | 'd
   }
 }
 async function saveOrder() {
-  if (await run(`orders/${orderId.value}`, { name: orderForm.name.trim(), remark: orderForm.remark.trim(), version: order.value?.version }, 'patch')) panel.value = ''
+  const payload = { name: orderForm.name.trim(), remark: orderForm.remark.trim(), contract_id: orderForm.contract_id, version: order.value?.version }
+  if (await run(`orders/${orderId.value}`, payload, 'patch')) panel.value = ''
 }
 async function closeOrder() {
   if (await run(`orders/${orderId.value}/close`, { reason: orderForm.reason.trim() })) panel.value = ''

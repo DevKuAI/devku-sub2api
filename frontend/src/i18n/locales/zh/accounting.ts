@@ -26,6 +26,17 @@ export default {
       invoices: '发票',
       periods: '对账单',
     },
+    contractForm: {
+      createTitle: '添加销售合同',
+      editTitle: '编辑销售合同',
+      description: '合同是企业的文档记录：谁签的、签了什么、什么时候生效，附上扫描件。订单可以关联一份合同。',
+      contract: '合同信息',
+      amount: '合同金额',
+      share: '共享给企业（企业账号可以在“财务账目”中查看这份合同）',
+      files: '扫描件',
+      filesHint: '可选一个 PDF 或图片，保存后自动上传；之后在编辑页可以继续添加。',
+      uploadFailed: '合同已保存，但扫描件上传失败，请在下方重新上传。',
+    },
     vendors: {
       description: '卡片、卡消费和 AI 发票只能从这里的列表里选，名称统一；别名用来自动识别历史记录和平台账单里的各种写法。',
       kinds: { CARD_PROVIDER: '发卡服务商', AI_VENDOR: 'AI 厂商' },
@@ -292,6 +303,9 @@ export default {
       },
     },
     orders: {
+      contract: '合同：{name}（{number}）',
+      contractField: '销售合同',
+      noContract: '不关联合同',
       createdOn: '{date} 创建',
       progressOf: '已完成 {done}/{total} 步',
       nextStep: '下一步',
@@ -438,6 +452,8 @@ export default {
       channelConflict: '平台单号 {id} 之前导入过，但金额或类型不同，请核对报表。',
       fields: {
         entry_locked: '这一项生效后不能直接修改，请删除后重新添加。',
+        contract_in_use: '还有订单关联这份合同，请先在订单里取消关联。',
+        contract_id: '请选择本企业未作废的销售合同。',
         not_latest_import: '之后还有导入批次，请先撤销最新的一批。',
         receipt_in_use: '这笔收款已用于卡消费，不能删除或换币种；可以修改金额，或先删除相关卡消费。',
         receipt_below_spend: '收款金额不能低于已经用于卡消费的金额。',

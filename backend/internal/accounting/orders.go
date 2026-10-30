@@ -51,21 +51,32 @@ type Order struct {
 	ClosedAt       *time.Time           `json:"closed_at,omitempty"`
 	CreatedAt      time.Time            `json:"created_at"`
 	Version        int64                `json:"version"`
+	Contract       *OrderContract       `json:"contract,omitempty"`
 	Progress       OrderProgress        `json:"progress"`
 	Totals         []OrderTotal         `json:"totals"`
 	Items          map[string][]*Record `json:"items,omitempty"`
 	Org            int64                `json:"-"`
 }
 
+// OrderContract is the sales contract an order is done under.
+type OrderContract struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Number string `json:"contract_number"`
+	Status string `json:"status"`
+}
+
 type orderInput struct {
 	OrganizationID string `json:"organization_id"`
 	Name           string `json:"name"`
 	Remark         string `json:"remark"`
-	Version        int64  `json:"version"`
-	Reason         string `json:"reason"`
-	ObjectKind     string `json:"object_kind"`
-	ObjectID       string `json:"object_id"`
-	Transfer       *Input `json:"transfer,omitempty"`
+	// ContractID links a sales contract of the same organization; an empty string clears it, absent keeps it.
+	ContractID *string `json:"contract_id,omitempty"`
+	Version    int64   `json:"version"`
+	Reason     string  `json:"reason"`
+	ObjectKind string  `json:"object_kind"`
+	ObjectID   string  `json:"object_id"`
+	Transfer   *Input  `json:"transfer,omitempty"`
 }
 
 type topUpInput struct {
@@ -318,22 +329,50 @@ func (e *Engine) afterOrderChange(ctx context.Context, tx *sql.Tx, kind string, 
 
 // --- Reading orders -----------------------------------------------------------
 
-const orderColumns = "a.id::text,o.public_id,o.name,a.name,a.remark,a.status,a.close_reason,a.closed_at,a.created_at,a.version,a.organization_id"
+const orderColumns = "a.id::text,o.public_id,o.name,a.name,a.remark,a.status,a.close_reason,a.closed_at,a.created_at,a.version,a.organization_id," +
+	"COALESCE(k.id::text,''),COALESCE(k.details->>'name',''),COALESCE(k.details->>'contract_number',''),COALESCE(k.status,'')"
+
+// orderFrom joins what an order row shows: its organization and the sales contract it names.
+const orderFrom = " FROM accounting_orders a JOIN desktop_organizations o ON o.id=a.organization_id LEFT JOIN accounting_contracts k ON k.id=a.contract_id"
 
 func scanOrder(row interface{ Scan(...any) error }) (*Order, error) {
 	o := &Order{}
-	err := row.Scan(&o.ID, &o.OrganizationID, &o.Organization, &o.Name, &o.Remark, &o.Status, &o.CloseReason, &o.ClosedAt, &o.CreatedAt, &o.Version, &o.Org)
+	c := OrderContract{}
+	err := row.Scan(&o.ID, &o.OrganizationID, &o.Organization, &o.Name, &o.Remark, &o.Status, &o.CloseReason, &o.ClosedAt, &o.CreatedAt, &o.Version, &o.Org,
+		&c.ID, &c.Name, &c.Number, &c.Status)
 	if err == sql.ErrNoRows {
 		return nil, ErrNotFound
 	}
+	if c.ID != "" {
+		o.Contract = &c
+	}
 	return o, err
+}
+
+// orderContract checks that a contract can be named by an order of the organization.
+func orderContract(ctx context.Context, tx dbQuery, org int64, id string) (any, error) {
+	if id == "" {
+		return nil, nil
+	}
+	if _, err := uuid.Parse(id); err != nil {
+		return nil, invalid("contract_id")
+	}
+	var status string
+	err := tx.QueryRowContext(ctx, "SELECT status FROM accounting_contracts WHERE id=$1 AND organization_id=$2 FOR SHARE", id, org).Scan(&status)
+	if err == sql.ErrNoRows || status == "VOID" {
+		return nil, invalid("contract_id")
+	}
+	if err != nil {
+		return nil, err
+	}
+	return id, nil
 }
 
 func (e *Engine) loadOrder(ctx context.Context, q dbQuery, id string, org int64, withItems bool) (*Order, error) {
 	if _, err := uuid.Parse(id); err != nil {
 		return nil, ErrNotFound
 	}
-	query := "SELECT " + orderColumns + " FROM accounting_orders a JOIN desktop_organizations o ON o.id=a.organization_id WHERE a.id=$1 AND o.deleted_at IS NULL AND ($2::bigint=0 OR a.organization_id=$2)"
+	query := "SELECT " + orderColumns + orderFrom + " WHERE a.id=$1 AND o.deleted_at IS NULL AND ($2::bigint=0 OR a.organization_id=$2)"
 	o, err := scanOrder(q.QueryRowContext(ctx, query, id, org))
 	if err != nil {
 		return nil, err
@@ -502,7 +541,7 @@ func (h *Handler) listOrders(c *gin.Context) {
 	}
 	search := "%" + strings.NewReplacer("\\", "\\\\", "%", "\\%", "_", "\\_").Replace(strings.TrimSpace(c.Query("search"))) + "%"
 	ctx := c.Request.Context()
-	rows, err := h.engine.db.QueryContext(ctx, "SELECT "+orderColumns+" FROM accounting_orders a JOIN desktop_organizations o ON o.id=a.organization_id WHERE o.deleted_at IS NULL AND ($1::bigint=0 OR a.organization_id=$1) AND (a.name ILIKE $2 OR o.name ILIKE $2) ORDER BY a.created_at DESC,a.id LIMIT 500", org, search)
+	rows, err := h.engine.db.QueryContext(ctx, "SELECT "+orderColumns+orderFrom+" WHERE o.deleted_at IS NULL AND ($1::bigint=0 OR a.organization_id=$1) AND (a.name ILIKE $2 OR o.name ILIKE $2) ORDER BY a.created_at DESC,a.id LIMIT 500", org, search)
 	if response.ErrorFrom(c, err) {
 		return
 	}
@@ -566,7 +605,14 @@ func (h *Handler) createOrder(c *gin.Context) {
 	ctx := c.Request.Context()
 	h.run(c, Operation{Org: org, Kind: "orders", Action: "create", Payload: in}, func(tx *sql.Tx) (any, error) {
 		id := uuid.NewString()
-		if _, err := tx.ExecContext(ctx, "INSERT INTO accounting_orders(id,organization_id,name,remark,created_by) VALUES($1,$2,$3,$4,$5)", id, org, in.Name, in.Remark, actor(c)); err != nil {
+		contract := any(nil)
+		if in.ContractID != nil {
+			var err error
+			if contract, err = orderContract(ctx, tx, org, *in.ContractID); err != nil {
+				return nil, err
+			}
+		}
+		if _, err := tx.ExecContext(ctx, "INSERT INTO accounting_orders(id,organization_id,name,remark,contract_id,created_by) VALUES($1,$2,$3,$4,$5,$6)", id, org, in.Name, in.Remark, contract, actor(c)); err != nil {
 			return nil, err
 		}
 		// The first receipt is usually known when the order starts, so it can be recorded in the same step.
@@ -600,7 +646,17 @@ func (h *Handler) updateOrder(c *gin.Context) {
 	}
 	ctx := c.Request.Context()
 	h.run(c, Operation{Org: current.Org, Kind: "orders", Object: current.ID, Action: "update", Payload: in}, func(tx *sql.Tx) (any, error) {
-		result, err := tx.ExecContext(ctx, "UPDATE accounting_orders SET name=$3,remark=$4,updated_at=NOW(),version=version+1 WHERE id=$1 AND version=$2", current.ID, in.Version, in.Name, in.Remark)
+		query := "UPDATE accounting_orders SET name=$3,remark=$4,updated_at=NOW(),version=version+1 WHERE id=$1 AND version=$2"
+		args := []any{current.ID, in.Version, in.Name, in.Remark}
+		if in.ContractID != nil {
+			contract, err := orderContract(ctx, tx, current.Org, *in.ContractID)
+			if err != nil {
+				return nil, err
+			}
+			query = "UPDATE accounting_orders SET name=$3,remark=$4,contract_id=$5,updated_at=NOW(),version=version+1 WHERE id=$1 AND version=$2"
+			args = append(args, contract)
+		}
+		result, err := tx.ExecContext(ctx, query, args...)
 		if err != nil {
 			return nil, err
 		}

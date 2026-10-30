@@ -161,6 +161,10 @@ func validateFields(kind string, r *Record) error {
 		}
 		return required(r, "merchant")
 	case "contracts":
+		// A contract is a document record: its amount is optional but never negative.
+		if amount(r).IsNegative() {
+			return invalid("amount")
+		}
 		return required(r, "name", "contract_number")
 	case "invoices":
 		if detail(r, "invoice_type") != "SALES" && detail(r, "invoice_type") != "PURCHASE" {
@@ -339,7 +343,9 @@ func (e *Engine) Create(ctx context.Context, tx *sql.Tx, kind string, in Input, 
 	return r, nil
 }
 func (e *Engine) Update(ctx context.Context, tx *sql.Tx, kind string, old *Record, in Input) (*Record, error) {
-	if old.Status != "DRAFT" && (kind != "vcc-cards" || old.Status != "ACTIVE") {
+	// Signed contracts are document records and stay editable; other records are fixed once effective.
+	editable := old.Status == "DRAFT" || (kind == "vcc-cards" && old.Status == "ACTIVE") || (kind == "contracts" && old.Status == "SIGNED")
+	if !editable {
 		return nil, ErrState
 	}
 	if in.Version != old.Version {
