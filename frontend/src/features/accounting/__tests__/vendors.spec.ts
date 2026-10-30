@@ -73,4 +73,18 @@ describe('vendor lists', () => {
     const editing = mount(EntryForm, { ...options, props: { kind: 'vendor-invoices', context, record: legacy } })
     expect(editing.text()).toContain('原记录填写的是“OPENAI *CHATGPT”')
   })
+
+  it('lets the browser accept a card ID made of digits and reject one with spaces', () => {
+    const context = {
+      order: { id: 'order-one' } as AccountingOrder,
+      items: { transfers: [], invoices: [], 'vcc-cards': [], 'vcc-transactions': [], 'vendor-invoices': [] },
+      receivingAccounts: [receivingAccount],
+      vendors,
+    }
+    const wrapper = mount(EntryForm, { ...options, props: { kind: 'vcc-cards', context } })
+    // Browsers compile the pattern attribute as an anchored regular expression with the v flag.
+    const pattern = new RegExp(`^(?:${wrapper.get('[data-testid="entry-card-id-provider_card_id"]').attributes('pattern')})$`, 'v')
+    expect(pattern.test('2108375553744965633')).toBe(true)
+    expect(pattern.test('2108 3755')).toBe(false)
+  })
 })

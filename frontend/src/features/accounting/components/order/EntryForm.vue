@@ -53,8 +53,9 @@
           v-model="values[field.key]"
           class="input w-full font-mono"
           maxlength="128"
-          pattern="\\S+"
+          pattern="\S+"
           autocomplete="off"
+          :data-testid="`entry-card-id-${field.key}`"
           :required="field.required"
         />
         <input
