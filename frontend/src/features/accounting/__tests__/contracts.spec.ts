@@ -12,8 +12,11 @@ const api = vi.hoisted(() => ({
   attachments: vi.fn(),
   stableRequest: () => Object.assign((path: string) => `key-${path}`, { reset: vi.fn() }),
 }))
-const router = vi.hoisted(() => ({ push: vi.fn() }))
-const route = vi.hoisted(() => ({ params: {} as Record<string, string>, query: {} as Record<string, string>, fullPath: '' }))
+const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }))
+const route = await vi.hoisted(async () => {
+  const { reactive } = await import('vue')
+  return reactive({ params: {} as Record<string, string>, query: {} as Record<string, string>, fullPath: '' })
+})
 
 vi.mock('../api', () => api)
 vi.mock('vue-router', () => ({ useRouter: () => router, useRoute: () => route, onBeforeRouteLeave: vi.fn() }))
@@ -29,7 +32,11 @@ const options = {
       ...stubs,
       FormPage: { props: ['error'], emits: ['submit'], template: '<form @submit.prevent="$emit(\'submit\')"><p v-if="error">{{ error }}</p><slot /></form>' },
       FormSection: { template: '<section><slot /></section>' },
-      RecordFiles: { props: ['kind', 'record'], template: '<div data-testid="record-files">{{ kind }}</div>' },
+      RecordFiles: {
+        props: ['kind', 'record'],
+        emits: ['uploaded'],
+        template: '<div data-testid="record-files">{{ kind }}<button type="button" data-testid="scan-uploaded" @click="$emit(\'uploaded\')" /></div>',
+      },
       AccountingFileUpload: {
         props: ['modelValue'],
         emits: ['update:modelValue'],
@@ -46,6 +53,7 @@ const contact = { id: 'contact-one', organization_id: 'org_one', name: '王财�
 describe('sales contracts', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    router.push.mockReset()
     route.params = { organizationId: 'org_one' }
     route.query = {}
     api.organizationContacts.mockResolvedValue([contact])
@@ -67,6 +75,32 @@ describe('sales contracts', () => {
     expect(api.mutate).toHaveBeenNthCalledWith(3, 'contracts/contract-one/sharing', { customer_visible: true }, 'key-contracts/contract-one/sharing', 'patch')
     expect(api.upload).toHaveBeenCalledWith(expect.any(File), 'contracts', expect.objectContaining({ id: 'contract-one' }))
     expect(router.push).toHaveBeenCalledWith({ name: 'AdminDesktopOrganizationDetail', params: { organizationId: 'org_one' }, query: { tab: 'business' } })
+  })
+
+  it('moves to the edit page and offers the upload again when the scan fails', async () => {
+    route.query = { return_to: '/admin/desktop/organizations/org_one?tab=business' }
+    api.upload.mockRejectedValue(new Error('upload failed'))
+    api.getRecord.mockResolvedValue(record({ id: 'contract-one', organization_id: 'org_one', status: 'SIGNED', details: { name: '年度服务合同', contract_number: 'HT-2026-001' } }))
+    router.push.mockImplementation(async (to: { params: Record<string, string>; query: Record<string, string> }) => {
+      route.params = { ...to.params }
+      route.query = { ...to.query }
+    })
+    const wrapper = mount(ContractFormView, options)
+    await flushPromises()
+    await wrapper.get('[data-testid="contract-name"]').setValue('年度服务合同')
+    await wrapper.get('[data-testid="contract-number"]').setValue('HT-2026-001')
+    await wrapper.get('[data-testid="pick-file"]').trigger('click')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(router.push).toHaveBeenCalledWith(expect.objectContaining({ name: 'AdminAccountingContractEdit', params: { organizationId: 'org_one', contractId: 'contract-one' } }))
+    expect(api.getRecord).toHaveBeenCalledWith('contracts', 'contract-one')
+    expect(wrapper.text()).toContain('扫描件上传失败')
+    expect(wrapper.find('[data-testid="record-files"]').exists()).toBe(true)
+
+    await wrapper.get('[data-testid="scan-uploaded"]').trigger('click')
+    expect(wrapper.text()).not.toContain('扫描件上传失败')
+    expect(router.replace).toHaveBeenCalledWith({ query: { return_to: '/admin/desktop/organizations/org_one?tab=business' } })
   })
 
   it('edits a signed contract and only changes sharing when it changed', async () => {

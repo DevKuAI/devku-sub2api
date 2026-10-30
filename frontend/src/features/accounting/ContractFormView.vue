@@ -59,7 +59,7 @@
 
     <FormSection :title="t('accounting.contractForm.files')">
       <div class="sm:col-span-2">
-        <RecordFiles v-if="record" kind="contracts" :record="record" />
+        <RecordFiles v-if="record" kind="contracts" :record="record" @uploaded="scanUploaded" />
         <template v-else>
           <AccountingFileUpload v-model="file" :disabled="busy" />
           <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">{{ t('accounting.contractForm.filesHint') }}</p>
@@ -70,8 +70,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, reactive, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import FormPage from './components/FormPage.vue'
 import FormSection from './components/FormSection.vue'
@@ -86,6 +86,7 @@ import type { AccountingRecord, OrganizationContact } from './types'
 // pick the contract they are done under; the organization sees it only when shared.
 const { t, te } = useI18n()
 const route = useRoute()
+const router = useRouter()
 const organizationId = computed(() => String(route.params.organizationId || ''))
 const contractId = computed(() => String(route.params.contractId || ''))
 const isEditing = computed(() => Boolean(contractId.value))
@@ -138,6 +139,7 @@ async function load() {
     if (isEditing.value) {
       const current = await api.getRecord('contracts', contractId.value)
       record.value = current
+      file.value = null
       const text = (key: string) => String(current.details[key] || '')
       Object.assign(form, {
         name: text('name'),
@@ -159,6 +161,12 @@ async function load() {
   } finally {
     loading.value = false
   }
+}
+// Once the scan is uploaded here, the notice that it failed on creation no longer applies, also after a reload.
+function scanUploaded() {
+  if (!route.query.upload_failed) return
+  error.value = ''
+  void router.replace({ query: Object.fromEntries(Object.entries(route.query).filter(([key]) => key !== 'upload_failed')) })
 }
 async function share(id: string) {
   const path = `contracts/${id}/sharing`
@@ -201,4 +209,6 @@ async function save() {
   }
 }
 onMounted(load)
+// Saving a new contract whose scan failed to upload moves to its edit route, which reuses this page.
+watch(contractId, load)
 </script>

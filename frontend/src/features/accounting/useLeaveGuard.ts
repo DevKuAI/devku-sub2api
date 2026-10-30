@@ -21,7 +21,12 @@ export function useLeaveGuard(snapshot: () => unknown) {
   async function leave(to: RouteLocationRaw, force = false) {
     if (!force && !confirmDiscard()) return
     allowLeave = true
-    await router.push(to)
+    try {
+      await router.push(to)
+    } finally {
+      // The page may stay mounted when the target reuses it, e.g. a new record moving to its edit route.
+      allowLeave = false
+    }
   }
   function beforeUnload(event: BeforeUnloadEvent) {
     if (!dirty.value) return
