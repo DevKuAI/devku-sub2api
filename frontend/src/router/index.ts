@@ -23,6 +23,7 @@ const financeAccountingPathPattern = new RegExp(
   `^/admin/accounting(?:` +
     `/receiving-accounts(?:/new|/[^/]+/edit)?` +
     `|/cards` +
+    `|/channels(?:/import|/[^/]+)?` +
     `|/vendors(?:/new|/[^/]+/edit)?` +
     `|/orders/[^/]+` +
     `|/organizations/[^/]+(?:/contacts/(?:new|[^/]+/edit)|/orders/[^/]+)?` +
@@ -347,6 +348,24 @@ const routes: RouteRecordRaw[] = [
     name: 'AdminAccountingCards',
     component: () => import('@/features/accounting/CardsView.vue'),
     meta: { requiresAuth: true, requiresAdmin: true, title: 'Cards', titleKey: 'accounting.title', descriptionKey: 'accounting.home.cardsDescription' }
+  },
+  {
+    path: '/admin/accounting/channels',
+    name: 'AdminAccountingChannels',
+    component: () => import('@/features/accounting/ChannelsView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Channels', titleKey: 'accounting.title', descriptionKey: 'accounting.channels.description' }
+  },
+  {
+    path: '/admin/accounting/channels/import',
+    name: 'AdminAccountingChannelImport',
+    component: () => import('@/features/accounting/ChannelImportView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Import statements', titleKey: 'accounting.channels.import.title' }
+  },
+  {
+    path: '/admin/accounting/channels/:accountId',
+    name: 'AdminAccountingChannel',
+    component: () => import('@/features/accounting/ChannelAccountView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Channel account', titleKey: 'accounting.channels.title' }
   },
   {
     path: '/admin/accounting/vendors',
