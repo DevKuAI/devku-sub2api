@@ -2,10 +2,7 @@ package accounting
 
 import (
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
 	"sort"
 	"strconv"
 	"strings"
@@ -156,26 +153,6 @@ func attachToOrder(ctx context.Context, tx dbQuery, kind string, r *Record, orde
 		return err
 	}
 	return linkToOrder(ctx, tx, order, kind, r, actorID)
-}
-
-// claimCard records the card's keyed fingerprint. One physical card may be registered only once across all
-// organizations; cards saved before fingerprints existed are matched by provider and last four digits.
-func (e *Engine) claimCard(ctx context.Context, tx dbQuery, r *Record, pan string) error {
-	mac := hmac.New(sha256.New, e.cardKey)
-	_, _ = mac.Write([]byte(pan))
-	fingerprint := hex.EncodeToString(mac.Sum(nil))
-	var owner string
-	err := tx.QueryRowContext(ctx, `SELECT o.name FROM accounting_vcc_cards c JOIN desktop_organizations o ON o.id=c.organization_id
- WHERE c.id<>$1 AND (c.card_fingerprint=$2 OR (c.card_fingerprint IS NULL AND c.organization_id<>$5 AND c.details->>'provider'=$3 AND c.details->>'last_four'=$4)) LIMIT 1`,
-		r.ID, fingerprint, detail(r, "provider"), pan[len(pan)-4:], r.Org).Scan(&owner)
-	if err == nil {
-		return ErrState.WithMetadata(map[string]string{"field": "card_registered", "organization": owner})
-	}
-	if err != sql.ErrNoRows {
-		return err
-	}
-	_, err = tx.ExecContext(ctx, "UPDATE accounting_vcc_cards SET card_fingerprint=$2 WHERE id=$1", r.ID, fingerprint)
-	return err
 }
 
 func orderRecords(ctx context.Context, q dbQuery, order, kind string, lock bool) ([]*Record, error) {

@@ -23,6 +23,7 @@ const financeAccountingPathPattern = new RegExp(
   `^/admin/accounting(?:` +
     `/receiving-accounts(?:/new|/[^/]+/edit)?` +
     `|/cards` +
+    `|/vendors(?:/new|/[^/]+/edit)?` +
     `|/orders/[^/]+` +
     `|/organizations/[^/]+(?:/contacts/(?:new|[^/]+/edit)|/orders/[^/]+)?` +
     `)?$`,
@@ -346,6 +347,24 @@ const routes: RouteRecordRaw[] = [
     name: 'AdminAccountingCards',
     component: () => import('@/features/accounting/CardsView.vue'),
     meta: { requiresAuth: true, requiresAdmin: true, title: 'Cards', titleKey: 'accounting.title', descriptionKey: 'accounting.home.cardsDescription' }
+  },
+  {
+    path: '/admin/accounting/vendors',
+    name: 'AdminAccountingVendors',
+    component: () => import('@/features/accounting/VendorsView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Vendors', titleKey: 'accounting.title', descriptionKey: 'accounting.vendors.description' }
+  },
+  {
+    path: '/admin/accounting/vendors/new',
+    name: 'AdminAccountingVendorNew',
+    component: () => import('@/features/accounting/VendorFormView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'New vendor', titleKey: 'accounting.vendors.newTitle' }
+  },
+  {
+    path: '/admin/accounting/vendors/:vendorId/edit',
+    name: 'AdminAccountingVendorEdit',
+    component: () => import('@/features/accounting/VendorFormView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Edit vendor', titleKey: 'accounting.vendors.editTitle' }
   },
   {
     path: '/admin/accounting/organizations/:organizationId/contacts/new',

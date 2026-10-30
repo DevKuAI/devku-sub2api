@@ -39,6 +39,7 @@ func (h *Handler) RegisterAdmin(parent *gin.RouterGroup) {
 	g.GET("/audit-logs", h.auditLogs)
 	g.GET("/export", h.export)
 	h.registerWorkflows(g)
+	h.registerVendors(g)
 	for kind := range specs {
 		entity := kind
 		if entity == "contracts" || entity == "invoices" {

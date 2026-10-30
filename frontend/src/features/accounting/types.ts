@@ -249,3 +249,25 @@ export interface OrderEntryInput {
   details: AccountingDetails
   version?: number
 }
+
+// Maintained vendor lists: card providers issue our cards, AI vendors are who we buy from.
+export type VendorKind = 'CARD_PROVIDER' | 'AI_VENDOR'
+export interface Vendor {
+  id: string
+  kind: VendorKind
+  name: string
+  aliases: string[]
+  status: 'ACTIVE' | 'DISABLED'
+  sort: number
+  remark: string
+  created_at: string
+  updated_at: string
+}
+export interface VendorInput {
+  kind?: VendorKind
+  name: string
+  aliases: string[]
+  status: 'ACTIVE' | 'DISABLED'
+  sort: number
+  remark: string
+}

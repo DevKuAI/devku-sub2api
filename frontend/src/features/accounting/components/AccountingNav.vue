@@ -15,12 +15,13 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 
-// The three places finance works in: orders, the cards those orders use, and our receiving accounts.
+// Where finance works: orders, the cards those orders use, the vendor lists records choose from and our receiving accounts.
 defineProps<{ current: string }>()
 const { t } = useI18n()
 const items = [
   { key: 'orders', name: 'AdminAccounting' },
   { key: 'cards', name: 'AdminAccountingCards' },
+  { key: 'vendors', name: 'AdminAccountingVendors' },
   { key: 'accounts', name: 'AdminAccountingReceivingAccounts' },
 ]
 </script>

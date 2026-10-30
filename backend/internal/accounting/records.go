@@ -123,14 +123,16 @@ func validateFields(kind string, r *Record) error {
 	case "transfers":
 		return calculateTax(r)
 	case "vcc-cards":
-		if detail(r, "card_number") == "" && (len(detail(r, "last_four")) != 4) {
+		// A card is the platform's card ID plus the last four digits; full numbers are never accepted.
+		if id := detail(r, "provider_card_id"); id == "" || len(id) > 128 || strings.ContainsAny(id, " \t\r\n") {
+			return invalid("provider_card_id")
+		}
+		if last := detail(r, "last_four"); len(last) != 4 || strings.Trim(last, "0123456789") != "" {
 			return invalid("last_four")
 		}
-		if last := detail(r, "last_four"); last != "" {
-			for _, ch := range last {
-				if ch < '0' || ch > '9' {
-					return invalid("last_four")
-				}
+		if expiry := detail(r, "expiry"); expiry != "" {
+			if _, err := time.Parse("2006-01", expiry); err != nil {
+				return invalid("expiry")
 			}
 		}
 		if limit := detail(r, "credit_limit"); limit != "" {
@@ -139,7 +141,8 @@ func validateFields(kind string, r *Record) error {
 				return invalid("credit_limit")
 			}
 		}
-		return required(r, "alias", "provider")
+		// The provider comes from the maintained list; see applyVendor.
+		return required(r, "alias")
 	case "vcc-transactions":
 		if detail(r, "transaction_type") == "ADJUSTMENT" && detail(r, "direction") != "DEBIT" && detail(r, "direction") != "CREDIT" {
 			return invalid("direction")
@@ -151,7 +154,11 @@ func validateFields(kind string, r *Record) error {
 		if t == "REFUND" && detail(r, "original_transaction_id") == "" {
 			return invalid("original_transaction_id")
 		}
-		// The provider's transaction number is optional; when given it stays unique per card.
+		// The provider's transaction number is optional; when given it stays unique per card. Spend names its
+		// AI vendor from the maintained list; other lines describe themselves.
+		if t == "CONSUME" {
+			return nil
+		}
 		return required(r, "merchant")
 	case "contracts":
 		return required(r, "name", "contract_number")
@@ -177,7 +184,7 @@ func validateFields(kind string, r *Record) error {
 		r.Details["total_amount"] = r.Amount
 	case "vendor-invoices":
 		r.Details["document_type"] = "INVOICE"
-		return required(r, "vendor", "period_start", "period_end")
+		return required(r, "period_start", "period_end")
 	case "expenses":
 		return required(r, "category", "supplier", "payment_account")
 	case "expense-payments":
@@ -233,6 +240,9 @@ func insertRecord(ctx context.Context, tx dbQuery, kind string, r *Record, actor
 	return err
 }
 func (e *Engine) checkRelations(ctx context.Context, tx dbQuery, kind string, r, old *Record) error {
+	if err := applyVendor(ctx, tx, kind, r, old); err != nil {
+		return err
+	}
 	if kind == "contracts" {
 		var organizationName string
 		if err := tx.QueryRowContext(ctx, "SELECT name FROM desktop_organizations WHERE id=$1 AND deleted_at IS NULL", r.Org).Scan(&organizationName); err != nil {
@@ -299,75 +309,6 @@ func (e *Engine) checkRelations(ctx context.Context, tx dbQuery, kind string, r,
 	}
 	return nil
 }
-func (e *Engine) storeSecrets(ctx context.Context, tx dbQuery, r *Record, in Input) error {
-	secret := selected(in.Details, strings.Fields("card_number cvv expiry provider_token"))
-	for k, v := range secret {
-		if value, ok := v.(string); !ok || strings.TrimSpace(value) == "" {
-			delete(secret, k)
-		}
-	}
-	for _, key := range strings.Fields("card_number cvv expiry provider_token") {
-		delete(r.Details, key)
-	}
-	if len(secret) == 0 {
-		return nil
-	}
-	if !e.stableKey {
-		return invalid("fixed_encryption_key")
-	}
-	if pan := text(secret, "card_number"); pan != "" {
-		if len(pan) < 12 || len(pan) > 19 {
-			return invalid("card_number")
-		}
-		for _, ch := range pan {
-			if ch < '0' || ch > '9' {
-				return invalid("card_number")
-			}
-		}
-		r.Details["last_four"] = pan[len(pan)-4:]
-		if err := e.claimCard(ctx, tx, r, pan); err != nil {
-			return err
-		}
-	}
-	if cvv := text(secret, "cvv"); cvv != "" {
-		if len(cvv) < 3 || len(cvv) > 4 {
-			return invalid("cvv")
-		}
-		for _, ch := range cvv {
-			if ch < '0' || ch > '9' {
-				return invalid("cvv")
-			}
-		}
-	}
-	var previous string
-	if err := tx.QueryRowContext(ctx, "SELECT secret_ciphertext FROM accounting_vcc_cards WHERE id=$1", r.ID).Scan(&previous); err != nil {
-		return err
-	}
-	if previous != "" {
-		plain, err := e.encryptor.Decrypt(previous)
-		if err != nil {
-			return err
-		}
-		stored := map[string]any{}
-		if err = json.Unmarshal([]byte(plain), &stored); err != nil {
-			return err
-		}
-		for k, v := range secret {
-			stored[k] = v
-		}
-		secret = stored
-	}
-	encoded, err := json.Marshal(secret)
-	if err != nil {
-		return err
-	}
-	cipher, err := e.encryptor.Encrypt(string(encoded))
-	if err != nil {
-		return err
-	}
-	_, err = tx.ExecContext(ctx, "UPDATE accounting_vcc_cards SET secret_ciphertext=$2 WHERE id=$1", r.ID, cipher)
-	return err
-}
 func (e *Engine) Create(ctx context.Context, tx *sql.Tx, kind string, in Input, org, actor int64) (*Record, error) {
 	r, err := prepare(kind, in, nil)
 	if err != nil {
@@ -380,26 +321,13 @@ func (e *Engine) Create(ctx context.Context, tx *sql.Tx, kind string, in Input, 
 	if kind == "transfers" && detail(r, "receiving_account_id") == "" {
 		return nil, invalid("receiving_account_id")
 	}
-	// A card is identified by its full number so it can be checked against every organization.
-	if kind == "vcc-cards" && text(in.Details, "card_number") == "" {
-		return nil, invalid("card_number")
-	}
 	if err = e.checkRelations(ctx, tx, kind, r, nil); err != nil {
 		return nil, err
 	}
-	// Secrets are never inserted into metadata, even inside an uncommitted transaction.
-	safe := *r
-	safe.Details = selected(r.Details, specs[kind].fields)
-	for _, k := range strings.Fields("card_number cvv expiry provider_token") {
-		delete(safe.Details, k)
-	}
-	if err = insertRecord(ctx, tx, kind, &safe, actor); err != nil {
+	if err = insertRecord(ctx, tx, kind, r, actor); err != nil {
 		return nil, err
 	}
 	if kind == "vcc-cards" {
-		if err = e.storeSecrets(ctx, tx, r, in); err != nil {
-			return nil, err
-		}
 		r.Status = "ACTIVE"
 		if err = save(ctx, tx, kind, r); err != nil {
 			return nil, err
@@ -425,8 +353,11 @@ func (e *Engine) Update(ctx context.Context, tx *sql.Tx, kind string, old *Recor
 		return nil, err
 	}
 	if kind == "vcc-cards" {
-		identityChanged := detail(r, "provider") != detail(old, "provider") || detail(r, "last_four") != detail(old, "last_four") || text(in.Details, "card_number") != "" || text(in.Details, "provider_token") != ""
-		if identityChanged {
+		// Cards registered before card IDs existed may add their card ID once and correct the last four digits
+		// with it; after that the identity of a card that already moved money is fixed.
+		identityChanged := detail(r, "provider") != detail(old, "provider") || detail(r, "last_four") != detail(old, "last_four") || detail(r, "provider_card_id") != detail(old, "provider_card_id")
+		backfill := detail(old, "provider_card_id") == "" && detail(r, "provider") == detail(old, "provider")
+		if identityChanged && !backfill {
 			var bound bool
 			err := tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM accounting_allocations WHERE card_id=$1) OR EXISTS(SELECT 1 FROM accounting_vcc_transactions WHERE parent_id=$1)", old.ID).Scan(&bound)
 			if err != nil {
@@ -438,9 +369,6 @@ func (e *Engine) Update(ctx context.Context, tx *sql.Tx, kind string, old *Recor
 		}
 		if r.Currency != old.Currency {
 			return nil, ErrState
-		}
-		if err = e.storeSecrets(ctx, tx, r, in); err != nil {
-			return nil, err
 		}
 	}
 	if err = save(ctx, tx, kind, r); err != nil {

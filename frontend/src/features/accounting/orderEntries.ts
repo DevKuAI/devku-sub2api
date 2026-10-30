@@ -1,10 +1,10 @@
 import { addMoney, compareMoney, subtractMoney, taxPreview } from './money'
 import { localDate, toISO } from './shared'
-import type { AccountingOrder, AccountingRecord, OrderEntryInput, OrderItemKind, ReceivingAccount } from './types'
+import type { AccountingOrder, AccountingRecord, OrderEntryInput, OrderItemKind, ReceivingAccount, Vendor, VendorKind } from './types'
 
 // What each block of the order page asks for, how it fills itself in, and what it sends.
 
-export type EntryFieldType = 'text' | 'textarea' | 'date' | 'month' | 'money' | 'currency' | 'rate' | 'card' | 'receiving-account' | 'card-number'
+export type EntryFieldType = 'text' | 'textarea' | 'date' | 'month' | 'money' | 'currency' | 'rate' | 'card' | 'receiving-account' | 'card-id' | 'last-four' | 'vendor'
 export interface EntryField {
   key: string
   type: EntryFieldType
@@ -12,12 +12,15 @@ export interface EntryField {
   // Only asked when the entry is created; the backend keeps it fixed afterwards.
   createOnly?: boolean
   wide?: boolean
+  // For vendor fields: which maintained list the choice comes from.
+  vendorKind?: VendorKind
 }
 export type EntryValues = Record<string, string>
 export interface EntryContext {
   order: AccountingOrder
   items: Record<OrderItemKind, AccountingRecord[]>
   receivingAccounts: ReceivingAccount[]
+  vendors: Vendor[]
 }
 export interface EntryDefinition {
   fields: EntryField[]
@@ -68,8 +71,14 @@ function usualCurrency(records: AccountingRecord[], fallback: string) {
   return live(records)[0]?.currency || fallback
 }
 // The AI vendor this order buys from, taken from the spend already recorded; the card provider only issues the card.
-function lastMerchant(context: EntryContext) {
-  return String(live(context.items['vcc-transactions']).at(-1)?.details.merchant || '')
+function lastVendor(context: EntryContext) {
+  return String(live(context.items['vcc-transactions']).at(-1)?.details.vendor_id || '')
+}
+export function activeVendors(context: EntryContext, kind: VendorKind) {
+  return context.vendors.filter((vendor) => vendor.kind === kind && vendor.status === 'ACTIVE')
+}
+function vendorName(context: EntryContext, id: string) {
+  return context.vendors.find((vendor) => vendor.id === id)?.name || ''
 }
 export function activeCards(context: EntryContext) {
   return context.items['vcc-cards'].filter((card) => card.status === 'ACTIVE')
@@ -199,23 +208,45 @@ export const entryDefinitions: Record<OrderItemKind, EntryDefinition> = {
     file: false,
     fields: [
       { key: 'alias', type: 'text', required: true },
-      { key: 'provider', type: 'text', required: true },
+      { key: 'provider_id', type: 'vendor', vendorKind: 'CARD_PROVIDER', required: true },
       { key: 'currency', type: 'currency', required: true, createOnly: true },
-      { key: 'card_number', type: 'card-number', required: true, createOnly: true },
-      { key: 'expiry', type: 'month', createOnly: true },
+      // The platform's card ID and the last four digits identify a card; full numbers are never collected.
+      { key: 'provider_card_id', type: 'card-id', required: true },
+      { key: 'last_four', type: 'last-four', required: true },
+      { key: 'expiry', type: 'month' },
       remark,
     ],
     defaults(context) {
-      return { alias: '', provider: '', currency: usualCurrency(context.items['vcc-cards'], 'USD'), card_number: '', expiry: '', remark: '' }
+      const providers = activeVendors(context, 'CARD_PROVIDER')
+      return {
+        alias: '',
+        provider_id: providers.length === 1 ? providers[0]!.id : '',
+        currency: usualCurrency(context.items['vcc-cards'], 'USD'),
+        provider_card_id: '',
+        last_four: '',
+        expiry: '',
+        remark: '',
+      }
     },
     values(record) {
-      return { alias: text(record, 'alias'), provider: text(record, 'provider'), currency: record.currency, card_number: '', expiry: '', remark: text(record, 'remark') }
+      return {
+        alias: text(record, 'alias'),
+        provider_id: text(record, 'provider_id'),
+        currency: record.currency,
+        provider_card_id: text(record, 'provider_card_id'),
+        last_four: text(record, 'last_four'),
+        expiry: text(record, 'expiry'),
+        remark: text(record, 'remark'),
+      }
     },
-    payload(values, _context, record) {
-      const details: Record<string, string> = { alias: values.alias, provider: values.provider, remark: values.remark }
-      if (!record) {
-        details.card_number = values.card_number.replace(/\D/g, '')
-        if (values.expiry) details.expiry = values.expiry
+    payload(values) {
+      const details: Record<string, string> = {
+        alias: values.alias,
+        provider_id: values.provider_id,
+        provider_card_id: values.provider_card_id.trim(),
+        last_four: values.last_four.replace(/\D/g, ''),
+        expiry: values.expiry,
+        remark: values.remark,
       }
       return { currency: values.currency, amount: '0', details }
     },
@@ -226,7 +257,7 @@ export const entryDefinitions: Record<OrderItemKind, EntryDefinition> = {
       { key: 'parent_id', type: 'card', required: true },
       { key: 'occurred_at', type: 'date', required: true },
       { key: 'amount', type: 'money', required: true },
-      { key: 'merchant', type: 'text', required: true },
+      { key: 'vendor_id', type: 'vendor', vendorKind: 'AI_VENDOR', required: true },
       { key: 'provider_transaction_id', type: 'text' },
       remark,
     ],
@@ -237,7 +268,7 @@ export const entryDefinitions: Record<OrderItemKind, EntryDefinition> = {
         parent_id: card?.id || '',
         occurred_at: localDate(),
         amount: '',
-        merchant: lastMerchant(context),
+        vendor_id: lastVendor(context),
         provider_transaction_id: '',
         transaction_type: 'CONSUME',
         original_transaction_id: '',
@@ -249,7 +280,7 @@ export const entryDefinitions: Record<OrderItemKind, EntryDefinition> = {
         parent_id: record.parent_id || '',
         occurred_at: day(record.occurred_at),
         amount: record.amount,
-        merchant: text(record, 'merchant'),
+        vendor_id: text(record, 'vendor_id'),
         provider_transaction_id: text(record, 'provider_transaction_id'),
         transaction_type: text(record, 'transaction_type') || 'CONSUME',
         original_transaction_id: text(record, 'original_transaction_id'),
@@ -260,7 +291,9 @@ export const entryDefinitions: Record<OrderItemKind, EntryDefinition> = {
       const card = context.items['vcc-cards'].find((item) => item.id === values.parent_id)
       const details: Record<string, string> = {
         transaction_type: values.transaction_type || 'CONSUME',
-        merchant: values.merchant,
+        vendor_id: values.vendor_id,
+        // The server names spend after the vendor; refunds and other lines carry the name themselves.
+        merchant: vendorName(context, values.vendor_id),
         provider_transaction_id: values.provider_transaction_id,
         remark: values.remark,
       }
@@ -271,7 +304,7 @@ export const entryDefinitions: Record<OrderItemKind, EntryDefinition> = {
   'vendor-invoices': {
     file: true,
     fields: [
-      { key: 'vendor', type: 'text', required: true },
+      { key: 'vendor_id', type: 'vendor', vendorKind: 'AI_VENDOR', required: true },
       { key: 'invoice_number', type: 'text' },
       { key: 'period_start', type: 'date', required: true },
       { key: 'period_end', type: 'date', required: true },
@@ -285,7 +318,7 @@ export const entryDefinitions: Record<OrderItemKind, EntryDefinition> = {
       const covered = sum(live(context.items['vendor-invoices']), currency, (record) => record.amount)
       const first = spends[0]
       return {
-        vendor: lastMerchant(context),
+        vendor_id: lastVendor(context),
         invoice_number: '',
         ...monthRange(first ? new Date(first.occurred_at) : new Date()),
         currency,
@@ -295,7 +328,7 @@ export const entryDefinitions: Record<OrderItemKind, EntryDefinition> = {
     },
     values(record) {
       return {
-        vendor: text(record, 'vendor'),
+        vendor_id: text(record, 'vendor_id'),
         invoice_number: text(record, 'invoice_number'),
         period_start: text(record, 'period_start'),
         period_end: text(record, 'period_end'),
@@ -309,7 +342,7 @@ export const entryDefinitions: Record<OrderItemKind, EntryDefinition> = {
         currency: values.currency,
         amount: values.amount,
         occurred_at: record?.occurred_at || new Date().toISOString(),
-        details: { vendor: values.vendor, invoice_number: values.invoice_number, period_start: values.period_start, period_end: values.period_end, remark: values.remark },
+        details: { vendor_id: values.vendor_id, invoice_number: values.invoice_number, period_start: values.period_start, period_end: values.period_end, remark: values.remark },
       }
     },
   },

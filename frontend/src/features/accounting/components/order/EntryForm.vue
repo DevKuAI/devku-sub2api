@@ -12,6 +12,21 @@
         <select v-else-if="field.type === 'rate'" v-model="values[field.key]" class="input w-full" :required="field.required">
           <option v-for="rate in rates" :key="rate" :value="rate">{{ rate }}%</option>
         </select>
+        <template v-else-if="field.type === 'vendor'">
+          <select v-model="values[field.key]" class="input w-full" :required="field.required" :data-testid="`entry-vendor-${field.key}`">
+            <option value="">{{ t('accounting.form.select') }}</option>
+            <option v-for="vendor in vendorOptions(field.vendorKind!, values[field.key] || '')" :key="vendor.id" :value="vendor.id">
+              {{ vendor.name }}{{ vendor.status === 'ACTIVE' ? '' : ` (${t('accounting.vendors.disabled')})` }}
+            </option>
+          </select>
+          <p v-if="unclassified" class="accounting-field-warning">{{ t('accounting.vendors.unclassified', { name: unclassified }) }}</p>
+          <p v-if="!vendorOptions(field.vendorKind!, '').length" class="accounting-field-warning">
+            {{ t('accounting.vendors.emptyList') }}
+            <router-link class="accounting-link" :to="{ name: 'AdminAccountingVendorNew', query: { kind: field.vendorKind, return_to: route.fullPath } }">
+              {{ t(`accounting.vendors.add.${field.vendorKind}`) }}
+            </router-link>
+          </p>
+        </template>
         <select v-else-if="field.type === 'card'" v-model="values[field.key]" class="input w-full" :required="field.required">
           <option value="">{{ t('accounting.form.select') }}</option>
           <option v-for="card in cards" :key="card.id" :value="card.id">{{ cardLabel(card) }} · {{ card.currency }}</option>
@@ -34,11 +49,21 @@
         </span>
         <textarea v-else-if="field.type === 'textarea'" v-model="values[field.key]" class="input min-h-16 w-full resize-y" maxlength="4000" />
         <input
-          v-else-if="field.type === 'card-number'"
+          v-else-if="field.type === 'card-id'"
+          v-model="values[field.key]"
+          class="input w-full font-mono"
+          maxlength="128"
+          pattern="\\S+"
+          autocomplete="off"
+          :required="field.required"
+        />
+        <input
+          v-else-if="field.type === 'last-four'"
           v-model="values[field.key]"
           class="input w-full font-mono"
           inputmode="numeric"
-          pattern="[0-9 ]{12,23}"
+          maxlength="4"
+          pattern="[0-9]{4}"
           autocomplete="off"
           :required="field.required"
         />
@@ -67,7 +92,7 @@ import AccountingFileUpload from '../AccountingFileUpload.vue'
 import * as api from '../../api'
 import { activeCards, cardLabel, entryDefinitions, taxRates, type EntryContext, type EntryValues } from '../../orderEntries'
 import { commonCurrencies, currencyDigits, errorMessage } from '../../shared'
-import type { AccountingRecord, OrderItemKind } from '../../types'
+import type { AccountingRecord, OrderItemKind, VendorKind } from '../../types'
 
 // One inline form for every kind of order entry. Saving makes the entry effective; a chosen file is attached
 // right after, and a failed upload leaves the entry saved with the file still to add.
@@ -93,6 +118,18 @@ const cards = computed(() => {
   return current && !active.includes(current) ? [...active, current] : active
 })
 const accounts = computed(() => props.context.receivingAccounts.filter((account) => account.currency === values.currency))
+// Disabled vendors only appear for records that already chose them.
+function vendorOptions(kind: VendorKind, current: string) {
+  return props.context.vendors.filter((vendor) => vendor.kind === kind && (vendor.status === 'ACTIVE' || vendor.id === current))
+}
+// Older records may name a vendor in free text that matched no list entry; show it so the right one gets picked.
+const legacyNameKey: Partial<Record<OrderItemKind, string>> = { 'vcc-cards': 'provider', 'vcc-transactions': 'merchant', 'vendor-invoices': 'vendor' }
+const unclassified = computed(() => {
+  const key = legacyNameKey[props.kind]
+  const field = definition.value.fields.find((item) => item.type === 'vendor')
+  if (!props.record || !key || !field || values[field.key]) return ''
+  return String(props.record.details[key] || '')
+})
 const moneyCurrency = computed(() => (props.kind === 'vcc-transactions' ? cards.value.find((card) => card.id === values.parent_id)?.currency || '' : values.currency))
 const moneyPattern = computed(() => {
   const digits = currencyDigits(moneyCurrency.value || 'CNY')
