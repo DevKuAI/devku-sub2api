@@ -157,3 +157,27 @@ func TestAccountingCSVPreservesNumericAdjustmentsAndEscapesFormulaText(t *testin
 	require.Equal(t, "'=SUM(A1:A2)", csvField("remark", "=SUM(A1:A2)"))
 	require.Equal(t, "'-invoice", csvField("invoice_number", "-invoice"))
 }
+
+func TestCardsNeedCardIDAndLastFourButNoSecrets(t *testing.T) {
+	card := func(details map[string]any) error {
+		_, err := prepare("vcc-cards", Input{Currency: "USD", Details: details}, nil)
+		return err
+	}
+	valid := map[string]any{"alias": "Seat card", "provider": "SUNRATE", "provider_card_id": "2095346501199990785", "last_four": "3926", "expiry": "2030-12"}
+	require.NoError(t, card(valid))
+	for field, value := range map[string]any{"provider_card_id": "", "last_four": "39a6", "expiry": "12/30"} {
+		details := map[string]any{}
+		for k, v := range valid {
+			details[k] = v
+		}
+		details[field] = value
+		require.Error(t, card(details), field)
+	}
+	for _, secret := range []string{"card_number", "cvv", "provider_token"} {
+		details := map[string]any{secret: "4111111111111111"}
+		for k, v := range valid {
+			details[k] = v
+		}
+		require.Error(t, card(details), secret)
+	}
+}

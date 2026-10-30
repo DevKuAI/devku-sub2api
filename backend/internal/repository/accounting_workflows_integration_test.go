@@ -76,7 +76,7 @@ func TestAccountingWorkflowExchangeFundingAndExternalConfirmation(t *testing.T) 
 	f.proof(t, "fx-exchanges", fx)
 	f.confirm(t, "fx-exchanges", fx)
 	var card accounting.Record
-	require.NoError(t, json.Unmarshal(accountingData(t, f.request("POST", "vcc-cards", uuid.NewString(), accounting.Input{OrganizationID: receipt.OrganizationID, Currency: "USD", Details: map[string]any{"provider": "Provider", "alias": "USD card", "card_number": testCardNumber()}, OrderID: f.order(t)})), &card))
+	require.NoError(t, json.Unmarshal(accountingData(t, f.request("POST", "vcc-cards", uuid.NewString(), accounting.Input{OrganizationID: receipt.OrganizationID, Currency: "USD", Details: map[string]any{"provider": "Provider", "alias": "USD card", "provider_card_id": testCardID(), "last_four": "4242"}, OrderID: f.order(t)})), &card))
 	accountingData(t, f.request("POST", "fx-exchanges/"+fx.ID+"/allocations", uuid.NewString(), map[string]string{"source_id": card.ID, "amount": "50"}))
 	byCurrency := map[string]accounting.CurrencySummary{}
 	for _, s := range accountingSummary(t, f) {

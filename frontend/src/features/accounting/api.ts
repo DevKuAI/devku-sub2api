@@ -20,6 +20,9 @@ import type {
   ChannelLineFilter,
   ChannelProof,
   OrderEntryInput,
+  Vendor,
+  VendorInput,
+  VendorKind,
   OrderFilter,
   OrderItemKind,
   OrganizationContact,
@@ -407,6 +410,18 @@ export async function updateEntry(orderId: string, kind: OrderItemKind, id: stri
 }
 export async function removeEntry(orderId: string, kind: OrderItemKind, id: string, idempotencyKey: string = key()) {
   return (await mutate(entryPath(orderId, kind, id), {}, idempotencyKey, 'delete')) as AccountingRecord
+}
+export async function vendors(kind?: VendorKind) {
+  return (await apiClient.get<Vendor[]>(`${adminBase}/vendors`, { params: kind ? { kind } : {} })).data
+}
+export async function vendor(id: string) {
+  return (await apiClient.get<Vendor>(`${adminBase}/vendors/${encodeURIComponent(id)}`)).data
+}
+export async function createVendor(input: VendorInput, idempotencyKey: string) {
+  return (await mutate('vendors', input, idempotencyKey)) as Vendor
+}
+export async function updateVendor(id: string, input: VendorInput, idempotencyKey: string) {
+  return (await mutate(`vendors/${encodeURIComponent(id)}`, input, idempotencyKey, 'patch')) as Vendor
 }
 
 // Channel accounts and statement imports.

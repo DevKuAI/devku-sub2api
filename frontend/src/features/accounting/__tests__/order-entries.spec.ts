@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { entryDefinitions, percent, type EntryContext } from '../orderEntries'
-import { receivingAccount, record } from './testing'
+import { receivingAccount, record, vendors } from './testing'
 import type { AccountingOrder, AccountingRecord, OrderItemKind } from '../types'
 
 function context(items: Partial<Record<OrderItemKind, AccountingRecord[]>> = {}): EntryContext {
@@ -8,6 +8,7 @@ function context(items: Partial<Record<OrderItemKind, AccountingRecord[]>> = {})
     order: { id: 'order-one', organization_id: 'org-one', organization_name: '上海星海智能科技有限公司' } as AccountingOrder,
     items: { transfers: [], invoices: [], 'vcc-cards': [], 'vcc-transactions': [], 'vendor-invoices': [], ...items },
     receivingAccounts: [receivingAccount],
+    vendors,
   }
 }
 
@@ -42,24 +43,35 @@ describe('order entry definitions', () => {
 
   it('takes the AI vendor and billing month from the order’s spend, not the card issuer', () => {
     const card = record({ id: 'card-one', status: 'ACTIVE', currency: 'USD', details: { provider: 'Airwallex' } })
-    const spend = record({ status: 'CONFIRMED', currency: 'USD', amount: '300', occurred_at: '2026-10-12T02:00:00Z', parent_id: 'card-one', details: { transaction_type: 'CONSUME', merchant: 'Anthropic' } })
+    const spend = record({ status: 'CONFIRMED', currency: 'USD', amount: '300', occurred_at: '2026-10-12T02:00:00Z', parent_id: 'card-one', details: { transaction_type: 'CONSUME', merchant: 'Anthropic', vendor_id: 'vendor-anthropic' } })
     const covered = record({ status: 'CONFIRMED', currency: 'USD', amount: '100' })
     const items = { 'vcc-cards': [card], 'vcc-transactions': [spend], 'vendor-invoices': [covered] }
-    expect(entryDefinitions['vendor-invoices'].defaults(context(items))).toMatchObject({ vendor: 'Anthropic', currency: 'USD', amount: '200', period_start: '2026-10-01', period_end: '2026-10-31' })
-    expect(entryDefinitions['vcc-transactions'].defaults(context(items))).toMatchObject({ parent_id: 'card-one', merchant: 'Anthropic' })
+    expect(entryDefinitions['vendor-invoices'].defaults(context(items))).toMatchObject({ vendor_id: 'vendor-anthropic', currency: 'USD', amount: '200', period_start: '2026-10-01', period_end: '2026-10-31' })
+    expect(entryDefinitions['vcc-transactions'].defaults(context(items))).toMatchObject({ parent_id: 'card-one', vendor_id: 'vendor-anthropic' })
   })
 
-  it('sends card spend in its card’s currency and card numbers without spaces', () => {
+  it('sends card spend in its card’s currency and identifies cards by card ID and last four digits', () => {
     const card = record({ id: 'card-one', status: 'ACTIVE', currency: 'USD' })
-    const spend = entryDefinitions['vcc-transactions'].payload({ parent_id: 'card-one', occurred_at: '2026-10-12', amount: '20', merchant: 'OpenAI', provider_transaction_id: '', transaction_type: 'CONSUME', original_transaction_id: '', remark: '' }, context({ 'vcc-cards': [card] }))
+    const spend = entryDefinitions['vcc-transactions'].payload({ parent_id: 'card-one', occurred_at: '2026-10-12', amount: '20', vendor_id: 'vendor-openai', provider_transaction_id: '', transaction_type: 'CONSUME', original_transaction_id: '', remark: '' }, context({ 'vcc-cards': [card] }))
     expect(spend).toMatchObject({ parent_id: 'card-one', currency: 'USD', amount: '20' })
     expect(spend.details).not.toHaveProperty('original_transaction_id')
-    const created = entryDefinitions['vcc-cards'].payload({ alias: '席位卡', provider: 'Airwallex', currency: 'USD', card_number: '4111 1111 1111 1111', expiry: '', remark: '' }, context())
-    expect(created.details).toEqual({ alias: '席位卡', provider: 'Airwallex', remark: '', card_number: '4111111111111111' })
+    expect(spend.details).toMatchObject({ vendor_id: 'vendor-openai', merchant: 'OpenAI' })
+    const created = entryDefinitions['vcc-cards'].payload({ alias: '席位卡', provider_id: 'vendor-sunrate', currency: 'USD', provider_card_id: ' 2095346501199990785 ', last_four: '39 26', expiry: '2030-12', remark: '' }, context())
+    expect(created.details).toEqual({ alias: '席位卡', provider_id: 'vendor-sunrate', provider_card_id: '2095346501199990785', last_four: '3926', expiry: '2030-12', remark: '' })
+    expect(created.details).not.toHaveProperty('card_number')
+    const fields = entryDefinitions['vcc-cards'].fields.map((field) => field.key)
+    expect(fields).toEqual(expect.arrayContaining(['provider_card_id', 'last_four']))
+    expect(fields).not.toContain('card_number')
   })
 
   it('shows stored rates as whole percentages', () => {
     expect(percent('0.06')).toBe('6')
     expect(percent('0.13')).toBe('13')
+  })
+
+  it('defaults a new card to the only active card provider', () => {
+    expect(entryDefinitions['vcc-cards'].defaults(context()).provider_id).toBe('vendor-sunrate')
+    expect(entryDefinitions['vcc-cards'].fields.find((field) => field.key === 'provider_id')).toMatchObject({ type: 'vendor', vendorKind: 'CARD_PROVIDER', required: true })
+    expect(entryDefinitions['vendor-invoices'].fields.find((field) => field.key === 'vendor_id')).toMatchObject({ type: 'vendor', vendorKind: 'AI_VENDOR', required: true })
   })
 })

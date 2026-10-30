@@ -57,9 +57,9 @@ func TestAccountingOrderRunsFromReceiptToCompletion(t *testing.T) {
 	require.True(t, f.readOrder(t, order.ID).Progress.Receipt)
 
 	// Cards and card spend only exist inside an order.
-	outside := accounting.Input{OrganizationID: f.desktop.organization.PublicID, Currency: "CNY", Details: map[string]any{"alias": "Loose", "provider": "Provider", "card_number": testCardNumber()}}
+	outside := accounting.Input{OrganizationID: f.desktop.organization.PublicID, Currency: "CNY", Details: map[string]any{"alias": "Loose", "provider": "Provider", "provider_card_id": testCardID(), "last_four": "4242"}}
 	require.Equal(t, 400, f.request("POST", "vcc-cards", uuid.NewString(), outside).Code)
-	card := f.createIn(t, order.ID, "vcc-cards", "CNY", "0", map[string]any{"alias": "Seat card", "provider": "Provider", "card_number": testCardNumber()}, "")
+	card := f.createIn(t, order.ID, "vcc-cards", "CNY", "0", map[string]any{"alias": "Seat card", "provider": "Provider", "provider_card_id": testCardID(), "last_four": "4242"}, "")
 	spendOutside := accounting.Input{OrganizationID: f.desktop.organization.PublicID, ParentID: card.ID, Currency: "CNY", Amount: "1", Details: map[string]any{"transaction_type": "CONSUME", "merchant": "OpenAI", "provider_transaction_id": uuid.NewString()}}
 	require.Equal(t, 400, f.request("POST", "vcc-transactions", uuid.NewString(), spendOutside).Code)
 
@@ -109,7 +109,7 @@ func TestAccountingOrderCrossCurrencyCardIsToppedUp(t *testing.T) {
 	receipt := f.readOrder(t, order.ID).Items["transfers"][0]
 	f.proof(t, "transfers", receipt)
 	f.confirm(t, "transfers", receipt)
-	card := f.createIn(t, order.ID, "vcc-cards", "USD", "0", map[string]any{"alias": "USD card", "provider": "Provider", "card_number": testCardNumber()}, "")
+	card := f.createIn(t, order.ID, "vcc-cards", "USD", "0", map[string]any{"alias": "USD card", "provider": "Provider", "provider_card_id": testCardID(), "last_four": "4242"}, "")
 	spend := f.createIn(t, order.ID, "vcc-transactions", "USD", "50", map[string]any{"transaction_type": "CONSUME", "merchant": "Anthropic", "provider_transaction_id": uuid.NewString()}, card.ID)
 	f.confirm(t, "vcc-transactions", spend)
 
@@ -155,7 +155,7 @@ func TestAccountingOrderLinksCloseAndRefund(t *testing.T) {
 	}
 	require.Equal(t, 200, link(order.ID, "transfers", receipt.ID))
 	require.Equal(t, 409, link(other.ID, "transfers", receipt.ID))
-	card := f.createIn(t, order.ID, "vcc-cards", "CNY", "0", map[string]any{"alias": "Card", "provider": "Provider", "card_number": testCardNumber()}, "")
+	card := f.createIn(t, order.ID, "vcc-cards", "CNY", "0", map[string]any{"alias": "Card", "provider": "Provider", "provider_card_id": testCardID(), "last_four": "4242"}, "")
 	require.Equal(t, 400, link(other.ID, "vcc-cards", card.ID))
 
 	spend := f.createIn(t, order.ID, "vcc-transactions", "CNY", "40", map[string]any{"transaction_type": "CONSUME", "merchant": "OpenAI", "provider_transaction_id": uuid.NewString()}, card.ID)
@@ -164,7 +164,7 @@ func TestAccountingOrderLinksCloseAndRefund(t *testing.T) {
 	require.Equal(t, 400, f.request("POST", "orders/"+order.ID+"/close", uuid.NewString(), map[string]string{}).Code)
 	closed := accountingObject(t, f.request("POST", "orders/"+order.ID+"/close", uuid.NewString(), map[string]string{"reason": "Customer needs no invoice"}))
 	require.Equal(t, "CLOSED", closed["state"])
-	require.Equal(t, 409, f.request("POST", "vcc-cards", uuid.NewString(), accounting.Input{OrganizationID: f.desktop.organization.PublicID, Currency: "CNY", OrderID: order.ID, Details: map[string]any{"alias": "Late", "provider": "Provider", "card_number": testCardNumber()}}).Code)
+	require.Equal(t, 409, f.request("POST", "vcc-cards", uuid.NewString(), accounting.Input{OrganizationID: f.desktop.organization.PublicID, Currency: "CNY", OrderID: order.ID, Details: map[string]any{"alias": "Late", "provider": "Provider", "provider_card_id": testCardID(), "last_four": "4242"}}).Code)
 
 	// A refund follows its purchase into the order, even after the order was closed.
 	refund := f.createIn(t, "", "vcc-transactions", "CNY", "10", map[string]any{"transaction_type": "REFUND", "original_transaction_id": spend.ID, "merchant": "OpenAI", "provider_transaction_id": uuid.NewString()}, card.ID)
@@ -178,12 +178,12 @@ func TestAccountingOrderLinksCloseAndRefund(t *testing.T) {
 func TestAccountingCardBelongsToOneOrganization(t *testing.T) {
 	first := newAccountingFixture(t)
 	second := newAccountingFixture(t)
-	number := testCardNumber()
-	first.createIn(t, first.order(t), "vcc-cards", "USD", "0", map[string]any{"alias": "Shared?", "provider": "Provider", "card_number": number}, "")
-	again := accounting.Input{OrganizationID: second.desktop.organization.PublicID, Currency: "USD", OrderID: second.order(t), Details: map[string]any{"alias": "Copy", "provider": "Provider", "card_number": number}}
+	cardID := testCardID()
+	first.createIn(t, first.order(t), "vcc-cards", "USD", "0", map[string]any{"alias": "Shared?", "provider": "Provider", "provider_card_id": cardID, "last_four": "4242"}, "")
+	again := accounting.Input{OrganizationID: second.desktop.organization.PublicID, Currency: "USD", OrderID: second.order(t), Details: map[string]any{"alias": "Copy", "provider": "Provider", "provider_card_id": cardID, "last_four": "4242"}}
 	res := second.request("POST", "vcc-cards", uuid.NewString(), again)
 	require.Equal(t, 409, res.Code)
 	require.Contains(t, res.Body.String(), "card_registered")
-	missing := accounting.Input{OrganizationID: second.desktop.organization.PublicID, Currency: "USD", OrderID: second.order(t), Details: map[string]any{"alias": "No number", "provider": "Provider", "last_four": "1234"}}
+	missing := accounting.Input{OrganizationID: second.desktop.organization.PublicID, Currency: "USD", OrderID: second.order(t), Details: map[string]any{"alias": "No card ID", "provider": "Provider", "last_four": "1234"}}
 	require.Equal(t, 400, second.request("POST", "vcc-cards", uuid.NewString(), missing).Code)
 }

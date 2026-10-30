@@ -190,7 +190,7 @@ import { formatMoney } from './format'
 import { activeCards, type EntryContext, type EntryValues } from './orderEntries'
 import { recordLabel } from './schema'
 import { errorMessage, formatDate, ordersRoute } from './shared'
-import type { AccountingOrder, AccountingRecord, OrderItemKind, OrderStep, OrderTotal, ReceivingAccount } from './types'
+import type { AccountingOrder, AccountingRecord, OrderItemKind, OrderStep, OrderTotal, ReceivingAccount, Vendor } from './types'
 import '@/styles/accounting.css'
 
 type LinkKind = 'transfers' | 'invoices' | 'vendor-invoices'
@@ -210,6 +210,7 @@ const route = useRoute()
 const orderId = computed(() => String(route.params.orderId))
 const order = ref<AccountingOrder | null>(null)
 const receivingAccounts = ref<ReceivingAccount[]>([])
+const vendors = ref<Vendor[]>([])
 const loading = ref(true)
 const busy = ref(false)
 const error = ref('')
@@ -243,7 +244,7 @@ const items = computed(
 const rows = computed(
   () => Object.fromEntries(itemKinds.map((kind) => [kind, items.value[kind].filter((record) => record.status !== 'VOID')])) as Record<OrderItemKind, AccountingRecord[]>,
 )
-const context = computed<EntryContext>(() => ({ order: order.value!, items: rows.value, receivingAccounts: receivingAccounts.value }))
+const context = computed<EntryContext>(() => ({ order: order.value!, items: rows.value, receivingAccounts: receivingAccounts.value, vendors: vendors.value }))
 const cardsReady = computed(() => Boolean(order.value) && activeCards(context.value).length > 0)
 const negativeCards = computed(() => rows.value['vcc-cards'].some((card) => Number(card.details.available_balance) < 0))
 const stateTone = computed(() => ({ OPEN: 'badge-warning', COMPLETED: 'badge-success', CLOSED: 'badge-gray' })[order.value?.state || 'OPEN'])
@@ -302,7 +303,7 @@ function startEdit(kind: OrderItemKind, record: AccountingRecord) {
 function startRefund(record: AccountingRecord) {
   openEditor({
     kind: 'vcc-transactions',
-    preset: { parent_id: record.parent_id || '', merchant: String(record.details.merchant || ''), transaction_type: 'REFUND', original_transaction_id: record.id, amount: '' },
+    preset: { parent_id: record.parent_id || '', vendor_id: String(record.details.vendor_id || ''), transaction_type: 'REFUND', original_transaction_id: record.id, amount: '' },
   })
 }
 function closeEditor() {
@@ -378,7 +379,12 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const [current, accounts] = await Promise.all([api.order(orderId.value), receivingAccounts.value.length ? receivingAccounts.value : api.receivingAccounts()])
+    const [current, accounts, vendorList] = await Promise.all([
+      api.order(orderId.value),
+      receivingAccounts.value.length ? receivingAccounts.value : api.receivingAccounts(),
+      vendors.value.length ? vendors.value : api.vendors(),
+    ])
+    vendors.value = vendorList
     order.value = current
     receivingAccounts.value = accounts
   } catch (cause) {
