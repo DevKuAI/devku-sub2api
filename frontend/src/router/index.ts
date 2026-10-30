@@ -24,7 +24,7 @@ const financeAccountingPathPattern = new RegExp(
     `/receiving-accounts(?:/new|/[^/]+/edit)?` +
     `|/cards` +
     `|/orders/[^/]+` +
-    `|/organizations/[^/]+(?:/contacts/(?:new|[^/]+/edit)|/orders/[^/]+)?` +
+    `|/organizations/[^/]+(?:/(?:contacts|contracts)/(?:new|[^/]+/edit)|/orders/[^/]+)?` +
     `)?$`,
 )
 
@@ -358,6 +358,18 @@ const routes: RouteRecordRaw[] = [
     name: 'AdminAccountingOrganizationContactEdit',
     component: () => import('@/features/accounting/OrganizationContactFormView.vue'),
     meta: { requiresAuth: true, requiresAdmin: true, title: 'Edit organization contact', titleKey: 'accounting.contactForm.editTitle' }
+  },
+  {
+    path: '/admin/accounting/organizations/:organizationId/contracts/new',
+    name: 'AdminAccountingContractNew',
+    component: () => import('@/features/accounting/ContractFormView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'New contract', titleKey: 'accounting.contractForm.createTitle' }
+  },
+  {
+    path: '/admin/accounting/organizations/:organizationId/contracts/:contractId/edit',
+    name: 'AdminAccountingContractEdit',
+    component: () => import('@/features/accounting/ContractFormView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Edit contract', titleKey: 'accounting.contractForm.editTitle' }
   },
   // Links from before the order-centred books still land somewhere sensible.
   {

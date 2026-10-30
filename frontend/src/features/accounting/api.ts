@@ -400,3 +400,8 @@ export async function updateEntry(orderId: string, kind: OrderItemKind, id: stri
 export async function removeEntry(orderId: string, kind: OrderItemKind, id: string, idempotencyKey: string = key()) {
   return (await mutate(entryPath(orderId, kind, id), {}, idempotencyKey, 'delete')) as AccountingRecord
 }
+// Sales contracts an order of the organization can name.
+export async function organizationContracts(organizationId: string) {
+  const result = await listRecords('contracts', false, { organization_id: organizationId, page_size: 100 })
+  return result.items.filter((contract) => contract.status !== 'VOID')
+}
