@@ -167,12 +167,11 @@ export const schemas: Record<AccountingKind, KindSchema> = {
         ],
       },
       {
-        key: 'secrets',
+        key: 'identity',
         fields: [
-          { key: 'card_number', type: 'secret', wide: true, requiredOnCreate: true, hint: 'hints.cardNumber' },
-          { key: 'cvv', type: 'secret' },
+          { key: 'provider_card_id', type: 'text', wide: true, hint: 'hints.cardId' },
+          { key: 'last_four', type: 'text' },
           { key: 'expiry', type: 'month' },
-          { key: 'provider_token', type: 'secret', wide: true },
         ],
       },
       { key: 'notes', fields: [remark] },

@@ -40,7 +40,7 @@ func TestAccountingOrderEntriesTakeEffectWithoutProof(t *testing.T) {
 	require.Equal(t, "VERIFIED", invoice.Status)
 	require.Equal(t, "SALES", invoice.Details["invoice_type"])
 
-	card := f.addEntry(t, order.ID, "vcc-cards", "CNY", "0", map[string]any{"alias": "Seat card", "provider": "Anthropic", "card_number": testCardNumber()}, "")
+	card := f.addEntry(t, order.ID, "vcc-cards", "CNY", "0", map[string]any{"alias": "Seat card", "provider": "Anthropic", "provider_card_id": testCardID(), "last_four": "4242"}, "")
 	require.Equal(t, "ACTIVE", card.Status)
 	// The provider's transaction number is optional.
 	spend := f.addEntry(t, order.ID, "vcc-transactions", "CNY", "300", map[string]any{"transaction_type": "CONSUME", "merchant": "Anthropic"}, card.ID)
@@ -70,7 +70,7 @@ func TestAccountingOrderEntriesCanBeCorrectedAndRemoved(t *testing.T) {
 	order := f.newOrder(t, "GPT seats", nil)
 	reference := uuid.NewString()
 	receipt := f.addEntry(t, order.ID, "transfers", "CNY", "1000", f.receiptDetails(t, "1000", reference), "")
-	card := f.addEntry(t, order.ID, "vcc-cards", "CNY", "0", map[string]any{"alias": "Seat card", "provider": "OpenAI", "card_number": testCardNumber()}, "")
+	card := f.addEntry(t, order.ID, "vcc-cards", "CNY", "0", map[string]any{"alias": "Seat card", "provider": "OpenAI", "provider_card_id": testCardID(), "last_four": "4242"}, "")
 	spend := f.addEntry(t, order.ID, "vcc-transactions", "CNY", "300", map[string]any{"transaction_type": "CONSUME", "merchant": "OpenAI"}, card.ID)
 	bill := f.addEntry(t, order.ID, "vendor-invoices", "CNY", "300", map[string]any{"vendor": "OpenAI", "period_start": "2026-10-01", "period_end": "2026-10-31"}, "")
 

@@ -16,12 +16,14 @@ const reasonMessages: Record<string, string> = {
   ACCOUNTING_AMOUNT_CONFLICT: 'errors.amountConflict',
   ACCOUNTING_CURRENCY_MISMATCH: 'errors.currencyMismatch',
   IDEMPOTENCY_KEY_CONFLICT: 'errors.keyConflict',
+  ACCOUNTING_CHANNEL_FILES_INVALID: 'errors.channelFiles',
 }
 
 // One mapping for every accounting API error so pages show the same wording.
 export function errorMessage(cause: unknown, t: Translate, te: Exists) {
-  const error = cause as { reason?: string; code?: string; message?: string; metadata?: { field?: string } }
+  const error = cause as { reason?: string; code?: string; message?: string; metadata?: { field?: string; external_id?: string } }
   const field = error.metadata?.field
+  if (error.reason === 'ACCOUNTING_CHANNEL_LINE_CONFLICT') return t('accounting.errors.channelConflict', { id: error.metadata?.external_id || '' })
   if (field && te(`accounting.errors.fields.${field}`)) return t(`accounting.errors.fields.${field}`)
   if (error.reason === 'ACCOUNTING_INVALID' && field && te(`accounting.fields.${field}`))
     return t('accounting.errors.invalidField', { field: t(`accounting.fields.${field}`) })

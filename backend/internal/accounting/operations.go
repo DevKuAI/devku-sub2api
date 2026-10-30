@@ -189,7 +189,8 @@ var duplicateFields = map[string]string{
 	"idx_accounting_bank_reference":       "duplicate_bank_reference",
 	"idx_accounting_card_reference":       "duplicate_transaction",
 	"idx_accounting_invoice_number":       "duplicate_invoice",
-	"idx_accounting_vcc_card_fingerprint": "card_registered",
+	"idx_accounting_vcc_card_provider_id": "card_registered",
+	"idx_accounting_vendors_name":         "duplicate_vendor",
 }
 
 func translate(err error) error {

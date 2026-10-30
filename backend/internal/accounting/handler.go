@@ -39,6 +39,7 @@ func (h *Handler) RegisterAdmin(parent *gin.RouterGroup) {
 	g.GET("/audit-logs", h.auditLogs)
 	g.GET("/export", h.export)
 	h.registerWorkflows(g)
+	h.registerVendors(g)
 	for kind := range specs {
 		entity := kind
 		if entity == "contracts" || entity == "invoices" {
@@ -78,6 +79,7 @@ func (h *Handler) RegisterAdmin(parent *gin.RouterGroup) {
 	g.GET("/attachments/:id/download-url", h.download)
 	g.DELETE("/attachments/:id", h.deleteAttachment)
 	g.PATCH("/attachments/:id/sharing", h.shareAttachment)
+	h.registerChannels(g, parent)
 }
 
 func (h *Handler) listReceivingAccounts(c *gin.Context) {

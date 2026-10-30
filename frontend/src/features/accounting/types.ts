@@ -257,3 +257,224 @@ export interface OrderEntryInput {
   details: AccountingDetails
   version?: number
 }
+
+// Maintained vendor lists: card providers issue our cards, AI vendors are who we buy from.
+export type VendorKind = 'CARD_PROVIDER' | 'AI_VENDOR'
+export interface Vendor {
+  id: string
+  kind: VendorKind
+  name: string
+  aliases: string[]
+  status: 'ACTIVE' | 'DISABLED'
+  sort: number
+  remark: string
+  created_at: string
+  updated_at: string
+}
+export interface VendorInput {
+  kind?: VendorKind
+  name: string
+  aliases: string[]
+  status: 'ACTIVE' | 'DISABLED'
+  sort: number
+  remark: string
+}
+// Channel accounts: our own money at payment and card platforms, booked from their statements.
+export type ChannelLineType =
+  | 'FUNDING_IN'
+  | 'FUNDING_OUT'
+  | 'TRANSFER_IN'
+  | 'TRANSFER_OUT'
+  | 'FX_IN'
+  | 'FX_OUT'
+  | 'CONSUME'
+  | 'REFUND'
+  | 'FEE'
+  | 'ADJUSTMENT'
+export interface ChannelAccount {
+  id: string
+  platform: string
+  account_ref: string
+  name: string
+  remark: string
+  created_at: string
+}
+export interface ChannelAmount {
+  currency: string
+  amount: string
+}
+export interface ChannelReported {
+  amount: string
+  as_of: string
+  source: string
+  import_id: string
+  books: string
+  difference: string
+  matched: boolean
+}
+export interface ChannelGap {
+  after_external_id: string
+  after_at: string
+  before_external_id: string
+  before_at: string
+  expected_balance: string
+  reported_balance: string
+  difference: string
+}
+export interface ChannelSpan {
+  from: string
+  to?: string
+  lowest: string
+}
+export interface ChannelWallet {
+  wallet: string
+  currency: string
+  opening: string
+  balance: string
+  lines: number
+  first_at: string
+  last_at: string
+  reported?: ChannelReported
+  gaps: ChannelGap[]
+  negative_spans: ChannelSpan[]
+}
+export interface ChannelAccountSummary {
+  account: ChannelAccount
+  wallets: ChannelWallet[]
+  positions: ChannelAmount[]
+  fee_costs: ChannelAmount[]
+  unpaired_transfers: number
+  missing_proofs: number
+  cards: number
+  last_import_at?: string
+}
+export interface ChannelMonth {
+  month: string
+  currency: string
+  totals: Partial<Record<ChannelLineType, string>>
+  fee_cost: string
+}
+export interface ChannelConversion {
+  at: string
+  reference: string
+  sold: string
+  sold_currency: string
+  bought: string
+  bought_currency: string
+  rate: string
+}
+export interface ChannelCardSpend {
+  id: string
+  card_ref: string
+  card_last4: string
+  card_name: string
+  currency: string
+  spends: number
+  spend: string
+  refund: string
+  last_at?: string
+}
+export interface ChannelLineRef {
+  id: string
+  wallet: string
+  currency: string
+  external_id: string
+  amount: string
+}
+export interface ChannelLine {
+  id: string
+  wallet: string
+  external_id: string
+  occurred_at: string
+  type: ChannelLineType
+  amount: string
+  currency: string
+  balance_after?: string
+  fee_amount?: string
+  card_ref?: string
+  card_last4?: string
+  card_name?: string
+  merchant?: string
+  related_id?: string
+  original_amount?: string
+  original_currency?: string
+  remark?: string
+  booking: string
+  import_id: string
+  pair?: ChannelLineRef
+  proofs: ChannelProof[]
+}
+// Evidence kept for a channel line, such as a transfer screenshot for a collection.
+export interface ChannelProof {
+  id: string
+  filename: string
+  content_type: string
+  size: number
+  created_by: number
+  created_at: string
+}
+export interface ChannelBalance {
+  platform: string
+  account_ref: string
+  wallet: string
+  currency: string
+  amount: string
+  as_of: string
+  source: string
+}
+export interface ChannelFile {
+  name: string
+  sha256: string
+  size: number
+}
+export interface ChannelImport {
+  id: string
+  converter: string
+  files: ChannelFile[]
+  reported_balances: ChannelBalance[]
+  total_rows: number
+  new_rows: number
+  duplicate_rows: number
+  pending_rows: number
+  status: 'APPLIED' | 'REVOKED'
+  account_ids: string[]
+  created_by: number
+  created_at: string
+  revoked_at?: string
+  revoke_reason?: string
+}
+export interface ChannelAccountDetail extends ChannelAccountSummary {
+  months: ChannelMonth[]
+  conversions: ChannelConversion[]
+  card_spend: ChannelCardSpend[]
+  unpaired: ChannelLine[]
+  imports: ChannelImport[]
+}
+export interface ChannelImportResult {
+  import: ChannelImport
+  accounts: ChannelAccountSummary[]
+}
+export interface ChannelConversionResult {
+  converter: string
+  lines: number
+  balances: ChannelBalance[]
+  csv: string
+}
+export interface ChannelLineFilter {
+  wallet?: string
+  currency?: string
+  type?: string
+  card_id?: string
+  from?: string
+  to?: string
+  search?: string
+  page?: number
+  page_size?: number
+}
+// One reason an upload was rejected, at a file row and column when the server could locate it.
+export interface ChannelProblem {
+  file?: string
+  row?: number
+  column?: string
+  message: string
+}

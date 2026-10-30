@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { enableAutoUnmount, flushPromises, mount, type VueWrapper } from '@vue/test-utils'
-import { i18n, receivingAccount, record, stubs } from './testing'
+import { i18n, receivingAccount, record, stubs, vendors } from './testing'
 import type { AccountingOrder, AccountingRecord, OrderItemKind } from '../types'
 
 const api = vi.hoisted(() => ({
   order: vi.fn(),
   receivingAccounts: vi.fn(),
+  vendors: vi.fn(),
   addEntry: vi.fn(),
   updateEntry: vi.fn(),
   mutate: vi.fn(),
@@ -65,6 +66,7 @@ describe('order page', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     api.receivingAccounts.mockResolvedValue([receivingAccount])
+    api.vendors.mockResolvedValue(vendors)
     api.addEntry.mockResolvedValue(record({ id: 'new-one' }))
     api.updateEntry.mockResolvedValue(receipt)
     api.mutate.mockResolvedValue({})

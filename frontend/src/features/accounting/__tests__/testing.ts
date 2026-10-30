@@ -1,6 +1,6 @@
 import { createI18n } from 'vue-i18n'
 import zh from '@/i18n/locales/zh'
-import type { AccountingRecord } from '../types'
+import type { AccountingRecord, Vendor } from '../types'
 
 export function i18n() {
   return createI18n({
@@ -51,3 +51,13 @@ export const receivingAccount = {
   created_at: '2026-10-12T00:00:00Z',
   updated_at: '2026-10-12T00:00:00Z',
 }
+
+function vendor(id: string, kind: Vendor['kind'], name: string, status: Vendor['status'] = 'ACTIVE'): Vendor {
+  return { id, kind, name, aliases: [name.toLowerCase()], status, sort: 0, remark: '', created_at: '2026-10-01T00:00:00Z', updated_at: '2026-10-01T00:00:00Z' }
+}
+export const vendors: Vendor[] = [
+  vendor('vendor-sunrate', 'CARD_PROVIDER', 'SUNRATE'),
+  vendor('vendor-openai', 'AI_VENDOR', 'OpenAI'),
+  vendor('vendor-anthropic', 'AI_VENDOR', 'Anthropic'),
+  vendor('vendor-retired', 'AI_VENDOR', 'Retired', 'DISABLED'),
+]

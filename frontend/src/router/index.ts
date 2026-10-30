@@ -23,6 +23,8 @@ const financeAccountingPathPattern = new RegExp(
   `^/admin/accounting(?:` +
     `/receiving-accounts(?:/new|/[^/]+/edit)?` +
     `|/cards` +
+    `|/channels(?:/import|/[^/]+)?` +
+    `|/vendors(?:/new|/[^/]+/edit)?` +
     `|/orders/[^/]+` +
     `|/organizations/[^/]+(?:/(?:contacts|contracts)/(?:new|[^/]+/edit)|/orders/[^/]+)?` +
     `)?$`,
@@ -346,6 +348,42 @@ const routes: RouteRecordRaw[] = [
     name: 'AdminAccountingCards',
     component: () => import('@/features/accounting/CardsView.vue'),
     meta: { requiresAuth: true, requiresAdmin: true, title: 'Cards', titleKey: 'accounting.title', descriptionKey: 'accounting.home.cardsDescription' }
+  },
+  {
+    path: '/admin/accounting/channels',
+    name: 'AdminAccountingChannels',
+    component: () => import('@/features/accounting/ChannelsView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Channels', titleKey: 'accounting.title', descriptionKey: 'accounting.channels.description' }
+  },
+  {
+    path: '/admin/accounting/channels/import',
+    name: 'AdminAccountingChannelImport',
+    component: () => import('@/features/accounting/ChannelImportView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Import statements', titleKey: 'accounting.channels.import.title' }
+  },
+  {
+    path: '/admin/accounting/channels/:accountId',
+    name: 'AdminAccountingChannel',
+    component: () => import('@/features/accounting/ChannelAccountView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Channel account', titleKey: 'accounting.channels.title' }
+  },
+  {
+    path: '/admin/accounting/vendors',
+    name: 'AdminAccountingVendors',
+    component: () => import('@/features/accounting/VendorsView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Vendors', titleKey: 'accounting.title', descriptionKey: 'accounting.vendors.description' }
+  },
+  {
+    path: '/admin/accounting/vendors/new',
+    name: 'AdminAccountingVendorNew',
+    component: () => import('@/features/accounting/VendorFormView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'New vendor', titleKey: 'accounting.vendors.newTitle' }
+  },
+  {
+    path: '/admin/accounting/vendors/:vendorId/edit',
+    name: 'AdminAccountingVendorEdit',
+    component: () => import('@/features/accounting/VendorFormView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Edit vendor', titleKey: 'accounting.vendors.editTitle' }
   },
   {
     path: '/admin/accounting/organizations/:organizationId/contacts/new',

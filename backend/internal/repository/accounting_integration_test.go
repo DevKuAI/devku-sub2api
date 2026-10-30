@@ -196,6 +196,13 @@ func TestAccountingOrganizationContactsAndRecordSnapshots(t *testing.T) {
 }
 func (f *accountingFixture) request(method, path, key string, payload any) *httptest.ResponseRecorder {
 	body, _ := json.Marshal(payload)
+	if method == "POST" || method == "PATCH" {
+		body = withSeededVendors(path, body)
+	}
+	return f.rawRequest(method, path, key, body)
+}
+
+func (f *accountingFixture) rawRequest(method, path, key string, body []byte) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, "/api/v1/admin/accounting/"+path, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Idempotency-Key", key)
@@ -218,8 +225,11 @@ func (f *accountingFixture) create(t *testing.T, kind, amount string, details ma
 	if kind == "vcc-cards" || kind == "vcc-transactions" {
 		in.OrderID = f.order(t)
 	}
-	if kind == "vcc-cards" && details["card_number"] == nil {
-		details["card_number"] = testCardNumber()
+	if kind == "vcc-cards" && details["provider_card_id"] == nil {
+		details["provider_card_id"] = testCardID()
+	}
+	if kind == "vcc-cards" && details["last_four"] == nil {
+		details["last_four"] = "4242"
 	}
 	res := f.request("POST", kind, uuid.NewString(), in)
 	var record accounting.Record
@@ -239,19 +249,8 @@ func (f *accountingFixture) order(t *testing.T) string {
 	return order.ID
 }
 
-// testCardNumber returns a distinct 16-digit number so card fingerprints never collide between tests.
-func testCardNumber() string {
-	digits := strings.Map(func(r rune) rune {
-		if r >= 'a' && r <= 'f' {
-			return '0' + (r-'a')%10
-		}
-		if r >= '0' && r <= '9' {
-			return r
-		}
-		return -1
-	}, uuid.NewString())
-	return "4" + digits[:15]
-}
+// testCardID returns a distinct platform card ID so card registrations never collide between tests.
+func testCardID() string { return "card-" + uuid.NewString() }
 func (f *accountingFixture) receivingAccount(t *testing.T) string {
 	t.Helper()
 	if f.receivingAccountID != "" {
@@ -429,17 +428,24 @@ func TestAccountingOrganizationReadOnlySharingAndSecrets(t *testing.T) {
 	require.Equal(t, 200, outside.Code)
 	require.NotContains(t, outside.Body.String(), receipt.ID)
 	require.Equal(t, 404, read("attachments/"+file+"/download-url", other.user.ID).Code)
-	card := f.create(t, "vcc-cards", "0", map[string]any{"alias": "Secure", "provider": "INTERNAL-PROVIDER", "card_number": "4111111111111111", "cvv": "123", "expiry": "12/30"}, "")
+	// Full card numbers, CVVs and tokens are refused rather than stored.
+	for _, secret := range []map[string]any{{"card_number": "4111111111111111"}, {"cvv": "123"}, {"provider_token": "tok"}} {
+		details := map[string]any{"alias": "Secure", "provider": "INTERNAL-PROVIDER", "provider_card_id": testCardID(), "last_four": "1111"}
+		for k, v := range secret {
+			details[k] = v
+		}
+		in := accounting.Input{OrganizationID: f.desktop.organization.PublicID, Currency: "CNY", Amount: "0", Details: details, OrderID: f.order(t)}
+		require.Equal(t, 400, f.request("POST", "vcc-cards", uuid.NewString(), in).Code)
+	}
+	card := f.create(t, "vcc-cards", "0", map[string]any{"alias": "Secure", "provider": "INTERNAL-PROVIDER", "provider_card_id": "INTERNAL-CARD-ID-" + uuid.NewString(), "last_four": "1111", "expiry": "2030-12"}, "")
 	body := read("vcc-card", f.desktop.user.ID).Body.String()
 	require.Contains(t, body, "1111")
-	for _, secret := range []string{"4111111111111111", "INTERNAL-PROVIDER", "cvv", "expiry"} {
-		require.NotContains(t, body, secret)
+	for _, private := range []string{"INTERNAL-PROVIDER", "INTERNAL-CARD-ID", "2030-12"} {
+		require.NotContains(t, body, private)
 	}
-	var cipher, details string
-	require.NoError(t, integrationDB.QueryRow("SELECT secret_ciphertext,details::text FROM accounting_vcc_cards WHERE id=$1", card.ID).Scan(&cipher, &details))
-	require.NotEmpty(t, cipher)
-	require.NotContains(t, cipher, "4111111111111111")
-	require.NotContains(t, details, "4111111111111111")
+	var cipher string
+	require.NoError(t, integrationDB.QueryRow("SELECT secret_ciphertext FROM accounting_vcc_cards WHERE id=$1", card.ID).Scan(&cipher))
+	require.Empty(t, cipher)
 	req := httptest.NewRequest("GET", "/api/v1/organization/accounting/summary", nil)
 	req.Header.Set("X-No-Web-Session", "true")
 	res := httptest.NewRecorder()
@@ -712,7 +718,14 @@ func TestAccountingCardIdentityCannotOverwriteFundingHistory(t *testing.T) {
 	f.confirm(t, "transfers", receipt)
 	card := f.card(t)
 	accountingData(t, f.request("POST", "transfers/"+receipt.ID+"/allocations", uuid.NewString(), map[string]string{"card_id": card.ID, "amount": "100"}))
-	require.Equal(t, 409, f.request("PATCH", "vcc-cards/"+card.ID, uuid.NewString(), accounting.Input{Version: card.Version, Details: map[string]any{"provider": "different-provider"}}).Code)
+	var other accounting.Vendor
+	require.NoError(t, json.Unmarshal(accountingData(t, f.request("POST", "vendors", uuid.NewString(), accounting.VendorInput{Kind: "CARD_PROVIDER", Name: "Provider " + uuid.NewString()[:8]})), &other))
+	require.Equal(t, 409, f.request("PATCH", "vcc-cards/"+card.ID, uuid.NewString(), accounting.Input{Version: card.Version, Details: map[string]any{"provider_id": other.ID}}).Code)
+	// The provider name follows the chosen provider; free text cannot rename it.
+	require.Equal(t, 200, f.request("PATCH", "vcc-cards/"+card.ID, uuid.NewString(), accounting.Input{Version: card.Version, Details: map[string]any{"provider": "different-provider"}}).Code)
+	var current accounting.Record
+	require.NoError(t, json.Unmarshal(accountingData(t, f.request("GET", "vcc-cards/"+card.ID, "", nil)), &current))
+	require.Equal(t, "SUNRATE", current.Details["provider"])
 }
 func TestAccountingContractAndInvoiceSharingLifecycle(t *testing.T) {
 	f := newAccountingFixture(t)
@@ -736,4 +749,51 @@ func TestAccountingContractAndInvoiceSharingLifecycle(t *testing.T) {
 	internal := f.create(t, "invoices", "106", map[string]any{"invoice_type": "PURCHASE", "invoice_code": "CODE", "invoice_number": uuid.NewString(), "issuer_name": "Vendor", "recipient_name": "Us", "net_amount": "100", "tax_amount": "6"}, "")
 	require.Equal(t, 409, f.request("PATCH", "invoices/"+internal.ID+"/sharing", uuid.NewString(), map[string]bool{"customer_visible": true}).Code)
 	require.Equal(t, 409, f.request("POST", "invoices", uuid.NewString(), accounting.Input{OrganizationID: sales.OrganizationID, Currency: sales.Currency, Amount: sales.Amount, Details: sales.Details}).Code)
+}
+
+// seededVendor returns the ID of a vendor the vendor migration creates.
+func seededVendor(kind, name string) string {
+	var id string
+	if err := integrationDB.QueryRow("SELECT id::text FROM accounting_vendors WHERE kind=$1 AND name=$2", kind, name).Scan(&id); err != nil {
+		panic(err)
+	}
+	return id
+}
+
+// withSeededVendors fills the vendor every card, card spend and AI invoice must name, so tests about other
+// behaviour need not repeat it. Tests about vendors send their bodies through rawRequest instead.
+func withSeededVendors(path string, body []byte) []byte {
+	var payload map[string]any
+	if json.Unmarshal(body, &payload) != nil {
+		return body
+	}
+	details, ok := payload["details"].(map[string]any)
+	if !ok {
+		return body
+	}
+	segments := strings.Split(strings.SplitN(path, "?", 2)[0], "/")
+	kind, _ := payload["kind"].(string)
+	if kind == "" {
+		kind = segments[0]
+		if len(segments) >= 4 && segments[0] == "orders" && segments[2] == "entries" {
+			kind = segments[3]
+		}
+	}
+	field, vendorKind, vendorName := "", "", ""
+	switch {
+	case kind == "vcc-cards":
+		field, vendorKind, vendorName = "provider_id", "CARD_PROVIDER", "SUNRATE"
+	case kind == "vcc-transactions" && details["transaction_type"] == "CONSUME":
+		field, vendorKind, vendorName = "vendor_id", "AI_VENDOR", "OpenAI"
+	case kind == "vendor-invoices":
+		field, vendorKind, vendorName = "vendor_id", "AI_VENDOR", "OpenAI"
+	default:
+		return body
+	}
+	if _, set := details[field]; set {
+		return body
+	}
+	details[field] = seededVendor(vendorKind, vendorName)
+	out, _ := json.Marshal(payload)
+	return out
 }
