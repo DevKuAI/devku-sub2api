@@ -9,6 +9,7 @@
 | [实现与配置](implementation.md) | 接口、数据规则、账户菜单及资源 bucket 配置 |
 | [渠道账单导入](channel-import.md) | 设计方案（未实现）：渠道头寸、对账所需报表、平台账单导入、卡消费自动入账与余额核对 |
 | [标准账单模板](statement-template.md) | 渠道账单的统一入账格式、校验规则及 SUNRATE 转换对照 |
+| [渠道对账 SOP](channel-sop.md) | 每月导出哪些报表、怎么导入、凭证要求、异常处理、字段注意事项和月末核对清单 |
 | [SUNRATE 资金架构](sunrate-funds-architecture.html) | 账户 72778936 的入金 → 购汇 → 划转 → 卡消费资金链路与 2026-10-28 核对结果 |
 | [验证记录](validation.md) | 2026-10-12 与 2026-10-13 的本地测试、浏览器验收及验证边界 |
 
