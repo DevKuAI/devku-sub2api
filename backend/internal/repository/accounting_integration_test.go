@@ -635,6 +635,10 @@ func TestAccountingReconciliationPaginationAndSummaryPeriods(t *testing.T) {
 	_, err := integrationDB.Exec("UPDATE accounting_vcc_cards SET occurred_at='2020-01-01' WHERE id=$1", card.ID)
 	require.NoError(t, err)
 	accountingData(t, f.request("POST", "transfers/"+receipt.ID+"/allocations", uuid.NewString(), map[string]string{"card_id": card.ID, "amount": "60"}))
+	// Keep the allocation inside the fixed reporting period regardless of when
+	// this test runs; the summary uses allocation time, not the card's date.
+	_, err = integrationDB.Exec("UPDATE accounting_allocations SET created_at='2026-10-15T00:00:00Z' WHERE card_id=$1", card.ID)
+	require.NoError(t, err)
 	path := "summary?organization_id=" + receipt.OrganizationID + "&from=2026-10-01T00:00:00Z&to=2026-11-01T00:00:00Z"
 	var summary []accounting.CurrencySummary
 	require.NoError(t, json.Unmarshal(accountingData(t, f.request("GET", path, "", nil)), &summary))

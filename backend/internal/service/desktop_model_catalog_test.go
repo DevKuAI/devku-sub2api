@@ -141,6 +141,78 @@ func TestDesktopCatalogUsesGroupMappingAllowlistAndPropagatesErrors(t *testing.T
 	require.Nil(t, catalog.gateway.GetAvailableModels(context.Background(), &group.ID, group.Platform))
 }
 
+func TestDesktopPinnedCatalogRestoresOAuthImageModelsAndPolicies(t *testing.T) {
+	newCodexModelsOAuthCacheServer(t, `{"models":[{"slug":"text-model"}]}`)
+	account := newCodexModelsTestAccount()
+	account.Status, account.Schedulable = StatusActive, true
+	account.Credentials["model_mapping"] = map[string]any{
+		"text-model": "text-model", "gpt-image-2": "gpt-image-2",
+		"image2": "gpt-image-2", "image2-hd": "gpt-image-2",
+		"gpt-image-fake": "missing-text-model", "image-*": "gpt-image-2",
+	}
+	accounts := []Account{*account}
+	repo := splitCodexModelsAccountRepo{
+		all: map[int64][]Account{12: accounts}, schedulable: map[int64][]Account{12: accounts},
+	}
+	group := &Group{ID: 12, Platform: PlatformOpenAI, CodexModelsManifestConfig: GroupCodexModelsManifestConfig{Enabled: true, AccountIDs: []int64{account.ID}}}
+	catalog := &desktopGroupModelCatalog{
+		groups: desktopCatalogGroupRepo{group: group}, gateway: &GatewayService{accountRepo: repo},
+		openai: &OpenAIGatewayService{accountRepo: repo},
+	}
+	models, err := catalog.Models(context.Background(), group.ID)
+	require.NoError(t, err)
+	require.Equal(t, []string{"text-model", "gpt-image-2", "image2", "image2-hd"}, models)
+	org := activeDesktopAuthorization().Organization
+	org.GroupID = group.ID
+	org.TargetConfig = &DesktopTargetConfig{SchemaVersion: 2, Models: []DesktopModel{
+		{Model: "image2", Visible: true, Enabled: true, Remark: "existing image policy"},
+	}}
+	svc := (&DesktopService{}).WithModelCatalog(catalog)
+	resolved, err := svc.ResolveOrganizationModels(context.Background(), org, true)
+	require.NoError(t, err)
+	require.Equal(t, org.TargetConfig.Models, resolved.TargetConfig.Models)
+	require.Equal(t, "image2", resolved.TargetConfig.Targets.ChatGPTCodex.RequestedModel)
+	persistence := &desktopRepositoryStub{organization: org}
+	svc.repo = persistence
+	updated, err := svc.UpdateTargetConfig(context.Background(), org.PublicID, &DesktopTargetConfig{SchemaVersion: 2, Models: []DesktopModel{
+		{Model: "image2-hd", Visible: true, Enabled: true, Remark: "restored"},
+	}})
+	require.NoError(t, err)
+	require.Equal(t, 1, persistence.targetConfigUpdates)
+	require.Contains(t, updated.TargetConfig.Models, DesktopModel{Model: "image2-hd", Visible: true, Enabled: true, Remark: "restored"})
+	group.ModelAllowlist = GroupModelAllowlist{Enabled: true, Models: []string{"text-model", "image2"}}
+	models, err = catalog.Models(context.Background(), group.ID)
+	require.NoError(t, err)
+	require.Equal(t, []string{"text-model", "image2"}, models)
+}
+
+func TestDesktopImageSupplementRespectsAccountTypeGroupAndErrors(t *testing.T) {
+	group := &Group{ID: 12, Platform: PlatformOpenAI}
+	oauth := newCodexModelsTestAccount()
+	apiKey := newCodexModelsAPIKeyTestAccount("https://models.example/v1")
+	for _, accounts := range [][]Account{{*oauth}, {*apiKey}} {
+		repo := desktopCatalogAccountRepo{accounts: map[int64][]Account{12: accounts, 13: {*oauth}}}
+		catalog := &desktopGroupModelCatalog{gateway: &GatewayService{accountRepo: repo}}
+		models, err := catalog.supplementOAuthImageModels(context.Background(), group, []string{"gpt-image-2"})
+		require.NoError(t, err)
+		if accounts[0].IsOpenAIOAuthLike() {
+			require.Contains(t, models, "gpt-image-2.5-flare")
+			require.Contains(t, models, "gpt-image-2.5-sunburst")
+			require.Len(t, models, 5)
+		} else {
+			require.Equal(t, []string{"gpt-image-2"}, models)
+		}
+		group.ID = 14
+		models, err = catalog.supplementOAuthImageModels(context.Background(), group, nil)
+		require.NoError(t, err)
+		require.Empty(t, models)
+		group.ID = 12
+	}
+	catalog := &desktopGroupModelCatalog{gateway: &GatewayService{accountRepo: desktopCatalogAccountRepo{err: errors.New("offline")}}}
+	_, err := catalog.supplementOAuthImageModels(context.Background(), group, nil)
+	require.EqualError(t, err, "offline")
+}
+
 func TestDesktopUnifiedModelSaveValidatesCurrentCatalogBeforePersistence(t *testing.T) {
 	org := activeDesktopAuthorization().Organization
 	repo := &desktopRepositoryStub{organization: org}

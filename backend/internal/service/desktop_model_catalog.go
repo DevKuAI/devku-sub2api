@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/domain"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 )
 
 // DesktopModelCatalog resolves the bound group's public model IDs, not its
@@ -44,7 +46,7 @@ func (r *desktopGroupModelCatalog) Models(ctx context.Context, groupID int64) ([
 		for _, model := range catalog.Data {
 			models = append(models, model.ID)
 		}
-		return models, nil
+		return r.supplementOAuthImageModels(ctx, group, models)
 	}
 	var models []string
 	if group.Platform == PlatformComposite {
@@ -61,6 +63,46 @@ func (r *desktopGroupModelCatalog) Models(ctx context.Context, groupID int64) ([
 		models = append(models, DefaultModelIDsForPlatform(group.Platform)...)
 	}
 	return group.ModelAllowlist.FilterForListing(models), nil
+}
+
+// Codex discovery lists Responses drivers and may omit image_generation tool
+// models. Enterprise clients also use the image endpoints, so include the image
+// models supported by the bound group's OAuth accounts without altering discovery.
+func (r *desktopGroupModelCatalog) supplementOAuthImageModels(ctx context.Context, group *Group, models []string) ([]string, error) {
+	accounts, err := r.gateway.accountRepo.ListSchedulableByGroupID(ctx, group.ID)
+	if err != nil {
+		return nil, err
+	}
+	seen := make(map[string]bool, len(models))
+	for _, id := range models {
+		seen[id] = true
+	}
+	additional := make([]string, 0)
+	for _, account := range accounts {
+		if !account.IsOpenAIOAuthLike() {
+			continue
+		}
+		candidates := append([]string(nil), openai.DefaultModelIDs()...)
+		for id := range account.GetModelMapping() {
+			candidates = append(candidates, id)
+		}
+		for _, id := range candidates {
+			if seen[id] || strings.Contains(id, "*") || !account.IsModelSupported(id) {
+				continue
+			}
+			target := id
+			if !account.IsOpenAIPassthroughEnabled() {
+				target = account.GetMappedModel(id)
+			}
+			if !IsGPTImageGenerationModel(target) {
+				continue
+			}
+			seen[id] = true
+			additional = append(additional, id)
+		}
+	}
+	sort.Strings(additional)
+	return group.ModelAllowlist.FilterForListing(append(models, additional...)), nil
 }
 
 func (r *desktopGroupModelCatalog) compositeModels(ctx context.Context, groupID int64) ([]string, error) {
