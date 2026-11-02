@@ -97,6 +97,9 @@ func newAccountingFixture(t *testing.T) *accountingFixture {
 	t.Cleanup(func() {
 		ctx := context.Background()
 		for _, query := range []string{
+			// Statement lines and cards outlive the organization's records; let go of them before those are deleted.
+			"UPDATE accounting_channel_lines SET transaction_id=NULL WHERE transaction_id IN (SELECT id FROM accounting_vcc_transactions WHERE organization_id=$1)",
+			"UPDATE accounting_channel_cards SET organization_id=NULL,vcc_card_id=NULL WHERE organization_id=$1 OR vcc_card_id IN (SELECT id FROM accounting_vcc_cards WHERE organization_id=$1)",
 			"DELETE FROM accounting_operation_results WHERE actor_id=$1",
 			"DELETE FROM accounting_statements WHERE organization_id=$1",
 			"DELETE FROM accounting_periods WHERE organization_id=$1",

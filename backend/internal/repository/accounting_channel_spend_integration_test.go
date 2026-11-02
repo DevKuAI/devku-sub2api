@@ -237,3 +237,20 @@ func TestAccountingStatementLinksHandEnteredSpend(t *testing.T) {
 	require.NoError(t, integrationDB.QueryRow("SELECT COALESCE(details->>'channel_line_id','') FROM accounting_vcc_transactions WHERE id=$1", byAmount).Scan(&link))
 	require.Empty(t, link)
 }
+
+// A statement imported outside the fixture's own test account still points at the organization's card spend; the
+// fixture must let go of it when it cleans up.
+func TestAccountingFixtureCleansUpAfterStatementSpend(t *testing.T) {
+	account := "cleanup-" + uuid.NewString()[:8]
+	t.Cleanup(func() { cleanChannelAccounts(t, account) })
+	t.Run("fixture", func(t *testing.T) {
+		f := newAccountingFixture(t)
+		ref := testCardID()
+		f.usdCard(t, f.order(t), ref)
+		external := uuid.NewString()
+		row := strings.Join([]string{"TESTPAY", account, "CARD", external, "2026-10-10 10:00:00+08:00", "CONSUME", "-20", "USD", "", "", ref, "4242", "", "OPENAI *CHATGPT", "", "", "", "statement line"}, ",")
+		f.importRows(t, row)
+		booking, _, _ := lineBooking(t, external)
+		require.Equal(t, "BOOKED", booking)
+	})
+}
