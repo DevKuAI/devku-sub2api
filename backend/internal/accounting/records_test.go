@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/domain"
+	appErrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -180,4 +181,16 @@ func TestCardsNeedCardIDAndLastFourButNoSecrets(t *testing.T) {
 		}
 		require.Error(t, card(details), secret)
 	}
+}
+
+// A range whose end precedes its start names both dates, so the message can say which one the end may not precede.
+func TestDateRangeOrder(t *testing.T) {
+	invoice := func(start, end string) Input {
+		return Input{Amount: "20", Currency: "USD", Details: map[string]any{"vendor": "OpenAI", "period_start": start, "period_end": end}}
+	}
+	_, err := prepare("vendor-invoices", invoice("2026-11-01", "2026-10-30"), nil)
+	require.ErrorIs(t, err, ErrInvalid)
+	require.Equal(t, map[string]string{"field": "period_end", "after": "period_start"}, appErrors.FromError(err).Metadata)
+	_, err = prepare("vendor-invoices", invoice("2026-10-30", "2026-10-30"), nil)
+	require.NoError(t, err, "a one-day period is valid")
 }

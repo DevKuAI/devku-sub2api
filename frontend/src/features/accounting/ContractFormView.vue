@@ -78,7 +78,7 @@ import FormSection from './components/FormSection.vue'
 import RecordFiles from './components/RecordFiles.vue'
 import AccountingFileUpload from './components/AccountingFileUpload.vue'
 import * as api from './api'
-import { commonCurrencies, currencyDigits, errorMessage, safeReturnPath } from './shared'
+import { commonCurrencies, errorMessage, inputMoney, moneyPattern as amountPattern, safeReturnPath } from './shared'
 import { useLeaveGuard } from './useLeaveGuard'
 import type { AccountingRecord, OrganizationContact } from './types'
 
@@ -111,10 +111,7 @@ const form = reactive({
 const requestKey = api.stableRequest()
 const { leave, markClean } = useLeaveGuard(() => ({ ...form, file: file.value?.name || '' }))
 const currencies = computed(() => (commonCurrencies.includes(form.currency) ? commonCurrencies : [...commonCurrencies, form.currency]))
-const moneyPattern = computed(() => {
-  const digits = currencyDigits(form.currency)
-  return digits ? `\\d+(\\.\\d{1,${digits}})?` : '\\d+'
-})
+const moneyPattern = computed(() => amountPattern(form.currency))
 
 function returnLocation() {
   return (
@@ -148,7 +145,7 @@ async function load() {
         effective_at: text('effective_at'),
         expires_at: text('expires_at'),
         currency: current.currency,
-        amount: Number(current.amount) ? current.amount.replace(/\.?0+$/, '') : '',
+        amount: Number(current.amount) ? inputMoney(current.amount, current.currency) : '',
         contact_id: text('contact_id'),
         remark: text('remark'),
         customer_visible: current.customer_visible,

@@ -67,18 +67,11 @@ func (e *Engine) Confirm(ctx context.Context, tx *sql.Tx, kind string, r *Record
 		if err := e.requireVendorInvoice(ctx, tx, r); err != nil {
 			return err
 		}
-		if err := rebalanceFunding(ctx, tx, r.ParentID); err != nil {
-			return err
-		}
 		if isCredit(r) {
 			if err := checkCreditCost(ctx, tx, r); err != nil {
 				return err
 			}
-			if err := credit(ctx, tx, r); err != nil {
-				return err
-			}
-		} else {
-			if err := debit(ctx, tx, r); err != nil {
+			if err := checkCredit(ctx, tx, r); err != nil {
 				return err
 			}
 		}
@@ -88,14 +81,6 @@ func (e *Engine) Confirm(ctx context.Context, tx *sql.Tx, kind string, r *Record
 	}
 	if err := save(ctx, tx, kind, r); err != nil {
 		return err
-	}
-	if kind == "vcc-transactions" {
-		if err := rebalanceFunding(ctx, tx, r.ParentID); err != nil {
-			return err
-		}
-		if err := settleClosedCard(ctx, tx, r.ParentID); err != nil {
-			return err
-		}
 	}
 	return e.afterOrderChange(ctx, tx, kind, r, actor)
 }
@@ -122,7 +107,7 @@ func (e *Engine) Void(ctx context.Context, tx *sql.Tx, kind string, r *Record, r
 				return ErrState
 			}
 		case "vcc-transactions":
-			if err := undoTransaction(ctx, tx, r); err != nil {
+			if err := checkUndo(ctx, tx, r); err != nil {
 				return err
 			}
 		case "expenses":
@@ -163,12 +148,6 @@ func (e *Engine) Void(ctx context.Context, tx *sql.Tx, kind string, r *Record, r
 	r.Details["void_reason"] = reason
 	if err := save(ctx, tx, kind, r); err != nil {
 		return err
-	}
-	if kind == "vcc-transactions" {
-		if err := rebalanceFunding(ctx, tx, r.ParentID); err != nil {
-			return err
-		}
-		return settleClosedCard(ctx, tx, r.ParentID)
 	}
 	if kind == "expense-payments" {
 		expense, err := get(ctx, tx, "expenses", r.ParentID, r.Org, true)

@@ -86,8 +86,8 @@ const hasFilters = computed(() => Object.values(filters).some(Boolean))
 const columns = computed(() => [
   { key: 'record', label: t(`accounting.kinds.${props.kind}`) },
   { key: 'occurred_at', label: t('accounting.occurredAt') },
-  { key: 'amount', label: t(props.kind === 'vcc-cards' ? 'accounting.fields.available_balance' : 'accounting.amount'), class: 'text-right' },
-  ...(remaining.value && props.kind !== 'vcc-cards' ? [{ key: 'remaining', label: t(`accounting.fields.${remaining.value}`), class: 'text-right' }] : []),
+  { key: 'amount', label: t(props.kind === 'vcc-cards' ? 'accounting.fields.spent_amount' : 'accounting.amount'), class: 'text-right' },
+  ...(remaining.value ? [{ key: 'remaining', label: t(`accounting.fields.${remaining.value}`), class: 'text-right' }] : []),
   { key: 'status', label: t('accounting.status') },
 ])
 

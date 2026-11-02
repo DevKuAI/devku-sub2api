@@ -126,9 +126,10 @@ describe('order page', () => {
     expect(empty.get('[data-testid="add-vcc-transactions"]').attributes('disabled')).toBeDefined()
     empty.unmount()
 
-    const card = record({ id: 'card-one', status: 'ACTIVE', currency: 'USD', details: { alias: '席位卡', last_four: '4444', provider: 'Airwallex', available_balance: '-20' } })
+    const card = record({ id: 'card-one', status: 'ACTIVE', currency: 'USD', details: { alias: '席位卡', last_four: '4444', provider: 'Airwallex', spent_amount: '20' } })
     const wrapper = await render(order({ progress: done }, { 'vcc-cards': [card] }))
-    expect(wrapper.text()).toContain('卡余额为负')
+    expect(wrapper.get('[data-testid="entry-vcc-cards"]').text()).toMatch(/累计消费 (US)?\$20\.00/)
+    expect(wrapper.text()).not.toContain('充值')
     await wrapper.get('[data-testid="add-vcc-transactions"]').trigger('click')
     expect((wrapper.get('[data-field="parent_id"] select').element as HTMLSelectElement).value).toBe('card-one')
     expect(wrapper.get('[data-field="amount"]').text()).toContain('USD')

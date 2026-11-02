@@ -21,9 +21,12 @@ const reasonMessages: Record<string, string> = {
 
 // One mapping for every accounting API error so pages show the same wording.
 export function errorMessage(cause: unknown, t: Translate, te: Exists) {
-  const error = cause as { reason?: string; code?: string; message?: string; metadata?: { field?: string; external_id?: string } }
+  const error = cause as { reason?: string; code?: string; message?: string; metadata?: { field?: string; after?: string; external_id?: string } }
   const field = error.metadata?.field
+  const after = error.metadata?.after
   if (error.reason === 'ACCOUNTING_CHANNEL_LINE_CONFLICT') return t('accounting.errors.channelConflict', { id: error.metadata?.external_id || '' })
+  if (error.reason === 'ACCOUNTING_INVALID' && field && after && te(`accounting.fields.${field}`) && te(`accounting.fields.${after}`))
+    return t('accounting.errors.endBeforeStart', { end: t(`accounting.fields.${field}`), start: t(`accounting.fields.${after}`) })
   if (field && te(`accounting.errors.fields.${field}`)) return t(`accounting.errors.fields.${field}`)
   if (error.reason === 'ACCOUNTING_INVALID' && field && te(`accounting.fields.${field}`))
     return t('accounting.errors.invalidField', { field: t(`accounting.fields.${field}`) })
@@ -66,6 +69,21 @@ export function currencyDigits(currency: string) {
   }
 }
 
+// An API amount as a form starts with it: the currency's own decimals (200.000000 USD → 200.00), never dropping a non-zero digit.
+export function inputMoney(raw: string, currency: string) {
+  const match = /^(-?\d+)(?:\.(\d*))?$/.exec(raw.trim())
+  if (!match) return raw
+  const digits = currencyDigits(currency)
+  const fraction = (match[2] || '').replace(/0+$/, '').padEnd(digits, '0')
+  return fraction ? `${match[1]}.${fraction}` : match[1]!
+}
+
+// What an amount input accepts: a positive number with at most the currency's own decimals.
+export function moneyPattern(currency: string) {
+  const digits = currencyDigits(currency)
+  return digits ? `\\d+(\\.\\d{1,${digits}})?` : '\\d+'
+}
+
 export function moneyStep(currency: string) {
   const digits = currencyDigits(currency)
   return digits === 0 ? '1' : `0.${'0'.repeat(digits - 1)}1`
@@ -98,7 +116,7 @@ export function safeReturnPath(value: unknown) {
 
 const moneyKeys = new Set([
   'sales_amount', 'tax_amount', 'net_sales_amount', 'receivable_amount', 'received_amount', 'credit_limit',
-  'fee_amount', 'net_amount', 'total_amount', 'unallocated_amount', 'allocated_amount', 'available_balance',
+  'fee_amount', 'net_amount', 'total_amount', 'spent_amount',
   'paid_amount', 'unpaid_amount', 'settled_amount', 'outstanding_amount', 'allocated_cost', 'unallocated_cost',
   'original_amount', 'adjustment_amount', 'effective_amount', 'overpaid_amount',
 ])

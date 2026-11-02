@@ -49,7 +49,6 @@ func (h *Handler) registerWorkflows(g *gin.RouterGroup) {
 	g.GET("/external-actions", h.externalActions)
 	g.POST("/external-actions/:id/confirm", h.confirmExternal)
 	g.POST("/external-actions/:id/void", h.exemptExternal)
-	g.POST("/fx-exchanges/:id/allocations", h.allocateFX)
 	g.GET("/periods", h.periods)
 	g.POST("/periods/close", h.closePeriod)
 	g.POST("/periods/:id/reopen", h.reopenPeriod)
@@ -362,30 +361,6 @@ func (h *Handler) confirmExternal(c *gin.Context) {
 		}
 		_, err = tx.ExecContext(c.Request.Context(), `UPDATE accounting_external_actions SET status='CONFIRMED',reference=$2,attachment_id=$3,confirmed_at=NOW(),confirmed_by=$4 WHERE id=$1`, c.Param("id"), in.Reference, proof.ID, actor(c))
 		return gin.H{"id": c.Param("id"), "status": "CONFIRMED", "reference": in.Reference}, err
-	})
-}
-func (h *Handler) allocateFX(c *gin.Context) {
-	r := h.record(c, "fx-exchanges")
-	if r == nil {
-		return
-	}
-	in, ok := workflowDecode(c)
-	if !ok {
-		return
-	}
-	h.run(c, Operation{Org: r.Org, Kind: "fx-exchanges", Object: r.ID, Action: "allocate", Payload: in}, func(tx *sql.Tx) (any, error) {
-		fx, err := get(c.Request.Context(), tx, "fx-exchanges", r.ID, r.Org, true)
-		if err != nil {
-			return nil, err
-		}
-		if fx.Status != "CONFIRMED" {
-			return nil, ErrState
-		}
-		target, err := get(c.Request.Context(), tx, "transfers", detail(fx, "target_transfer_id"), r.Org, true)
-		if err != nil {
-			return nil, err
-		}
-		return h.engine.Allocate(c.Request.Context(), tx, target, in.SourceID, in.Amount, actor(c))
 	})
 }
 func (h *Handler) workflowRows(c *gin.Context, query string, args ...any) {

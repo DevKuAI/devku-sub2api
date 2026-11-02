@@ -113,7 +113,8 @@ func validateFields(kind string, r *Record) error {
 	for _, pair := range [][2]string{{"active_at", "inactive_at"}, {"effective_at", "expires_at"}, {"period_start", "period_end"}} {
 		start, end := detail(r, pair[0]), detail(r, pair[1])
 		if start != "" && end != "" && start > end {
-			return invalid(pair[1])
+			// Name the start too, so the message can say which date the end may not precede.
+			return ErrInvalid.WithMetadata(map[string]string{"field": pair[1], "after": pair[0]})
 		}
 	}
 
@@ -385,7 +386,7 @@ func (e *Engine) Update(ctx context.Context, tx *sql.Tx, kind string, old *Recor
 
 func computedField(key string) bool {
 	switch key {
-	case "effective_amount", "original_amount", "adjustment_amount", "paid_amount", "unpaid_amount", "overpaid_amount", "unallocated_amount", "settled_amount", "outstanding_amount", "allocated_cost", "unallocated_cost", "target_available", "available_balance", "allocated_amount", "has_difference", "reconciliation_status", "order_id", "order_name", "attachment_count":
+	case "effective_amount", "original_amount", "adjustment_amount", "paid_amount", "unpaid_amount", "overpaid_amount", "unallocated_amount", "settled_amount", "outstanding_amount", "allocated_cost", "unallocated_cost", "target_available", "available_balance", "allocated_amount", "spent_amount", "has_difference", "reconciliation_status", "order_id", "order_name", "attachment_count":
 		return true
 	}
 	return false

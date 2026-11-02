@@ -301,61 +301,70 @@ func (f *accountingFixture) proof(t *testing.T, kind string, r *accounting.Recor
 	return id
 }
 
-func TestAccountingFundingRefundCloseAndIdempotency(t *testing.T) {
+func TestAccountingCardRefundCloseAndIdempotency(t *testing.T) {
 	f := newAccountingFixture(t)
 	receipt := f.transfer(t, "100")
 	f.proof(t, "transfers", receipt)
 	f.confirm(t, "transfers", receipt)
 	card := f.card(t)
-	path := "transfers/" + receipt.ID + "/allocations"
-	key := uuid.NewString()
-	payload := map[string]string{"card_id": card.ID, "amount": "100"}
-	first := f.request("POST", path, key, payload)
-	body := accountingData(t, first)
-	replay := f.request("POST", path, key, payload)
-	require.JSONEq(t, string(body), string(accountingData(t, replay)))
-	require.Equal(t, "true", replay.Header().Get("X-Idempotency-Replayed"))
-	payload["amount"] = "99"
-	require.Equal(t, 409, f.request("POST", path, key, payload).Code)
 	consume := f.transaction(t, card, "CONSUME", "70", "")
 	f.confirm(t, "vcc-transactions", consume)
 	fee := f.transaction(t, card, "FEE", "10", "")
 	f.confirm(t, "vcc-transactions", fee)
 	refund := f.transaction(t, card, "REFUND", "20", consume.ID)
 	f.confirm(t, "vcc-transactions", refund)
+	require.Equal(t, "60", f.cardSpent(t, card.ID))
 	require.Equal(t, 409, f.request("POST", "vcc-transactions/"+consume.ID+"/void", uuid.NewString(), map[string]string{"reason": "wrong"}).Code)
-	accountingData(t, f.request("POST", "vcc-cards/"+card.ID+"/close", uuid.NewString(), map[string]any{}))
-	var used, released string
-	require.NoError(t, integrationDB.QueryRow("SELECT used_amount::text,released_amount::text FROM accounting_allocations WHERE card_id=$1", card.ID).Scan(&used, &released))
-	require.Equal(t, "60.000000", used)
-	require.Equal(t, "40.000000", released)
+
+	path := "vcc-cards/" + card.ID + "/close"
+	key := uuid.NewString()
+	first := f.request("POST", path, key, map[string]any{})
+	body := accountingData(t, first)
+	replay := f.request("POST", path, key, map[string]any{})
+	require.JSONEq(t, string(body), string(accountingData(t, replay)))
+	require.Equal(t, "true", replay.Header().Get("X-Idempotency-Replayed"))
+	require.Equal(t, 409, f.request("POST", path, key, map[string]any{"reason": "changed"}).Code)
+	var actions []string
+	rows, err := integrationDB.Query("SELECT action FROM accounting_external_actions WHERE card_id=$1", card.ID)
+	require.NoError(t, err)
+	for rows.Next() {
+		var action string
+		require.NoError(t, rows.Scan(&action))
+		actions = append(actions, action)
+	}
+	require.NoError(t, rows.Close())
+	require.Equal(t, []string{"CLOSE"}, actions)
+
+	// Refunds still arrive after the card is closed, up to what is left of the purchase.
 	late := f.transaction(t, card, "REFUND", "10", consume.ID)
 	f.confirm(t, "vcc-transactions", late)
-	require.NoError(t, integrationDB.QueryRow("SELECT released_amount::text FROM accounting_allocations WHERE card_id=$1", card.ID).Scan(&released))
-	require.Equal(t, "50.000000", released)
+	require.Equal(t, "50", f.cardSpent(t, card.ID))
 	excessive := f.transaction(t, card, "REFUND", "41", consume.ID)
 	require.Equal(t, 409, f.request("POST", "vcc-transactions/"+excessive.ID+"/confirm", uuid.NewString(), map[string]any{}).Code)
-	replacement := f.card(t)
-	accountingData(t, f.request("POST", path, uuid.NewString(), map[string]string{"card_id": replacement.ID, "amount": "50"}))
-	require.Equal(t, 409, f.request("POST", path, uuid.NewString(), map[string]string{"card_id": replacement.ID, "amount": "0.01"}).Code)
-	require.Equal(t, 409, f.request("POST", "transfers/"+receipt.ID+"/void", uuid.NewString(), map[string]string{"reason": "wrong"}).Code)
-	require.Equal(t, 409, f.request("PATCH", "transfers/"+receipt.ID, uuid.NewString(), accounting.Input{Amount: "100", Version: receipt.Version}).Code)
+	accountingData(t, f.request("POST", "vcc-transactions/"+late.ID+"/void", uuid.NewString(), map[string]string{"reason": "duplicate refund"}))
+	require.Equal(t, "60", f.cardSpent(t, card.ID))
+
+	// The receipt is not tied to the card's spend.
+	accountingData(t, f.request("POST", "transfers/"+receipt.ID+"/void", uuid.NewString(), map[string]string{"reason": "wrong"}))
 }
-func TestAccountingConcurrentAllocationAndDuplicateReferences(t *testing.T) {
+func TestAccountingConcurrentRefundsAndDuplicateReferences(t *testing.T) {
 	f := newAccountingFixture(t)
 	receipt := f.transfer(t, "100")
 	f.proof(t, "transfers", receipt)
 	f.confirm(t, "transfers", receipt)
 	card := f.card(t)
+	consume := f.transaction(t, card, "CONSUME", "100", "")
+	f.confirm(t, "vcc-transactions", consume)
+	refunds := []*accounting.Record{f.transaction(t, card, "REFUND", "60", consume.ID), f.transaction(t, card, "REFUND", "60", consume.ID)}
 	codes := make(chan int, 2)
 	var wg sync.WaitGroup
-	for i := 0; i < 2; i++ {
+	for _, refund := range refunds {
 		wg.Add(1)
-		go func() {
+		go func(id string) {
 			defer wg.Done()
-			res := f.request("POST", "transfers/"+receipt.ID+"/allocations", uuid.NewString(), map[string]string{"card_id": card.ID, "amount": "60"})
+			res := f.request("POST", "vcc-transactions/"+id+"/confirm", uuid.NewString(), map[string]any{})
 			codes <- res.Code
-		}()
+		}(refund.ID)
 	}
 	wg.Wait()
 	close(codes)
@@ -368,31 +377,34 @@ func TestAccountingConcurrentAllocationAndDuplicateReferences(t *testing.T) {
 		}
 	}
 	require.Equal(t, 1, success)
+	require.Equal(t, "40", f.cardSpent(t, card.ID))
 	require.Equal(t, 409, f.request("POST", "transfers", uuid.NewString(), accounting.Input{OrganizationID: receipt.OrganizationID, Currency: "CNY", Amount: receipt.Amount, Details: receipt.Details}).Code)
 	r := f.transaction(t, card, "CONSUME", "1", "")
 	require.Equal(t, 409, f.request("POST", "vcc-transactions", uuid.NewString(), accounting.Input{OrganizationID: r.OrganizationID, ParentID: card.ID, Currency: r.Currency, Amount: r.Amount, Details: r.Details, OrderID: f.order(t)}).Code)
 	require.Equal(t, 400, f.request("POST", "transfers", "", accounting.Input{OrganizationID: receipt.OrganizationID, Currency: "CNY", Amount: "1", Details: receipt.Details}).Code)
 }
-func TestAccountingOverdraftAndCurrencyIsolation(t *testing.T) {
+func TestAccountingClosedCardRefundsAndCurrencyIsolation(t *testing.T) {
 	f := newAccountingFixture(t)
 	receipt := f.transfer(t, "100")
 	f.proof(t, "transfers", receipt)
 	f.confirm(t, "transfers", receipt)
 	card := f.card(t)
-	accountingData(t, f.request("POST", "transfers/"+receipt.ID+"/allocations", uuid.NewString(), map[string]string{"card_id": card.ID, "amount": "100"}))
+	// Spend beyond what the organization paid is recorded as spend; there is no overdraft to cover.
 	consume := f.transaction(t, card, "CONSUME", "130", "")
 	f.confirm(t, "vcc-transactions", consume)
 	accountingData(t, f.request("POST", "vcc-cards/"+card.ID+"/close", uuid.NewString(), map[string]any{}))
 	refund := f.transaction(t, card, "REFUND", "20", consume.ID)
 	f.confirm(t, "vcc-transactions", refund)
-	var released string
-	require.NoError(t, integrationDB.QueryRow("SELECT released_amount::text FROM accounting_allocations WHERE card_id=$1", card.ID).Scan(&released))
-	require.Equal(t, "0.000000", released)
 	refund = f.transaction(t, card, "REFUND", "30", consume.ID)
 	f.confirm(t, "vcc-transactions", refund)
-	require.NoError(t, integrationDB.QueryRow("SELECT released_amount::text FROM accounting_allocations WHERE card_id=$1", card.ID).Scan(&released))
-	require.Equal(t, "20.000000", released)
+	require.Equal(t, "80", f.cardSpent(t, card.ID))
 	require.Equal(t, 400, f.request("POST", "vcc-transactions", uuid.NewString(), accounting.Input{OrganizationID: receipt.OrganizationID, ParentID: card.ID, Currency: "USD", Amount: "1", Details: map[string]any{"transaction_type": "REFUND", "original_transaction_id": consume.ID, "merchant": "Vendor", "provider_transaction_id": uuid.NewString()}, OrderID: f.order(t)}).Code)
+	var workbench struct {
+		Counts map[string]int64 `json:"counts"`
+	}
+	require.NoError(t, json.Unmarshal(accountingData(t, f.request("GET", "workbench?organization_id="+receipt.OrganizationID, "", nil)), &workbench))
+	require.NotContains(t, workbench.Counts, "overdraft")
+	require.NotContains(t, workbench.Counts, "unallocated")
 }
 func TestAccountingOrganizationReadOnlySharingAndSecrets(t *testing.T) {
 	f := newAccountingFixture(t)
@@ -517,7 +529,6 @@ func TestAccountingBrowserFixture(t *testing.T) {
 	f.proof(t, "transfers", receipt)
 	f.confirm(t, "transfers", receipt)
 	card := f.card(t)
-	accountingData(t, f.request("POST", "transfers/"+receipt.ID+"/allocations", uuid.NewString(), map[string]string{"card_id": card.ID, "amount": "30000"}))
 	consume := f.transaction(t, card, "CONSUME", "2480", "")
 	f.confirm(t, "vcc-transactions", consume)
 	desktop := service.NewDesktopService(f.desktop.repo, nil, nil, nil, nil, nil, &config.Config{}, nil, nil, nil)
@@ -582,50 +593,6 @@ func TestAccountingBrowserFixture(t *testing.T) {
 	}
 }
 
-func TestAccountingClosedRefundDoesNotReleaseOtherFeeDeficit(t *testing.T) {
-	f := newAccountingFixture(t)
-	receipt := f.transfer(t, "100")
-	f.proof(t, "transfers", receipt)
-	f.confirm(t, "transfers", receipt)
-	card := f.card(t)
-	accountingData(t, f.request("POST", "transfers/"+receipt.ID+"/allocations", uuid.NewString(), map[string]string{"card_id": card.ID, "amount": "100"}))
-	consume := f.transaction(t, card, "CONSUME", "100", "")
-	f.confirm(t, "vcc-transactions", consume)
-	fee := f.transaction(t, card, "FEE", "10", "")
-	f.confirm(t, "vcc-transactions", fee)
-	accountingData(t, f.request("POST", "vcc-cards/"+card.ID+"/close", uuid.NewString(), map[string]any{}))
-	refund := f.transaction(t, card, "REFUND", "20", consume.ID)
-	f.confirm(t, "vcc-transactions", refund)
-	var released string
-	require.NoError(t, integrationDB.QueryRow("SELECT released_amount::text FROM accounting_allocations WHERE card_id=$1", card.ID).Scan(&released))
-	require.Equal(t, "10.000000", released)
-	var uncovered string
-	require.NoError(t, integrationDB.QueryRow("SELECT COALESCE(SUM(amount-refunded_amount),0)::text FROM accounting_funding WHERE transaction_id=$1 AND allocation_id IS NULL", fee.ID).Scan(&uncovered))
-	require.Equal(t, "0.000000", uncovered)
-	replacement := f.card(t)
-	accountingData(t, f.request("POST", "transfers/"+receipt.ID+"/allocations", uuid.NewString(), map[string]string{"card_id": replacement.ID, "amount": "10"}))
-	require.Equal(t, 409, f.request("POST", "vcc-transactions/"+refund.ID+"/void", uuid.NewString(), map[string]string{"reason": "refund correction"}).Code)
-}
-func TestAccountingNewFundingCoversExistingOverdraft(t *testing.T) {
-	f := newAccountingFixture(t)
-	receipt := f.transfer(t, "100")
-	f.proof(t, "transfers", receipt)
-	f.confirm(t, "transfers", receipt)
-	card := f.card(t)
-	consume := f.transaction(t, card, "CONSUME", "50", "")
-	f.confirm(t, "vcc-transactions", consume)
-	accountingData(t, f.request("POST", "transfers/"+receipt.ID+"/allocations", uuid.NewString(), map[string]string{"card_id": card.ID, "amount": "100"}))
-	var used string
-	require.NoError(t, integrationDB.QueryRow("SELECT used_amount::text FROM accounting_allocations WHERE card_id=$1", card.ID).Scan(&used))
-	require.Equal(t, "50.000000", used)
-	refund := f.transaction(t, card, "REFUND", "20", consume.ID)
-	f.confirm(t, "vcc-transactions", refund)
-	require.NoError(t, integrationDB.QueryRow("SELECT used_amount::text FROM accounting_allocations WHERE card_id=$1", card.ID).Scan(&used))
-	require.Equal(t, "30.000000", used)
-	accountingData(t, f.request("POST", "vcc-transactions/"+refund.ID+"/void", uuid.NewString(), map[string]string{"reason": "correction"}))
-	require.NoError(t, integrationDB.QueryRow("SELECT used_amount::text FROM accounting_allocations WHERE card_id=$1", card.ID).Scan(&used))
-	require.Equal(t, "50.000000", used)
-}
 func TestAccountingReconciliationPaginationAndSummaryPeriods(t *testing.T) {
 	f := newAccountingFixture(t)
 	receipt := f.transfer(t, "100")
@@ -634,17 +601,22 @@ func TestAccountingReconciliationPaginationAndSummaryPeriods(t *testing.T) {
 	card := f.card(t)
 	_, err := integrationDB.Exec("UPDATE accounting_vcc_cards SET occurred_at='2020-01-01' WHERE id=$1", card.ID)
 	require.NoError(t, err)
-	accountingData(t, f.request("POST", "transfers/"+receipt.ID+"/allocations", uuid.NewString(), map[string]string{"card_id": card.ID, "amount": "60"}))
-	// Keep the allocation inside the fixed reporting period regardless of when
-	// this test runs; the summary uses allocation time, not the card's date.
-	_, err = integrationDB.Exec("UPDATE accounting_allocations SET created_at='2026-10-15T00:00:00Z' WHERE card_id=$1", card.ID)
+	consume := f.transaction(t, card, "CONSUME", "60", "")
+	f.confirm(t, "vcc-transactions", consume)
+	late := f.transaction(t, card, "CONSUME", "5", "")
+	f.confirm(t, "vcc-transactions", late)
+	// Keep the receipt and the first purchase inside the fixed reporting period regardless of when this test runs;
+	// the summary counts records by their own dates, not the card's.
+	_, err = integrationDB.Exec("UPDATE accounting_transfers SET occurred_at='2026-10-15T00:00:00Z' WHERE id=$1", receipt.ID)
+	require.NoError(t, err)
+	_, err = integrationDB.Exec("UPDATE accounting_vcc_transactions SET occurred_at=CASE WHEN id=$1 THEN '2026-10-15T00:00:00Z'::timestamptz ELSE '2026-11-15T00:00:00Z'::timestamptz END WHERE id IN ($1,$2)", consume.ID, late.ID)
 	require.NoError(t, err)
 	path := "summary?organization_id=" + receipt.OrganizationID + "&from=2026-10-01T00:00:00Z&to=2026-11-01T00:00:00Z"
 	var summary []accounting.CurrencySummary
 	require.NoError(t, json.Unmarshal(accountingData(t, f.request("GET", path, "", nil)), &summary))
 	require.Len(t, summary, 1)
-	require.Equal(t, "60.000000", summary[0].Allocated)
-	require.Equal(t, "40.000000", summary[0].Unallocated)
+	require.Equal(t, "100.000000", summary[0].Received)
+	require.Equal(t, "60.000000", summary[0].Consumed)
 	payload := map[string]string{"object_kind": "transfers", "object_id": receipt.ID, "currency": "CNY", "amount": "99", "reference": "BANK", "reason": "Bank fee"}
 	accountingData(t, f.request("POST", "reconciliation/match", uuid.NewString(), payload))
 	var page struct {
@@ -715,13 +687,10 @@ func TestAccountingBindingReassignmentRevokesOldAccountImmediately(t *testing.T)
 	require.Equal(t, 200, current.Code)
 	require.Contains(t, current.Body.String(), receipt.ID)
 }
-func TestAccountingCardIdentityCannotOverwriteFundingHistory(t *testing.T) {
+func TestAccountingCardIdentityCannotOverwriteSpendHistory(t *testing.T) {
 	f := newAccountingFixture(t)
-	receipt := f.transfer(t, "100")
-	f.proof(t, "transfers", receipt)
-	f.confirm(t, "transfers", receipt)
 	card := f.card(t)
-	accountingData(t, f.request("POST", "transfers/"+receipt.ID+"/allocations", uuid.NewString(), map[string]string{"card_id": card.ID, "amount": "100"}))
+	f.confirm(t, "vcc-transactions", f.transaction(t, card, "CONSUME", "100", ""))
 	var other accounting.Vendor
 	require.NoError(t, json.Unmarshal(accountingData(t, f.request("POST", "vendors", uuid.NewString(), accounting.VendorInput{Kind: "CARD_PROVIDER", Name: "Provider " + uuid.NewString()[:8]})), &other))
 	require.Equal(t, 409, f.request("PATCH", "vcc-cards/"+card.ID, uuid.NewString(), accounting.Input{Version: card.Version, Details: map[string]any{"provider_id": other.ID}}).Code)

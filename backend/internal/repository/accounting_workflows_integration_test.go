@@ -67,7 +67,7 @@ func TestAccountingWorkflowReceivablesAndCorrectedMetrics(t *testing.T) {
 	require.Contains(t, export.Body.String(), "bank_reference")
 	require.Contains(t, export.Body.String(), "1200")
 }
-func TestAccountingWorkflowExchangeFundingAndExternalConfirmation(t *testing.T) {
+func TestAccountingWorkflowExchangeAndExternalConfirmation(t *testing.T) {
 	f := newAccountingFixture(t)
 	receipt := f.transfer(t, "1000")
 	f.proof(t, "transfers", receipt)
@@ -75,23 +75,29 @@ func TestAccountingWorkflowExchangeFundingAndExternalConfirmation(t *testing.T) 
 	fx := f.create(t, "fx-exchanges", "700", map[string]any{"target_currency": "USD", "target_amount": "98", "exchange_rate": "0.14", "fee_amount": "10", "reference": uuid.NewString()}, receipt.ID)
 	f.proof(t, "fx-exchanges", fx)
 	f.confirm(t, "fx-exchanges", fx)
-	var card accounting.Record
-	require.NoError(t, json.Unmarshal(accountingData(t, f.request("POST", "vcc-cards", uuid.NewString(), accounting.Input{OrganizationID: receipt.OrganizationID, Currency: "USD", Details: map[string]any{"provider": "Provider", "alias": "USD card", "provider_card_id": testCardID(), "last_four": "4242"}, OrderID: f.order(t)})), &card))
-	accountingData(t, f.request("POST", "fx-exchanges/"+fx.ID+"/allocations", uuid.NewString(), map[string]string{"source_id": card.ID, "amount": "50"}))
+	exchanged := accountingObject(t, f.request("GET", "fx-exchanges/"+fx.ID, "", nil))
+	assertAccountingAmount(t, "98", exchanged["details"].(map[string]any)["target_available"])
+	// Exchanged funds are not customer income and are not handed to cards.
 	byCurrency := map[string]accounting.CurrencySummary{}
 	for _, s := range accountingSummary(t, f) {
 		byCurrency[s.Currency] = s
 	}
 	assertAccountingAmount(t, "1000", byCurrency["CNY"].Received)
-	assertAccountingAmount(t, "290", byCurrency["CNY"].Unallocated)
 	assertAccountingAmount(t, "0", byCurrency["USD"].Received)
-	assertAccountingAmount(t, "48", byCurrency["USD"].Unallocated)
-	assertAccountingAmount(t, "50", byCurrency["USD"].Balance)
-	require.Equal(t, 400, f.request("POST", "transfers/"+receipt.ID+"/allocations", uuid.NewString(), map[string]string{"card_id": card.ID, "amount": "500"}).Code)
-	require.Equal(t, 409, f.request("POST", "fx-exchanges/"+fx.ID+"/void", uuid.NewString(), map[string]string{"reason": "target funds in use"}).Code)
+	var card accounting.Record
+	require.NoError(t, json.Unmarshal(accountingData(t, f.request("POST", "vcc-cards", uuid.NewString(), accounting.Input{OrganizationID: receipt.OrganizationID, Currency: "USD", Details: map[string]any{"provider": "Provider", "alias": "USD card", "provider_card_id": testCardID(), "last_four": "4242"}, OrderID: f.order(t)})), &card))
+	require.Equal(t, 404, f.request("POST", "fx-exchanges/"+fx.ID+"/allocations", uuid.NewString(), map[string]string{"source_id": card.ID, "amount": "50"}).Code)
+	// The receipt cannot be exchanged beyond what is left of it.
+	over := f.create(t, "fx-exchanges", "300", map[string]any{"target_currency": "USD", "target_amount": "42", "exchange_rate": "0.14", "fee_amount": "0", "reference": uuid.NewString()}, receipt.ID)
+	f.proof(t, "fx-exchanges", over)
+	require.Equal(t, 409, f.request("POST", "fx-exchanges/"+over.ID+"/confirm", uuid.NewString(), map[string]any{}).Code)
+
+	// Closing a card still asks finance to confirm it at the provider.
+	accountingData(t, f.request("POST", "vcc-cards/"+card.ID+"/close", uuid.NewString(), map[string]any{}))
 	var actions []map[string]any
 	require.NoError(t, json.Unmarshal(accountingData(t, f.request("GET", "external-actions?organization_id="+receipt.OrganizationID, "", nil)), &actions))
 	require.Len(t, actions, 1)
+	require.Equal(t, "CLOSE", actions[0]["action"])
 	require.Equal(t, "PENDING", actions[0]["status"])
 	require.Equal(t, 400, f.request("POST", "external-actions/"+actions[0]["id"].(string)+"/confirm", uuid.NewString(), map[string]string{"reference": "provider-1"}).Code)
 	proof := f.proof(t, "vcc-cards", &card)
@@ -99,22 +105,22 @@ func TestAccountingWorkflowExchangeFundingAndExternalConfirmation(t *testing.T) 
 }
 func TestAccountingWorkflowRelatedActivityAndResidualTodos(t *testing.T) {
 	f := newAccountingFixture(t)
-	receipt := f.transfer(t, "100")
-	f.proof(t, "transfers", receipt)
-	f.confirm(t, "transfers", receipt)
 	card := f.card(t)
-	accountingData(t, f.request("POST", "transfers/"+receipt.ID+"/allocations", uuid.NewString(), map[string]string{"card_id": card.ID, "amount": "60"}))
+	purchase := f.transaction(t, card, "CONSUME", "60", "")
+	f.confirm(t, "vcc-transactions", purchase)
 	var related []map[string]any
-	require.NoError(t, json.Unmarshal(accountingData(t, f.request("GET", "related/transfers/"+receipt.ID, "", nil)), &related))
+	require.NoError(t, json.Unmarshal(accountingData(t, f.request("GET", "related/vcc-cards/"+card.ID, "", nil)), &related))
 	require.NotEmpty(t, related)
-	require.Equal(t, card.ID, related[0]["id"])
+	require.Equal(t, purchase.ID, related[0]["id"])
+	accountingData(t, f.request("POST", "vcc-cards/"+card.ID+"/close", uuid.NewString(), map[string]any{}))
 	var events []map[string]any
 	require.NoError(t, json.Unmarshal(accountingData(t, f.request("GET", "activity/vcc-cards/"+card.ID, "", nil)), &events))
 	require.GreaterOrEqual(t, len(events), 2)
-	todo := accountingObject(t, f.request("GET", "workbench?organization_id="+receipt.OrganizationID+"&reason=unallocated", "", nil))
+	todo := accountingObject(t, f.request("GET", "workbench?organization_id="+card.OrganizationID+"&reason=external_pending", "", nil))
 	items := todo["items"].([]any)
 	require.Len(t, items, 1)
-	assertAccountingAmount(t, "40", items[0].(map[string]any)["amount"])
+	require.Equal(t, "external-actions", items[0].(map[string]any)["kind"])
+	require.Equal(t, "AI card", items[0].(map[string]any)["name"])
 }
 
 func TestAccountingWorkflowCostCannotCountTheSamePurchaseTwice(t *testing.T) {
@@ -123,7 +129,6 @@ func TestAccountingWorkflowCostCannotCountTheSamePurchaseTwice(t *testing.T) {
 	f.proof(t, "transfers", receipt)
 	f.confirm(t, "transfers", receipt)
 	card := f.card(t)
-	accountingData(t, f.request("POST", "transfers/"+receipt.ID+"/allocations", uuid.NewString(), map[string]string{"card_id": card.ID, "amount": "100"}))
 	purchase := f.transaction(t, card, "CONSUME", "100", "")
 	f.confirm(t, "vcc-transactions", purchase)
 	invoice := f.create(t, "vendor-invoices", "100", map[string]any{"vendor": "Vendor", "period_start": "2026-01-01", "period_end": "2026-01-31"}, "")
@@ -203,7 +208,6 @@ func TestAccountingWorkflowCrossCurrencyCostsRequireExplicitRate(t *testing.T) {
 	f.proof(t, "transfers", receipt)
 	f.confirm(t, "transfers", receipt)
 	card := f.card(t)
-	accountingData(t, f.request("POST", "transfers/"+receipt.ID+"/allocations", uuid.NewString(), map[string]string{"card_id": card.ID, "amount": "100"}))
 	purchase := f.transaction(t, card, "CONSUME", "100", "")
 	f.confirm(t, "vcc-transactions", purchase)
 	var bill accounting.Record

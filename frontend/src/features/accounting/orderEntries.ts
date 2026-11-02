@@ -1,5 +1,5 @@
 import { addMoney, compareMoney, subtractMoney, taxPreview } from './money'
-import { localDate, toISO } from './shared'
+import { inputMoney, localDate, toISO } from './shared'
 import type { AccountingOrder, AccountingRecord, OrderEntryInput, OrderItemKind, ReceivingAccount, Vendor, VendorKind } from './types'
 
 // What each block of the order page asks for, how it fills itself in, and what it sends.
@@ -14,6 +14,8 @@ export interface EntryField {
   wide?: boolean
   // For vendor fields: which maintained list the choice comes from.
   vendorKind?: VendorKind
+  // For date fields that end a range: the field holding its start, which this date may not precede.
+  after?: string
 }
 export type EntryValues = Record<string, string>
 export interface EntryContext {
@@ -123,7 +125,7 @@ export const entryDefinitions: Record<OrderItemKind, EntryDefinition> = {
       return {
         occurred_at: day(record.occurred_at),
         currency: record.currency,
-        amount: effective(record),
+        amount: inputMoney(effective(record), record.currency),
         bank_reference: text(record, 'bank_reference'),
         payer_name: text(record, 'payer_name'),
         tax_rate: percent(record.details.tax_rate),
@@ -164,7 +166,7 @@ export const entryDefinitions: Record<OrderItemKind, EntryDefinition> = {
         issue_date: localDate(),
         invoice_number: '',
         currency,
-        amount: remainder(sum(receipts, currency), invoiced),
+        amount: inputMoney(remainder(sum(receipts, currency), invoiced), currency),
         tax_rate: receipts[0] ? percent(receipts[0].details.tax_rate) : '6',
         invoice_code: '',
         issuer_name: String(receipts[0]?.details.receiving_account_name || context.receivingAccounts.find((account) => account.currency === currency)?.account_name || ''),
@@ -178,7 +180,7 @@ export const entryDefinitions: Record<OrderItemKind, EntryDefinition> = {
         issue_date: text(record, 'issue_date') || day(record.occurred_at),
         invoice_number: text(record, 'invoice_number'),
         currency: record.currency,
-        amount: record.amount,
+        amount: inputMoney(record.amount, record.currency),
         tax_rate: net > 0 ? percent(Math.round((tax / net) * 100) / 100) : '0',
         invoice_code: text(record, 'invoice_code'),
         issuer_name: text(record, 'issuer_name'),
@@ -279,7 +281,7 @@ export const entryDefinitions: Record<OrderItemKind, EntryDefinition> = {
       return {
         parent_id: record.parent_id || '',
         occurred_at: day(record.occurred_at),
-        amount: record.amount,
+        amount: inputMoney(record.amount, record.currency),
         vendor_id: text(record, 'vendor_id'),
         provider_transaction_id: text(record, 'provider_transaction_id'),
         transaction_type: text(record, 'transaction_type') || 'CONSUME',
@@ -307,7 +309,7 @@ export const entryDefinitions: Record<OrderItemKind, EntryDefinition> = {
       { key: 'vendor_id', type: 'vendor', vendorKind: 'AI_VENDOR', required: true },
       { key: 'invoice_number', type: 'text' },
       { key: 'period_start', type: 'date', required: true },
-      { key: 'period_end', type: 'date', required: true },
+      { key: 'period_end', type: 'date', required: true, after: 'period_start' },
       { key: 'currency', type: 'currency', required: true },
       { key: 'amount', type: 'money', required: true },
       remark,
@@ -322,7 +324,7 @@ export const entryDefinitions: Record<OrderItemKind, EntryDefinition> = {
         invoice_number: '',
         ...monthRange(first ? new Date(first.occurred_at) : new Date()),
         currency,
-        amount: remainder(sum(spends, currency, (record) => record.amount), covered),
+        amount: inputMoney(remainder(sum(spends, currency, (record) => record.amount), covered), currency),
         remark: '',
       }
     },
@@ -333,7 +335,7 @@ export const entryDefinitions: Record<OrderItemKind, EntryDefinition> = {
         period_start: text(record, 'period_start'),
         period_end: text(record, 'period_end'),
         currency: record.currency,
-        amount: record.amount,
+        amount: inputMoney(record.amount, record.currency),
         remark: text(record, 'remark'),
       }
     },

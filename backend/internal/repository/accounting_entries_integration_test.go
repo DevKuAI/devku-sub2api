@@ -45,9 +45,7 @@ func TestAccountingOrderEntriesTakeEffectWithoutProof(t *testing.T) {
 	// The provider's transaction number is optional.
 	spend := f.addEntry(t, order.ID, "vcc-transactions", "CNY", "300", map[string]any{"transaction_type": "CONSUME", "merchant": "Anthropic"}, card.ID)
 	require.Equal(t, "CONFIRMED", spend.Status)
-	var funded string
-	require.NoError(t, integrationDB.QueryRow("SELECT transfer_id::text FROM accounting_allocations WHERE card_id=$1", card.ID).Scan(&funded))
-	require.Equal(t, receipt.ID, funded)
+	require.Equal(t, "300", f.cardSpent(t, card.ID))
 
 	bill := f.addEntry(t, order.ID, "vendor-invoices", "CNY", "300", map[string]any{"vendor": "Anthropic", "period_start": "2026-10-01", "period_end": "2026-10-31"}, "")
 	require.Equal(t, "CONFIRMED", bill.Status)
@@ -74,15 +72,16 @@ func TestAccountingOrderEntriesCanBeCorrectedAndRemoved(t *testing.T) {
 	spend := f.addEntry(t, order.ID, "vcc-transactions", "CNY", "300", map[string]any{"transaction_type": "CONSUME", "merchant": "OpenAI"}, card.ID)
 	bill := f.addEntry(t, order.ID, "vendor-invoices", "CNY", "300", map[string]any{"vendor": "OpenAI", "period_start": "2026-10-01", "period_end": "2026-10-31"}, "")
 
-	// Receipts take descriptive and amount corrections in place, but never below what was spent from them.
+	// Receipts take descriptive and amount corrections in place; card spend does not hold on to them.
 	var corrected accounting.Record
 	update := map[string]any{"amount": "1200", "version": receipt.Version, "details": map[string]any{"bank_reference": reference + "-B", "sales_amount": "1200"}}
 	require.NoError(t, json.Unmarshal(accountingData(t, f.request("PATCH", entryPath(order.ID, "transfers", receipt.ID), uuid.NewString(), update)), &corrected))
 	require.Equal(t, receipt.ID, corrected.ID)
 	require.Equal(t, "1200", corrected.Amount)
 	require.Equal(t, reference+"-B", corrected.Details["bank_reference"])
-	tooLow := map[string]any{"amount": "100", "version": corrected.Version, "details": map[string]any{"sales_amount": "100"}}
-	require.Equal(t, 409, f.request("PATCH", entryPath(order.ID, "transfers", receipt.ID), uuid.NewString(), tooLow).Code)
+	belowSpend := map[string]any{"amount": "100", "version": corrected.Version, "details": map[string]any{"sales_amount": "100"}}
+	require.NoError(t, json.Unmarshal(accountingData(t, f.request("PATCH", entryPath(order.ID, "transfers", receipt.ID), uuid.NewString(), belowSpend)), &corrected))
+	require.Equal(t, "100", corrected.Amount)
 	stale := map[string]any{"version": receipt.Version, "details": map[string]any{"remark": "stale"}}
 	require.Equal(t, 409, f.request("PATCH", entryPath(order.ID, "transfers", receipt.ID), uuid.NewString(), stale).Code)
 	locked := map[string]any{"version": corrected.Version, "details": map[string]any{"receiving_account_id": uuid.NewString()}}
@@ -100,12 +99,13 @@ func TestAccountingOrderEntriesCanBeCorrectedAndRemoved(t *testing.T) {
 	require.True(t, current.Progress.AIInvoice)
 	require.Equal(t, "250", current.Totals[0].Spent)
 
-	// A receipt that funds card spend stays; once the spend is removed the receipt can go too.
-	require.Equal(t, 409, f.request("DELETE", entryPath(order.ID, "transfers", receipt.ID), uuid.NewString(), nil).Code)
-	accountingData(t, f.request("DELETE", entryPath(order.ID, "vcc-transactions", replaced.ID), uuid.NewString(), nil))
+	// A receipt can be removed while the order's card spend stays.
 	accountingData(t, f.request("DELETE", entryPath(order.ID, "transfers", receipt.ID), uuid.NewString(), nil))
+	require.Equal(t, "250", f.cardSpent(t, card.ID))
 	// The removed receipt's bank reference can be entered again.
 	f.addEntry(t, order.ID, "transfers", "CNY", "1200", f.receiptDetails(t, "1200", reference+"-B"), "")
+	accountingData(t, f.request("DELETE", entryPath(order.ID, "vcc-transactions", replaced.ID), uuid.NewString(), nil))
+	require.Equal(t, "0", f.cardSpent(t, card.ID))
 
 	accountingData(t, f.request("DELETE", entryPath(order.ID, "vendor-invoices", bill.ID), uuid.NewString(), nil))
 	var active int
