@@ -74,6 +74,7 @@
               <p class="mt-1 text-sm text-gray-600 dark:text-dark-300">
                 {{ t('accounting.channels.import.resultRows', { total: result.import.total_rows, new: result.import.new_rows, duplicate: result.import.duplicate_rows }) }}
               </p>
+              <p v-if="bookingSummary" class="mt-1 text-sm text-gray-600 dark:text-dark-300" data-testid="channel-import-bookings">{{ bookingSummary }}</p>
             </div>
             <div v-for="summary in result.accounts" :key="summary.account.id" class="space-y-3">
               <p class="text-sm font-medium text-gray-900 dark:text-white">{{ summary.account.name || summary.account.account_ref }} · {{ summary.account.platform }} {{ summary.account.account_ref }}</p>
@@ -109,7 +110,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import { Icon } from '@/components/icons'
@@ -134,6 +135,14 @@ const error = ref('')
 const notice = ref('')
 const problems = ref<ChannelProblem[]>([])
 const result = ref<ChannelImportResult | null>(null)
+// What the card lines of the statement did in the organization books.
+const bookingSummary = computed(() => {
+  const counts = result.value?.bookings || {}
+  const parts = (['BOOKED', 'LINKED', 'PENDING_CARD', 'PENDING_ORDER', 'PENDING_REVIEW'] as const)
+    .filter((state) => counts[state])
+    .map((state) => t(`accounting.channels.booking.counts.${state}`, { count: counts[state] }))
+  return parts.length ? t('accounting.channels.booking.importResult', { parts: parts.join(t('accounting.channels.booking.separator')) }) : ''
+})
 const input = ref<HTMLInputElement | null>(null)
 const requestKey = api.stableRequest()
 const { leave, markClean } = useLeaveGuard(() => files.value.map(fileKey))

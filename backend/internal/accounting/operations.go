@@ -109,6 +109,7 @@ func (e *Engine) write(ctx context.Context, op Operation, fn func(*sql.Tx) (any,
 			}
 		}
 	}
+	defer e.recorded.Delete(tx)
 	output, err := fn(tx)
 	if err != nil {
 		return nil, false, translate(err)
@@ -118,6 +119,7 @@ func (e *Engine) write(ctx context.Context, op Operation, fn func(*sql.Tx) (any,
 		if positionErr != nil {
 			return nil, false, positionErr
 		}
+		afterPositions = e.withoutRecorded(tx, op.Org, afterPositions)
 		if err = recordPositionChanges(ctx, tx, op, date, beforePositions, afterPositions); err != nil {
 			return nil, false, err
 		}

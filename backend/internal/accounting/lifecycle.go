@@ -68,10 +68,10 @@ func (e *Engine) Confirm(ctx context.Context, tx *sql.Tx, kind string, r *Record
 			return err
 		}
 		if isCredit(r) {
-			if err := checkCreditCost(ctx, tx, r); err != nil {
+			if err := checkCredit(ctx, tx, r); err != nil {
 				return err
 			}
-			if err := checkCredit(ctx, tx, r); err != nil {
+			if err := checkCreditCost(ctx, tx, r); err != nil {
 				return err
 			}
 		}
@@ -90,6 +90,10 @@ func (e *Engine) Void(ctx context.Context, tx *sql.Tx, kind string, r *Record, r
 	}
 	if r.Status == "VOID" || kind == "vcc-cards" {
 		return ErrState
+	}
+	// Spend from a statement leaves the books only with its statement line.
+	if kind == "vcc-transactions" && detail(r, "source") == channelSource && reason != channelUnbookReason {
+		return ErrCardSpendFromImport
 	}
 	if r.Status != "DRAFT" {
 		if err := workflowDependencies(ctx, tx, kind, r); err != nil {

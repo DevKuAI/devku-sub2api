@@ -19,9 +19,8 @@ func TestAccountingCardSpendOnlyMigrationRebuildsPositions(t *testing.T) {
 	f.proof(t, "transfers", receipt)
 	f.confirm(t, "transfers", receipt)
 	card := f.card(t)
-	consume := f.transaction(t, card, "CONSUME", "30", "")
-	f.confirm(t, "vcc-transactions", consume)
-	f.confirm(t, "vcc-transactions", f.transaction(t, card, "REFUND", "10", consume.ID))
+	consume := f.spend(t, card, "CONSUME", "30", nil)
+	f.spend(t, card, "REFUND", "10", consume)
 
 	var org int64
 	require.NoError(t, integrationDB.QueryRow("SELECT organization_id FROM accounting_vcc_cards WHERE id=$1", card.ID).Scan(&org))
@@ -58,7 +57,7 @@ func TestAccountingCardSpendOnlyMigrationRebuildsPositions(t *testing.T) {
 	assertAccountingAmount(t, "20", spent)
 
 	// Positions recorded after the migration continue from the rebuilt ones.
-	f.confirm(t, "vcc-transactions", f.transaction(t, card, "CONSUME", "5", ""))
+	f.spend(t, card, "CONSUME", "5", nil)
 	require.NoError(t, integrationDB.QueryRow(`SELECT COALESCE(SUM(card_delta),0)::text FROM accounting_position_events WHERE organization_id=$1 AND currency='CNY'`, org).Scan(&spent))
 	assertAccountingAmount(t, "25", spent)
 }

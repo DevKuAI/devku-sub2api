@@ -60,12 +60,10 @@ func TestAccountingOrderRunsFromReceiptToCompletion(t *testing.T) {
 	outside := accounting.Input{OrganizationID: f.desktop.organization.PublicID, Currency: "CNY", Details: map[string]any{"alias": "Loose", "provider": "Provider", "provider_card_id": testCardID(), "last_four": "4242"}}
 	require.Equal(t, 400, f.request("POST", "vcc-cards", uuid.NewString(), outside).Code)
 	card := f.createIn(t, order.ID, "vcc-cards", "CNY", "0", map[string]any{"alias": "Seat card", "provider": "Provider", "provider_card_id": testCardID(), "last_four": "4242"}, "")
-	spendOutside := accounting.Input{OrganizationID: f.desktop.organization.PublicID, ParentID: card.ID, Currency: "CNY", Amount: "1", Details: map[string]any{"transaction_type": "CONSUME", "merchant": "OpenAI", "provider_transaction_id": uuid.NewString()}}
-	require.Equal(t, 400, f.request("POST", "vcc-transactions", uuid.NewString(), spendOutside).Code)
-
-	// Card spend only counts against the card; it does not draw on the receipt or ask the provider for anything.
-	spend := f.createIn(t, order.ID, "vcc-transactions", "CNY", "300", map[string]any{"transaction_type": "CONSUME", "merchant": "OpenAI", "provider_transaction_id": uuid.NewString()}, card.ID)
-	f.confirm(t, "vcc-transactions", spend)
+	// Card spend comes from the statement into the order the card was added in. It only counts against the card;
+	// it does not draw on the receipt or ask the provider for anything.
+	spend := f.spend(t, card, "CONSUME", "300", nil)
+	require.Equal(t, order.ID, spend.Details["order_id"])
 	require.Equal(t, "300", f.cardSpent(t, card.ID))
 	var allocations, pending int
 	require.NoError(t, integrationDB.QueryRow("SELECT COUNT(*) FROM accounting_allocations WHERE card_id=$1", card.ID).Scan(&allocations))
@@ -118,8 +116,7 @@ func TestAccountingOrderCrossCurrencySpendNeedsNoFunding(t *testing.T) {
 	f.proof(t, "transfers", receipt)
 	f.confirm(t, "transfers", receipt)
 	card := f.createIn(t, order.ID, "vcc-cards", "USD", "0", map[string]any{"alias": "USD card", "provider": "Provider", "provider_card_id": testCardID(), "last_four": "4242"}, "")
-	spend := f.createIn(t, order.ID, "vcc-transactions", "USD", "50", map[string]any{"transaction_type": "CONSUME", "merchant": "Anthropic", "provider_transaction_id": uuid.NewString()}, card.ID)
-	f.confirm(t, "vcc-transactions", spend)
+	f.spend(t, card, "CONSUME", "50", nil)
 
 	// Spend in another currency than the receipt is simply spend; there is no balance to top up.
 	require.Equal(t, "50", f.cardSpent(t, card.ID))
@@ -162,8 +159,7 @@ func TestAccountingOrderLinksCloseAndRefund(t *testing.T) {
 	card := f.createIn(t, order.ID, "vcc-cards", "CNY", "0", map[string]any{"alias": "Card", "provider": "Provider", "provider_card_id": testCardID(), "last_four": "4242"}, "")
 	require.Equal(t, 400, link(other.ID, "vcc-cards", card.ID))
 
-	spend := f.createIn(t, order.ID, "vcc-transactions", "CNY", "40", map[string]any{"transaction_type": "CONSUME", "merchant": "OpenAI", "provider_transaction_id": uuid.NewString()}, card.ID)
-	f.confirm(t, "vcc-transactions", spend)
+	spend := f.spend(t, card, "CONSUME", "40", nil)
 
 	require.Equal(t, 400, f.request("POST", "orders/"+order.ID+"/close", uuid.NewString(), map[string]string{}).Code)
 	closed := accountingObject(t, f.request("POST", "orders/"+order.ID+"/close", uuid.NewString(), map[string]string{"reason": "Customer needs no invoice"}))
@@ -171,9 +167,13 @@ func TestAccountingOrderLinksCloseAndRefund(t *testing.T) {
 	require.Equal(t, 409, f.request("POST", "vcc-cards", uuid.NewString(), accounting.Input{OrganizationID: f.desktop.organization.PublicID, Currency: "CNY", OrderID: order.ID, Details: map[string]any{"alias": "Late", "provider": "Provider", "provider_card_id": testCardID(), "last_four": "4242"}}).Code)
 
 	// A refund follows its purchase into the order, even after the order was closed.
-	refund := f.createIn(t, "", "vcc-transactions", "CNY", "10", map[string]any{"transaction_type": "REFUND", "original_transaction_id": spend.ID, "merchant": "OpenAI", "provider_transaction_id": uuid.NewString()}, card.ID)
-	require.Equal(t, order.ID, f.readOrder(t, order.ID).Items["vcc-transactions"][1].Details["order_id"])
-	require.Equal(t, refund.ID, f.readOrder(t, order.ID).Items["vcc-transactions"][1].ID)
+	refund := f.spend(t, card, "REFUND", "10", spend)
+	require.Equal(t, order.ID, refund.Details["order_id"])
+	ids := []string{}
+	for _, item := range f.readOrder(t, order.ID).Items["vcc-transactions"] {
+		ids = append(ids, item.ID)
+	}
+	require.ElementsMatch(t, []string{spend.ID, refund.ID}, ids)
 
 	reopened := accountingObject(t, f.request("POST", "orders/"+order.ID+"/reopen", uuid.NewString(), map[string]string{}))
 	require.Equal(t, "OPEN", reopened["state"])

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"io"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
@@ -76,7 +77,7 @@ var specs = map[string]spec{
 	"fx-exchanges":     {"accounting_fx_exchanges", strings.Fields("target_currency target_amount exchange_rate fee_amount reference remark"), nil, true},
 	"transfers":        {"accounting_transfers", strings.Fields("payer_name contact_id contact_name contact_phone contact_email contact_wechat contract_id receiving_account_id receiving_account receiving_account_name receiving_bank_name receiving_bank_branch sales_amount tax_inclusive tax_rate tax_amount net_sales_amount receivable_amount received_amount difference_reason bank_reference remark"), strings.Fields("payer_name sales_amount tax_inclusive tax_rate tax_amount net_sales_amount receivable_amount received_amount original_amount adjustment_amount"), true},
 	"vcc-cards":        {"accounting_vcc_cards", strings.Fields("provider_id provider alias provider_card_id last_four credit_limit active_at inactive_at expiry remark"), strings.Fields("alias last_four spent_amount"), false},
-	"vcc-transactions": {"accounting_vcc_transactions", strings.Fields("transaction_type direction vendor_id merchant provider_transaction_id original_transaction_id ai_vendor vendor_invoice_id remark"), strings.Fields("transaction_type merchant original_transaction_id"), true},
+	"vcc-transactions": {"accounting_vcc_transactions", strings.Fields("transaction_type direction vendor_id merchant provider_transaction_id original_transaction_id ai_vendor vendor_invoice_id source channel_line_id channel_match original_amount original_currency remark"), strings.Fields("transaction_type merchant original_transaction_id"), true},
 	"contracts":        {"accounting_contracts", strings.Fields("name contract_number party_name contact_id contact_name contact_phone contact_email contact_wechat tax_inclusive tax_rate signed_at effective_at expires_at remark"), strings.Fields("name contract_number party_name contact_name contact_phone contact_email tax_inclusive tax_rate signed_at effective_at expires_at"), false},
 	"invoices":         {"accounting_invoices", strings.Fields("invoice_type invoice_code invoice_number issue_date issuer_name issuer_tax_id recipient_name recipient_tax_id net_amount tax_amount total_amount remark"), strings.Fields("invoice_type invoice_code invoice_number issue_date issuer_name issuer_tax_id recipient_name recipient_tax_id net_amount tax_amount total_amount"), true},
 	"vendor-invoices":  {"accounting_vendor_invoices", strings.Fields("vendor_id vendor period_start period_end document_type invoice_number transaction_id expense_id remark"), nil, true},
@@ -120,6 +121,9 @@ func (r *Record) Public(kind string) *Record {
 }
 
 type Engine struct {
+	// recorded holds, per transaction, position changes already written with their own dates (card spend booked
+	// from a statement), so the operation around them does not count them a second time.
+	recorded       sync.Map
 	db             *sql.DB
 	desktop        *service.DesktopService
 	storage        Storage

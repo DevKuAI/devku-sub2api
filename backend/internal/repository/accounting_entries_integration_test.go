@@ -43,7 +43,7 @@ func TestAccountingOrderEntriesTakeEffectWithoutProof(t *testing.T) {
 	card := f.addEntry(t, order.ID, "vcc-cards", "CNY", "0", map[string]any{"alias": "Seat card", "provider": "Anthropic", "provider_card_id": testCardID(), "last_four": "4242"}, "")
 	require.Equal(t, "ACTIVE", card.Status)
 	// The provider's transaction number is optional.
-	spend := f.addEntry(t, order.ID, "vcc-transactions", "CNY", "300", map[string]any{"transaction_type": "CONSUME", "merchant": "Anthropic"}, card.ID)
+	spend := f.spend(t, card, "CONSUME", "300", nil)
 	require.Equal(t, "CONFIRMED", spend.Status)
 	require.Equal(t, "300", f.cardSpent(t, card.ID))
 
@@ -69,7 +69,7 @@ func TestAccountingOrderEntriesCanBeCorrectedAndRemoved(t *testing.T) {
 	reference := uuid.NewString()
 	receipt := f.addEntry(t, order.ID, "transfers", "CNY", "1000", f.receiptDetails(t, "1000", reference), "")
 	card := f.addEntry(t, order.ID, "vcc-cards", "CNY", "0", map[string]any{"alias": "Seat card", "provider": "OpenAI", "provider_card_id": testCardID(), "last_four": "4242"}, "")
-	spend := f.addEntry(t, order.ID, "vcc-transactions", "CNY", "300", map[string]any{"transaction_type": "CONSUME", "merchant": "OpenAI"}, card.ID)
+	spend := f.spend(t, card, "CONSUME", "300", nil)
 	bill := f.addEntry(t, order.ID, "vendor-invoices", "CNY", "300", map[string]any{"vendor": "OpenAI", "period_start": "2026-10-01", "period_end": "2026-10-31"}, "")
 
 	// Receipts take descriptive and amount corrections in place; card spend does not hold on to them.
@@ -87,25 +87,18 @@ func TestAccountingOrderEntriesCanBeCorrectedAndRemoved(t *testing.T) {
 	locked := map[string]any{"version": corrected.Version, "details": map[string]any{"receiving_account_id": uuid.NewString()}}
 	require.Equal(t, 409, f.request("PATCH", entryPath(order.ID, "transfers", receipt.ID), uuid.NewString(), locked).Code)
 
-	// A different spend amount replaces the spend and the AI invoice is matched again.
-	var replaced accounting.Record
-	require.NoError(t, json.Unmarshal(accountingData(t, f.request("PATCH", entryPath(order.ID, "vcc-transactions", spend.ID), uuid.NewString(), map[string]any{"amount": "250", "version": spend.Version})), &replaced))
-	require.NotEqual(t, spend.ID, replaced.ID)
-	require.Equal(t, "250", replaced.Amount)
-	var status string
-	require.NoError(t, integrationDB.QueryRow("SELECT status FROM accounting_vcc_transactions WHERE id=$1", spend.ID).Scan(&status))
-	require.Equal(t, "VOID", status)
-	current := f.readOrder(t, order.ID)
-	require.True(t, current.Progress.AIInvoice)
-	require.Equal(t, "250", current.Totals[0].Spent)
+	// Card spend is the statement's: the order page cannot change its amount or remove it.
+	changed := f.request("PATCH", entryPath(order.ID, "vcc-transactions", spend.ID), uuid.NewString(), map[string]any{"amount": "250", "version": spend.Version})
+	require.Equal(t, 409, changed.Code)
+	require.Contains(t, changed.Body.String(), "card_spend_from_import")
+	require.Equal(t, 409, f.request("DELETE", entryPath(order.ID, "vcc-transactions", spend.ID), uuid.NewString(), nil).Code)
+	require.True(t, f.readOrder(t, order.ID).Progress.AIInvoice)
 
 	// A receipt can be removed while the order's card spend stays.
 	accountingData(t, f.request("DELETE", entryPath(order.ID, "transfers", receipt.ID), uuid.NewString(), nil))
-	require.Equal(t, "250", f.cardSpent(t, card.ID))
+	require.Equal(t, "300", f.cardSpent(t, card.ID))
 	// The removed receipt's bank reference can be entered again.
 	f.addEntry(t, order.ID, "transfers", "CNY", "1200", f.receiptDetails(t, "1200", reference+"-B"), "")
-	accountingData(t, f.request("DELETE", entryPath(order.ID, "vcc-transactions", replaced.ID), uuid.NewString(), nil))
-	require.Equal(t, "0", f.cardSpent(t, card.ID))
 
 	accountingData(t, f.request("DELETE", entryPath(order.ID, "vendor-invoices", bill.ID), uuid.NewString(), nil))
 	var active int
@@ -114,6 +107,7 @@ func TestAccountingOrderEntriesCanBeCorrectedAndRemoved(t *testing.T) {
 
 	// Removing a card closes it.
 	accountingData(t, f.request("DELETE", entryPath(order.ID, "vcc-cards", card.ID), uuid.NewString(), nil))
+	var status string
 	require.NoError(t, integrationDB.QueryRow("SELECT status FROM accounting_vcc_cards WHERE id=$1", card.ID).Scan(&status))
 	require.Equal(t, "CLOSED", status)
 

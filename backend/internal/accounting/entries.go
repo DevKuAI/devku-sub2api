@@ -14,13 +14,13 @@ import (
 
 const entryRemovedReason = "Removed on the order page"
 
-// entryFields lists what may change on an effective entry in place. Card spend amounts, dates and cards are
-// corrected by replacing the spend, because its funding was already drawn from the card.
+// entryFields lists what may change on an effective entry in place. Card spend comes from statements, so only the
+// vendor it is matched to and a note are kept on the order page; its amount, date and card are the platform's.
 var entryFields = map[string][]string{
 	"transfers":        strings.Fields("payer_name bank_reference contact_id sales_amount tax_rate tax_inclusive difference_reason remark"),
 	"invoices":         strings.Fields("invoice_code invoice_number issue_date issuer_name issuer_tax_id recipient_name recipient_tax_id net_amount tax_amount remark"),
 	"vendor-invoices":  strings.Fields("vendor invoice_number period_start period_end remark"),
-	"vcc-transactions": strings.Fields("merchant provider_transaction_id remark"),
+	"vcc-transactions": strings.Fields("vendor_id remark"),
 }
 
 type entryInput struct {
@@ -46,6 +46,10 @@ func (h *Handler) createEntry(c *gin.Context) {
 	}
 	if !orderKinds[in.Kind] {
 		response.ErrorFrom(c, invalid("kind"))
+		return
+	}
+	if in.Kind == "vcc-transactions" {
+		response.ErrorFrom(c, ErrCardSpendFromImport)
 		return
 	}
 	in.OrganizationID = order.OrganizationID
@@ -149,7 +153,7 @@ func (e *Engine) amendEntry(ctx context.Context, tx *sql.Tx, order, kind string,
 		return nil, ErrState
 	}
 	if kind == "vcc-transactions" && spendChanged(old, in) {
-		return e.replaceSpend(ctx, tx, order, old, in, actor)
+		return nil, ErrCardSpendFromImport
 	}
 	for key := range in.Details {
 		if !computedField(key) && !contains(entryFields[kind], key) && in.Details[key] != old.Details[key] {
@@ -229,39 +233,6 @@ func spendChanged(old *Record, in Input) bool {
 	return false
 }
 
-// replaceSpend corrects card spend whose amount, date or card changed: the old spend is reversed and a new
-// one recorded in the same order, then the order's AI invoices are matched again.
-func (e *Engine) replaceSpend(ctx context.Context, tx *sql.Tx, order string, old *Record, in Input, actor int64) (*Record, error) {
-	if err := e.removeSpend(ctx, tx, old, actor); err != nil {
-		return nil, err
-	}
-	next := in
-	next.Details = selected(old.Details, specs["vcc-transactions"].fields)
-	for key, value := range in.Details {
-		next.Details[key] = value
-	}
-	next.OrganizationID = old.OrganizationID
-	next.OrderID = order
-	next.Version = 0
-	if next.ParentID == "" {
-		next.ParentID = old.ParentID
-	}
-	if next.Currency == "" {
-		next.Currency = old.Currency
-	}
-	if next.Amount == "" {
-		next.Amount = old.Amount
-	}
-	if next.OccurredAt == "" {
-		next.OccurredAt = old.OccurredAt.Format("2006-01-02T15:04:05Z07:00")
-	}
-	r, err := e.addEntry(ctx, tx, "vcc-transactions", next, old.Org, actor)
-	if err != nil {
-		return nil, err
-	}
-	return r, e.allocateOrderCosts(ctx, tx, order, old.Org, actor)
-}
-
 func (e *Engine) removeSpend(ctx context.Context, tx *sql.Tx, r *Record, actor int64) error {
 	if err := voidCosts(ctx, tx, "(source_kind='vcc-transactions' AND source_id::text=$1) OR cost_identity='vcc-transactions:'||$1", r.ID); err != nil {
 		return err
@@ -297,6 +268,10 @@ func (e *Engine) removeEntry(ctx context.Context, tx *sql.Tx, order, kind string
 	case "vcc-cards":
 		return e.CloseCard(ctx, tx, r)
 	case "vcc-transactions":
+		if detail(r, "source") == channelSource {
+			// Withdrawn by revoking its statement import, not from the order page.
+			return ErrCardSpendFromImport
+		}
 		if r.Status != "DRAFT" {
 			if err := e.removeSpend(ctx, tx, r, actor); err != nil {
 				return err

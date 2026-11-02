@@ -79,9 +79,6 @@ function lastVendor(context: EntryContext) {
 export function activeVendors(context: EntryContext, kind: VendorKind) {
   return context.vendors.filter((vendor) => vendor.kind === kind && vendor.status === 'ACTIVE')
 }
-function vendorName(context: EntryContext, id: string) {
-  return context.vendors.find((vendor) => vendor.id === id)?.name || ''
-}
 export function activeCards(context: EntryContext) {
   return context.items['vcc-cards'].filter((card) => card.status === 'ACTIVE')
 }
@@ -253,54 +250,18 @@ export const entryDefinitions: Record<OrderItemKind, EntryDefinition> = {
       return { currency: values.currency, amount: '0', details }
     },
   },
+  // Card spend comes from imported statements; on the order page only its AI vendor and a note can be set.
   'vcc-transactions': {
     file: false,
-    fields: [
-      { key: 'parent_id', type: 'card', required: true },
-      { key: 'occurred_at', type: 'date', required: true },
-      { key: 'amount', type: 'money', required: true },
-      { key: 'vendor_id', type: 'vendor', vendorKind: 'AI_VENDOR', required: true },
-      { key: 'provider_transaction_id', type: 'text' },
-      remark,
-    ],
+    fields: [{ key: 'vendor_id', type: 'vendor', vendorKind: 'AI_VENDOR', required: true }, remark],
     defaults(context) {
-      const cards = activeCards(context)
-      const card = cards.length === 1 ? cards[0] : undefined
-      return {
-        parent_id: card?.id || '',
-        occurred_at: localDate(),
-        amount: '',
-        vendor_id: lastVendor(context),
-        provider_transaction_id: '',
-        transaction_type: 'CONSUME',
-        original_transaction_id: '',
-        remark: '',
-      }
+      return { vendor_id: lastVendor(context), remark: '' }
     },
     values(record) {
-      return {
-        parent_id: record.parent_id || '',
-        occurred_at: day(record.occurred_at),
-        amount: inputMoney(record.amount, record.currency),
-        vendor_id: text(record, 'vendor_id'),
-        provider_transaction_id: text(record, 'provider_transaction_id'),
-        transaction_type: text(record, 'transaction_type') || 'CONSUME',
-        original_transaction_id: text(record, 'original_transaction_id'),
-        remark: text(record, 'remark'),
-      }
+      return { vendor_id: text(record, 'vendor_id'), remark: text(record, 'remark') }
     },
-    payload(values, context) {
-      const card = context.items['vcc-cards'].find((item) => item.id === values.parent_id)
-      const details: Record<string, string> = {
-        transaction_type: values.transaction_type || 'CONSUME',
-        vendor_id: values.vendor_id,
-        // The server names spend after the vendor; refunds and other lines carry the name themselves.
-        merchant: vendorName(context, values.vendor_id),
-        provider_transaction_id: values.provider_transaction_id,
-        remark: values.remark,
-      }
-      if (values.original_transaction_id) details.original_transaction_id = values.original_transaction_id
-      return { parent_id: values.parent_id, currency: card?.currency, amount: values.amount, occurred_at: toISO(values.occurred_at), details }
+    payload(values) {
+      return { details: { vendor_id: values.vendor_id, remark: values.remark } }
     },
   },
   'vendor-invoices': {

@@ -86,6 +86,8 @@ function warnings(summary: ChannelAccountSummary) {
   if (gaps) out.push(t('accounting.channels.gaps', { count: gaps }))
   if (summary.unpaired_transfers) out.push(t('accounting.channels.unpaired', { count: summary.unpaired_transfers }))
   if (summary.missing_proofs) out.push(t('accounting.channels.proofs.missingCount', { count: summary.missing_proofs }))
+  const pending = summary.pending_cards + summary.pending_orders + summary.pending_review
+  if (pending) out.push(t('accounting.channels.booking.pendingShort', { count: pending }))
   if (summary.wallets.some((wallet) => wallet.reported && !wallet.reported.matched)) out.push(t('accounting.channels.mismatched'))
   if (summary.wallets.some((wallet) => wallet.negative_spans.length)) out.push(t('accounting.channels.negative'))
   return out

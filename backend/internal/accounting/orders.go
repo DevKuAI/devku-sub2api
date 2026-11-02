@@ -19,7 +19,8 @@ import (
 var orderKinds = map[string]bool{"transfers": true, "invoices": true, "vcc-cards": true, "vcc-transactions": true, "vendor-invoices": true}
 
 // Records that may join an order after they were created elsewhere; cards and card spend are only created inside one.
-var orderLinkKinds = map[string]bool{"transfers": true, "invoices": true, "vendor-invoices": true}
+// Card spend may also move to another open order of its organization.
+var orderLinkKinds = map[string]bool{"transfers": true, "invoices": true, "vendor-invoices": true, "vcc-transactions": true}
 
 // internalFunding marks transfers the system creates (FX target funds, legacy card top-ups) rather than customer payments.
 func internalFunding(r *Record) bool { return detail(r, "funding_type") != "" }
@@ -256,6 +257,63 @@ func (e *Engine) afterOrderChange(ctx context.Context, tx *sql.Tx, kind string, 
 		return nil
 	}
 	return e.allocateOrderCosts(ctx, tx, order, r.Org, actorID)
+}
+
+// moveSpend puts a purchase, with the refunds and credits that follow it, into another open order of the same
+// organization. Both orders match their AI invoices again; the amount, date and card stay the statement's.
+func (e *Engine) moveSpend(ctx context.Context, tx *sql.Tx, target string, r *Record, actorID int64) error {
+	if r.Status != "CONFIRMED" || isCredit(r) {
+		return ErrState
+	}
+	from, err := orderOf(ctx, tx, "vcc-transactions", r.ID)
+	if err != nil {
+		return err
+	}
+	if from == target {
+		return nil
+	}
+	if from != "" {
+		if err = lockOrder(ctx, tx, from, r.Org, true); err != nil {
+			return err
+		}
+	}
+	ids := []string{r.ID}
+	rows, err := tx.QueryContext(ctx, "SELECT id::text FROM accounting_vcc_transactions WHERE details->>'original_transaction_id'=$1 AND status<>'VOID'", r.ID)
+	if err != nil {
+		return err
+	}
+	for rows.Next() {
+		var id string
+		if err = rows.Scan(&id); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		ids = append(ids, id)
+	}
+	err = rows.Err()
+	_ = rows.Close()
+	if err != nil {
+		return err
+	}
+	for _, id := range ids {
+		if err = voidCosts(ctx, tx, "(source_kind='vcc-transactions' AND source_id::text=$1) OR cost_identity='vcc-transactions:'||$1", id); err != nil {
+			return err
+		}
+	}
+	if _, err = tx.ExecContext(ctx, "DELETE FROM accounting_order_items WHERE object_kind='vcc-transactions' AND object_id::text=ANY($1)", pq.Array(ids)); err != nil {
+		return err
+	}
+	for _, id := range ids {
+		if _, err = tx.ExecContext(ctx, "INSERT INTO accounting_order_items(object_kind,object_id,order_id,organization_id,created_by) VALUES('vcc-transactions',$1,$2,$3,$4)", id, target, r.Org, actorID); err != nil {
+			return err
+		}
+	}
+	if from != "" {
+		if err = e.allocateOrderCosts(ctx, tx, from, r.Org, actorID); err != nil {
+			return err
+		}
+	}
+	return e.allocateOrderCosts(ctx, tx, target, r.Org, actorID)
 }
 
 // --- Reading orders -----------------------------------------------------------
@@ -546,6 +604,10 @@ func (h *Handler) createOrder(c *gin.Context) {
 		if _, err := tx.ExecContext(ctx, "INSERT INTO accounting_orders(id,organization_id,name,remark,contract_id,created_by) VALUES($1,$2,$3,$4,$5,$6)", id, org, in.Name, in.Remark, contract, actor(c)); err != nil {
 			return nil, err
 		}
+		// Statement spend that waited for an open order of this organization lands here.
+		if err := h.engine.bookPendingForOrganization(ctx, tx, org, actor(c)); err != nil {
+			return nil, err
+		}
 		// The first receipt is usually known when the order starts, so it can be recorded in the same step.
 		if in.Transfer != nil {
 			receipt := *in.Transfer
@@ -623,6 +685,12 @@ func (h *Handler) linkOrder(c *gin.Context) {
 		if r.Status == "VOID" {
 			return nil, ErrState
 		}
+		if in.ObjectKind == "vcc-transactions" {
+			if err = h.engine.moveSpend(ctx, tx, current.ID, r, actor(c)); err != nil {
+				return nil, err
+			}
+			return h.engine.loadOrder(ctx, tx, current.ID, current.Org, false)
+		}
 		if err = linkToOrder(ctx, tx, current.ID, in.ObjectKind, r, actor(c)); err != nil {
 			return nil, err
 		}
@@ -676,6 +744,9 @@ func (h *Handler) reopenOrder(c *gin.Context) {
 		}
 		if n, _ := result.RowsAffected(); n != 1 {
 			return nil, ErrState
+		}
+		if err = h.engine.bookPendingForOrganization(ctx, tx, current.Org, actor(c)); err != nil {
+			return nil, err
 		}
 		return h.engine.loadOrder(ctx, tx, current.ID, current.Org, false)
 	})

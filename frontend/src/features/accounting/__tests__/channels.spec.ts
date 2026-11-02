@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import type { ChannelAccountDetail, ChannelAccountSummary } from '../types'
-import { i18n, stubs } from './testing'
+import { i18n, record, stubs } from './testing'
 
 const api = vi.hoisted(() => ({
   channelAccounts: vi.fn(),
@@ -15,6 +15,10 @@ const api = vi.hoisted(() => ({
   uploadChannelProof: vi.fn(),
   channelProofURL: vi.fn(),
   deleteChannelProof: vi.fn(),
+  bindChannelCard: vi.fn(),
+  rebookChannelLine: vi.fn(),
+  organizations: vi.fn(),
+  listRecords: vi.fn(),
   key: () => 'proof-key',
   stableRequest: () => Object.assign(() => 'request-key', { reset: vi.fn() }),
 }))
@@ -55,6 +59,9 @@ function summary(overrides: Partial<ChannelAccountSummary> = {}): ChannelAccount
     missing_proofs: 0,
     cards: 4,
     last_import_at: '2026-10-28T10:00:00Z',
+    pending_cards: 0,
+    pending_orders: 0,
+    pending_review: 0,
     ...overrides,
   }
 }
@@ -99,11 +106,53 @@ describe('channel pages', () => {
     api.importChannel.mockResolvedValueOnce({
       import: { id: 'import-one', converter: 'TEMPLATE', files: [], reported_balances: [], total_rows: 36, new_rows: 36, duplicate_rows: 0, pending_rows: 0, status: 'APPLIED', account_ids: ['account-one'], created_by: 1, created_at: '2026-10-28T10:00:00Z' },
       accounts: [summary()],
+      bookings: { BOOKED: 5, PENDING_CARD: 1 },
     })
     await wrapper.get('[data-testid="channel-import-submit"]').trigger('click')
     await flushPromises()
     expect(api.importChannel).toHaveBeenLastCalledWith([file], 'request-key')
     expect(wrapper.get('[data-testid="channel-import-result"]').text()).toContain('新增 36 行')
+    expect(wrapper.get('[data-testid="channel-import-bookings"]').text()).toBe('卡消费：5 笔入企业账，1 笔待绑定卡。')
+  })
+
+  it('binds statement cards and retries card lines that wait for review', async () => {
+    const cardSpend = (overrides: object) => ({ id: 'channel-card-one', card_ref: '2108375553744965633', card_last4: '0956', card_name: '', currency: 'USD', spends: 1, spend: '200.00', refund: '0.00', pending: 1, ...overrides })
+    api.channelAccount.mockResolvedValue({
+      ...summary({ pending_cards: 1, pending_review: 1 }),
+      months: [], conversions: [], unpaired: [], imports: [],
+      card_spend: [cardSpend({}), cardSpend({ id: 'channel-card-two', card_ref: '2095346501199990785', card_last4: '3926', card_name: '中新软件', pending: 0, organization_id: 'org-one', organization_name: '中新软件', vcc_card_id: 'card-bound', vcc_card_name: '中新软件', bind_method: 'AUTO_CARD' })],
+    })
+    const line = (overrides: object) => ({ id: 'line-one', wallet: 'CARD', external_id: 'AJ1', occurred_at: '2026-10-12T02:00:00Z', type: 'REFUND', amount: '60.00', currency: 'USD', import_id: 'import-one', proofs: [], booking: 'PENDING_REVIEW', booking_note: 'amount', ...overrides })
+    api.channelLines.mockResolvedValue({ items: [line({}), line({ id: 'line-two', external_id: 'AJ2', type: 'CONSUME', amount: '-200.00', booking: 'BOOKED', booking_note: '', order_id: 'order-one', order_name: 'Claude 席位' })], total: 2, page: 1, page_size: 50, pages: 1 })
+    api.rebookChannelLine.mockResolvedValue({ booking: 'BOOKED', booking_note: '' })
+    const wrapper = mount(ChannelAccountView, mountOptions)
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="channel-pending"]').text()).toContain('待绑定卡 1 笔')
+    await wrapper.get('[data-testid="channel-show-pending"]').trigger('click'); await flushPromises()
+    expect(api.channelLines).toHaveBeenLastCalledWith('account-one', expect.objectContaining({ booking: 'PENDING' }), expect.anything())
+    const review = wrapper.get('[data-testid="channel-booking-PENDING_REVIEW"]')
+    expect(review.text()).toContain('超过原消费可退金额')
+    await review.get('[data-testid="channel-rebook"]').trigger('click'); await flushPromises()
+    expect(api.rebookChannelLine).toHaveBeenCalledWith('line-one', 'request-key')
+    expect(wrapper.get('[data-testid="channel-booking-BOOKED"]').text()).toContain('Claude 席位')
+
+    // An unbound statement card is bound to a card of the chosen enterprise; cards holding another card ID are left out.
+    api.organizations.mockResolvedValue([{ id: 'org-one', name: '银通源', summary: [] }])
+    api.listRecords.mockResolvedValue({ items: [
+      record({ id: 'card-legacy', status: 'ACTIVE', currency: 'USD', details: { alias: '旧卡', last_four: '0956' } }),
+      record({ id: 'card-other', status: 'ACTIVE', currency: 'USD', details: { alias: '别的卡', last_four: '1111', provider_card_id: '999' } }),
+    ], total: 2 })
+    api.bindChannelCard.mockResolvedValue({})
+    await wrapper.get('[data-testid="channel-card-2108375553744965633"] [data-testid="channel-bind-open"]').trigger('click'); await flushPromises()
+    const form = wrapper.get('[data-testid="channel-bind-form"]')
+    await form.get('[data-testid="channel-bind-organization"]').setValue('org-one'); await flushPromises()
+    const options = form.findAll('[data-testid="channel-bind-card"] option').map((option) => option.text())
+    expect(options).toHaveLength(2)
+    expect(options[1]).toContain('旧卡')
+    await form.get('[data-testid="channel-bind-card"]').setValue('card-legacy')
+    await form.trigger('submit'); await flushPromises()
+    expect(api.bindChannelCard).toHaveBeenCalledWith('channel-card-one', 'card-legacy', 'request-key')
   })
 
   it('lets administrators revoke a batch inline with a reason', async () => {

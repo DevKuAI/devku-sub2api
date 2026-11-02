@@ -273,7 +273,8 @@ func (e *Engine) checkRelations(ctx context.Context, tx dbQuery, kind string, r,
 		if parent.Status == "VOID" {
 			return ErrState
 		}
-		if target == "vcc-cards" && parent.Status == "CLOSED" && detail(r, "transaction_type") != "REFUND" && detail(r, "transaction_type") != "ADJUSTMENT" {
+		// A statement is the record of what the card was charged, even after the card was closed in the books.
+		if target == "vcc-cards" && parent.Status == "CLOSED" && detail(r, "transaction_type") != "REFUND" && detail(r, "transaction_type") != "ADJUSTMENT" && detail(r, "source") != channelSource {
 			return ErrState
 		}
 	}
@@ -341,6 +342,12 @@ func (e *Engine) Create(ctx context.Context, tx *sql.Tx, kind string, in Input, 
 	if err = attachToOrder(ctx, tx, kind, r, in.OrderID, actor); err != nil {
 		return nil, err
 	}
+	if kind == "vcc-cards" {
+		// Statement lines that arrived before the card was registered are booked onto it now.
+		if err = e.bindCardStatements(ctx, tx, r, actor); err != nil {
+			return nil, err
+		}
+	}
 	return r, nil
 }
 func (e *Engine) Update(ctx context.Context, tx *sql.Tx, kind string, old *Record, in Input) (*Record, error) {
@@ -355,6 +362,14 @@ func (e *Engine) Update(ctx context.Context, tx *sql.Tx, kind string, old *Recor
 	r, err := prepare(kind, in, old)
 	if err != nil {
 		return nil, err
+	}
+	if kind == "vcc-transactions" {
+		// Statement links are set by imports only.
+		for _, key := range statementFields {
+			if detail(r, key) != detail(old, key) {
+				return nil, invalid(key)
+			}
+		}
 	}
 	if err = e.checkRelations(ctx, tx, kind, r, old); err != nil {
 		return nil, err
@@ -380,6 +395,15 @@ func (e *Engine) Update(ctx context.Context, tx *sql.Tx, kind string, old *Recor
 	}
 	if err = save(ctx, tx, kind, r); err != nil {
 		return nil, err
+	}
+	if kind == "vcc-cards" && detail(r, "provider_card_id") != detail(old, "provider_card_id") {
+		// A corrected card ID lets go of statement cards bound under the old one and picks up the new one's lines.
+		if _, err = tx.ExecContext(ctx, "UPDATE accounting_channel_cards SET organization_id=NULL,vcc_card_id=NULL,bind_method='',bound_at=NULL,bound_by=NULL,updated_at=NOW() WHERE vcc_card_id=$1 AND card_ref<>$2", r.ID, detail(r, "provider_card_id")); err != nil {
+			return nil, err
+		}
+		if err = e.bindCardStatements(ctx, tx, r, 0); err != nil {
+			return nil, err
+		}
 	}
 	return r, nil
 }

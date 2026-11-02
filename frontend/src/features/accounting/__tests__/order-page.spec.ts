@@ -10,6 +10,7 @@ const api = vi.hoisted(() => ({
   addEntry: vi.fn(),
   updateEntry: vi.fn(),
   mutate: vi.fn(),
+  orders: vi.fn(),
   listRecords: vi.fn(),
   upload: vi.fn(),
   attachments: vi.fn(),
@@ -17,7 +18,8 @@ const api = vi.hoisted(() => ({
 }))
 const route = vi.hoisted(() => ({ params: { orderId: 'order-one' }, fullPath: '/admin/accounting/orders/order-one' }))
 vi.mock('../api', () => api)
-vi.mock('vue-router', () => ({ useRoute: () => route, onBeforeRouteLeave: vi.fn() }))
+const router = vi.hoisted(() => ({ push: vi.fn() }))
+vi.mock('vue-router', () => ({ useRoute: () => route, useRouter: () => router, onBeforeRouteLeave: vi.fn() }))
 
 import OrderView from '../OrderView.vue'
 
@@ -119,20 +121,49 @@ describe('order page', () => {
     expect(api.mutate).toHaveBeenCalledWith('transfers/draft-one/confirm', {}, 'key-post:transfers/draft-one/confirm', 'post')
   })
 
-  it('asks for a card before card spend and picks the only active card', async () => {
+  it('asks for a card, then for the card statement; spend is never entered by hand', async () => {
     const done = { receipt: true, invoice: true, purchase: false, ai_invoice: false }
     const empty = await render(order({ progress: done }))
     expect(empty.get('[data-testid="order-next-step"]').text()).toBe('添加用于采购的 VCC 卡')
-    expect(empty.get('[data-testid="add-vcc-transactions"]').attributes('disabled')).toBeDefined()
+    expect(empty.find('[data-testid="add-vcc-transactions"]').exists()).toBe(false)
+    expect(empty.get('[data-testid="spend-from-statement"]').text()).toContain('渠道账单导入')
     empty.unmount()
 
     const card = record({ id: 'card-one', status: 'ACTIVE', currency: 'USD', details: { alias: '席位卡', last_four: '4444', provider: 'Airwallex', spent_amount: '20' } })
     const wrapper = await render(order({ progress: done }, { 'vcc-cards': [card] }))
     expect(wrapper.get('[data-testid="entry-vcc-cards"]').text()).toMatch(/累计消费 (US)?\$20\.00/)
     expect(wrapper.text()).not.toContain('充值')
-    await wrapper.get('[data-testid="add-vcc-transactions"]').trigger('click')
-    expect((wrapper.get('[data-field="parent_id"] select').element as HTMLSelectElement).value).toBe('card-one')
-    expect(wrapper.get('[data-field="amount"]').text()).toContain('USD')
+    expect(wrapper.get('[data-testid="order-next-step"]').text()).toBe('导入卡消费账单')
+    await wrapper.get('[data-testid="order-next-action"]').trigger('click')
+    expect(router.push).toHaveBeenCalledWith({ name: 'AdminAccountingChannelImport' })
+  })
+
+  it('lets statement spend take a vendor and move orders, but not be removed', async () => {
+    const card = record({ id: 'card-one', status: 'ACTIVE', currency: 'USD', details: { alias: '席位卡', last_four: '4444' } })
+    const spend = record({ id: 'spend-one', status: 'CONFIRMED', currency: 'USD', amount: '200', version: 2, parent_id: 'card-one', details: { transaction_type: 'CONSUME', merchant: 'OPENAI *CHATGPT', source: 'CHANNEL' } })
+    api.updateEntry.mockResolvedValue(spend)
+    const wrapper = await render(order({}, { 'vcc-cards': [card], 'vcc-transactions': [spend] }))
+    const row = wrapper.get('[data-testid="entry-vcc-transactions"]')
+    expect(row.find('[data-testid="entry-from-statement"]').exists()).toBe(true)
+    expect(row.find('[data-testid="entry-vendor-missing"]').exists()).toBe(true)
+    expect(row.find('[data-testid="entry-remove"]').exists()).toBe(false)
+    expect(row.text()).not.toContain('登记退款')
+
+    await row.get('[data-testid="entry-edit"]').trigger('click')
+    const form = wrapper.get('[data-testid="entry-form-vcc-transactions"]')
+    expect(form.find('[data-field="amount"]').exists()).toBe(false)
+    await form.get('[data-field="vendor_id"] select').setValue('vendor-openai')
+    await form.trigger('submit'); await flushPromises()
+    expect(api.updateEntry).toHaveBeenCalledWith('order-one', 'vcc-transactions', 'spend-one', { details: { vendor_id: 'vendor-openai', remark: '' }, version: 2 }, 'key-vcc-transactions/spend-one')
+
+    api.orders.mockResolvedValue({ items: [order(), order({ id: 'order-two', name: '下一批席位' })], total: 2 })
+    await wrapper.get('[data-testid="entry-move"]').trigger('click'); await flushPromises()
+    expect(api.orders).toHaveBeenCalledWith({ organization_id: 'org-one', state: 'open', page_size: 100 })
+    const move = wrapper.get('[data-testid="entry-move-form"]')
+    expect(move.findAll('option').map((option) => option.text())).toEqual(['请选择', '下一批席位'])
+    await move.get('select').setValue('order-two')
+    await move.trigger('submit'); await flushPromises()
+    expect(api.mutate).toHaveBeenCalledWith('orders/order-two/links', { object_kind: 'vcc-transactions', object_id: 'spend-one' }, 'key-orders/order-two/links')
   })
 
   it('shows only the totals an order has and no close action once it is complete', async () => {

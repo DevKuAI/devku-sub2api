@@ -6,6 +6,9 @@
           {{ title }}
           <span v-if="record.status === 'DRAFT'" class="badge badge-warning ms-1.5">{{ t('accounting.entries.draft') }}</span>
           <span v-if="credit" class="badge badge-gray ms-1.5">{{ t('accounting.entries.refund') }}</span>
+          <span v-if="fromStatement" class="badge badge-gray ms-1.5" data-testid="entry-from-statement">{{ t('accounting.entries.fromStatement') }}</span>
+          <span v-if="details.channel_match" class="badge badge-warning ms-1.5" data-testid="entry-match-review">{{ t('accounting.entries.matchReview') }}</span>
+          <span v-if="vendorMissing" class="badge badge-warning ms-1.5" data-testid="entry-vendor-missing">{{ t('accounting.entries.vendorMissing') }}</span>
           <span v-if="record.status === 'CLOSED'" class="badge badge-gray ms-1.5">{{ t('accounting.entries.cardClosed') }}</span>
           <span v-if="missingFile" class="badge badge-gray ms-1.5" data-testid="entry-missing-file">{{ t('accounting.entries.missingFile') }}</span>
         </p>
@@ -21,15 +24,28 @@
       <button v-if="kind !== 'vcc-cards' && kind !== 'vcc-transactions'" type="button" class="accounting-link" :aria-expanded="panel === 'files'" data-testid="entry-files" @click="toggle('files')">
         {{ t('accounting.entries.files', { count: files }) }}
       </button>
-      <button v-if="refundable && editable" type="button" class="accounting-link" @click="emit('refund')">{{ t('accounting.entries.addRefund') }}</button>
-      <button v-if="editable && (kind !== 'vcc-cards' || record.status === 'ACTIVE')" type="button" class="accounting-link" data-testid="entry-edit" @click="emit('edit')">{{ t('common.edit') }}</button>
-      <button v-if="editable && (kind !== 'vcc-cards' || record.status === 'ACTIVE')" type="button" class="accounting-link text-red-600 dark:text-red-400" data-testid="entry-remove" @click="emit('remove')">
+      <button v-if="editable && (kind !== 'vcc-cards' || record.status === 'ACTIVE')" type="button" class="accounting-link" data-testid="entry-edit" @click="emit('edit')">
+        {{ t(kind === 'vcc-transactions' ? 'accounting.entries.pickVendor' : 'common.edit') }}
+      </button>
+      <button v-if="movable && editable" type="button" class="accounting-link" :aria-expanded="panel === 'move'" data-testid="entry-move" @click="toggle('move')">
+        {{ t('accounting.entries.move') }}
+      </button>
+      <button v-if="editable && removable" type="button" class="accounting-link text-red-600 dark:text-red-400" data-testid="entry-remove" @click="emit('remove')">
         {{ t(kind === 'vcc-cards' ? 'accounting.entries.closeCard' : 'common.delete') }}
       </button>
     </div>
     <div v-if="panel === 'files'" class="accounting-entry-panel">
       <RecordFiles :kind="kind" :record="record" @changed="emit('changed')" />
     </div>
+    <form v-if="panel === 'move'" class="accounting-entry-panel flex flex-wrap items-center gap-2" data-testid="entry-move-form" @submit.prevent="move">
+      <select v-model="target" class="input w-auto max-w-full" required :aria-label="t('accounting.entries.move')">
+        <option value="">{{ t(targets.length ? 'accounting.form.select' : 'accounting.entries.noOtherOrder') }}</option>
+        <option v-for="option in targets" :key="option.id" :value="option.id">{{ option.name }}</option>
+      </select>
+      <button type="submit" class="btn btn-primary btn-sm" :disabled="busy || !target">{{ t('accounting.entries.moveConfirm') }}</button>
+      <button type="button" class="btn btn-ghost btn-sm" @click="panel = ''">{{ t('common.cancel') }}</button>
+      <p v-if="moveError" role="alert" class="accounting-error w-full">{{ moveError }}</p>
+    </form>
   </li>
 </template>
 
@@ -37,21 +53,31 @@
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import RecordFiles from '../RecordFiles.vue'
+import * as api from '../../api'
 import { formatMoney } from '../../format'
 import { compareMoney } from '../../money'
 import { cardLabel, percent } from '../../orderEntries'
-import { formatDate } from '../../shared'
-import type { AccountingRecord, OrderItemKind } from '../../types'
+import { errorMessage, formatDate } from '../../shared'
+import type { AccountingOrder, AccountingRecord, OrderItemKind } from '../../types'
 
-const props = defineProps<{ kind: OrderItemKind; record: AccountingRecord; cards?: AccountingRecord[]; editable: boolean }>()
-const emit = defineEmits<{ edit: []; remove: []; confirm: []; refund: []; changed: [] }>()
-const { t } = useI18n()
-const panel = ref<'' | 'files'>('')
+const props = defineProps<{ kind: OrderItemKind; record: AccountingRecord; cards?: AccountingRecord[]; editable: boolean; order?: AccountingOrder }>()
+const emit = defineEmits<{ edit: []; remove: []; confirm: []; changed: [] }>()
+const { t, te } = useI18n()
+const panel = ref<'' | 'files' | 'move'>('')
 const details = computed(() => props.record.details)
 const credit = computed(() => details.value.transaction_type === 'REFUND' || details.value.direction === 'CREDIT')
 const files = computed(() => Number(details.value.attachment_count || 0))
 const missingFile = computed(() => ['transfers', 'invoices', 'vendor-invoices'].includes(props.kind) && props.record.status !== 'DRAFT' && files.value === 0)
-const refundable = computed(() => props.kind === 'vcc-transactions' && props.record.status === 'CONFIRMED' && details.value.transaction_type === 'CONSUME')
+// Card spend comes from statements: it is never added or removed here, and moves between orders with its refunds.
+const fromStatement = computed(() => props.kind === 'vcc-transactions' && details.value.source === 'CHANNEL')
+const vendorMissing = computed(() => props.kind === 'vcc-transactions' && details.value.transaction_type === 'CONSUME' && !details.value.vendor_id)
+const movable = computed(() => props.kind === 'vcc-transactions' && props.record.status === 'CONFIRMED' && !credit.value)
+const removable = computed(() => (props.kind === 'vcc-cards' ? props.record.status === 'ACTIVE' : !fromStatement.value))
+const targets = ref<{ id: string; name: string }[]>([])
+const target = ref('')
+const busy = ref(false)
+const moveError = ref('')
+const requestKey = api.stableRequest()
 
 const title = computed(() => {
   const d = details.value
@@ -99,7 +125,35 @@ const note = computed(() => {
     : ''
 })
 
-function toggle(next: 'files') {
+function toggle(next: 'files' | 'move') {
   panel.value = panel.value === next ? '' : next
+  if (panel.value === 'move') void loadTargets()
+}
+// Other open orders of the same organization.
+async function loadTargets() {
+  target.value = ''
+  moveError.value = ''
+  try {
+    const result = await api.orders({ organization_id: props.order?.organization_id, state: 'open', page_size: 100 })
+    targets.value = result.items.filter((item) => item.id !== props.order?.id).map((item) => ({ id: item.id, name: item.name }))
+  } catch (cause) {
+    moveError.value = errorMessage(cause, t, te)
+  }
+}
+async function move() {
+  busy.value = true
+  moveError.value = ''
+  const path = `orders/${target.value}/links`
+  const payload = { object_kind: 'vcc-transactions', object_id: props.record.id }
+  try {
+    await api.mutate(path, payload, requestKey(path, payload))
+    requestKey.reset()
+    panel.value = ''
+    emit('changed')
+  } catch (cause) {
+    moveError.value = errorMessage(cause, t, te)
+  } finally {
+    busy.value = false
+  }
 }
 </script>

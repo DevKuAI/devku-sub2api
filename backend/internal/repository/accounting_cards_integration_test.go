@@ -35,7 +35,7 @@ func (f *accountingFixture) updateCard(t *testing.T, card *accounting.Record, de
 func TestAccountingLegacyCardAddsCardIDOnce(t *testing.T) {
 	f := newAccountingFixture(t)
 	card := f.card(t)
-	f.confirm(t, "vcc-transactions", f.transaction(t, card, "CONSUME", "10", ""))
+	f.spend(t, card, "CONSUME", "10", nil)
 	_, err := integrationDB.Exec(`UPDATE accounting_vcc_cards SET details=(details - 'provider_card_id') || '{"last_four":"0785"}'::jsonb WHERE id=$1`, card.ID)
 	require.NoError(t, err)
 

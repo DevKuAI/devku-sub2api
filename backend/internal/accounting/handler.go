@@ -329,18 +329,14 @@ func (h *Handler) get(c *gin.Context, kind string) {
 	response.Success(c, r)
 }
 func (h *Handler) create(c *gin.Context, kind string) {
+	if kind == "vcc-transactions" {
+		response.ErrorFrom(c, ErrCardSpendFromImport)
+		return
+	}
 	var in Input
 	if err := c.ShouldBindJSON(&in); err != nil {
 		response.ErrorFrom(c, ErrInvalid)
 		return
-	}
-	if kind == "vcc-transactions" && c.Param("id") != "" {
-		in.ParentID = c.Param("id")
-		parent, err := get(c.Request.Context(), h.engine.db, "vcc-cards", in.ParentID, 0, false)
-		if response.ErrorFrom(c, err) {
-			return
-		}
-		in.OrganizationID = parent.OrganizationID
 	}
 	org, err := h.resolveOrg(c, in.OrganizationID)
 	if response.ErrorFrom(c, err) {
