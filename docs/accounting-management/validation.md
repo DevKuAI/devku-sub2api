@@ -49,3 +49,19 @@ Vite build 仍提示项目既有的大 chunk 及 Browserslist 数据更新建议
 按补充要求，账目附件改为复用 `DESKTOP_UPDATE_STORAGE_RESOURCE_BUCKET`，对象仍存放在 `accounting/{organization_id}/{attachment_id}/` 文件夹。移除单独的 bucket 字段、默认值和部署配置，配置说明已同步。
 
 针对 S3 adapter 的测试验证了共享资源 bucket 中的账目路径、短时效签名下载以及资源 bucket 缺失时不回退至安装包 bucket。相关 repository/accounting tests、Desktop storage 环境配置测试、Docker Compose 环境检查、后端 build、相关 package 的 golangci-lint（0 issues）和 `git diff --check` 均通过。本次不改动前端与账目计算规则。
+
+## 2026-11-02：企业账取消卡余额
+
+卡片只归属消费，企业账不再维护卡余额：删除卡充值、订单自动出资和手动分配接口；卡消费、退款和停卡不再读写分配与出资表；卡片返回累计消费 `spent_amount`；汇总去掉已分配、余额和可用资金，财务待办去掉未分配资金和负余额；月结头寸改为到账资金与卡消费。迁移 `273_accounting_card_spend_only.sql` 作废待确认的充值事项，并按新口径重建头寸基线和变动；历史分配、出资和卡充值记录保留，不再参与计算。
+
+| 检查 | 结果 |
+| --- | --- |
+| `make -C backend test-unit` | 通过 |
+| `go test -tags=integration ./...`（`backend/`） | 通过；lint 修正后重跑 `internal/accounting` 单元测试和 `internal/repository` 中全部 Accounting 集成测试，均通过 |
+| `golangci-lint run --timeout=30m ./...`（v2.14.0，Go 1.27.3） | 通过，0 issues |
+| `pnpm --dir frontend run lint:check`、`typecheck`（pnpm 9.15.9） | 通过 |
+| `make test-frontend-critical` 清单 | 通过，51 个文件、817 项测试 |
+| `vitest run src/features/accounting` | 通过，18 个文件 |
+| `git diff --check` | 通过 |
+
+新增迁移集成测试在模拟的旧数据（待确认充值、卡充值到账、过期头寸事件）上执行 273，校验充值事项作废、头寸按到账资金和卡消费重建，以及迁移后的新操作在此基础上继续累计。浏览器验收夹具实际启动，确认卡片页、订单页显示累计消费且没有充值入口，企业只读页概览为已到账、卡消费和退款。

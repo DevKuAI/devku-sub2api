@@ -95,8 +95,7 @@ export const schemas: Record<AccountingKind, KindSchema> = {
       },
       { key: 'notes', fields: [remark] },
     ],
-    metrics: ['unallocated_amount', 'sales_amount', 'tax_rate', 'tax_amount', 'net_sales_amount', 'receivable_amount'],
-    remaining: 'unallocated_amount',
+    metrics: ['sales_amount', 'tax_rate', 'tax_amount', 'net_sales_amount', 'receivable_amount'],
     subtitle: (r) => [String(r.details.order_name || '')],
   },
   receivables: {
@@ -176,8 +175,7 @@ export const schemas: Record<AccountingKind, KindSchema> = {
       },
       { key: 'notes', fields: [remark] },
     ],
-    metrics: ['allocated_amount', 'available_balance', 'credit_limit'],
-    remaining: 'available_balance',
+    metrics: ['spent_amount', 'credit_limit'],
     subtitle: (r) => [`•••• ${r.details.last_four || ''}`, String(r.details.provider || '')],
   },
   'vcc-transactions': {
@@ -408,7 +406,7 @@ export const customerStatusOptions: Partial<Record<AccountingKind, string[]>> = 
 export const customerKinds: AccountingKind[] = ['transfers', 'vcc-cards', 'vcc-transactions', 'contracts', 'invoices']
 export const publicFields: Partial<Record<AccountingKind, string[]>> = {
   transfers: ['payer_name', 'sales_amount', 'tax_inclusive', 'tax_rate', 'tax_amount', 'net_sales_amount', 'receivable_amount', 'received_amount', 'original_amount', 'adjustment_amount'],
-  'vcc-cards': ['alias', 'last_four', 'allocated_amount', 'available_balance'],
+  'vcc-cards': ['alias', 'last_four', 'spent_amount'],
   'vcc-transactions': ['transaction_type', 'merchant'],
   contracts: ['name', 'contract_number', 'contact_name', 'tax_inclusive', 'tax_rate', 'signed_at', 'effective_at', 'expires_at'],
   invoices: ['invoice_type', 'invoice_code', 'invoice_number', 'issue_date', 'issuer_name', 'issuer_tax_id', 'recipient_name', 'recipient_tax_id', 'net_amount', 'tax_amount', 'total_amount'],
@@ -447,7 +445,7 @@ export function effectiveAmount(record: AccountingRecord) {
   return String(record.details.effective_amount || record.amount)
 }
 
-// Primary list/detail amount: cards show their balance, everything else the effective amount.
+// Primary list/detail amount: cards show their net spend, everything else the effective amount.
 export function displayAmount(kind: AccountingKind, record: AccountingRecord) {
-  return kind === 'vcc-cards' ? String(record.details.available_balance || '0') : effectiveAmount(record)
+  return kind === 'vcc-cards' ? String(record.details.spent_amount || '0') : effectiveAmount(record)
 }

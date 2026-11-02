@@ -21,7 +21,7 @@ var orderKinds = map[string]bool{"transfers": true, "invoices": true, "vcc-cards
 // Records that may join an order after they were created elsewhere; cards and card spend are only created inside one.
 var orderLinkKinds = map[string]bool{"transfers": true, "invoices": true, "vendor-invoices": true}
 
-// internalFunding marks transfers the system creates (FX target funds, card top-ups) rather than customer payments.
+// internalFunding marks transfers the system creates (FX target funds, legacy card top-ups) rather than customer payments.
 func internalFunding(r *Record) bool { return detail(r, "funding_type") != "" }
 
 type OrderProgress struct {
@@ -79,13 +79,6 @@ type orderInput struct {
 	Transfer   *Input  `json:"transfer,omitempty"`
 }
 
-type topUpInput struct {
-	Amount     string `json:"amount"`
-	OccurredAt string `json:"occurred_at"`
-	Reference  string `json:"reference"`
-	Remark     string `json:"remark"`
-}
-
 func (h *Handler) registerOrders(g *gin.RouterGroup) {
 	g.GET("/orders", h.listOrders)
 	g.POST("/orders", h.createOrder)
@@ -94,7 +87,6 @@ func (h *Handler) registerOrders(g *gin.RouterGroup) {
 	g.POST("/orders/:id/links", h.linkOrder)
 	g.POST("/orders/:id/close", h.closeOrder)
 	g.POST("/orders/:id/reopen", h.reopenOrder)
-	g.POST("/vcc-cards/:id/top-ups", h.topUpCard)
 }
 
 // --- Order membership --------------------------------------------------------
@@ -192,45 +184,7 @@ func orderRecords(ctx context.Context, q dbQuery, order, kind string, lock bool)
 	return out, rows.Err()
 }
 
-// --- Automatic funding and cost allocation -----------------------------------
-
-// fundFromOrder covers card spend that no allocation funds yet, using the order's own customer receipts in
-// the card currency. Cross-currency spend stays uncovered until the card is topped up.
-func (e *Engine) fundFromOrder(ctx context.Context, tx *sql.Tx, order string, card *Record, actorID int64) error {
-	if card.Status != "ACTIVE" {
-		return nil
-	}
-	uncovered, err := sum(ctx, tx, `SELECT COALESCE(SUM(f.amount-f.refunded_amount),0)::text FROM accounting_funding f JOIN accounting_vcc_transactions t ON t.id=f.transaction_id
- WHERE t.parent_id=$1 AND t.status='CONFIRMED' AND f.allocation_id IS NULL AND f.source_funding_id IS NULL`, card.ID)
-	if err != nil || !uncovered.IsPositive() {
-		return err
-	}
-	receipts, err := orderRecords(ctx, tx, order, "transfers", true)
-	if err != nil {
-		return err
-	}
-	for _, receipt := range receipts {
-		if !uncovered.IsPositive() {
-			break
-		}
-		if receipt.Status != "RECEIVED" || receipt.Currency != card.Currency || internalFunding(receipt) {
-			continue
-		}
-		available, availableErr := availableTransfer(ctx, tx, receipt)
-		if availableErr != nil {
-			return availableErr
-		}
-		part := decimal.Min(uncovered, available)
-		if !part.IsPositive() {
-			continue
-		}
-		if _, err = e.allocate(ctx, tx, receipt, card.ID, part.String(), actorID, false); err != nil {
-			return err
-		}
-		uncovered = uncovered.Sub(part)
-	}
-	return nil
-}
+// --- Automatic cost allocation -----------------------------------------------
 
 // allocateOrderCosts matches the order's confirmed AI invoices to its confirmed card purchases in the same
 // currency, oldest first, within the existing cost limits.
@@ -286,7 +240,7 @@ func unallocatedCost(ctx context.Context, q dbQuery, org int64, spend *Record) (
 	return limit.Sub(occupied), err
 }
 
-// afterOrderChange keeps an order's funding and costs in step when one of its records is confirmed or linked.
+// afterOrderChange keeps an order's costs in step when one of its records is confirmed or linked.
 func (e *Engine) afterOrderChange(ctx context.Context, tx *sql.Tx, kind string, r *Record, actorID int64) error {
 	order, err := orderOf(ctx, tx, kind, r.ID)
 	if err != nil || order == "" {
@@ -294,29 +248,6 @@ func (e *Engine) afterOrderChange(ctx context.Context, tx *sql.Tx, kind string, 
 	}
 	switch kind {
 	case "vcc-transactions":
-		if !isCredit(r) {
-			card, cardErr := get(ctx, tx, "vcc-cards", r.ParentID, r.Org, true)
-			if cardErr != nil {
-				return cardErr
-			}
-			if err = e.fundFromOrder(ctx, tx, order, card, actorID); err != nil {
-				return err
-			}
-		}
-	case "transfers":
-		if r.Status != "RECEIVED" {
-			return nil
-		}
-		cards, cardErr := orderRecords(ctx, tx, order, "vcc-cards", true)
-		if cardErr != nil {
-			return cardErr
-		}
-		for _, card := range cards {
-			if err = e.fundFromOrder(ctx, tx, order, card, actorID); err != nil {
-				return err
-			}
-		}
-		return nil
 	case "vendor-invoices":
 		if r.Status != "CONFIRMED" {
 			return nil
@@ -747,59 +678,5 @@ func (h *Handler) reopenOrder(c *gin.Context) {
 			return nil, ErrState
 		}
 		return h.engine.loadOrder(ctx, tx, current.ID, current.Org, false)
-	})
-}
-
-// topUpCard records our own money loaded onto a card. Like FX target funds it is an internal funding source:
-// not customer income, hidden from the organization, and already executed at the provider.
-func (h *Handler) topUpCard(c *gin.Context) {
-	card := h.record(c, "vcc-cards")
-	if card == nil {
-		return
-	}
-	var in topUpInput
-	if err := c.ShouldBindJSON(&in); err != nil {
-		response.ErrorFrom(c, ErrInvalid)
-		return
-	}
-	in.Reference = strings.TrimSpace(in.Reference)
-	in.Remark = strings.TrimSpace(in.Remark)
-	if len(in.Reference) > 200 || len(in.Remark) > 4000 {
-		response.ErrorFrom(c, ErrInvalid)
-		return
-	}
-	ctx := c.Request.Context()
-	h.run(c, Operation{Org: card.Org, Kind: "vcc-cards", Object: card.ID, Action: "top-up", Payload: in}, func(tx *sql.Tx) (any, error) {
-		current, err := get(ctx, tx, "vcc-cards", card.ID, card.Org, true)
-		if err != nil {
-			return nil, err
-		}
-		if current.Status != "ACTIVE" {
-			return nil, ErrState
-		}
-		value, err := number(in.Amount, current.Currency, true)
-		if err != nil {
-			return nil, err
-		}
-		occurred, err := workflowTime(in.OccurredAt)
-		if err != nil {
-			return nil, err
-		}
-		id := uuid.NewString()
-		funding := &Record{ID: id, Org: current.Org, OrganizationID: current.OrganizationID, Status: "RECEIVED", Currency: current.Currency, Amount: value.String(), OccurredAt: occurred, Version: 1, Details: map[string]any{
-			"funding_type": "TOPUP", "card_id": current.ID, "payer_name": "Card top-up", "bank_reference": "TOPUP-" + id,
-			"reference": in.Reference, "remark": in.Remark, "sales_amount": "0", "received_amount": value.String(),
-		}}
-		if err = insertRecord(ctx, tx, "transfers", funding, actor(c)); err != nil {
-			return nil, err
-		}
-		if _, err = tx.ExecContext(ctx, `INSERT INTO accounting_reconciliation(id,organization_id,object_kind,object_id,status,reference,reference_amount,currency,reason,created_by) VALUES($1,$2,'transfers',$3,'MATCHED',$4,$5,$6,'Card top-up',$7)`, uuid.NewString(), current.Org, id, in.Reference, funding.Amount, funding.Currency, actor(c)); err != nil {
-			return nil, err
-		}
-		allocation, err := h.engine.allocate(ctx, tx, funding, current.ID, value.String(), actor(c), false)
-		if err != nil {
-			return nil, err
-		}
-		return gin.H{"id": id, "allocation_id": allocation.ID, "card_id": current.ID, "amount": value.String(), "currency": current.Currency, "reference": in.Reference}, nil
 	})
 }

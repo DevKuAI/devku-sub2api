@@ -287,6 +287,11 @@
   }
 }
 
+/* Cards page: the channel card balances that actually hold the money spent on cards. */
+.accounting-card-pools {
+  @apply flex flex-wrap items-center gap-x-6 gap-y-2 px-5 py-3;
+}
+
 /* Channel accounts: balances drawn in the order money moves through them. */
 .channel-account {
   @apply space-y-4 p-5;

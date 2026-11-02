@@ -26,10 +26,12 @@ type Position struct {
 	Card string `json:"card"`
 }
 
+// currentPositions is, per currency, the organization's money with us (receipts less what was exchanged away;
+// legacy card top-ups are our own money and stay out) and the card spend charged against it.
 func currentPositions(ctx context.Context, q dbQuery, org int64) (map[string]Position, error) {
 	rows, err := q.QueryContext(ctx, `WITH positions AS (
- SELECT r.currency,r.amount+COALESCE((SELECT SUM(x.amount) FROM accounting_adjustments x WHERE x.object_kind='transfers' AND x.object_id=r.id),0)-COALESCE((SELECT SUM(a.amount-a.released_amount) FROM accounting_allocations a WHERE a.transfer_id=r.id),0)-COALESCE((SELECT SUM(x.amount+COALESCE(NULLIF(x.details->>'fee_amount','')::numeric,0)) FROM accounting_fx_exchanges x WHERE x.parent_id=r.id AND x.status='CONFIRMED'),0) AS cash,0::numeric AS card FROM accounting_transfers r WHERE r.organization_id=$1 AND r.status='RECEIVED'
- UNION ALL SELECT r.currency,0::numeric,COALESCE((SELECT SUM(a.amount-a.released_amount) FROM accounting_allocations a WHERE a.card_id=r.id),0)-COALESCE((SELECT SUM(CASE WHEN t.details->>'transaction_type'='REFUND' OR (t.details->>'transaction_type'='ADJUSTMENT' AND t.details->>'direction'='CREDIT') THEN -t.amount ELSE t.amount END) FROM accounting_vcc_transactions t WHERE t.parent_id=r.id AND t.status='CONFIRMED'),0) FROM accounting_vcc_cards r WHERE r.organization_id=$1)
+ SELECT r.currency,r.amount+COALESCE((SELECT SUM(x.amount) FROM accounting_adjustments x WHERE x.object_kind='transfers' AND x.object_id=r.id),0)-COALESCE((SELECT SUM(x.amount+COALESCE(NULLIF(x.details->>'fee_amount','')::numeric,0)) FROM accounting_fx_exchanges x WHERE x.parent_id=r.id AND x.status='CONFIRMED'),0) AS cash,0::numeric AS card FROM accounting_transfers r WHERE r.organization_id=$1 AND r.status='RECEIVED' AND COALESCE(r.details->>'funding_type','')<>'TOPUP'
+ UNION ALL SELECT t.currency,0::numeric,CASE WHEN t.details->>'transaction_type'='REFUND' OR (t.details->>'transaction_type'='ADJUSTMENT' AND t.details->>'direction'='CREDIT') THEN -t.amount ELSE t.amount END FROM accounting_vcc_transactions t WHERE t.organization_id=$1 AND t.status='CONFIRMED')
  SELECT currency,SUM(cash)::text,SUM(card)::text FROM positions GROUP BY currency`, org)
 	if err != nil {
 		return nil, err

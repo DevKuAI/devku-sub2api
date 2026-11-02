@@ -18,8 +18,11 @@ func availableTransfer(ctx context.Context, q dbQuery, r *Record) (decimal.Decim
 	used, err := transferCommitted(ctx, q, r.ID)
 	return total.Sub(used), err
 }
+
+// transferCommitted is the part of a receipt already exchanged into another currency. Card spend no longer
+// draws on receipts, so historical card allocations do not count.
 func transferCommitted(ctx context.Context, q dbQuery, id string) (decimal.Decimal, error) {
-	return sum(ctx, q, `SELECT COALESCE((SELECT SUM(amount-released_amount) FROM accounting_allocations WHERE transfer_id=$1),0)+COALESCE((SELECT SUM(amount+COALESCE(NULLIF(details->>'fee_amount','')::numeric,0)) FROM accounting_fx_exchanges WHERE parent_id=$1 AND status='CONFIRMED'),0)`, id)
+	return sum(ctx, q, `SELECT COALESCE(SUM(amount+COALESCE(NULLIF(details->>'fee_amount','')::numeric,0)),0)::text FROM accounting_fx_exchanges WHERE parent_id=$1 AND status='CONFIRMED'`, id)
 }
 func validateWorkflowRecord(kind string, r *Record) error {
 	switch kind {

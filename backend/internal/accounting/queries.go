@@ -131,11 +131,8 @@ func (e *Engine) List(ctx context.Context, kind string, f Filter) ([]*Record, in
 type CurrencySummary struct {
 	Currency        string `json:"currency"`
 	Received        string `json:"received"`
-	Allocated       string `json:"allocated"`
 	Consumed        string `json:"consumed"`
 	Refunded        string `json:"refunded"`
-	Balance         string `json:"balance"`
-	Unallocated     string `json:"unallocated"`
 	Unmatched       int64  `json:"unmatched"`
 	UnmatchedAmount string `json:"unmatched_amount,omitempty"`
 	Expenses        string `json:"expenses,omitempty"`
@@ -143,7 +140,7 @@ type CurrencySummary struct {
 
 func (e *Engine) Summary(ctx context.Context, f Filter) ([]CurrencySummary, error) {
 	f.RecordKind = "transfers"
-	where, args, err := f.where()
+	_, args, err := f.where()
 	if err != nil {
 		return nil, err
 	}
@@ -181,89 +178,13 @@ func (e *Engine) Summary(ctx context.Context, f Filter) ([]CurrencySummary, erro
 		return nil, err
 	}
 	values := map[string]*CurrencySummary{}
-	ensure := func(currency string) *CurrencySummary {
-		value := values[currency]
-		if value == nil {
-			value = &CurrencySummary{Currency: currency, Received: "0", Allocated: "0", Consumed: "0", Refunded: "0", Balance: "0", Unallocated: "0", Expenses: "0", UnmatchedAmount: "0"}
-			values[currency] = value
-		}
-		return value
-	}
 	for rows.Next() {
 		var value CurrencySummary
 		if err = rows.Scan(&value.Currency, &value.Received, &value.Consumed, &value.Refunded, &value.Expenses, &value.Unmatched, &value.UnmatchedAmount); err != nil {
 			_ = rows.Close()
 			return nil, err
 		}
-		value.Allocated = "0"
-		value.Balance = "0"
-		value.Unallocated = "0"
 		values[value.Currency] = &value
-	}
-	err = rows.Err()
-	_ = rows.Close()
-	if err != nil {
-		return nil, err
-	}
-	// Allocation flows use allocation dates, independent of the card creation date.
-	allocationQuery := `SELECT r.currency,SUM(r.amount)::text FROM (SELECT t.id,a.organization_id,c.currency,t.status,a.created_at AS occurred_at,c.details||t.details AS details,a.amount-a.released_amount AS amount
- FROM accounting_allocations a JOIN accounting_vcc_cards c ON c.id=a.card_id JOIN accounting_transfers t ON t.id=a.transfer_id WHERE t.status='RECEIVED') r JOIN desktop_organizations o ON o.id=r.organization_id WHERE ` + where + ` GROUP BY r.currency`
-	rows, err = e.db.QueryContext(ctx, allocationQuery, args...)
-	if err != nil {
-		return nil, err
-	}
-	for rows.Next() {
-		var currency, value string
-		if err = rows.Scan(&currency, &value); err != nil {
-			_ = rows.Close()
-			return nil, err
-		}
-		ensure(currency).Allocated = value
-	}
-	err = rows.Err()
-	_ = rows.Close()
-	if err != nil {
-		return nil, err
-	}
-	// Available balances are current positions, not period flows. The UI labels this distinction.
-	current := f
-	current.Status = ""
-	current.From = ""
-	current.To = ""
-	currentWhere, currentArgs, err := current.where()
-	if err != nil {
-		return nil, err
-	}
-	balanceQuery := `SELECT r.currency,SUM(COALESCE((SELECT SUM(a.amount-a.released_amount) FROM accounting_allocations a WHERE a.card_id=r.id),0)-COALESCE((SELECT SUM(CASE WHEN t.details->>'transaction_type'='REFUND' OR (t.details->>'transaction_type'='ADJUSTMENT' AND t.details->>'direction'='CREDIT') THEN -t.amount ELSE t.amount END) FROM accounting_vcc_transactions t WHERE t.parent_id=r.id AND t.status='CONFIRMED'),0))::text FROM accounting_vcc_cards r JOIN desktop_organizations o ON o.id=r.organization_id WHERE ` + currentWhere + ` GROUP BY r.currency`
-	rows, err = e.db.QueryContext(ctx, balanceQuery, currentArgs...)
-	if err != nil {
-		return nil, err
-	}
-	for rows.Next() {
-		var currency, value string
-		if err = rows.Scan(&currency, &value); err != nil {
-			_ = rows.Close()
-			return nil, err
-		}
-		ensure(currency).Balance = value
-	}
-	err = rows.Err()
-	_ = rows.Close()
-	if err != nil {
-		return nil, err
-	}
-	unallocatedQuery := `SELECT r.currency,SUM(r.amount+COALESCE((SELECT SUM(a.amount) FROM accounting_adjustments a WHERE a.object_kind='transfers' AND a.object_id=r.id),0)-COALESCE((SELECT SUM(a.amount-a.released_amount) FROM accounting_allocations a WHERE a.transfer_id=r.id),0)-COALESCE((SELECT SUM(x.amount+COALESCE(NULLIF(x.details->>'fee_amount','')::numeric,0)) FROM accounting_fx_exchanges x WHERE x.parent_id=r.id AND x.status='CONFIRMED'),0))::text FROM accounting_transfers r JOIN desktop_organizations o ON o.id=r.organization_id WHERE r.status='RECEIVED' AND ` + currentWhere + ` GROUP BY r.currency`
-	rows, err = e.db.QueryContext(ctx, unallocatedQuery, currentArgs...)
-	if err != nil {
-		return nil, err
-	}
-	for rows.Next() {
-		var currency, value string
-		if err = rows.Scan(&currency, &value); err != nil {
-			_ = rows.Close()
-			return nil, err
-		}
-		ensure(currency).Unallocated = value
 	}
 	err = rows.Err()
 	_ = rows.Close()
@@ -315,7 +236,6 @@ func (e *Engine) Organizations(ctx context.Context, f Filter) (any, error) {
 	}
 	return out, nil
 }
-func maxZero(d decimal.Decimal) decimal.Decimal { return decimal.Max(d, decimal.Zero) }
 
 // The customer query selects only the public metadata whitelist at the database boundary.
 func customerColumns(kind string) string {
@@ -371,17 +291,11 @@ func isReconciliationStatus(status string) bool {
 
 func (e *Engine) enrich(ctx context.Context, kind string, r *Record) error {
 	if kind == "vcc-cards" {
-		balance, err := cardBalance(ctx, e.db, r.ID)
+		spent, err := cardSpent(ctx, e.db, r.ID)
 		if err != nil {
 			return err
 		}
-		allocated, err := sum(ctx, e.db, "SELECT COALESCE(SUM(amount-released_amount),0)::text FROM accounting_allocations WHERE card_id=$1", r.ID)
-		if err != nil {
-			return err
-		}
-		r.Details["available_balance"] = balance.String()
-		r.Details["allocated_amount"] = allocated.String()
-		r.Details["has_difference"] = balance.IsNegative()
+		r.Details["spent_amount"] = spent.String()
 	}
 	if kind == "receivables" {
 		settled, err := sum(ctx, e.db, "SELECT COALESCE(SUM(amount),0)::text FROM accounting_receipt_settlements WHERE receivable_id=$1 AND status='ACTIVE'", r.ID)
@@ -426,13 +340,6 @@ func (e *Engine) enrich(ctx context.Context, kind string, r *Record) error {
 		r.Details["adjustment_amount"] = v.Sub(amount(r)).String()
 		if kind == "transfers" {
 			r.Details["received_amount"] = v.String()
-		}
-		if kind == "transfers" {
-			available, err := availableTransfer(ctx, e.db, r)
-			if err != nil {
-				return err
-			}
-			r.Details["unallocated_amount"] = available.String()
 		}
 
 		if kind == "expenses" {

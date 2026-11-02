@@ -35,11 +35,8 @@ export interface AccountingInput {
 export interface CurrencySummary {
   currency: string
   received: string
-  allocated: string
   consumed: string
   refunded: string
-  balance: string
-  unallocated: string
   unmatched: number
   unmatched_amount?: string
   expenses?: string

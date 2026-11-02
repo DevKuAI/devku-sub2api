@@ -69,6 +69,10 @@ describe('vendor lists', () => {
     expect(offered).toContain('OpenAI')
     expect(offered.join()).not.toContain('Retired')
 
+    // The billing end cannot be picked before the start.
+    await fresh.get('[data-testid="entry-input-period_start"]').setValue('2026-11-01')
+    expect(fresh.get('[data-testid="entry-input-period_end"]').attributes('min')).toBe('2026-11-01')
+
     const legacy = record({ id: 'invoice-one', status: 'CONFIRMED', currency: 'USD', amount: '20', details: { vendor: 'OPENAI *CHATGPT', period_start: '2026-10-01', period_end: '2026-10-31' } })
     const editing = mount(EntryForm, { ...options, props: { kind: 'vendor-invoices', context, record: legacy } })
     expect(editing.text()).toContain('原记录填写的是“OPENAI *CHATGPT”')

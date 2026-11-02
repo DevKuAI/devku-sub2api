@@ -12,13 +12,12 @@
         <p v-if="subtitle" class="accounting-entry-subtitle">{{ subtitle }}</p>
       </div>
       <div class="accounting-entry-amount">
-        <p :class="{ 'text-amber-700 dark:text-amber-300': negative }">{{ amountText }}</p>
+        <p>{{ amountText }}</p>
         <p v-if="note" class="text-xs font-normal text-amber-700 dark:text-amber-300">{{ note }}</p>
       </div>
     </div>
     <div class="accounting-entry-tools">
       <button v-if="record.status === 'DRAFT' && editable" type="button" class="accounting-link" data-testid="entry-confirm" @click="emit('confirm')">{{ t('accounting.entries.makeEffective') }}</button>
-      <button v-if="kind === 'vcc-cards' && record.status === 'ACTIVE' && editable" type="button" class="accounting-link" :aria-expanded="panel === 'top-up'" @click="toggle('top-up')">{{ t('accounting.entries.topUp') }}</button>
       <button v-if="kind !== 'vcc-cards' && kind !== 'vcc-transactions'" type="button" class="accounting-link" :aria-expanded="panel === 'files'" data-testid="entry-files" @click="toggle('files')">
         {{ t('accounting.entries.files', { count: files }) }}
       </button>
@@ -31,16 +30,12 @@
     <div v-if="panel === 'files'" class="accounting-entry-panel">
       <RecordFiles :kind="kind" :record="record" @changed="emit('changed')" />
     </div>
-    <div v-if="panel === 'top-up'" class="accounting-entry-panel">
-      <CardTopUpForm :card="record" @saved="toppedUp" @cancel="panel = ''" />
-    </div>
   </li>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import CardTopUpForm from './CardTopUpForm.vue'
 import RecordFiles from '../RecordFiles.vue'
 import { formatMoney } from '../../format'
 import { compareMoney } from '../../money'
@@ -51,14 +46,12 @@ import type { AccountingRecord, OrderItemKind } from '../../types'
 const props = defineProps<{ kind: OrderItemKind; record: AccountingRecord; cards?: AccountingRecord[]; editable: boolean }>()
 const emit = defineEmits<{ edit: []; remove: []; confirm: []; refund: []; changed: [] }>()
 const { t } = useI18n()
-const panel = ref<'' | 'files' | 'top-up'>('')
+const panel = ref<'' | 'files'>('')
 const details = computed(() => props.record.details)
 const credit = computed(() => details.value.transaction_type === 'REFUND' || details.value.direction === 'CREDIT')
 const files = computed(() => Number(details.value.attachment_count || 0))
 const missingFile = computed(() => ['transfers', 'invoices', 'vendor-invoices'].includes(props.kind) && props.record.status !== 'DRAFT' && files.value === 0)
 const refundable = computed(() => props.kind === 'vcc-transactions' && props.record.status === 'CONFIRMED' && details.value.transaction_type === 'CONSUME')
-const balance = computed(() => String(details.value.available_balance || '0'))
-const negative = computed(() => props.kind === 'vcc-cards' && compareMoney(balance.value, '0') < 0)
 
 const title = computed(() => {
   const d = details.value
@@ -94,7 +87,7 @@ const subtitle = computed(() => {
   }
 })
 const amountText = computed(() => {
-  if (props.kind === 'vcc-cards') return t('accounting.entries.balance', { amount: formatMoney(balance.value, props.record.currency) })
+  if (props.kind === 'vcc-cards') return t('accounting.entries.spent', { amount: formatMoney(String(details.value.spent_amount || '0'), props.record.currency) })
   const value = String(details.value.effective_amount || props.record.amount)
   return `${credit.value ? '−' : ''}${formatMoney(value, props.record.currency)}`
 })
@@ -106,11 +99,7 @@ const note = computed(() => {
     : ''
 })
 
-function toggle(next: 'files' | 'top-up') {
+function toggle(next: 'files') {
   panel.value = panel.value === next ? '' : next
-}
-function toppedUp() {
-  panel.value = ''
-  emit('changed')
 }
 </script>

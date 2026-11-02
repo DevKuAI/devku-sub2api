@@ -165,11 +165,6 @@ func (e *Engine) amendEntry(ctx context.Context, tx *sql.Tx, order, kind string,
 			return nil, err
 		}
 	}
-	if kind == "transfers" {
-		if err := releaseUnusedFunding(ctx, tx, old.ID); err != nil {
-			return nil, err
-		}
-	}
 	r, err := prepare(kind, in, old)
 	if err != nil {
 		return nil, err
@@ -185,16 +180,13 @@ func (e *Engine) amendEntry(ctx context.Context, tx *sql.Tx, order, kind string,
 	if err = save(ctx, tx, kind, r); err != nil {
 		return nil, err
 	}
-	switch kind {
-	case "transfers":
-		err = e.afterOrderChange(ctx, tx, kind, r, actor)
-	case "vendor-invoices":
+	if kind == "vendor-invoices" {
 		err = e.allocateOrderCosts(ctx, tx, order, r.Org, actor)
 	}
 	return r, err
 }
 
-// checkReceiptCorrection keeps a corrected receipt above what the order's cards already spent from it.
+// checkReceiptCorrection keeps a corrected receipt above what was already exchanged from it.
 func (e *Engine) checkReceiptCorrection(ctx context.Context, tx *sql.Tx, old, r *Record) error {
 	used, err := transferCommitted(ctx, tx, old.ID)
 	if err != nil {
@@ -208,7 +200,7 @@ func (e *Engine) checkReceiptCorrection(ctx context.Context, tx *sql.Tx, old, r 
 		return err
 	}
 	if total.LessThan(used) {
-		return ErrAmount.WithMetadata(map[string]string{"field": "receipt_below_spend"})
+		return ErrAmount.WithMetadata(map[string]string{"field": "receipt_below_exchanged"})
 	}
 	return nil
 }
@@ -320,9 +312,6 @@ func (e *Engine) removeEntry(ctx context.Context, tx *sql.Tx, order, kind string
 		}
 		return e.allocateOrderCosts(ctx, tx, order, r.Org, actor)
 	case "transfers":
-		if err := releaseUnusedFunding(ctx, tx, r.ID); err != nil {
-			return err
-		}
 		used, err := transferCommitted(ctx, tx, r.ID)
 		if err != nil {
 			return err
@@ -337,15 +326,6 @@ func (e *Engine) removeEntry(ctx context.Context, tx *sql.Tx, order, kind string
 // voidCosts withdraws active cost allocations so the order can match its AI invoices again.
 func voidCosts(ctx context.Context, tx *sql.Tx, where, id string) error {
 	_, err := tx.ExecContext(ctx, "UPDATE accounting_cost_allocations SET status='VOID',reason=$2,voided_at=NOW() WHERE status='ACTIVE' AND ("+where+")", id, entryRemovedReason)
-	return err
-}
-
-// releaseUnusedFunding returns money a receipt placed on cards but no spend used yet. Funding still awaiting
-// confirmation at the card provider is left alone.
-func releaseUnusedFunding(ctx context.Context, tx *sql.Tx, transfer string) error {
-	_, err := tx.ExecContext(ctx, `UPDATE accounting_allocations a SET released_amount=a.amount-a.used_amount
- WHERE a.transfer_id=$1 AND a.amount-a.used_amount-a.released_amount>0
- AND NOT EXISTS(SELECT 1 FROM accounting_external_actions x WHERE x.object_kind='allocations' AND x.object_id=a.id AND x.status='PENDING')`, transfer)
 	return err
 }
 

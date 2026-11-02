@@ -68,7 +68,16 @@
           autocomplete="off"
           :required="field.required"
         />
-        <input v-else v-model="values[field.key]" :type="field.type === 'text' ? 'text' : field.type" class="input w-full" :required="field.required" autocomplete="off" />
+        <input
+          v-else
+          v-model="values[field.key]"
+          :type="field.type === 'text' ? 'text' : field.type"
+          class="input w-full"
+          :min="(field.after && values[field.after]) || undefined"
+          :required="field.required"
+          autocomplete="off"
+          :data-testid="`entry-input-${field.key}`"
+        />
       </label>
     </template>
     <div v-if="definition.file && !record" class="sm:col-span-2 lg:col-span-3">
@@ -92,7 +101,7 @@ import { useI18n } from 'vue-i18n'
 import AccountingFileUpload from '../AccountingFileUpload.vue'
 import * as api from '../../api'
 import { activeCards, cardLabel, entryDefinitions, taxRates, type EntryContext, type EntryValues } from '../../orderEntries'
-import { commonCurrencies, currencyDigits, errorMessage } from '../../shared'
+import { commonCurrencies, errorMessage, moneyPattern as amountPattern } from '../../shared'
 import type { AccountingRecord, OrderItemKind, VendorKind } from '../../types'
 
 // One inline form for every kind of order entry. Saving makes the entry effective; a chosen file is attached
@@ -132,10 +141,7 @@ const unclassified = computed(() => {
   return String(props.record.details[key] || '')
 })
 const moneyCurrency = computed(() => (props.kind === 'vcc-transactions' ? cards.value.find((card) => card.id === values.parent_id)?.currency || '' : values.currency))
-const moneyPattern = computed(() => {
-  const digits = currencyDigits(moneyCurrency.value || 'CNY')
-  return digits ? `\\d+(\\.\\d{1,${digits}})?` : '\\d+'
-})
+const moneyPattern = computed(() => amountPattern(moneyCurrency.value || 'CNY'))
 
 watch(values, () => emit('dirty', JSON.stringify(values) !== baseline || Boolean(file.value)), { deep: true })
 watch(file, () => emit('dirty', true))

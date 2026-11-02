@@ -63,14 +63,13 @@ func TestAccountingOrderRunsFromReceiptToCompletion(t *testing.T) {
 	spendOutside := accounting.Input{OrganizationID: f.desktop.organization.PublicID, ParentID: card.ID, Currency: "CNY", Amount: "1", Details: map[string]any{"transaction_type": "CONSUME", "merchant": "OpenAI", "provider_transaction_id": uuid.NewString()}}
 	require.Equal(t, 400, f.request("POST", "vcc-transactions", uuid.NewString(), spendOutside).Code)
 
-	// Same-currency spend is funded from the order's receipt without a provider follow-up.
+	// Card spend only counts against the card; it does not draw on the receipt or ask the provider for anything.
 	spend := f.createIn(t, order.ID, "vcc-transactions", "CNY", "300", map[string]any{"transaction_type": "CONSUME", "merchant": "OpenAI", "provider_transaction_id": uuid.NewString()}, card.ID)
 	f.confirm(t, "vcc-transactions", spend)
-	var allocated, transfer string
-	require.NoError(t, integrationDB.QueryRow("SELECT amount::text,transfer_id::text FROM accounting_allocations WHERE card_id=$1", card.ID).Scan(&allocated, &transfer))
-	require.Equal(t, "300.000000", allocated)
-	require.Equal(t, receipt.ID, transfer)
-	var pending int
+	require.Equal(t, "300", f.cardSpent(t, card.ID))
+	var allocations, pending int
+	require.NoError(t, integrationDB.QueryRow("SELECT COUNT(*) FROM accounting_allocations WHERE card_id=$1", card.ID).Scan(&allocations))
+	require.Zero(t, allocations)
 	require.NoError(t, integrationDB.QueryRow("SELECT COUNT(*) FROM accounting_external_actions WHERE card_id=$1", card.ID).Scan(&pending))
 	require.Zero(t, pending)
 	require.True(t, f.readOrder(t, order.ID).Progress.Purchase)
@@ -103,7 +102,16 @@ func TestAccountingOrderRunsFromReceiptToCompletion(t *testing.T) {
 	require.Equal(t, order.ID, list.Items[0].ID)
 }
 
-func TestAccountingOrderCrossCurrencyCardIsToppedUp(t *testing.T) {
+// cardSpent reads a card's net confirmed spend as the API reports it.
+func (f *accountingFixture) cardSpent(t *testing.T, id string) string {
+	t.Helper()
+	var current accounting.Record
+	require.NoError(t, json.Unmarshal(accountingData(t, f.request("GET", "vcc-cards/"+id, "", nil)), &current))
+	require.NotContains(t, current.Details, "available_balance")
+	return current.Details["spent_amount"].(string)
+}
+
+func TestAccountingOrderCrossCurrencySpendNeedsNoFunding(t *testing.T) {
 	f := newAccountingFixture(t)
 	order := f.newOrder(t, "USD seats", f.receiptInput(t, "1000"))
 	receipt := f.readOrder(t, order.ID).Items["transfers"][0]
@@ -113,36 +121,32 @@ func TestAccountingOrderCrossCurrencyCardIsToppedUp(t *testing.T) {
 	spend := f.createIn(t, order.ID, "vcc-transactions", "USD", "50", map[string]any{"transaction_type": "CONSUME", "merchant": "Anthropic", "provider_transaction_id": uuid.NewString()}, card.ID)
 	f.confirm(t, "vcc-transactions", spend)
 
-	balance := func() string {
-		var current accounting.Record
-		require.NoError(t, json.Unmarshal(accountingData(t, f.request("GET", "vcc-cards/"+card.ID, "", nil)), &current))
-		return current.Details["available_balance"].(string)
-	}
-	require.Equal(t, "-50", balance())
+	// Spend in another currency than the receipt is simply spend; there is no balance to top up.
+	require.Equal(t, "50", f.cardSpent(t, card.ID))
+	require.Equal(t, 404, f.request("POST", "vcc-cards/"+card.ID+"/top-ups", uuid.NewString(), map[string]string{"amount": "80"}).Code)
+	require.Equal(t, 404, f.request("POST", "transfers/"+receipt.ID+"/allocations", uuid.NewString(), map[string]string{"card_id": card.ID, "amount": "1"}).Code)
+	totals := f.readOrder(t, order.ID).Totals
+	require.Equal(t, []accounting.OrderTotal{{Currency: "CNY", Received: "1000", Invoiced: "0", Spent: "0", AICost: "0"}, {Currency: "USD", Received: "0", Invoiced: "0", Spent: "50", AICost: "0"}}, totals)
 
-	topUp := accountingObject(t, f.request("POST", "vcc-cards/"+card.ID+"/top-ups", uuid.NewString(), map[string]string{"amount": "80", "reference": "AIRWALLEX-1"}))
-	require.Equal(t, "80", topUp["amount"])
-	require.Equal(t, "30", balance())
-	var pending int
-	require.NoError(t, integrationDB.QueryRow("SELECT COUNT(*) FROM accounting_external_actions WHERE card_id=$1", card.ID).Scan(&pending))
-	require.Zero(t, pending)
-
-	// A top-up is our own money: not customer income, not a receipt, not visible to the organization.
+	// A legacy top-up stays out of every customer figure and list.
+	topUp := uuid.NewString()
+	_, err := integrationDB.Exec(`INSERT INTO accounting_transfers(id,organization_id,status,currency,amount,occurred_at,details,created_by,version) SELECT $1,organization_id,'RECEIVED','USD',80,NOW(),'{"funding_type":"TOPUP","payer_name":"Card top-up"}'::jsonb,created_by,1 FROM accounting_transfers WHERE id=$2`, topUp, receipt.ID)
+	require.NoError(t, err)
 	for _, entry := range accountingSummary(t, f) {
 		if entry.Currency == "USD" {
-			require.Equal(t, "0", entry.Received)
+			assertAccountingAmount(t, "0", entry.Received)
+			assertAccountingAmount(t, "50", entry.Consumed)
 		}
 	}
 	listed := f.request("GET", "transfers?organization_id="+f.desktop.organization.PublicID, "", nil).Body.String()
-	require.NotContains(t, listed, topUp["id"].(string))
+	require.NotContains(t, listed, topUp)
 	req := httptest.NewRequest("GET", "/api/v1/organization/accounting/transfers", nil)
 	req.Header.Set("X-Test-Role", "user")
 	req.Header.Set("X-Test-Actor", strconv.FormatInt(f.desktop.user.ID, 10))
 	res := httptest.NewRecorder()
 	f.router.ServeHTTP(res, req)
 	require.Equal(t, 200, res.Code)
-	require.NotContains(t, res.Body.String(), topUp["id"].(string))
-	require.Equal(t, 409, f.request("POST", "transfers/"+topUp["id"].(string)+"/void", uuid.NewString(), map[string]string{"reason": "mistake"}).Code)
+	require.NotContains(t, res.Body.String(), topUp)
 }
 
 func TestAccountingOrderLinksCloseAndRefund(t *testing.T) {

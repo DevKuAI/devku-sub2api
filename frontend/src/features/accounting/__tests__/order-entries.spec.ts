@@ -35,7 +35,7 @@ describe('order entry definitions', () => {
   it('proposes the not yet invoiced amount and splits the invoice tax exactly', () => {
     const receipt = record({ status: 'RECEIVED', amount: '1060', details: { tax_rate: '0.06', receiving_account_name: '我方公司' } })
     const values = entryDefinitions.invoices.defaults(context({ transfers: [receipt] }))
-    expect(values).toMatchObject({ amount: '1060', tax_rate: '6', issuer_name: '我方公司' })
+    expect(values).toMatchObject({ amount: '1060.00', tax_rate: '6', issuer_name: '我方公司' })
     const payload = entryDefinitions.invoices.payload({ ...values, invoice_number: 'INV-1', issue_date: '2026-10-12' }, context())
     expect(payload.details).toMatchObject({ net_amount: '1000', tax_amount: '60', recipient_name: '上海星海智能科技有限公司', invoice_number: 'INV-1' })
     expect(entryDefinitions.invoices.values(record({ amount: '1060', details: { net_amount: '1000', tax_amount: '60' } })).tax_rate).toBe('6')
@@ -46,7 +46,7 @@ describe('order entry definitions', () => {
     const spend = record({ status: 'CONFIRMED', currency: 'USD', amount: '300', occurred_at: '2026-10-12T02:00:00Z', parent_id: 'card-one', details: { transaction_type: 'CONSUME', merchant: 'Anthropic', vendor_id: 'vendor-anthropic' } })
     const covered = record({ status: 'CONFIRMED', currency: 'USD', amount: '100' })
     const items = { 'vcc-cards': [card], 'vcc-transactions': [spend], 'vendor-invoices': [covered] }
-    expect(entryDefinitions['vendor-invoices'].defaults(context(items))).toMatchObject({ vendor_id: 'vendor-anthropic', currency: 'USD', amount: '200', period_start: '2026-10-01', period_end: '2026-10-31' })
+    expect(entryDefinitions['vendor-invoices'].defaults(context(items))).toMatchObject({ vendor_id: 'vendor-anthropic', currency: 'USD', amount: '200.00', period_start: '2026-10-01', period_end: '2026-10-31' })
     expect(entryDefinitions['vcc-transactions'].defaults(context(items))).toMatchObject({ parent_id: 'card-one', vendor_id: 'vendor-anthropic' })
   })
 

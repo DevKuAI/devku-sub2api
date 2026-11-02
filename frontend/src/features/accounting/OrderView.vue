@@ -104,7 +104,6 @@
           </header>
 
           <template v-for="kind in block.kinds" :key="kind">
-            <p v-if="kind === 'vcc-cards' && negativeCards" class="accounting-warning">{{ t('accounting.orders.negativeCardHint') }}</p>
             <ul v-if="rows[kind].length" class="accounting-entries" :data-kind="kind">
               <template v-for="record in rows[kind]" :key="record.id">
                 <li v-if="editor?.recordId === record.id" class="accounting-entry">
@@ -263,7 +262,6 @@ const rows = computed(
 )
 const context = computed<EntryContext>(() => ({ order: order.value!, items: rows.value, receivingAccounts: receivingAccounts.value, vendors: vendors.value }))
 const cardsReady = computed(() => Boolean(order.value) && activeCards(context.value).length > 0)
-const negativeCards = computed(() => rows.value['vcc-cards'].some((card) => Number(card.details.available_balance) < 0))
 const stateTone = computed(() => ({ OPEN: 'badge-warning', COMPLETED: 'badge-success', CLOSED: 'badge-gray' })[order.value?.state || 'OPEN'])
 const totals = computed(() =>
   totalMetrics

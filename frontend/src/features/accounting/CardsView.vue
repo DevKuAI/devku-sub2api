@@ -18,13 +18,22 @@
       </div>
 
       <p v-if="error" role="alert" class="accounting-error">{{ error }}</p>
+      <div v-if="pools.length" class="card accounting-card-pools" data-testid="card-pools">
+        <p class="text-sm text-gray-500 dark:text-dark-400">{{ t('accounting.home.cardPools') }}</p>
+        <ul class="flex flex-wrap gap-x-6 gap-y-1">
+          <li v-for="pool in pools" :key="pool.key" class="text-sm">
+            <router-link class="accounting-link" :to="{ name: 'AdminAccountingChannel', params: { accountId: pool.accountId } }">{{ pool.name }}</router-link>
+            <span class="ms-2 font-medium tabular-nums text-gray-900 dark:text-white">{{ formatMoney(pool.balance, pool.currency) }}</span>
+          </li>
+        </ul>
+      </div>
       <div v-if="rows.length" class="card overflow-x-auto">
         <table class="accounting-table">
           <thead>
             <tr>
               <th>{{ t('accounting.home.card') }}</th>
               <th>{{ t('accounting.home.organization') }}</th>
-              <th class="text-right">{{ t('accounting.home.balance') }}</th>
+              <th class="text-right">{{ t('accounting.home.spent') }}</th>
               <th>{{ t('accounting.status') }}</th>
               <th class="text-right">{{ t('common.actions') }}</th>
             </tr>
@@ -42,22 +51,14 @@
                     {{ card.details.order_name || t('accounting.home.order') }}
                   </router-link>
                 </td>
-                <td class="text-right tabular-nums" :class="{ 'text-amber-700 dark:text-amber-300': negative(card) }">
-                  {{ formatMoney(String(card.details.available_balance || '0'), card.currency) }}
+                <td class="text-right tabular-nums">
+                  {{ formatMoney(String(card.details.spent_amount || '0'), card.currency) }}
                 </td>
                 <td><span class="badge" :class="card.status === 'ACTIVE' ? 'badge-success' : 'badge-gray'">{{ t(`accounting.home.cardStates.${card.status}`) }}</span></td>
                 <td class="text-right">
                   <div v-if="card.status === 'ACTIVE'" class="flex justify-end gap-3">
-                    <button type="button" class="accounting-link text-sm" :aria-expanded="toppingUp === card.id" data-testid="card-top-up-open" @click="toppingUp = toppingUp === card.id ? '' : card.id">
-                      {{ t('accounting.entries.topUp') }}
-                    </button>
                     <button type="button" class="accounting-link text-sm text-red-600 dark:text-red-400" @click="closing = card">{{ t('accounting.entries.closeCard') }}</button>
                   </div>
-                </td>
-              </tr>
-              <tr v-if="toppingUp === card.id">
-                <td colspan="5" class="bg-gray-50/70 dark:bg-dark-800/40">
-                  <CardTopUpForm :card="card" @saved="toppedUp" @cancel="toppingUp = ''" />
                 </td>
               </tr>
             </template>
@@ -86,22 +87,21 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import AccountingNav from './components/AccountingNav.vue'
-import CardTopUpForm from './components/order/CardTopUpForm.vue'
 import * as api from './api'
 import { formatMoney } from './format'
-import { compareMoney } from './money'
 import { cardLabel } from './orderEntries'
 import { errorMessage, orderRoute } from './shared'
-import type { AccountingOrganization, AccountingRecord } from './types'
+import type { AccountingOrganization, AccountingRecord, ChannelAccountSummary } from './types'
 import '@/styles/accounting.css'
 
-// Every card across organizations with its balance; cards are added inside orders, topped up and closed here.
+// Every card across organizations with its spend; cards are added inside orders and closed here. The money on the
+// cards is the channel ledger's card balance, shown above the list.
 const { t, te } = useI18n()
 const states = ['', 'ACTIVE', 'CLOSED']
 const pageSize = 20
@@ -113,15 +113,25 @@ const organizations = ref<AccountingOrganization[]>([])
 const loading = ref(true)
 const busy = ref(false)
 const error = ref('')
-const toppingUp = ref('')
 const closing = ref<AccountingRecord | null>(null)
 const requestKey = api.stableRequest()
+const channels = ref<ChannelAccountSummary[]>([])
+const pools = computed(() =>
+  channels.value.flatMap((summary) =>
+    summary.wallets
+      .filter((wallet) => wallet.wallet === 'CARD')
+      .map((wallet) => ({
+        key: `${summary.account.id}/${wallet.currency}`,
+        accountId: summary.account.id,
+        name: summary.account.name || summary.account.account_ref,
+        balance: wallet.balance,
+        currency: wallet.currency,
+      })),
+  ),
+)
 
 function organizationName(id: string) {
   return organizations.value.find((organization) => organization.id === id)?.name || id
-}
-function negative(card: AccountingRecord) {
-  return compareMoney(String(card.details.available_balance || '0'), '0') < 0
 }
 async function load() {
   loading.value = true
@@ -135,10 +145,6 @@ async function load() {
   } finally {
     loading.value = false
   }
-}
-function toppedUp() {
-  toppingUp.value = ''
-  void load()
 }
 async function closeCard() {
   const card = closing.value
@@ -167,6 +173,8 @@ watch(
 watch(page, load)
 onMounted(async () => {
   void load()
+  // The pool line is a pointer to the channel ledger; the card list works without it.
+  api.channelAccounts().then((list) => (channels.value = list), () => undefined)
   try {
     organizations.value = await api.organizations({})
   } catch (cause) {

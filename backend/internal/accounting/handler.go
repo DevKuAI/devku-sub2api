@@ -61,7 +61,6 @@ func (h *Handler) RegisterAdmin(parent *gin.RouterGroup) {
 	g.POST("/vcc-cards/:id/close", func(c *gin.Context) { h.lifecycle(c, "vcc-cards", "close") })
 	g.GET("/vcc-cards/:id/transactions", func(c *gin.Context) { h.list(c, "vcc-transactions") })
 	g.POST("/vcc-cards/:id/transactions", func(c *gin.Context) { h.create(c, "vcc-transactions") })
-	g.POST("/transfers/:id/allocations", h.allocate)
 	g.GET("/transfers/:id/allocations", h.allocationHistory)
 	g.GET("/vcc-cards/:id/allocations", h.allocationHistory)
 	g.POST("/expenses/:id/payments", h.pay)
@@ -413,27 +412,6 @@ func (h *Handler) lifecycle(c *gin.Context, kind, action string) {
 		return r, err
 	})
 }
-func (h *Handler) allocate(c *gin.Context) {
-	r := h.record(c, "transfers")
-	if r == nil {
-		return
-	}
-	var in struct {
-		CardID string `json:"card_id"`
-		Amount string `json:"amount"`
-	}
-	if c.ShouldBindJSON(&in) != nil {
-		response.ErrorFrom(c, ErrInvalid)
-		return
-	}
-	h.run(c, Operation{Org: r.Org, Kind: "transfers", Object: r.ID, Action: "allocate", Payload: in}, func(tx *sql.Tx) (any, error) {
-		locked, err := get(c.Request.Context(), tx, "transfers", r.ID, r.Org, true)
-		if err != nil {
-			return nil, err
-		}
-		return h.engine.Allocate(c.Request.Context(), tx, locked, in.CardID, in.Amount, actor(c))
-	})
-}
 func (h *Handler) pay(c *gin.Context) {
 	r := h.record(c, "expenses")
 	if r == nil {
@@ -515,7 +493,7 @@ func (h *Handler) export(c *gin.Context) {
 			extra = append(extra, field)
 		}
 	}
-	extra = append(extra, "effective_amount", "unallocated_amount", "allocated_amount", "available_balance", "paid_amount", "settled_amount", "outstanding_amount", "funding_type")
+	extra = append(extra, "effective_amount", "spent_amount", "paid_amount", "settled_amount", "outstanding_amount", "funding_type")
 	headers := append([]string{"id", "organization_id", "status", "currency", "amount", "occurred_at", "organization_name", "reconciliation_status"}, extra...)
 	_ = writer.Write(headers)
 	names := map[int64]string{}
@@ -588,7 +566,7 @@ func csvText(value string) string {
 
 func csvField(key, value string) string {
 	switch key {
-	case "amount", "effective_amount", "original_amount", "adjustment_amount", "unallocated_amount", "allocated_amount", "available_balance", "paid_amount", "unpaid_amount", "overpaid_amount", "settled_amount", "outstanding_amount", "sales_amount", "tax_rate", "tax_amount", "net_sales_amount", "receivable_amount", "received_amount", "credit_limit", "net_amount", "total_amount", "target_amount", "fee_amount", "exchange_rate", "allocated_cost", "unallocated_cost":
+	case "amount", "effective_amount", "original_amount", "adjustment_amount", "unallocated_amount", "spent_amount", "paid_amount", "unpaid_amount", "overpaid_amount", "settled_amount", "outstanding_amount", "sales_amount", "tax_rate", "tax_amount", "net_sales_amount", "receivable_amount", "received_amount", "credit_limit", "net_amount", "total_amount", "target_amount", "fee_amount", "exchange_rate", "allocated_cost", "unallocated_cost":
 		if len(value) <= 64 {
 			if d, err := decimal.NewFromString(value); err == nil && d.Exponent() >= -12 && d.Exponent() <= 18 {
 				return d.String()

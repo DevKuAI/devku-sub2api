@@ -31,7 +31,7 @@ const DataTable = {
   template:
     '<table><tr v-for="row in data" :key="row.id" data-testid="row" @click="$emit(\'row-click\', row)"><td v-for="column in columns" :key="column.key"><slot :name="`cell-${column.key}`" :row="row" /></td></tr></table>',
 }
-const summary = { currency: 'CNY', received: '1000', allocated: '600', consumed: '200', refunded: '0', balance: '400', unallocated: '400', unmatched: 1 }
+const summary = { currency: 'CNY', received: '1000', consumed: '400', refunded: '0', unmatched: 1 }
 
 async function render(query: Record<string, string> = {}) {
   Object.assign(route, reactive({ query }))
@@ -57,7 +57,11 @@ describe('organization accounting workspace', () => {
     expect(wrapper.get('h1').text()).toBe('财务账目')
     expect(wrapper.text()).toContain('上海星海智能科技有限公司')
     expect(wrapper.findAll('[role="tab"]').map((tab) => tab.text())).toEqual(['概览', '到账', 'VCC 卡片', '卡交易', '合同', '发票', '对账单'])
-    expect(wrapper.get('[data-testid="accounting-overview"]').text()).toContain('400.00')
+    const overview = wrapper.get('[data-testid="accounting-overview"]').text()
+    expect(overview).toContain('400.00')
+    expect(overview).toContain('卡消费')
+    expect(overview).not.toContain('余额')
+    expect(overview).not.toContain('已分配')
     expect(api.summary).toHaveBeenCalledWith(true, {}, expect.anything())
   })
 
@@ -71,7 +75,7 @@ describe('organization accounting workspace', () => {
     expect(wrapper.get('[data-testid="accounting-overview"]').text()).toContain('400.00')
   })
 
-  it('shows a retryable error instead of an empty balance when the summary fails', async () => {
+  it('shows a retryable error instead of an empty overview when the summary fails', async () => {
     api.summary.mockRejectedValueOnce({ message: '资金汇总加载失败' })
     const wrapper = await render()
     expect(wrapper.get('[role="alert"]').text()).toContain('资金汇总加载失败')
@@ -99,7 +103,7 @@ describe('organization accounting workspace', () => {
     expect(wrapper.get('[data-testid="accounting-overview"]').element).toBe(panel)
   })
 
-  it('hides the previous balance while a changed organization loads', async () => {
+  it('hides the previous figures while a changed organization loads', async () => {
     const wrapper = await render()
     access.refreshDesktopOrganizationAccess.mockResolvedValueOnce({ public_id: 'org-two', name: '另一家企业' })
     let finish!: (value: typeof summary[]) => void
@@ -107,7 +111,7 @@ describe('organization accounting workspace', () => {
     window.dispatchEvent(new Event('focus')); await flushPromises()
     expect(wrapper.text()).toContain('另一家企业')
     expect(wrapper.find('[data-testid="accounting-overview"]').exists()).toBe(false)
-    finish([{ ...summary, balance: '900' }]); await flushPromises()
+    finish([{ ...summary, consumed: '900' }]); await flushPromises()
     expect(wrapper.get('[data-testid="accounting-overview"]').text()).toContain('900.00')
   })
 
@@ -116,9 +120,9 @@ describe('organization accounting workspace', () => {
     let finish!: (value: typeof summary[]) => void
     api.summary.mockReturnValueOnce(new Promise(resolve => { finish = resolve }))
     window.dispatchEvent(new Event('focus')); await flushPromises()
-    api.summary.mockResolvedValueOnce([{ ...summary, balance: '900' }])
+    api.summary.mockResolvedValueOnce([{ ...summary, consumed: '900' }])
     window.dispatchEvent(new Event('focus')); await flushPromises()
-    finish([{ ...summary, balance: '25' }]); await flushPromises()
+    finish([{ ...summary, consumed: '25' }]); await flushPromises()
     expect(wrapper.get('[data-testid="accounting-overview"]').text()).toContain('900.00')
     expect(wrapper.get('[data-testid="accounting-overview"]').text()).not.toContain('25.00')
   })
