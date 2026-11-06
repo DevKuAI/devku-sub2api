@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { entryDefinitions, percent, type EntryContext } from '../orderEntries'
+import { entryDefinitions, percent, receiptInvoice, uninvoicedReceipts, type EntryContext } from '../orderEntries'
 import { receivingAccount, record, vendors } from './testing'
 import type { AccountingOrder, AccountingRecord, OrderItemKind } from '../types'
 
@@ -30,6 +30,21 @@ describe('order entry definitions', () => {
     const existing = record({ status: 'RECEIVED', amount: '990', details: { sales_amount: '1000', difference_reason: '手续费' } })
     const values = { ...entryDefinitions.transfers.values(existing), remark: '补充' }
     expect(entryDefinitions.transfers.payload(values, context(), existing).details.sales_amount).toBe('1000')
+  })
+
+  it('starts a new invoice from the oldest payment that has no invoice yet', () => {
+    const october = record({ id: 'receipt-oct', status: 'RECEIVED', currency: 'CNY', amount: '990', occurred_at: '2026-10-05T02:00:00Z', details: { sales_amount: '1000', tax_rate: '0.06' } })
+    const november = record({ id: 'receipt-nov', status: 'RECEIVED', currency: 'CNY', amount: '1060', occurred_at: '2026-11-05T02:00:00Z', details: { sales_amount: '1060', tax_rate: '0.03' } })
+    const invoiced = record({ id: 'invoice-oct', status: 'VERIFIED', currency: 'CNY', amount: '1000', details: { transfer_id: 'receipt-oct', invoice_number: 'INV-10' } })
+    const items = { transfers: [november, october], invoices: [invoiced] }
+    expect(uninvoicedReceipts(context(items)).map((receipt) => receipt.id)).toEqual(['receipt-nov'])
+    expect(uninvoicedReceipts(context(items), 'invoice-oct').map((receipt) => receipt.id)).toEqual(['receipt-oct', 'receipt-nov'])
+    expect(receiptInvoice(context(items), october)?.details.invoice_number).toBe('INV-10')
+    // The sales amount (tax included) is invoiced, not what arrived after bank fees.
+    expect(entryDefinitions.invoices.defaults(context({ transfers: [november, october] }))).toMatchObject({ transfer_id: 'receipt-oct', amount: '1000.00', tax_rate: '6' })
+    expect(entryDefinitions.invoices.defaults(context(items))).toMatchObject({ transfer_id: 'receipt-nov', amount: '1060.00', tax_rate: '3' })
+    const payload = entryDefinitions.invoices.payload({ ...entryDefinitions.invoices.defaults(context(items)), invoice_number: 'INV-11' }, context(items))
+    expect(payload.details.transfer_id).toBe('receipt-nov')
   })
 
   it('proposes the not yet invoiced amount and splits the invoice tax exactly', () => {

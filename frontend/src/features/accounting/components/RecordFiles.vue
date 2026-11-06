@@ -1,8 +1,9 @@
 <template>
   <section class="space-y-3" data-testid="record-files">
     <header class="flex flex-wrap items-center justify-between gap-3">
-      <h2 class="accounting-section-title">{{ t('accounting.files.title') }}</h2>
+      <h2 class="accounting-section-title">{{ title || t('accounting.files.title') }}</h2>
     </header>
+    <p v-if="hint" class="text-xs text-gray-500 dark:text-dark-400">{{ hint }}</p>
     <AccountingFileUpload v-if="!customer && record.status !== 'VOID'" :model-value="selectedFile" :disabled="busy" :busy="uploading" @update:model-value="upload" />
     <div v-if="error" role="alert" class="accounting-error flex flex-wrap items-center justify-between gap-3">
       <p>{{ error }}</p>
@@ -53,7 +54,8 @@ import * as api from '../api'
 import { errorMessage } from '../shared'
 import type { AccountingAttachment, AccountingKind, AccountingRecord } from '../types'
 
-const props = defineProps<{ kind: AccountingKind; record: AccountingRecord; customer?: boolean }>()
+// title and hint name what the files are for when they are not the record's own proof.
+const props = defineProps<{ kind: AccountingKind; record: AccountingRecord; customer?: boolean; title?: string; hint?: string }>()
 const emit = defineEmits<{ changed: []; uploaded: [] }>()
 const { t, te } = useI18n()
 const files = ref<AccountingAttachment[]>([])

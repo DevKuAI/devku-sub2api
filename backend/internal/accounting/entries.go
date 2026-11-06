@@ -18,7 +18,7 @@ const entryRemovedReason = "Removed on the order page"
 // vendor it is matched to and a note are kept on the order page; its amount, date and card are the platform's.
 var entryFields = map[string][]string{
 	"transfers":        strings.Fields("payer_name bank_reference contact_id sales_amount tax_rate tax_inclusive difference_reason remark"),
-	"invoices":         strings.Fields("invoice_code invoice_number issue_date issuer_name issuer_tax_id recipient_name recipient_tax_id net_amount tax_amount remark"),
+	"invoices":         strings.Fields("invoice_code invoice_number issue_date issuer_name issuer_tax_id recipient_name recipient_tax_id net_amount tax_amount transfer_id remark"),
 	"vendor-invoices":  strings.Fields("vendor invoice_number period_start period_end remark"),
 	"vcc-transactions": strings.Fields("vendor_id remark"),
 }
@@ -198,6 +198,12 @@ func (e *Engine) checkReceiptCorrection(ctx context.Context, tx *sql.Tx, old, r 
 	}
 	if r.Currency != old.Currency && used.IsPositive() {
 		return ErrState.WithMetadata(map[string]string{"field": "receipt_in_use"})
+	}
+	if r.Currency != old.Currency {
+		// The invoice issued for it keeps its currency.
+		if err = receiptInvoiced(ctx, tx, old.ID); err != nil {
+			return err
+		}
 	}
 	total, err := effective(ctx, tx, "transfers", r)
 	if err != nil {

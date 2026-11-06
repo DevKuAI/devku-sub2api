@@ -10,6 +10,19 @@ function render(props = {}) {
 }
 
 describe('accounting file selection', () => {
+  it('takes a pasted screenshot or a dropped file, and ignores other types', async () => {
+    const wrapper = render()
+    const zone = wrapper.get('[data-testid="file-upload"]')
+    const screenshot = new File(['png'], 'image.png', { type: 'image/png' })
+    await zone.trigger('paste', { clipboardData: { files: [screenshot] } })
+    const pasted = wrapper.emitted('update:modelValue')?.[0]?.[0] as File
+    expect(pasted.name).toMatch(/^screenshot-\d+\.png$/)
+    await zone.trigger('drop', { dataTransfer: { files: [proof] } })
+    await zone.trigger('drop', { dataTransfer: { files: [new File(['x'], 'notes.txt', { type: 'text/plain' })] } })
+    expect(wrapper.emitted('update:modelValue')).toHaveLength(2)
+    expect(wrapper.emitted('update:modelValue')?.[1]).toEqual([proof])
+  })
+
   it('opens the native file chooser from a keyboard accessible button', async () => {
     const wrapper = render()
     const input = wrapper.get('input[type="file"]')
