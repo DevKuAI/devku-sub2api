@@ -38,6 +38,8 @@ func (h *Handler) registerChannels(g, parent *gin.RouterGroup) {
 	g.POST("/channel-imports/:id/revoke", h.revokeChannelImport)
 	g.GET("/channel-imports/:id/files/:index/download-url", h.channelFileDownload)
 	g.GET("/channel-template", h.channelTemplate)
+	g.PATCH("/channel-cards/:id", h.bindChannelCard)
+	g.POST("/channel-lines/:id/rebook", h.rebookChannelLine)
 	upload := parent.Group("/accounting")
 	upload.Use(requireAccountingPermission)
 	upload.POST("/channel-imports", middleware.StrictBodyLimit(MaxChannelUploadBytes), h.importChannel)
@@ -155,12 +157,46 @@ func (h *Handler) updateChannelAccount(c *gin.Context) {
 	})
 }
 
+// bindChannelCard binds a statement card to an organization card (or unbinds it with an empty card) and books or
+// moves its lines accordingly.
+func (h *Handler) bindChannelCard(c *gin.Context) {
+	if !idValid(c, c.Param("id")) {
+		return
+	}
+	var in struct {
+		VccCardID string `json:"vcc_card_id"`
+	}
+	if c.ShouldBindJSON(&in) != nil {
+		response.ErrorFrom(c, ErrInvalid)
+		return
+	}
+	in.VccCardID = strings.TrimSpace(in.VccCardID)
+	if in.VccCardID != "" && !idValid(c, in.VccCardID) {
+		return
+	}
+	id := c.Param("id")
+	h.run(c, Operation{Global: true, Kind: "channel-cards", Object: id, Action: "bind", Payload: in}, func(tx *sql.Tx) (any, error) {
+		return h.engine.BindChannelCard(c.Request.Context(), tx, id, in.VccCardID, actor(c))
+	})
+}
+
+// rebookChannelLine tries a line that waited for review again, once its cause was dealt with.
+func (h *Handler) rebookChannelLine(c *gin.Context) {
+	if !idValid(c, c.Param("id")) {
+		return
+	}
+	id := c.Param("id")
+	h.run(c, Operation{Global: true, Kind: "channel-lines", Object: id, Action: "rebook", Payload: map[string]string{"id": id}}, func(tx *sql.Tx) (any, error) {
+		return h.engine.RebookChannelLine(c.Request.Context(), tx, id, actor(c))
+	})
+}
+
 func (h *Handler) channelLines(c *gin.Context) {
 	if !idValid(c, c.Param("id")) {
 		return
 	}
 	page, size := pageParams(c)
-	f := ChannelLineFilter{Wallet: c.Query("wallet"), Currency: c.Query("currency"), Type: c.Query("type"), Card: c.Query("card_id"),
+	f := ChannelLineFilter{Wallet: c.Query("wallet"), Currency: c.Query("currency"), Type: c.Query("type"), Card: c.Query("card_id"), Booking: c.Query("booking"),
 		From: c.Query("from"), To: c.Query("to"), Search: c.Query("search"), Page: page, Size: size}
 	items, total, err := h.engine.ChannelLines(c.Request.Context(), c.Param("id"), f)
 	if response.ErrorFrom(c, err) {

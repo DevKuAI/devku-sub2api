@@ -36,9 +36,13 @@
           </dl>
         </section>
 
-        <section v-if="alerts.length || detail.missing_proofs" class="card border-amber-200 p-5 dark:border-amber-900/60" data-testid="channel-alerts">
+        <section v-if="alerts.length || detail.missing_proofs || pendingCount" class="card border-amber-200 p-5 dark:border-amber-900/60" data-testid="channel-alerts">
           <h2 class="accounting-section-title">{{ t('accounting.channels.detail.alerts') }}</h2>
           <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700 dark:text-dark-200">
+            <li v-if="pendingCount" data-testid="channel-pending">
+              {{ t('accounting.channels.booking.pendingCount', { cards: detail.pending_cards, orders: detail.pending_orders, review: detail.pending_review }) }}
+              <button type="button" class="accounting-link ml-2" data-testid="channel-show-pending" @click="filters.booking = 'PENDING'">{{ t('accounting.channels.booking.showPending') }}</button>
+            </li>
             <li v-for="alert in alerts" :key="alert">{{ alert }}</li>
             <li v-if="detail.missing_proofs">
               {{ t('accounting.channels.proofs.missingCount', { count: detail.missing_proofs }) }}
@@ -106,11 +110,12 @@
                   <th>{{ t('accounting.channels.detail.card') }}</th>
                   <th class="text-right">{{ t('accounting.channels.detail.spends') }}</th>
                   <th class="text-right">{{ t('accounting.channels.detail.spend') }}</th>
-                  <th>{{ t('accounting.channels.detail.lastSpend') }}</th>
+                  <th>{{ t('accounting.channels.binding.title') }}</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="card in detail.card_spend" :key="`${card.id}-${card.currency}`" class="accounting-clickable-row" @click="filterCard(card.id)">
+                <template v-for="card in detail.card_spend" :key="`${card.id}-${card.currency}`">
+                <tr class="accounting-clickable-row" :data-testid="`channel-card-${card.card_ref}`" @click="filterCard(card.id)">
                   <td>
                     <p class="font-medium text-gray-900 dark:text-white">{{ card.card_name || card.card_ref }}</p>
                     <p class="text-xs text-gray-500">{{ card.card_last4 ? `**** ${card.card_last4}` : card.card_ref }}</p>
@@ -120,8 +125,24 @@
                     {{ formatMoney(card.spend, card.currency) }}
                     <span v-if="card.refund !== '0.00'" class="block text-xs text-gray-500">{{ t('accounting.channels.detail.refund') }} {{ formatMoney(card.refund, card.currency) }}</span>
                   </td>
-                  <td>{{ card.last_at ? formatDate(card.last_at) : '—' }}</td>
+                  <td>
+                    <template v-if="card.vcc_card_id">
+                      <p>{{ card.organization_name }}</p>
+                      <p class="text-xs text-gray-500">{{ card.vcc_card_name }}</p>
+                    </template>
+                    <span v-else class="badge badge-warning">{{ t('accounting.channels.binding.unbound') }}</span>
+                    <p v-if="card.pending" class="text-xs text-amber-700 dark:text-amber-300">{{ t('accounting.channels.binding.pending', { count: card.pending }) }}</p>
+                    <button type="button" class="accounting-link mt-1 block text-xs" :aria-expanded="binding === card.id" data-testid="channel-bind-open" @click.stop="binding = binding === card.id ? '' : card.id">
+                      {{ t(card.vcc_card_id ? 'accounting.channels.binding.rebind' : 'accounting.channels.binding.bind') }}
+                    </button>
+                  </td>
                 </tr>
+                <tr v-if="binding === card.id">
+                  <td colspan="4" class="bg-gray-50/70 dark:bg-dark-800/40">
+                    <BindCardForm :channel-card="card" @saved="bound" @close="binding = ''" />
+                  </td>
+                </tr>
+                </template>
               </tbody>
             </table>
             <p v-else class="px-5 pb-5 pt-2 text-sm text-gray-500">{{ t('accounting.channels.detail.none') }}</p>
@@ -146,6 +167,9 @@
             <input v-model.trim="filters.search" type="search" class="input min-w-48 flex-1" :placeholder="t('accounting.channels.detail.search')" />
             <button v-if="filters.card" type="button" class="accounting-chip" aria-pressed="true" @click="filters.card = ''">
               {{ cardName(filters.card) }} ×
+            </button>
+            <button v-if="filters.booking" type="button" class="accounting-chip" aria-pressed="true" data-testid="channel-pending-chip" @click="filters.booking = ''">
+              {{ t('accounting.channels.booking.pendingFilter') }} ×
             </button>
           </div>
           <div class="overflow-x-auto">
@@ -173,6 +197,21 @@
                     <p v-if="line.remark" class="text-xs text-gray-500">{{ line.remark }}</p>
                     <p v-if="line.fee_amount" class="text-xs text-gray-500">{{ t('accounting.channels.detail.fee', { amount: formatMoney(line.fee_amount, line.currency) }) }}</p>
                     <p v-if="line.pair" class="text-xs text-gray-500">{{ t('accounting.channels.detail.pair', { wallet: `${walletLabel(line.pair.wallet, t, te)} ${line.pair.currency}`, id: line.pair.external_id }) }}</p>
+                    <p v-if="line.booking !== 'INTERNAL'" class="mt-1 flex flex-wrap items-center gap-2 text-xs" :data-testid="`channel-booking-${line.booking}`">
+                      <span class="badge" :class="line.booking.startsWith('PENDING') ? 'badge-warning' : 'badge-gray'">{{ t(`accounting.channels.booking.states.${line.booking}`) }}</span>
+                      <span v-if="line.booking_note" class="text-gray-500">{{ bookingNote(line.booking_note) }}</span>
+                      <router-link v-if="line.order_id" class="accounting-link" :to="orderRoute(line.order_id)">{{ line.order_name }}</router-link>
+                      <router-link
+                        v-if="line.booking === 'PENDING_ORDER'"
+                        class="accounting-link"
+                        :to="{ name: 'AdminAccountingOrderNew', query: { organization: cardOrganization(line.channel_card_id) } }"
+                      >
+                        {{ t('accounting.channels.booking.createOrder') }}
+                      </router-link>
+                      <button v-if="line.booking === 'PENDING_REVIEW'" type="button" class="accounting-link" :disabled="busy" data-testid="channel-rebook" @click="rebook(line)">
+                        {{ t('accounting.channels.booking.rebook') }}
+                      </button>
+                    </p>
                   </td>
                   <td class="text-right tabular-nums" :class="signedClass(line.amount)">{{ formatMoney(line.amount, line.currency) }}</td>
                   <td class="text-right tabular-nums">{{ line.balance_after ? formatMoney(line.balance_after, line.currency) : '—' }}</td>
@@ -296,12 +335,13 @@ import Pagination from '@/components/common/Pagination.vue'
 import { Icon } from '@/components/icons'
 import { useAuthStore } from '@/stores/auth'
 import PageHeader from './components/PageHeader.vue'
+import BindCardForm from './components/channel/BindCardForm.vue'
 import ProofUploader from './components/channel/ProofUploader.vue'
 import WalletFlow from './components/channel/WalletFlow.vue'
 import * as api from './api'
 import { lineTypeLabel, signedClass, walletLabel } from './channelShared'
 import { formatMoney } from './format'
-import { errorMessage, formatDate, formatDateTime, isCanceled } from './shared'
+import { errorMessage, formatDate, formatDateTime, isCanceled, orderRoute } from './shared'
 import type { ChannelAccountDetail, ChannelLine, ChannelLineType, ChannelProof } from './types'
 import '@/styles/accounting.css'
 
@@ -318,12 +358,13 @@ const lines = ref<ChannelLine[]>([])
 const linesTotal = ref(0)
 const linesLoading = ref(false)
 const page = ref(1)
-const filters = reactive({ balance: '', type: '', from: '', to: '', search: '', card: '' })
+const filters = reactive({ balance: '', type: '', from: '', to: '', search: '', card: '', booking: '' as '' | 'PENDING' })
 const error = ref('')
 const busy = ref(false)
 const revoking = ref('')
 const revokeReason = ref('')
 const uploading = ref('')
+const binding = ref('')
 const removing = ref<ChannelProof | null>(null)
 const requestKey = api.stableRequest()
 let linesRequest: AbortController | null = null
@@ -358,6 +399,30 @@ const alerts = computed(() => {
   return out
 })
 
+const pendingCount = computed(() => (detail.value ? detail.value.pending_cards + detail.value.pending_orders + detail.value.pending_review : 0))
+function bookingNote(note: string) {
+  return te(`accounting.channels.booking.notes.${note}`) ? t(`accounting.channels.booking.notes.${note}`) : te(`accounting.errors.fields.${note}`) ? t(`accounting.errors.fields.${note}`) : note
+}
+function cardOrganization(id?: string) {
+  return detail.value?.card_spend.find((card) => card.id === id)?.organization_id || ''
+}
+async function bound() {
+  binding.value = ''
+  await Promise.all([load(), loadLines()])
+}
+async function rebook(line: ChannelLine) {
+  busy.value = true
+  error.value = ''
+  try {
+    await api.rebookChannelLine(line.id, requestKey(`channel-lines/${line.id}/rebook`, {}))
+    requestKey.reset()
+    await Promise.all([load(), loadLines()])
+  } catch (cause) {
+    error.value = errorMessage(cause, t, te)
+  } finally {
+    busy.value = false
+  }
+}
 function cardName(id: string) {
   const card = detail.value?.card_spend.find((item) => item.id === id)
   return card ? card.card_name || card.card_ref : id
@@ -387,6 +452,7 @@ async function loadLines() {
         currency: currency || undefined,
         type: filters.type || undefined,
         card_id: filters.card || undefined,
+        booking: filters.booking || undefined,
         from: filters.from || undefined,
         to: filters.to || undefined,
         search: filters.search || undefined,
@@ -457,7 +523,7 @@ async function download(id: string, index: number) {
 }
 
 watch(
-  () => [filters.balance, filters.type, filters.from, filters.to, filters.search, filters.card],
+  () => [filters.balance, filters.type, filters.from, filters.to, filters.search, filters.card, filters.booking],
   () => {
     if (page.value !== 1) page.value = 1
     else void loadLines()

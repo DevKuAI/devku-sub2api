@@ -9,8 +9,9 @@
 - 订单列表汇总所有企业，可按企业、状态和名称筛选；新建订单只选企业并命名。
 - 订单页分收款、开票、采购、AI 发票四块，条目直接在块内添加、修改和删除，不跳转表单页。保存即生效，附件可随时补传，缺附件的条目标记“缺凭证”。
 - 新条目按订单已有信息预填：付款方取企业名称，收款账户按币种选择，开票金额取未开票的收款，AI 发票厂商、账期和金额取本订单的卡消费。
+- 卡消费只来自渠道账单导入（记账唯一入口，见[渠道账单导入](channel-import.md)）：按平台 Card ID 自动挂到卡所在的订单，订单页只能为消费选择 AI 厂商、写备注、移到同企业其他进行中的订单，不能手工登记、改金额或删除。
 - 卡只用来归属消费，企业账不维护卡余额：卡消费不占用收款，也不需要充值；收款和卡消费按各自币种分别汇总，卡片显示累计消费。卡上的钱是我方资金，看渠道账的卡余额（如 SUNRATE Card Balance）。AI 发票生效后自动对应本订单的卡消费。四块齐全时订单自动完成；有缺项需要结束时填写原因。
-- 修改：收款可改流水号、付款方、税率、日期和金额（不低于已换汇的金额）；发票和 AI 发票可改全部字段，AI 发票改后重新对应卡消费；卡消费改金额、日期或卡片时，系统撤下原消费并按新内容重新入账。
+- 修改：收款可改流水号、付款方、税率、日期和金额（不低于已换汇的金额）；发票和 AI 发票可改全部字段，AI 发票改后重新对应卡消费；卡消费只能改 AI 厂商和备注。
 - 删除：条目作废后从订单撤下，流水号、发票号和交易号可以重新录入。已有换汇的收款不能删除；删除卡片即停用。
 - 销售合同是企业的文档记录，在企业管理的“业务”页添加和编辑：名称、编号、签约与有效日期、金额（选填）、联系人、扫描件，可共享给企业查看。在这里添加的合同直接为已签约，已签约的合同仍可修改。
 - 订单可以关联本企业的一份销售合同（新建订单或编辑订单时选择），一份合同可以被多个订单关联；被订单关联的合同不能作废。
@@ -84,14 +85,14 @@ AI Invoice 可以分摊到多个已入账消费或支出，单个来源也可对
 | `/statements/{id}`、`/statements/{id}/export` | GET | 固定对账单及 CSV |
 | `/orders` | GET/POST | 订单列表（`state=open/completed/closed`）；新建订单，可带 `transfer` 同时登记收款 |
 | `/orders/{id}` | GET/PATCH | 订单详情（进度、汇总、全部记录、关联合同）；修改名称、备注和 `contract_id`（带 `version`，空字符串表示取消关联） |
-| `/orders/{id}/links` | POST | 把订单外的到账、销项发票、AI Invoice 归入订单 |
+| `/orders/{id}/links` | POST | 把订单外的到账、销项发票、AI Invoice 归入订单；`object_kind=vcc-transactions` 时把卡消费连同其退款移到本订单（同企业、两个订单都未关闭） |
 | `/orders/{id}/close`、`/orders/{id}/reopen` | POST | 手动结束（需原因）、重新打开 |
-| `/orders/{id}/entries` | POST | 在订单内新增条目（`kind` 为 transfers、invoices、vcc-cards、vcc-transactions、vendor-invoices），保存即生效 |
+| `/orders/{id}/entries` | POST | 在订单内新增条目（`kind` 为 transfers、invoices、vcc-cards、vendor-invoices），保存即生效；卡消费返回 409（`metadata.field=card_spend_from_import`） |
 | `/orders/{id}/entries/{kind}/{entryId}` | PATCH/DELETE | 修改（带 `version`）或删除订单条目 |
 
-`GET /orders` 不带 `organization_id` 时列出所有企业的订单，可用 `search` 匹配订单名或企业名。确认记录不再要求先上传凭证。发票代码和卡交易号可以留空。
+`GET /orders` 不带 `organization_id` 时列出所有企业的订单，可用 `search` 匹配订单名或企业名。确认记录不再要求先上传凭证。发票代码可以留空。
 
-新建记录可带 `order_id`；`vcc-cards`、`vcc-transactions` 必须带（退款可省略，自动沿用原消费的订单）。新增卡必须提交 `provider_card_id`（发卡平台 Card ID）和 `last_four`，不接收完整卡号；同一 Card ID 已登记时返回 409（`metadata.field=card_registered`）。
+新建记录可带 `order_id`；`vcc-cards` 必须带。`POST /vcc-transactions` 和 `POST /vcc-cards/{id}/transactions` 一律返回 409（`card_spend_from_import`），导入的卡消费也不能单独作废。新增卡必须提交 `provider_card_id`（发卡平台 Card ID）和 `last_four`，不接收完整卡号；同一 Card ID 已登记时返回 409（`metadata.field=card_registered`）。
 
 卡片的服务商、卡消费的商户、AI 发票的厂商都从厂商列表选择：卡片提交 `provider_id`（发卡服务商），消费（`CONSUME`）和 AI 发票提交 `vendor_id`（AI 厂商），后端按列表写入名称快照，忽略请求里的名称文字；停用的厂商不能新选，已选它的记录仍可保存。厂商列表接口为 `/vendors`（GET/POST）和 `/vendors/{id}`（GET/PATCH），每个厂商维护别名（小写片段，至少 3 个字符）；服务启动、新增或修改厂商时，按别名把没有厂商 ID 的历史记录自动归类，同时命中多个厂商的不归类，原文保留。
 

@@ -4,6 +4,7 @@ package repository
 
 import (
 	"encoding/json"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/accounting"
@@ -45,13 +46,19 @@ func TestAccountingRecordsChooseVendorsFromTheLists(t *testing.T) {
 	require.NoError(t, json.Unmarshal(accountingData(t, f.rawRequest("POST", "vcc-cards", uuid.NewString(), mustJSON(t, cardInput(provider.ID)))), &card))
 	require.Equal(t, provider.Name, card.Details["provider"])
 
-	spend := accounting.Input{OrganizationID: org, ParentID: card.ID, Currency: "USD", Amount: "20", OrderID: order,
-		Details: map[string]any{"transaction_type": "CONSUME", "merchant": "free text", "provider_transaction_id": uuid.NewString()}}
-	require.Equal(t, 400, f.rawJSON(t, "POST", "vcc-transactions", spend), "card spend must name an AI vendor")
-	spend.Details["vendor_id"] = ai
-	var created accounting.Record
-	require.NoError(t, json.Unmarshal(accountingData(t, f.rawRequest("POST", "vcc-transactions", uuid.NewString(), mustJSON(t, spend))), &created))
-	require.Equal(t, "OpenAI", created.Details["merchant"], "the name comes from the list, not the request")
+	// Statement spend whose merchant matches no vendor waits for one; the vendor comes from the AI vendor list.
+	spend := f.spend(t, &card, "CONSUME", "20", nil)
+	require.Empty(t, spend.Details["vendor_id"])
+	pick := func(vendor string) *httptest.ResponseRecorder {
+		return f.request("PATCH", entryPath(order, "vcc-transactions", spend.ID), uuid.NewString(), map[string]any{"version": spend.Version, "details": map[string]any{"vendor_id": vendor}})
+	}
+	require.Equal(t, 400, pick(provider.ID).Code, "a card provider is not an AI vendor")
+	var picked accounting.Record
+	require.NoError(t, json.Unmarshal(accountingData(t, pick(ai)), &picked))
+	require.Equal(t, ai, picked.Details["vendor_id"])
+	require.Equal(t, "OpenAI", picked.Details["merchant"], "the name comes from the list, not the statement text")
+	amount := f.request("PATCH", entryPath(order, "vcc-transactions", spend.ID), uuid.NewString(), map[string]any{"version": picked.Version, "amount": "25"})
+	require.Equal(t, 409, amount.Code, "the amount is the statement's")
 
 	// Renaming keeps what records saved; disabling stops new choices but not records that already had it.
 	renamed := accounting.VendorInput{Name: provider.Name + " Ltd", Aliases: provider.Aliases, Status: "DISABLED"}
@@ -70,9 +77,9 @@ func TestAccountingRecordsChooseVendorsFromTheLists(t *testing.T) {
 func TestAccountingClassifiesOlderFreeTextByAlias(t *testing.T) {
 	f := newAccountingFixture(t)
 	card := f.card(t)
-	first := f.transaction(t, card, "CONSUME", "10", "")
-	second := f.transaction(t, card, "CONSUME", "10", "")
-	third := f.transaction(t, card, "CONSUME", "10", "")
+	first := f.spend(t, card, "CONSUME", "10", nil)
+	second := f.spend(t, card, "CONSUME", "10", nil)
+	third := f.spend(t, card, "CONSUME", "10", nil)
 	set := func(id, merchant string) {
 		_, err := integrationDB.Exec(`UPDATE accounting_vcc_transactions SET details=(details - 'vendor_id') || jsonb_build_object('merchant', $2::text) WHERE id=$1`, id, merchant)
 		require.NoError(t, err)
@@ -99,7 +106,7 @@ func TestAccountingClassifiesOlderFreeTextByAlias(t *testing.T) {
 	require.Equal(t, "OPENAI *CHATGPT SUBSCR SAN FRANCISCO USA", merchant, "classification keeps the original text")
 
 	// Text matching two vendors stays unclassified rather than guessing.
-	ambiguous := f.transaction(t, card, "CONSUME", "10", "")
+	ambiguous := f.spend(t, card, "CONSUME", "10", nil)
 	set(ambiguous.ID, "OpenAI and Anthropic bundle")
 	f.newVendor(t, "AI_VENDOR", "Vendor "+uuid.NewString()[:8])
 	require.Empty(t, vendorOf(ambiguous.ID))

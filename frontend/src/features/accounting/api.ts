@@ -13,6 +13,8 @@ import type {
   AccountingOrder,
   ChannelAccountDetail,
   ChannelAccountSummary,
+  ChannelBooking,
+  ChannelCardSpend,
   ChannelConversionResult,
   ChannelImport,
   ChannelImportResult,
@@ -465,6 +467,14 @@ export async function convertChannel(files: File[]) {
 }
 export async function channelTemplate() {
   return (await apiClient.get<Blob>(`${adminBase}/channel-template`, { responseType: 'blob' })).data
+}
+// Binds a statement card to an organization card (an empty card unbinds it); its lines are booked or moved with it.
+export async function bindChannelCard(id: string, vccCardId: string, idempotencyKey: string) {
+  return (await mutate(`channel-cards/${encodeURIComponent(id)}`, { vcc_card_id: vccCardId }, idempotencyKey, 'patch')) as ChannelCardSpend
+}
+// Tries a card line that waited for review again.
+export async function rebookChannelLine(id: string, idempotencyKey: string) {
+  return (await mutate(`channel-lines/${encodeURIComponent(id)}/rebook`, {}, idempotencyKey)) as { booking: ChannelBooking; booking_note: string }
 }
 export async function revokeChannelImport(id: string, reason: string, idempotencyKey: string) {
   return (await mutate(`channel-imports/${encodeURIComponent(id)}/revoke`, { reason }, idempotencyKey)) as ChannelImport

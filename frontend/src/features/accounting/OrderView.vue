@@ -115,16 +115,16 @@
                   :record="record"
                   :cards="items['vcc-cards']"
                   :editable="open && !editor"
+                  :order="order"
                   @edit="startEdit(kind, record)"
                   @remove="pendingRemoval = { kind, record }"
                   @confirm="confirmDraft(kind, record)"
-                  @refund="startRefund(record)"
                   @changed="load"
                 />
               </template>
             </ul>
             <div v-if="editor && !editor.recordId && editor.kind === kind" class="accounting-entry-new">
-              <h3 class="text-sm font-semibold">{{ t(editor.preset?.transaction_type === 'REFUND' ? 'accounting.entries.addRefund' : `accounting.entries.add.${kind}`) }}</h3>
+              <h3 class="text-sm font-semibold">{{ t(`accounting.entries.add.${kind}`) }}</h3>
               <EntryForm :kind="kind" :context="context" :preset="editor.preset" @saved="saved" @cancel="closeEditor" @dirty="dirty = $event" />
             </div>
           </template>
@@ -132,14 +132,16 @@
             {{ t(`accounting.entries.empty.${block.step}`) }}
           </p>
 
+          <p v-if="block.step === 'purchase'" class="text-xs text-gray-500 dark:text-dark-300" data-testid="spend-from-statement">
+            {{ t('accounting.entries.spendFromStatement') }}
+            <router-link class="accounting-link" :to="{ name: 'AdminAccountingChannelImport' }">{{ t('accounting.entries.importStatement') }}</router-link>
+          </p>
           <div v-if="open && !editor" class="accounting-step-actions">
             <button
-              v-for="kind in block.kinds"
+              v-for="kind in block.kinds.filter((item) => item !== 'vcc-transactions')"
               :key="kind"
               type="button"
               class="btn btn-secondary btn-sm"
-              :disabled="kind === 'vcc-transactions' && !cardsReady"
-              :title="kind === 'vcc-transactions' && !cardsReady ? t('accounting.entries.cardFirst') : undefined"
               :data-testid="`add-${kind}`"
               @click="startAdd(kind)"
             >
@@ -189,7 +191,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { onBeforeRouteLeave, useRoute } from 'vue-router'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
@@ -219,6 +221,7 @@ interface Editor {
 
 const { t, te } = useI18n()
 const route = useRoute()
+const router = useRouter()
 const orderId = computed(() => String(route.params.orderId))
 const order = ref<AccountingOrder | null>(null)
 const receivingAccounts = ref<ReceivingAccount[]>([])
@@ -285,7 +288,8 @@ const nextStep = computed(() => {
   if (!current.progress.invoice) return pending('invoices', 'confirmInvoice') || add('invoice', 'invoices')
   if (!current.progress.purchase) {
     if (!cardsReady.value) return add('card', 'vcc-cards')
-    return pending('vcc-transactions', 'confirmSpend') || add('spend', 'vcc-transactions')
+    // Spend arrives with the card statement.
+    return { key: 'importSpend', run: () => void router.push({ name: 'AdminAccountingChannelImport' }) }
   }
   if (!current.progress.ai_invoice) {
     const some = rows.value['vendor-invoices'].some((record) => record.status === 'CONFIRMED')
@@ -313,13 +317,6 @@ function startAdd(kind: OrderItemKind) {
 }
 function startEdit(kind: OrderItemKind, record: AccountingRecord) {
   openEditor({ kind, recordId: record.id })
-}
-// A refund goes back to the card the purchase was paid with.
-function startRefund(record: AccountingRecord) {
-  openEditor({
-    kind: 'vcc-transactions',
-    preset: { parent_id: record.parent_id || '', vendor_id: String(record.details.vendor_id || ''), transaction_type: 'REFUND', original_transaction_id: record.id, amount: '' },
-  })
 }
 function closeEditor() {
   editor.value = null

@@ -61,6 +61,8 @@ type ChannelImport struct {
 type ChannelImportResult struct {
 	Import   ChannelImport           `json:"import"`
 	Accounts []ChannelAccountSummary `json:"accounts"`
+	// Bookings counts the new card lines by what happened to them in the organization books.
+	Bookings map[string]int `json:"bookings"`
 }
 
 type importedLine struct {
@@ -117,14 +119,37 @@ func (e *Engine) ImportChannel(ctx context.Context, tx *sql.Tx, importID string,
 	if err = pairTransfers(ctx, tx, inserted); err != nil {
 		return nil, err
 	}
-	if _, err = tx.ExecContext(ctx, `UPDATE accounting_channel_imports SET new_rows=$2,duplicate_rows=$3 WHERE id=$1`, importID, len(inserted), duplicates); err != nil {
+	// Card lines go on into the organization books; the ones that cannot yet are counted as pending.
+	if err = e.bookChannelLines(ctx, tx, "l.import_id=$1", []any{importID}, actor); err != nil {
+		return nil, err
+	}
+	if _, err = tx.ExecContext(ctx, `UPDATE accounting_channel_imports SET new_rows=$2,duplicate_rows=$3,
+ pending_rows=(SELECT COUNT(*) FROM accounting_channel_lines WHERE import_id=$1 AND booking LIKE 'PENDING_%') WHERE id=$1`, importID, len(inserted), duplicates); err != nil {
 		return nil, err
 	}
 	imported, err := getChannelImport(ctx, tx, importID)
 	if err != nil {
 		return nil, err
 	}
-	out := &ChannelImportResult{Import: *imported}
+	out := &ChannelImportResult{Import: *imported, Bookings: map[string]int{}}
+	rows, err := tx.QueryContext(ctx, "SELECT booking,COUNT(*) FROM accounting_channel_lines WHERE import_id=$1 AND booking<>'INTERNAL' GROUP BY booking", importID)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var booking string
+		var count int
+		if err = rows.Scan(&booking, &count); err != nil {
+			_ = rows.Close()
+			return nil, err
+		}
+		out.Bookings[booking] = count
+	}
+	err = rows.Err()
+	_ = rows.Close()
+	if err != nil {
+		return nil, err
+	}
 	for _, id := range ids {
 		summary, summaryErr := channelAccountSummary(ctx, tx, id)
 		if summaryErr != nil {
@@ -302,6 +327,10 @@ func (e *Engine) RevokeChannelImport(ctx context.Context, tx *sql.Tx, importID, 
 	}
 	if later {
 		return nil, ErrState.WithMetadata(map[string]string{"field": "not_latest_import"})
+	}
+	// Card spend the batch put into the organization books leaves with it.
+	if err = e.unbookChannelLines(ctx, tx, "l.import_id=$1", []any{importID}, actor); err != nil {
+		return nil, err
 	}
 	for _, q := range []string{
 		"UPDATE accounting_channel_lines SET pair_line_id=NULL WHERE pair_line_id IN (SELECT id FROM accounting_channel_lines WHERE import_id=$1)",

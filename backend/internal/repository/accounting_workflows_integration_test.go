@@ -106,8 +106,7 @@ func TestAccountingWorkflowExchangeAndExternalConfirmation(t *testing.T) {
 func TestAccountingWorkflowRelatedActivityAndResidualTodos(t *testing.T) {
 	f := newAccountingFixture(t)
 	card := f.card(t)
-	purchase := f.transaction(t, card, "CONSUME", "60", "")
-	f.confirm(t, "vcc-transactions", purchase)
+	purchase := f.spend(t, card, "CONSUME", "60", nil)
 	var related []map[string]any
 	require.NoError(t, json.Unmarshal(accountingData(t, f.request("GET", "related/vcc-cards/"+card.ID, "", nil)), &related))
 	require.NotEmpty(t, related)
@@ -129,8 +128,7 @@ func TestAccountingWorkflowCostCannotCountTheSamePurchaseTwice(t *testing.T) {
 	f.proof(t, "transfers", receipt)
 	f.confirm(t, "transfers", receipt)
 	card := f.card(t)
-	purchase := f.transaction(t, card, "CONSUME", "100", "")
-	f.confirm(t, "vcc-transactions", purchase)
+	purchase := f.spend(t, card, "CONSUME", "100", nil)
 	invoice := f.create(t, "vendor-invoices", "100", map[string]any{"vendor": "Vendor", "period_start": "2026-01-01", "period_end": "2026-01-31"}, "")
 	f.proof(t, "vendor-invoices", invoice)
 	f.confirm(t, "vendor-invoices", invoice)
@@ -146,13 +144,19 @@ func TestAccountingWorkflowCostCannotCountTheSamePurchaseTwice(t *testing.T) {
 	require.Equal(t, 409, f.request("POST", "cost-allocations", uuid.NewString(), payload).Code)
 	payload["amount"] = "40"
 	second := accountingObject(t, f.request("POST", "cost-allocations", uuid.NewString(), payload))
-	refund := f.transaction(t, card, "REFUND", "10", purchase.ID)
-	require.Equal(t, 409, f.request("POST", "vcc-transactions/"+refund.ID+"/confirm", uuid.NewString(), map[string]any{}).Code)
+	// A refund that would leave the purchase's costs above what it cost waits for review until they are undone.
+	booking, _ := f.statementLine(t, card, "REFUND", "10", purchase)
+	require.Equal(t, "PENDING_REVIEW", booking)
+	var line, note string
+	require.NoError(t, integrationDB.QueryRow("SELECT id::text,booking_note FROM accounting_channel_lines WHERE booking='PENDING_REVIEW' AND type='REFUND' AND related_id=$1", purchase.Details["provider_transaction_id"]).Scan(&line, &note))
+	require.Equal(t, "cost_allocation_in_use", note)
 	require.Equal(t, 409, f.request("POST", "vendor-invoices/"+invoice.ID+"/void", uuid.NewString(), map[string]string{"reason": "allocated"}).Code)
 	for _, a := range []map[string]any{first, second} {
 		accountingData(t, f.request("POST", "cost-allocations/"+a["id"].(string)+"/void", uuid.NewString(), map[string]string{"reason": "refund reconciliation"}))
 	}
-	f.confirm(t, "vcc-transactions", refund)
+	retried := accountingObject(t, f.request("POST", "channel-lines/"+line+"/rebook", uuid.NewString(), map[string]any{}))
+	require.Equal(t, "BOOKED", retried["booking"])
+	require.Equal(t, "90", f.cardSpent(t, card.ID))
 }
 func TestAccountingWorkflowCloseProtectsBackdatedWritesAndPreservesStatements(t *testing.T) {
 	f := newAccountingFixture(t)
@@ -208,8 +212,7 @@ func TestAccountingWorkflowCrossCurrencyCostsRequireExplicitRate(t *testing.T) {
 	f.proof(t, "transfers", receipt)
 	f.confirm(t, "transfers", receipt)
 	card := f.card(t)
-	purchase := f.transaction(t, card, "CONSUME", "100", "")
-	f.confirm(t, "vcc-transactions", purchase)
+	purchase := f.spend(t, card, "CONSUME", "100", nil)
 	var bill accounting.Record
 	require.NoError(t, json.Unmarshal(accountingData(t, f.request("POST", "vendor-invoices", uuid.NewString(), accounting.Input{OrganizationID: receipt.OrganizationID, Currency: "USD", Amount: "14", Details: map[string]any{"vendor": "Vendor", "period_start": "2026-01-01", "period_end": "2026-01-31"}})), &bill))
 	f.proof(t, "vendor-invoices", &bill)

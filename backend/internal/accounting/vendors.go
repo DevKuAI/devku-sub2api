@@ -180,8 +180,9 @@ func applyVendor(ctx context.Context, q dbQuery, kind string, r, old *Record) er
 		return nil
 	}
 	id := detail(r, field.id)
-	if kind == "vcc-transactions" && detail(r, "transaction_type") != "CONSUME" && id == "" {
-		// Refunds, fees and adjustments may name a vendor; only spend must.
+	if kind == "vcc-transactions" && (detail(r, "transaction_type") != "CONSUME" || detail(r, "source") == channelSource) && id == "" {
+		// Refunds, fees and adjustments may name a vendor; only spend must. Spend from a statement whose merchant
+		// matched no vendor waits for one to be picked.
 		return nil
 	}
 	if id == "" {

@@ -76,8 +76,12 @@ type ChannelAccountSummary struct {
 	FeeCosts          []ChannelAmount `json:"fee_costs"`
 	UnpairedTransfers int             `json:"unpaired_transfers"`
 	MissingProofs     int             `json:"missing_proofs"`
-	Cards             int             `json:"cards"`
-	LastImportAt      *time.Time      `json:"last_import_at,omitempty"`
+	// Card lines not in the organization books yet: no bound card, no open order, or refused and waiting for review.
+	PendingCards  int        `json:"pending_cards"`
+	PendingOrders int        `json:"pending_orders"`
+	PendingReview int        `json:"pending_review"`
+	Cards         int        `json:"cards"`
+	LastImportAt  *time.Time `json:"last_import_at,omitempty"`
 }
 
 type ChannelMonth struct {
@@ -107,6 +111,13 @@ type ChannelCardSummary struct {
 	Spend    string     `json:"spend"`
 	Refund   string     `json:"refund"`
 	LastAt   *time.Time `json:"last_at,omitempty"`
+	// The organization card the statement card is booked onto, and how it was bound.
+	OrganizationID   string `json:"organization_id,omitempty"`
+	OrganizationName string `json:"organization_name,omitempty"`
+	VccCardID        string `json:"vcc_card_id,omitempty"`
+	VccCardName      string `json:"vcc_card_name,omitempty"`
+	BindMethod       string `json:"bind_method,omitempty"`
+	Pending          int    `json:"pending"`
 }
 
 type ChannelAccountDetail struct {
@@ -137,6 +148,11 @@ type ChannelLine struct {
 	OriginalCurrency string          `json:"original_currency,omitempty"`
 	Remark           string          `json:"remark,omitempty"`
 	Booking          string          `json:"booking"`
+	BookingNote      string          `json:"booking_note,omitempty"`
+	ChannelCardID    string          `json:"channel_card_id,omitempty"`
+	TransactionID    string          `json:"transaction_id,omitempty"`
+	OrderID          string          `json:"order_id,omitempty"`
+	OrderName        string          `json:"order_name,omitempty"`
 	ImportID         string          `json:"import_id"`
 	Pair             *ChannelLineRef `json:"pair,omitempty"`
 	Proofs           []ChannelProof  `json:"proofs"`
@@ -151,8 +167,8 @@ type ChannelLineRef struct {
 }
 
 type ChannelLineFilter struct {
-	Wallet, Currency, Type, Card, From, To, Search string
-	Page, Size                                     int
+	Wallet, Currency, Type, Card, Booking, From, To, Search string
+	Page, Size                                              int
 }
 
 const channelAccountColumns = "id::text,platform,account_ref,name,remark,created_at"
@@ -302,8 +318,11 @@ func channelAccountSummary(ctx context.Context, q dbQuery, id string) (*ChannelA
    AND NOT EXISTS(SELECT 1 FROM accounting_channel_attachments a WHERE a.channel_account_id=l.channel_account_id AND a.wallet=l.wallet
    AND a.currency=l.currency AND a.external_id=l.external_id AND a.deleted_at IS NULL)),
  (SELECT COUNT(*) FROM accounting_channel_cards WHERE channel_account_id=$1),
- (SELECT MAX(created_at) FROM accounting_channel_imports WHERE status='APPLIED' AND account_ids ? $1::text)`, id).
-		Scan(&summary.UnpairedTransfers, &summary.MissingProofs, &summary.Cards, &last); err != nil {
+ (SELECT MAX(created_at) FROM accounting_channel_imports WHERE status='APPLIED' AND account_ids ? $1::text),
+ (SELECT COUNT(*) FROM accounting_channel_lines WHERE channel_account_id=$1 AND status='ACTIVE' AND booking='PENDING_CARD'),
+ (SELECT COUNT(*) FROM accounting_channel_lines WHERE channel_account_id=$1 AND status='ACTIVE' AND booking='PENDING_ORDER'),
+ (SELECT COUNT(*) FROM accounting_channel_lines WHERE channel_account_id=$1 AND status='ACTIVE' AND booking='PENDING_REVIEW')`, id).
+		Scan(&summary.UnpairedTransfers, &summary.MissingProofs, &summary.Cards, &last, &summary.PendingCards, &summary.PendingOrders, &summary.PendingReview); err != nil {
 		return nil, err
 	}
 	if last.Valid {
@@ -492,12 +511,31 @@ func channelConversions(ctx context.Context, q dbQuery, id string) ([]ChannelCon
 }
 
 func channelCardSpend(ctx context.Context, q dbQuery, id string) ([]ChannelCardSummary, error) {
+	return queryChannelCards(ctx, q, "c.channel_account_id=$1", id)
+}
+
+// channelCardSummary reads one statement card with its spend and binding.
+func channelCardSummary(ctx context.Context, q dbQuery, id string) (*ChannelCardSummary, error) {
+	cards, err := queryChannelCards(ctx, q, "c.id=$1", id)
+	if err != nil {
+		return nil, err
+	}
+	if len(cards) == 0 {
+		return nil, ErrNotFound
+	}
+	return &cards[0], nil
+}
+
+func queryChannelCards(ctx context.Context, q dbQuery, where string, arg string) ([]ChannelCardSummary, error) {
 	rows, err := q.QueryContext(ctx, `SELECT c.id::text,c.card_ref,c.card_last4,c.card_name,l.currency,
  COUNT(*) FILTER (WHERE l.type='CONSUME'),COALESCE(-SUM(l.amount) FILTER (WHERE l.type='CONSUME'),0)::text,
- COALESCE(SUM(l.amount) FILTER (WHERE l.type='REFUND'),0)::text,MAX(l.occurred_at)
+ COALESCE(SUM(l.amount) FILTER (WHERE l.type='REFUND'),0)::text,MAX(l.occurred_at),
+ COALESCE(o.public_id,''),COALESCE(o.name,''),COALESCE(c.vcc_card_id::text,''),COALESCE(v.details->>'alias',''),c.bind_method,
+ COUNT(*) FILTER (WHERE l.booking LIKE 'PENDING_%')
  FROM accounting_channel_cards c JOIN accounting_channel_lines l ON l.channel_card_id=c.id AND l.status='ACTIVE'
- WHERE c.channel_account_id=$1 GROUP BY c.id,c.card_ref,c.card_last4,c.card_name,l.currency
- ORDER BY COALESCE(-SUM(l.amount) FILTER (WHERE l.type='CONSUME'),0) DESC,c.card_ref`, id)
+ LEFT JOIN desktop_organizations o ON o.id=c.organization_id LEFT JOIN accounting_vcc_cards v ON v.id=c.vcc_card_id
+ WHERE `+where+` GROUP BY c.id,c.card_ref,c.card_last4,c.card_name,l.currency,o.public_id,o.name,v.details
+ ORDER BY COALESCE(-SUM(l.amount) FILTER (WHERE l.type='CONSUME'),0) DESC,c.card_ref`, arg)
 	if err != nil {
 		return nil, err
 	}
@@ -507,7 +545,8 @@ func channelCardSpend(ctx context.Context, q dbQuery, id string) ([]ChannelCardS
 		c := ChannelCardSummary{}
 		var spend, refund string
 		var last sql.NullTime
-		if err = rows.Scan(&c.ID, &c.CardRef, &c.Last4, &c.Name, &c.Currency, &c.Spends, &spend, &refund, &last); err != nil {
+		if err = rows.Scan(&c.ID, &c.CardRef, &c.Last4, &c.Name, &c.Currency, &c.Spends, &spend, &refund, &last,
+			&c.OrganizationID, &c.OrganizationName, &c.VccCardID, &c.VccCardName, &c.BindMethod, &c.Pending); err != nil {
 			return nil, err
 		}
 		c.Spend, c.Refund = dec(spend).StringFixed(2), dec(refund).StringFixed(2)
@@ -547,6 +586,15 @@ func (e *Engine) ChannelLines(ctx context.Context, account string, f ChannelLine
 		}
 		add("l.type=$%d", f.Type)
 	}
+	switch f.Booking {
+	case "":
+	case "PENDING":
+		clauses = append(clauses, "l.booking LIKE 'PENDING_%'")
+	case "BOOKED", "LINKED", "PENDING_CARD", "PENDING_ORDER", "PENDING_REVIEW":
+		add("l.booking=$%d", f.Booking)
+	default:
+		return nil, 0, invalid("booking")
+	}
 	if f.Card != "" {
 		if _, err := uuid.Parse(f.Card); err != nil {
 			return nil, 0, invalid("card")
@@ -577,8 +625,10 @@ func (e *Engine) ChannelLines(ctx context.Context, account string, f ChannelLine
 	args = append(args, f.Size, (f.Page-1)*f.Size)
 	rows, err := e.db.QueryContext(ctx, `SELECT l.id::text,l.wallet,l.external_id,l.occurred_at,l.type,l.amount::text,l.currency,l.balance_after::text,l.fee_amount::text,
  l.card_ref,l.card_last4,l.card_name,l.merchant,l.related_id,l.original_amount::text,l.original_currency,l.remark,l.booking,l.import_id::text,
- p.id::text,p.wallet,p.currency,p.external_id,p.amount::text
+ p.id::text,p.wallet,p.currency,p.external_id,p.amount::text,l.booking_note,COALESCE(l.channel_card_id::text,''),COALESCE(l.transaction_id::text,''),
+ COALESCE(o.id::text,''),COALESCE(o.name,'')
  FROM accounting_channel_lines l LEFT JOIN accounting_channel_lines p ON p.id=l.pair_line_id
+ LEFT JOIN accounting_order_items i ON i.object_kind='vcc-transactions' AND i.object_id=l.transaction_id LEFT JOIN accounting_orders o ON o.id=i.order_id
  WHERE `+where+fmt.Sprintf(" ORDER BY l.occurred_at DESC,l.seq DESC LIMIT $%d OFFSET $%d", len(args)-1, len(args)), args...)
 	if err != nil {
 		return nil, 0, err
@@ -589,7 +639,8 @@ func (e *Engine) ChannelLines(ctx context.Context, account string, f ChannelLine
 		l := ChannelLine{}
 		var balance, fee, original, pairID, pairWallet, pairCurrency, pairExternal, pairAmount sql.NullString
 		if err = rows.Scan(&l.ID, &l.Wallet, &l.ExternalID, &l.OccurredAt, &l.Type, &l.Amount, &l.Currency, &balance, &fee, &l.CardRef, &l.CardLast4, &l.CardName,
-			&l.Merchant, &l.RelatedID, &original, &l.OriginalCurrency, &l.Remark, &l.Booking, &l.ImportID, &pairID, &pairWallet, &pairCurrency, &pairExternal, &pairAmount); err != nil {
+			&l.Merchant, &l.RelatedID, &original, &l.OriginalCurrency, &l.Remark, &l.Booking, &l.ImportID, &pairID, &pairWallet, &pairCurrency, &pairExternal, &pairAmount,
+			&l.BookingNote, &l.ChannelCardID, &l.TransactionID, &l.OrderID, &l.OrderName); err != nil {
 			return nil, 0, err
 		}
 		l.Amount = dec(l.Amount).StringFixed(2)

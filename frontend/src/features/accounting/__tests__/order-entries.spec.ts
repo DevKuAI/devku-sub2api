@@ -47,15 +47,14 @@ describe('order entry definitions', () => {
     const covered = record({ status: 'CONFIRMED', currency: 'USD', amount: '100' })
     const items = { 'vcc-cards': [card], 'vcc-transactions': [spend], 'vendor-invoices': [covered] }
     expect(entryDefinitions['vendor-invoices'].defaults(context(items))).toMatchObject({ vendor_id: 'vendor-anthropic', currency: 'USD', amount: '200.00', period_start: '2026-10-01', period_end: '2026-10-31' })
-    expect(entryDefinitions['vcc-transactions'].defaults(context(items))).toMatchObject({ parent_id: 'card-one', vendor_id: 'vendor-anthropic' })
+    expect(entryDefinitions['vcc-transactions'].defaults(context(items))).toEqual({ vendor_id: 'vendor-anthropic', remark: '' })
   })
 
-  it('sends card spend in its card’s currency and identifies cards by card ID and last four digits', () => {
-    const card = record({ id: 'card-one', status: 'ACTIVE', currency: 'USD' })
-    const spend = entryDefinitions['vcc-transactions'].payload({ parent_id: 'card-one', occurred_at: '2026-10-12', amount: '20', vendor_id: 'vendor-openai', provider_transaction_id: '', transaction_type: 'CONSUME', original_transaction_id: '', remark: '' }, context({ 'vcc-cards': [card] }))
-    expect(spend).toMatchObject({ parent_id: 'card-one', currency: 'USD', amount: '20' })
-    expect(spend.details).not.toHaveProperty('original_transaction_id')
-    expect(spend.details).toMatchObject({ vendor_id: 'vendor-openai', merchant: 'OpenAI' })
+  it('only sets the vendor and a note on card spend, and identifies cards by card ID and last four digits', () => {
+    // Amount, date and card are the statement's.
+    expect(entryDefinitions['vcc-transactions'].fields.map((field) => field.key)).toEqual(['vendor_id', 'remark'])
+    const spend = entryDefinitions['vcc-transactions'].payload({ vendor_id: 'vendor-openai', remark: '席位' }, context())
+    expect(spend).toEqual({ details: { vendor_id: 'vendor-openai', remark: '席位' } })
     const created = entryDefinitions['vcc-cards'].payload({ alias: '席位卡', provider_id: 'vendor-sunrate', currency: 'USD', provider_card_id: ' 2095346501199990785 ', last_four: '39 26', expiry: '2030-12', remark: '' }, context())
     expect(created.details).toEqual({ alias: '席位卡', provider_id: 'vendor-sunrate', provider_card_id: '2095346501199990785', last_four: '3926', expiry: '2030-12', remark: '' })
     expect(created.details).not.toHaveProperty('card_number')

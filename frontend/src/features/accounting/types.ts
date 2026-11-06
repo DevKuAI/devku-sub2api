@@ -344,6 +344,10 @@ export interface ChannelAccountSummary {
   missing_proofs: number
   cards: number
   last_import_at?: string
+  // Card lines not in the organization books yet.
+  pending_cards: number
+  pending_orders: number
+  pending_review: number
 }
 export interface ChannelMonth {
   month: string
@@ -370,6 +374,13 @@ export interface ChannelCardSpend {
   spend: string
   refund: string
   last_at?: string
+  // The organization card the statement card is booked onto.
+  organization_id?: string
+  organization_name?: string
+  vcc_card_id?: string
+  vcc_card_name?: string
+  bind_method?: string
+  pending: number
 }
 export interface ChannelLineRef {
   id: string
@@ -396,7 +407,12 @@ export interface ChannelLine {
   original_amount?: string
   original_currency?: string
   remark?: string
-  booking: string
+  booking: ChannelBooking
+  booking_note?: string
+  channel_card_id?: string
+  transaction_id?: string
+  order_id?: string
+  order_name?: string
   import_id: string
   pair?: ChannelLineRef
   proofs: ChannelProof[]
@@ -450,7 +466,12 @@ export interface ChannelAccountDetail extends ChannelAccountSummary {
 export interface ChannelImportResult {
   import: ChannelImport
   accounts: ChannelAccountSummary[]
+  // New card lines by what happened to them in the organization books.
+  bookings?: Partial<Record<ChannelBooking, number>>
 }
+// What a card line did in the organization books: booked as new spend, linked to spend recorded by hand before
+// imports, or waiting for a card, an open order or review. Other lines stay in the channel ledger only.
+export type ChannelBooking = 'INTERNAL' | 'BOOKED' | 'LINKED' | 'PENDING_CARD' | 'PENDING_ORDER' | 'PENDING_REVIEW'
 export interface ChannelConversionResult {
   converter: string
   lines: number
@@ -462,6 +483,7 @@ export interface ChannelLineFilter {
   currency?: string
   type?: string
   card_id?: string
+  booking?: 'PENDING' | ChannelBooking
   from?: string
   to?: string
   search?: string
