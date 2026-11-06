@@ -4,7 +4,7 @@ import type { AccountingOrder, AccountingRecord, OrderEntryInput, OrderItemKind,
 
 // What each block of the order page asks for, how it fills itself in, and what it sends.
 
-export type EntryFieldType = 'text' | 'textarea' | 'date' | 'month' | 'money' | 'currency' | 'rate' | 'card' | 'receiving-account' | 'card-id' | 'last-four' | 'vendor'
+export type EntryFieldType = 'text' | 'textarea' | 'date' | 'month' | 'money' | 'currency' | 'rate' | 'card' | 'receiving-account' | 'card-id' | 'last-four' | 'vendor' | 'receipt'
 export interface EntryField {
   key: string
   type: EntryFieldType
@@ -79,6 +79,35 @@ function lastVendor(context: EntryContext) {
 export function activeVendors(context: EntryContext, kind: VendorKind) {
   return context.vendors.filter((vendor) => vendor.kind === kind && vendor.status === 'ACTIVE')
 }
+// Customer payments of the order that no effective invoice names yet (except the invoice being edited), oldest first.
+export function uninvoicedReceipts(context: EntryContext, except?: string) {
+  const named = new Set(
+    live(context.items.invoices)
+      .filter((invoice) => invoice.id !== except)
+      .map((invoice) => String(invoice.details.transfer_id || ''))
+      .filter(Boolean),
+  )
+  return live(context.items.transfers)
+    .filter((receipt) => receipt.status === 'RECEIVED' && !receipt.details.funding_type && !named.has(receipt.id))
+    .sort((a, b) => a.occurred_at.localeCompare(b.occurred_at))
+}
+// The invoice of a payment, if one names it.
+export function receiptInvoice(context: Pick<EntryContext, 'items'>, receipt: AccountingRecord) {
+  return live(context.items.invoices).find((invoice) => invoice.details.transfer_id === receipt.id)
+}
+export function receiptLabel(receipt: AccountingRecord) {
+  return [receipt.details.bank_reference || receipt.details.payer_name, day(receipt.occurred_at)].filter(Boolean).join(' · ')
+}
+// What an invoice for a payment starts with: its currency, its sales amount (tax included) and its tax rate.
+export function invoiceFromReceipt(receipt: AccountingRecord, context: EntryContext): EntryValues {
+  return {
+    transfer_id: receipt.id,
+    currency: receipt.currency,
+    amount: inputMoney(String(receipt.details.sales_amount || effective(receipt)), receipt.currency),
+    tax_rate: percent(receipt.details.tax_rate),
+    issuer_name: String(receipt.details.receiving_account_name || context.receivingAccounts.find((account) => account.currency === receipt.currency)?.account_name || ''),
+  }
+}
 export function activeCards(context: EntryContext) {
   return context.items['vcc-cards'].filter((card) => card.status === 'ACTIVE')
 }
@@ -146,6 +175,7 @@ export const entryDefinitions: Record<OrderItemKind, EntryDefinition> = {
   invoices: {
     file: true,
     fields: [
+      { key: 'transfer_id', type: 'receipt', wide: true },
       { key: 'issue_date', type: 'date', required: true },
       { key: 'invoice_number', type: 'text', required: true },
       { key: 'currency', type: 'currency', required: true },
@@ -155,11 +185,14 @@ export const entryDefinitions: Record<OrderItemKind, EntryDefinition> = {
       { key: 'issuer_name', type: 'text', required: true, wide: true },
       remark,
     ],
+    // One invoice per customer payment: a new invoice starts from the oldest payment not invoiced yet.
     defaults(context) {
       const receipts = live(context.items.transfers)
       const currency = usualCurrency(receipts, 'CNY')
       const invoiced = sum(live(context.items.invoices), currency)
+      const next = uninvoicedReceipts(context)[0]
       return {
+        transfer_id: '',
         issue_date: localDate(),
         invoice_number: '',
         currency,
@@ -168,12 +201,14 @@ export const entryDefinitions: Record<OrderItemKind, EntryDefinition> = {
         invoice_code: '',
         issuer_name: String(receipts[0]?.details.receiving_account_name || context.receivingAccounts.find((account) => account.currency === currency)?.account_name || ''),
         remark: '',
+        ...(next ? invoiceFromReceipt(next, context) : {}),
       }
     },
     values(record) {
       const net = Number(record.details.net_amount)
       const tax = Number(record.details.tax_amount)
       return {
+        transfer_id: text(record, 'transfer_id'),
         issue_date: text(record, 'issue_date') || day(record.occurred_at),
         invoice_number: text(record, 'invoice_number'),
         currency: record.currency,
@@ -198,6 +233,7 @@ export const entryDefinitions: Record<OrderItemKind, EntryDefinition> = {
           recipient_name: context.order.organization_name,
           net_amount: split?.net || values.amount,
           tax_amount: split?.tax || '0',
+          transfer_id: values.transfer_id || '',
           remark: values.remark,
         },
       }

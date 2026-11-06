@@ -11,6 +11,9 @@
           <span v-if="vendorMissing" class="badge badge-warning ms-1.5" data-testid="entry-vendor-missing">{{ t('accounting.entries.vendorMissing') }}</span>
           <span v-if="record.status === 'CLOSED'" class="badge badge-gray ms-1.5">{{ t('accounting.entries.cardClosed') }}</span>
           <span v-if="missingFile" class="badge badge-gray ms-1.5" data-testid="entry-missing-file">{{ t('accounting.entries.missingFile') }}</span>
+          <span v-if="uninvoiced" class="badge badge-warning ms-1.5" data-testid="entry-uninvoiced">{{ t('accounting.entries.uninvoiced') }}</span>
+          <span v-if="unlinkedInvoice" class="badge badge-gray ms-1.5" data-testid="entry-invoice-unlinked">{{ t('accounting.entries.invoiceUnlinked') }}</span>
+          <span v-if="invoiceMismatch" class="badge badge-warning ms-1.5" data-testid="entry-invoice-mismatch">{{ t('accounting.entries.invoiceMismatch') }}</span>
         </p>
         <p v-if="subtitle" class="accounting-entry-subtitle">{{ subtitle }}</p>
       </div>
@@ -24,6 +27,9 @@
       <button v-if="kind !== 'vcc-cards' && kind !== 'vcc-transactions'" type="button" class="accounting-link" :aria-expanded="panel === 'files'" data-testid="entry-files" @click="toggle('files')">
         {{ t('accounting.entries.files', { count: files }) }}
       </button>
+      <button v-if="paymentProofs" type="button" class="accounting-link" :aria-expanded="panel === 'files'" data-testid="entry-payment-proofs" @click="toggle('files')">
+        {{ t('accounting.entries.paymentProofs', { count: files }) }}
+      </button>
       <button v-if="editable && (kind !== 'vcc-cards' || record.status === 'ACTIVE')" type="button" class="accounting-link" data-testid="entry-edit" @click="emit('edit')">
         {{ t(kind === 'vcc-transactions' ? 'accounting.entries.pickVendor' : 'common.edit') }}
       </button>
@@ -35,7 +41,13 @@
       </button>
     </div>
     <div v-if="panel === 'files'" class="accounting-entry-panel">
-      <RecordFiles :kind="kind" :record="record" @changed="emit('changed')" />
+      <RecordFiles
+        :kind="kind"
+        :record="record"
+        :title="paymentProofs ? t('accounting.entries.paymentProofsTitle') : undefined"
+        :hint="paymentProofs ? t('accounting.entries.paymentProofsHint') : undefined"
+        @changed="emit('changed')"
+      />
     </div>
     <form v-if="panel === 'move'" class="accounting-entry-panel flex flex-wrap items-center gap-2" data-testid="entry-move-form" @submit.prevent="move">
       <select v-model="target" class="input w-auto max-w-full" required :aria-label="t('accounting.entries.move')">
@@ -56,11 +68,18 @@ import RecordFiles from '../RecordFiles.vue'
 import * as api from '../../api'
 import { formatMoney } from '../../format'
 import { compareMoney } from '../../money'
-import { cardLabel, percent } from '../../orderEntries'
+import { cardLabel, percent, receiptInvoice, receiptLabel } from '../../orderEntries'
 import { errorMessage, formatDate } from '../../shared'
 import type { AccountingOrder, AccountingRecord, OrderItemKind } from '../../types'
 
-const props = defineProps<{ kind: OrderItemKind; record: AccountingRecord; cards?: AccountingRecord[]; editable: boolean; order?: AccountingOrder }>()
+const props = defineProps<{
+  kind: OrderItemKind
+  record: AccountingRecord
+  cards?: AccountingRecord[]
+  editable: boolean
+  order?: AccountingOrder
+  items?: Record<OrderItemKind, AccountingRecord[]>
+}>()
 const emit = defineEmits<{ edit: []; remove: []; confirm: []; changed: [] }>()
 const { t, te } = useI18n()
 const panel = ref<'' | 'files' | 'move'>('')
@@ -73,6 +92,19 @@ const fromStatement = computed(() => props.kind === 'vcc-transactions' && detail
 const vendorMissing = computed(() => props.kind === 'vcc-transactions' && details.value.transaction_type === 'CONSUME' && !details.value.vendor_id)
 const movable = computed(() => props.kind === 'vcc-transactions' && props.record.status === 'CONFIRMED' && !credit.value)
 const removable = computed(() => (props.kind === 'vcc-cards' ? props.record.status === 'ACTIVE' : !fromStatement.value))
+// Purchases keep the customer's transfer screenshots for them; optional, never counted as missing proof.
+const paymentProofs = computed(() => props.kind === 'vcc-transactions' && details.value.transaction_type === 'CONSUME' && props.record.status !== 'VOID')
+// One invoice per customer payment.
+const invoice = computed(() => (props.kind === 'transfers' && props.items ? receiptInvoice({ items: props.items }, props.record) : undefined))
+const linkedReceipt = computed(() =>
+  props.kind === 'invoices' && details.value.transfer_id ? props.items?.transfers.find((receipt) => receipt.id === details.value.transfer_id) : undefined,
+)
+const uninvoiced = computed(() => props.kind === 'transfers' && props.record.status === 'RECEIVED' && !invoice.value && props.order?.progress.invoice === false)
+const unlinkedInvoice = computed(() => props.kind === 'invoices' && props.record.status === 'VERIFIED' && !details.value.transfer_id)
+const invoiceMismatch = computed(() => {
+  const receipt = linkedReceipt.value
+  return receipt ? compareMoney(String(receipt.details.sales_amount || receipt.amount), props.record.amount) !== 0 : false
+})
 const targets = ref<{ id: string; name: string }[]>([])
 const target = ref('')
 const busy = ref(false)
@@ -99,9 +131,22 @@ const subtitle = computed(() => {
   const date = formatDate(props.record.occurred_at)
   switch (props.kind) {
     case 'transfers':
-      return [date, d.payer_name, t('accounting.entries.taxRate', { rate: percent(d.tax_rate) })].filter(Boolean).join(' · ')
+      return [
+        date,
+        d.payer_name,
+        t('accounting.entries.taxRate', { rate: percent(d.tax_rate) }),
+        invoice.value ? t('accounting.entries.invoicedAs', { number: invoice.value.details.invoice_number }) : '',
+      ]
+        .filter(Boolean)
+        .join(' · ')
     case 'invoices':
-      return [d.issue_date || date, d.invoice_code ? t('accounting.entries.invoiceCode', { code: d.invoice_code }) : ''].filter(Boolean).join(' · ')
+      return [
+        d.issue_date || date,
+        d.invoice_code ? t('accounting.entries.invoiceCode', { code: d.invoice_code }) : '',
+        linkedReceipt.value ? t('accounting.entries.forReceipt', { receipt: receiptLabel(linkedReceipt.value) }) : '',
+      ]
+        .filter(Boolean)
+        .join(' · ')
     case 'vcc-cards':
       return [d.provider, props.record.currency].filter(Boolean).join(' · ')
     case 'vcc-transactions': {

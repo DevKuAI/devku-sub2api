@@ -113,6 +113,9 @@ func workflowDependencies(ctx context.Context, q dbQuery, kind string, r *Record
 		if internalFunding(r) {
 			return ErrState
 		}
+		if err := receiptInvoiced(ctx, q, r.ID); err != nil {
+			return err
+		}
 		if err := q.QueryRowContext(ctx, "SELECT COUNT(*) FROM accounting_receipt_settlements WHERE transfer_id=$1 AND status='ACTIVE'", r.ID).Scan(&count); err != nil {
 			return err
 		}
