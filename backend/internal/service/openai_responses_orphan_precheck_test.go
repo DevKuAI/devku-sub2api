@@ -1,6 +1,8 @@
 package service
 
 import (
+	"os"
+	"os/exec"
 	"strings"
 	"testing"
 
@@ -126,6 +128,19 @@ func TestOpenAIResponsesOrphanPrecheckCompatibilityErrors(t *testing.T) {
 }
 
 func TestOpenAIResponsesOrphanPrecheckLargeEscapedContent(t *testing.T) {
+	// AllocsPerRun counts process-wide allocations, including background workers
+	// started by other service tests. Keep this measurement in a fresh process.
+	const helperEnv = "SUB2API_TEST_ORPHAN_PRECHECK_ALLOCS"
+	if os.Getenv(helperEnv) != "1" {
+		executable, err := os.Executable()
+		require.NoError(t, err)
+		cmd := exec.CommandContext(t.Context(), executable, "-test.run=^TestOpenAIResponsesOrphanPrecheckLargeEscapedContent$")
+		cmd.Env = append(os.Environ(), helperEnv+"=1")
+		output, err := cmd.CombinedOutput()
+		require.NoError(t, err, "allocation subprocess failed:\n%s", output)
+		return
+	}
+
 	body := []byte(`{"vendor":"` + strings.Repeat(`\n\"`, 1<<16) + `","input":[{"content":"` + strings.Repeat(`\n\"`, 1<<16) + `","type":"message"}]}`)
 	require.False(t, openAIResponsesInputMayNeedOrphanCleanup(body))
 	allocations := testing.AllocsPerRun(5, func() {
