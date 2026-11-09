@@ -56,6 +56,8 @@ func SkipAudit(c *gin.Context) {
 var auditExtraAllowedKeys = map[string]struct{}{
 	"record_id": {}, "organization_id": {},
 	"resource_id": {}, "version": {}, "platform": {}, "sha256": {}, "status": {},
+	"admin_key_id": {}, "full_access": {}, "full_access_before": {},
+	"mcp_grant_id": {}, "mcp_tool": {},
 	"result": {}, "error_code": {}, "enabled": {}, "blocking_enabled": {},
 	"config_version": {}, "endpoint_count": {}, "scanner_count": {},
 	"all_groups": {}, "group_count": {}, "guard_endpoint_id": {},
@@ -196,7 +198,7 @@ var auditBinaryBodyOmittedRoutes = map[string]struct{}{
 }
 
 // NewAuditLogMiddleware 创建审计中间件。
-// 记录范围：变更类请求（POST/PUT/PATCH/DELETE）+ 白名单内的敏感 GET 读取。
+// 记录范围：变更类请求（POST/PUT/PATCH/DELETE）+ 白名单内的敏感 GET 读取 + MCP OAuth 的全部读取。
 // 挂载位置：admin / user / admin-payment 组挂在各自认证中间件之后（只审计已认证请求，
 // 未过认证的 401/403 不入库）；auth 组（登录/注册/刷新）无前置认证，天然记录失败尝试。
 func NewAuditLogMiddleware(auditService *service.AuditLogService) AuditLogMiddleware {
@@ -215,6 +217,10 @@ func NewAuditLogMiddleware(auditService *service.AuditLogService) AuditLogMiddle
 			if v, ok := auditSensitiveReads[routeKey]; ok {
 				record = true
 				action = v
+			} else if c.GetString("auth_method") == service.AuditAuthMethodMCPOAuth {
+				// Machine credentials can read user data in bulk; every MCP tool
+				// call is attributable to its grant via audit extra fields.
+				record = true
 			}
 		}
 		if !record {

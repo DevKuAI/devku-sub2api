@@ -1512,6 +1512,9 @@
                 />
               </div>
 
+              <!-- Exact Email Blacklist -->
+              <RegistrationEmailBlacklistEditor />
+
               <!-- Promo Code -->
               <div
                 class="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-dark-700"
@@ -8938,6 +8941,7 @@
 <script setup lang="ts">
 import BIPrivacySettings from "@/components/bi/BIPrivacySettings.vue";
 import { ref, reactive, computed, onMounted, watch } from "vue";
+import { useRoute } from "vue-router";
 import { listPlatformIds } from "@/constants/platformCatalog";
 import { useI18n } from "vue-i18n";
 import { adminAPI } from "@/api";
@@ -9002,6 +9006,7 @@ import {
   type RechargeBonusMode,
   type RechargeBonusTierDraft,
 } from "@/utils/rechargeBonus";
+import RegistrationEmailBlacklistEditor from "@/components/admin/settings/RegistrationEmailBlacklistEditor.vue";
 import OpenAIFastPolicyUserSelector from "@/views/admin/settings/OpenAIFastPolicyUserSelector.vue";
 import { useClipboard } from "@/composables/useClipboard";
 import {
@@ -9063,7 +9068,7 @@ type SettingsTab =
   | "payment"
   | "email"
   | "backup";
-const activeTab = ref<SettingsTab>("general");
+const activeTab = ref<SettingsTab>(useRoute()?.query.tab === "security" ? "security" : "general");
 const settingsTabs = [
   { key: "general" as SettingsTab, icon: "home" as const },
   { key: "agreement" as SettingsTab, icon: "document" as const },
