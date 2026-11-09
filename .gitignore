@@ -169,6 +169,9 @@ docs/media/*
 !docs/accounting-management/
 !docs/accounting-management/*.md
 !docs/admin-api-keys.md
+!docs/agent-resource-safety.md
+!docs/moego-json-batching.md
+!docs/mcp.md
 !docs/codex-credits.md
 !docs/legal/
 !docs/legal/*.md

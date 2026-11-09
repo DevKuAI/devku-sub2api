@@ -12,6 +12,7 @@
 | 接入小程序 BI 或排查企业授权 | [小程序 BI](mobile-bi/README.md) | 独立身份、接口、数据口径、联调和验收 |
 | 配置在线充值或集成支付管理 API | [支付](payments/README.md) | 中英文配置指南和 Admin 集成接口 |
 | 配置路由、渠道监控或排查代理归属 | [网关与渠道](gateway/README.md) | 路由、调度、监控安全默认值及上游错误快照 |
+| 连接管理 MCP 客户端 | [管理 MCP](mcp.md) | OAuth 配置、工具范围、二次验证和协议限制 |
 | 为自动化工具配置管理权限 | [Admin API keys](admin-api-keys.md) | 操作权限、资源范围、响应边界与密钥轮换 |
 | 提交图片任务或调用 Seedance | [图片与视频](media/README.md) | 异步图片、批量图片和视频任务 |
 | 阅读部署与运营合规承诺 | [合规文档](legal/README.md) | 中英文正文、运行时引用与版本维护 |

@@ -295,6 +295,29 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/settings/mcp',
+    name: 'MCP',
+    component: () => import('@/views/user/MCPView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'MCP Connection',
+      titleKey: 'mcp.title',
+      descriptionKey: 'mcp.description'
+    }
+  },
+  {
+    path: '/oauth/mcp/authorize',
+    name: 'MCPOAuthAuthorize',
+    component: () => import('@/views/auth/MCPOAuthAuthorizeView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Authorize MCP Application',
+      titleKey: 'mcp.consentTitle'
+    }
+  },
+  {
     path: '/profile',
     name: 'Profile',
     component: () => import('@/views/user/ProfileView.vue'),
@@ -819,6 +842,17 @@ const routes: RouteRecordRaw[] = [
       title: 'Promo Code Management',
       titleKey: 'admin.promo.title',
       descriptionKey: 'admin.promo.description'
+    }
+  },
+  {
+    path: '/admin/settings/registration-email-blacklist',
+    name: 'AdminRegistrationEmailBlacklist',
+    component: () => import('@/views/admin/RegistrationEmailBlacklistView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Registration email blacklist',
+      titleKey: 'admin.settings.registration.emailBlacklist.editorTitle'
     }
   },
   {

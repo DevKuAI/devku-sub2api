@@ -8,6 +8,12 @@ import zhCommon from "@/i18n/locales/zh/common";
 import zhSettings from "@/i18n/locales/zh/admin/settings";
 import SettingsView from "../SettingsView.vue";
 
+const settingsRoute = vi.hoisted(() => ({ query: {} as Record<string, string> }));
+vi.mock("vue-router", async (importOriginal) => ({
+  ...await importOriginal<typeof import("vue-router")>(),
+  useRoute: () => settingsRoute,
+}));
+
 const {
   getSettings,
   updateSettings,
@@ -97,6 +103,7 @@ vi.mock("@/api", () => ({
       getStreamTimeoutSettings,
       getRectifierSettings,
       getBetaPolicySettings,
+      getRegistrationEmailBlacklist: vi.fn().mockResolvedValue({ emails: [], max: 20000 }),
     },
     accounts: {
       getUpstreamBillingProbeSettings,
@@ -2125,5 +2132,20 @@ describe("admin SettingsView platform quota matrix", () => {
     const quotas = payload["default_platform_quotas"] as Record<string, Record<string, unknown>>;
     // 不管输入是什么，提交值应为 null（而非 "" 或 NaN）
     expect(quotas["anthropic"]?.["daily"]).toBe(null);
+  });
+});
+
+
+describe("admin SettingsView return navigation", () => {
+  it("returns blacklist editing to the security tab", async () => {
+    settingsRoute.query = { tab: "security" };
+    try {
+      const wrapper = mountView();
+      await flushPromises();
+      expect(wrapper.get("#settings-tab-security").attributes("aria-selected")).toBe("true");
+      wrapper.unmount();
+    } finally {
+      settingsRoute.query = {};
+    }
   });
 });

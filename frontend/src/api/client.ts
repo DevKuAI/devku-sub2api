@@ -79,6 +79,13 @@ apiClient.interceptors.request.use(
 
 // ==================== Response Interceptor ====================
 
+// Retry-After 只接受整数秒；跨域部署未暴露该头或为 HTTP-date 形式时返回 undefined。
+const parseRetryAfterSeconds = (headers: unknown): number | undefined => {
+  const raw = (headers as Record<string, unknown> | undefined)?.['retry-after']
+  if (typeof raw !== 'string' || !/^\d+$/.test(raw.trim())) return undefined
+  return Number(raw.trim())
+}
+
 apiClient.interceptors.response.use(
   (response: AxiosResponse) => {
     // Unwrap standard API response format { code, message, data }
@@ -264,6 +271,7 @@ apiClient.interceptors.response.use(
         message: apiData.message || apiData.detail || error.message,
         metadata: apiData.metadata,
         ...(error.response.headers?.['retry-after'] ? { retryAfter: String(error.response.headers['retry-after']) } : {}),
+        retry_after_seconds: parseRetryAfterSeconds(error.response.headers),
       })
     }
 

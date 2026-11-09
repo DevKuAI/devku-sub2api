@@ -313,6 +313,7 @@ Simple Mode is designed for individual developers or internal teams who want qui
 - **Platform catalog:** Account creation, routing and default platform quotas share a catalog. Database platform CHECK constraints were removed by migration; the application validates registered platforms.
 - **Model allowlists:** Group allowlists constrain both listing and request admission. The migration from `groups.models_list_config` to `model_allowlist` preserves data; review previously enabled lists because they now restrict requests too.
 - **Seedance (Ark):** Native task creation, query and deletion require the Seedance capability on an OpenAI API-key account and group media permission. Billing happens when a query first observes `succeeded`, using `usage.completion_tokens`. There is no background polling or callback settlement; preserve Redis bindings and query completed tasks within their lifetime. See [Seedance configuration and billing](docs/media/seedance-api.md).
+- **Management MCP:** OAuth-authenticated management tools use existing administrator permissions, resource scopes, step-up checks and audit logs. Enable it explicitly; see [MCP configuration and protocol](docs/mcp.md).
 - **Plugin host services:** Redis KV is isolated by plugin identity; account-directory access is capability-limited and `plugin.status` is read-only. Optional negotiation remains compatible with older plugins. See the [Plugin API](backend/pkg/pluginapi/README.md) and [UI bridge](backend/pkg/pluginapi/docs/ui-bridge.md).
 - **Antigravity attribution:** Only the Anthropic Messages-to-Antigravity conversion removes leading Claude attribution metadata. Native Anthropic forwarding is unchanged; do not globally disable attribution to address it.
 
@@ -321,11 +322,13 @@ Simple Mode is designed for individual developers or internal teams who want qui
 
 ### OpenAI Image Models
 
-Supports `gpt-image-2.5-flare`, `gpt-image-2.5-sunburst`, and their `2026-09-08` snapshots through `/v1/images/generations` and `/v1/images/edits`. Supported `quality` values include `xhigh`, `max`, and `auto`. Valid custom sizes and detailed image usage are passed through unchanged.
+Supports `gpt-image-2.6-flare` and `gpt-image-2.6-sunburst`, plus the 2.5 models and their `2026-09-08` snapshots, through `/v1/images/generations` and `/v1/images/edits`. Explicit `complexity` (`low` / `medium` / `high`) is preserved; no default is injected when omitted. `quality`, custom sizes and detailed image usage pass through unchanged.
 
-OAuth / Setup Token image requests use a Responses orchestrator model to call the `image_generation` tool. The default orchestrator is `gpt-5.6-luna`. Set `SUB2API_IMAGES_MAIN_MODEL` to use a text model supported by the account; Docker Compose users must run `docker compose up -d` after changing `.env` to recreate the container. This setting does not replace the selected image model or override a text orchestrator model already provided in a `/v1/responses` request.
+OAuth / Setup Token requests for image models 1.5, 2, 2.5 and 2.6 use native Codex Images endpoints. Older models can fall back to Responses on endpoint 404 / 405; 2.6 never falls back, avoiding ignored image model choices or unsupported `complexity` injection. Other models use the Responses `image_generation` tool with `gpt-5.6-luna` as the default text orchestrator. `SUB2API_IMAGES_MAIN_MODEL` changes only that Responses bridge.
 
-After upgrading, accounts without model restrictions support the new models automatically. Existing explicit account mappings or group allowlists must include the two 2.5 models, with dated snapshots added as needed; upgrading does not automatically expand administrator-defined model permissions. Built-in pricing covers the official text input, image input, and image output token rates, and is used for the 2.5 models if the remote pricing table has not been updated. Per-request or per-token billing still follows the existing group/channel configuration.
+Native endpoints preserve JSON / multipart edit `markup` (image URLs or uploaded files), GIF frame parameters and SVG author parameters. `response_format=url` uses the MIME type of the actual upstream output. GIF / SVG availability depends on the upstream account and endpoint; forwarding support does not guarantee that output format. If a streaming edit receives complete JSON, the gateway converts it to a completion event and preserves usage.
+
+Accounts without model restrictions support the new models automatically. Explicit account mappings or group allowlists must add the two 2.6 models; upgrades do not expand saved permissions. Built-in 2.6 pricing covers official text input, image input, cache and image output token rates when remote pricing is missing or unavailable. Per-image or per-token billing follows existing group/channel settings. No database migration or new environment variable is required for these image changes.
 
 ### Asynchronous Image Tasks
 

@@ -299,6 +299,7 @@ websocat -H="Sec-WebSocket-Protocol: sub2api-admin, jwt.<ADMIN_TOKEN>" ws://loca
 - **Platform catalog**：账号创建、路由和默认平台配额共用目录。迁移已移除数据库 platform CHECK 约束，由应用校验已注册平台。
 - **模型 allowlist**：同时限制模型列表和请求准入。`groups.models_list_config` 迁移为 `model_allowlist` 时保留数据；升级前核对已有列表，因为启用的列表现在也会限制请求。
 - **Seedance（Ark）**：支持原生任务创建、查询和删除；要求 OpenAI API Key 账号开启 Seedance 能力，分组开启媒体权限。查询首次观察到 `succeeded` 时按 `usage.completion_tokens` 计费，无后台轮询或回调自动结算。应保留 Redis 任务绑定，并在生命周期内查询已完成任务。见 [Seedance 配置与计费](docs/media/seedance-api.md)。
+- **管理 MCP**：通过 OAuth 授权调用管理工具，沿用管理员权限、资源范围、二次验证和审计；需显式启用。见 [MCP 配置与协议](docs/mcp.md)。
 - **插件宿主服务**：Redis KV 按插件身份隔离，账号目录受声明能力限制，`plugin.status` 只读。宿主协商为可选功能，兼容旧插件。见 [Plugin API](backend/pkg/pluginapi/README.md) 和 [UI bridge](backend/pkg/pluginapi/docs/ui-bridge.md)。
 - **Antigravity attribution**：仅在 Anthropic Messages 转 Antigravity 时移除开头的 Claude attribution metadata。原生 Anthropic 转发保持不变，不应全局关闭 attribution。
 
@@ -307,11 +308,13 @@ websocat -H="Sec-WebSocket-Protocol: sub2api-admin, jwt.<ADMIN_TOKEN>" ws://loca
 
 ### OpenAI 图片模型
 
-支持 `gpt-image-2.5-flare`、`gpt-image-2.5-sunburst` 及其 `2026-09-08` 日期快照，可通过 `/v1/images/generations`、`/v1/images/edits` 调用。`quality` 支持 `xhigh`、`max`、`auto`，合法自定义尺寸和图片 usage 明细保持透传。
+支持 `gpt-image-2.6-flare`、`gpt-image-2.6-sunburst`，以及 `gpt-image-2.5-flare`、`gpt-image-2.5-sunburst` 和 2.5 的 `2026-09-08` 日期快照，可通过 `/v1/images/generations`、`/v1/images/edits` 调用。保留显式 `complexity`（`low` / `medium` / `high`）；省略时不注入默认值。`quality`、自定义尺寸和图片 usage 明细保持透传。
 
-OAuth / Setup Token 图片请求使用 Responses 主控模型调用 `image_generation` 工具，默认主控为 `gpt-5.6-luna`。可设置 `SUB2API_IMAGES_MAIN_MODEL` 切换为账号支持的文本模型；Docker Compose 用户修改 `.env` 后执行 `docker compose up -d` 重建容器。该配置不会替换所选图片模型，也不会覆盖 `/v1/responses` 请求中已经提供的文本主控模型。
+OAuth / Setup Token 的 1.5、2、2.5 和 2.6 图片请求使用 Codex 原生 Images 端点。旧模型遇到端点 404 / 405 时仍可回退到 Responses；2.6 不回退，避免桥接层忽略图片模型或注入不支持的 `complexity`。其余模型继续通过 Responses 的 `image_generation` 工具调用，默认文本主控为 `gpt-5.6-luna`，可设置 `SUB2API_IMAGES_MAIN_MODEL` 切换。该配置仅影响 Responses 桥接。
 
-升级后，无模型限制的账号自动支持新模型。已有显式账号映射或分组白名单需要加入两个 2.5 模型（日期快照按需加入）；升级不会自动扩大管理员设置的模型权限。新模型内置价格包含官方文本输入、图片输入和图片输出 token 费率，远端价格表尚未更新时使用内置 2.5 价格；实际按次或按 token 计费仍由既有分组/渠道配置决定。
+原生端点保留 JSON / multipart 编辑的 `markup`（图片 URL 或上传文件）、GIF 帧参数及 SVG author 参数；`response_format=url` 使用上游实际输出格式的 MIME。GIF / SVG 可用性和参数生效情况由上游账号权限及端点决定，转发支持不代表上游一定输出该格式。若编辑端点对流式请求返回完整 JSON，网关会转换为完成事件并保留 usage。
+
+升级后，无模型限制的账号自动支持新模型。已有显式账号映射或分组白名单需要主动加入两个 2.6 模型；升级不会扩大已保存的模型权限。2.6 内置官方文本输入、图片输入、缓存及图片输出 token 费率，远端价格表缺失或动态价格服务不可用时仍可兜底；实际按张或按 token 计费继续由既有分组/渠道配置决定。无需数据库迁移或新增环境变量。
 
 ### 异步图片任务
 

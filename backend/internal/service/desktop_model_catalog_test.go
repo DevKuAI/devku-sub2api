@@ -198,7 +198,9 @@ func TestDesktopImageSupplementRespectsAccountTypeGroupAndErrors(t *testing.T) {
 		if accounts[0].IsOpenAIOAuthLike() {
 			require.Contains(t, models, "gpt-image-2.5-flare")
 			require.Contains(t, models, "gpt-image-2.5-sunburst")
-			require.Len(t, models, 5)
+			require.Contains(t, models, "gpt-image-2.6-flare")
+			require.Contains(t, models, "gpt-image-2.6-sunburst")
+			require.Len(t, models, 7)
 		} else {
 			require.Equal(t, []string{"gpt-image-2"}, models)
 		}
