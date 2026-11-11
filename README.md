@@ -293,6 +293,13 @@ Simple Mode is designed for individual developers or internal teams who want qui
 
 ## Providers and compatibility
 
+### v0.2.21 compatibility updates
+
+- **Claude models:** Adds Fable and Mythos 5.2 catalogs, reasoning settings, signature preservation and fallback pricing. Review explicit model mappings and allowlists before enabling them.
+- **OpenAI cache billing:** Separates 30-minute and 12-hour cache writes and adds optional 12-hour channel pricing. Database migrations add the usage fields, pricing fields and a per-key cost index; existing Anthropic 5-minute/1-hour buckets remain separate.
+- **Gateway and authentication:** Refresh-token rotation consumes each token atomically. Responses reject invalid UTF-8, normalize Codex page context and preserve tool-call metadata; WebSocket search activation and per-turn first-token timing receive compatibility fixes.
+- **Operations:** Request-body memory budgets default to one-quarter of detected memory, with a minimum of 1 GiB, unless explicitly configured. Account refreshes retain existing rows, and API Key usage totals load independently of the list.
+
 ### v0.2.17 compatibility updates
 
 - **OpenAI subscription models:** ChatGPT OAuth and SetupToken accounts exclude retired GPT-5.5 targets from routing and model catalogs. API-key accounts remain eligible; explicit mappings to supported replacements remain valid. Review client defaults and compact-only mappings; settings are not rewritten automatically. See [migration notes](docs/OPENAI_GPT55_RETIREMENT.md).
@@ -327,6 +334,8 @@ Supports `gpt-image-2.6-flare` and `gpt-image-2.6-sunburst`, plus the 2.5 models
 OAuth / Setup Token requests for image models 1.5, 2, 2.5 and 2.6 use native Codex Images endpoints. Older models can fall back to Responses on endpoint 404 / 405; 2.6 never falls back, avoiding ignored image model choices or unsupported `complexity` injection. Other models use the Responses `image_generation` tool with `gpt-5.6-luna` as the default text orchestrator. `SUB2API_IMAGES_MAIN_MODEL` changes only that Responses bridge.
 
 Native endpoints preserve JSON / multipart edit `markup` (image URLs or uploaded files), GIF frame parameters and SVG author parameters. `response_format=url` uses the MIME type of the actual upstream output. GIF / SVG availability depends on the upstream account and endpoint; forwarding support does not guarantee that output format. If a streaming edit receives complete JSON, the gateway converts it to a completion event and preserves usage.
+
+Sub2API forwards `output_format` and `output_compression`, but upstream accounts and endpoints may reject a format with a 4xx error or return HTTP 200 with a different format. For example, requesting `jpeg` or `svg` can yield `output_format: "png"` and PNG data, including reported JPEG requests for `gpt-image-2.5-flare`. Before saving or serving an image, compare the returned `output_format` (including any per-image value) with the request and verify the actual image format. Use the actual format for the filename extension and MIME type. Successful image responses retain their status, content and usage; automatically retrying may generate and bill another image. For native Codex image requests carrying `X-Codex-Image-Turn-Id`, non-streaming responses wait for the final result without whitespace heartbeats to preserve HTTP error status. Proxy header and idle timeouts must cover the full operation; a timeout may still incur cost. See [native Images HTTP status and proxy timeouts](docs/OPENAI_IMAGES_CODEX.md).
 
 Accounts without model restrictions support the new models automatically. Explicit account mappings or group allowlists must add the two 2.6 models; upgrades do not expand saved permissions. Built-in 2.6 pricing covers official text input, image input, cache and image output token rates when remote pricing is missing or unavailable. Per-image or per-token billing follows existing group/channel settings. No database migration or new environment variable is required for these image changes.
 

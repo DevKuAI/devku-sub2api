@@ -62,6 +62,15 @@ func (r *impersonationTokenCache) DeleteRefreshToken(_ context.Context, hash str
 	return nil
 }
 
+func (r *impersonationTokenCache) ConsumeRefreshToken(ctx context.Context, hash string) (*service.RefreshTokenData, error) {
+	data, err := r.GetRefreshToken(ctx, hash)
+	if err != nil {
+		return nil, err
+	}
+	delete(r.tokens, hash)
+	return data, nil
+}
+
 type impersonationAuditRepo struct {
 	service.AuditLogRepository
 	logs []*service.AuditLog

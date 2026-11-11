@@ -279,6 +279,13 @@ websocat -H="Sec-WebSocket-Protocol: sub2api-admin, jwt.<ADMIN_TOKEN>" ws://loca
 
 ## Provider 与兼容性
 
+### v0.2.21 兼容性更新
+
+- **Claude 模型：** 新增 Fable 和 Mythos 5.2 目录、推理设置、签名保留及兜底价格。启用前需检查显式模型映射和白名单。
+- **OpenAI 缓存计费：** 区分 30 分钟和 12 小时缓存写入，并支持可选的渠道 12 小时价格。数据库迁移新增用量字段、价格字段及按 Key 聚合费用的索引；Anthropic 的 5 分钟／1 小时分桶保持独立。
+- **网关与认证：** Refresh Token 轮转改为原子消费旧 Token。Responses 拒绝无效 UTF-8、规范化 Codex 页面上下文并保留工具调用元数据；WebSocket 搜索启用和逐轮首 Token 计时获得兼容性修复。
+- **运维：** 未显式配置时，请求体内存预算按检测到的内存的四分之一计算，最低为 1 GiB。账号刷新保留已有行，API Key 用量合计与列表独立加载。
+
 ### v0.2.17 兼容性更新
 
 - **OpenAI 订阅模型**：ChatGPT OAuth 和 SetupToken 账号不再调度已退役的 GPT-5.5 目标，模型列表也会过滤这些目标。API Key 账号仍可使用；指向受支持替代模型的显式映射继续生效。升级时核对客户端默认模型及 compact 专用映射，系统不会自动改写配置。见 [迁移说明](docs/OPENAI_GPT55_RETIREMENT.md)。
@@ -313,6 +320,8 @@ websocat -H="Sec-WebSocket-Protocol: sub2api-admin, jwt.<ADMIN_TOKEN>" ws://loca
 OAuth / Setup Token 的 1.5、2、2.5 和 2.6 图片请求使用 Codex 原生 Images 端点。旧模型遇到端点 404 / 405 时仍可回退到 Responses；2.6 不回退，避免桥接层忽略图片模型或注入不支持的 `complexity`。其余模型继续通过 Responses 的 `image_generation` 工具调用，默认文本主控为 `gpt-5.6-luna`，可设置 `SUB2API_IMAGES_MAIN_MODEL` 切换。该配置仅影响 Responses 桥接。
 
 原生端点保留 JSON / multipart 编辑的 `markup`（图片 URL 或上传文件）、GIF 帧参数及 SVG author 参数；`response_format=url` 使用上游实际输出格式的 MIME。GIF / SVG 可用性和参数生效情况由上游账号权限及端点决定，转发支持不代表上游一定输出该格式。若编辑端点对流式请求返回完整 JSON，网关会转换为完成事件并保留 usage。
+
+`output_format` / `output_compression` 透传不保证上游按指定格式输出。上游可能以 4xx 拒绝某种格式，也可能在请求 `jpeg` 或 `svg` 时返回 HTTP 200、`output_format: "png"` 和 PNG 内容；`gpt-image-2.5-flare` 的 JPEG 请求也已报告出现相同情况。保存或交付图片前，应比较返回的 `output_format`（包括图片项中的该字段）与请求，并核验实际格式；文件扩展名和 MIME 应匹配实际输出。成功响应保留其状态、内容和 usage，自动重试可能再次生成并计费。携带 `X-Codex-Image-Turn-Id` 的 Codex 原生图片非流式请求会等待最终响应，不发送空白心跳，以保留真实 HTTP 错误状态。代理响应头和空闲读取超时需覆盖完整处理过程；超时后仍可能产生费用。详见 [原生 Images HTTP 状态与代理超时](docs/OPENAI_IMAGES_CODEX.md)。
 
 升级后，无模型限制的账号自动支持新模型。已有显式账号映射或分组白名单需要主动加入两个 2.6 模型；升级不会扩大已保存的模型权限。2.6 内置官方文本输入、图片输入、缓存及图片输出 token 费率，远端价格表缺失或动态价格服务不可用时仍可兜底；实际按张或按 token 计费继续由既有分组/渠道配置决定。无需数据库迁移或新增环境变量。
 

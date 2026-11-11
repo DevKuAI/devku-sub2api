@@ -6,6 +6,7 @@
 | --- | --- |
 | [开发指南](DEV_GUIDE.md) | 仓库与 toolchain、服务配置、CI、本地验证、版本规则和故障排查 |
 | [仓库目录说明](REPOSITORY_LAYOUT.md) | 代码、文档、Agent skills 与本地文件的存放位置 |
+| [上游 v0.2.21 同步记录](UPSTREAM_SYNC_V0.2.21.md) | 精确来源、缓存 TTL 与请求正文兼容、定制保留和本地验证 |
 | [上游 v0.2.20 同步记录](UPSTREAM_SYNC_V0.2.20.md) | 精确来源、定制保留、冲突处理与本地验证 |
 | [企业 AI 网关从零建设方案](standalone-platform-architecture-2026-10-23.md) | 定制业务全保留、最小依赖、试点首版、企业多渠道接入与切换门槛 |
 | [定制业务与依赖清单](current-feature-preservation-2026-10-23.md) | 130 项定制业务、10 组必要依赖、工程检查、原版排除范围及验收要求 |

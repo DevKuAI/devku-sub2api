@@ -172,6 +172,7 @@ docs/media/*
 !docs/agent-resource-safety.md
 !docs/moego-json-batching.md
 !docs/mcp.md
+!docs/OPENAI_IMAGES_CODEX.md
 !docs/codex-credits.md
 !docs/legal/
 !docs/legal/*.md
