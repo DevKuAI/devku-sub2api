@@ -248,6 +248,11 @@ func (e *Engine) checkRelations(ctx context.Context, tx dbQuery, kind string, r,
 	if err := applyVendor(ctx, tx, kind, r, old); err != nil {
 		return err
 	}
+	if kind == "invoices" {
+		if err := checkInvoiceReceipt(ctx, tx, r); err != nil {
+			return err
+		}
+	}
 	if kind == "contracts" {
 		var organizationName string
 		if err := tx.QueryRowContext(ctx, "SELECT name FROM desktop_organizations WHERE id=$1 AND deleted_at IS NULL", r.Org).Scan(&organizationName); err != nil {
@@ -341,6 +346,12 @@ func (e *Engine) Create(ctx context.Context, tx *sql.Tx, kind string, in Input, 
 	}
 	if err = attachToOrder(ctx, tx, kind, r, in.OrderID, actor); err != nil {
 		return nil, err
+	}
+	if kind == "invoices" {
+		// Now that the invoice is in its order, the receipt it names must be in the same one.
+		if err = checkInvoiceReceipt(ctx, tx, r); err != nil {
+			return nil, err
+		}
 	}
 	if kind == "vcc-cards" {
 		// Statement lines that arrived before the card was registered are booked onto it now.

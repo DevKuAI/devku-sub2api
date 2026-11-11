@@ -27,6 +27,12 @@
             </router-link>
           </p>
         </template>
+        <select v-else-if="field.type === 'receipt'" v-model="values[field.key]" class="input w-full" :data-testid="`entry-receipt-${field.key}`" @change="receiptChanged">
+          <option value="">{{ t('accounting.entries.noReceipt') }}</option>
+          <option v-for="receipt in receipts" :key="receipt.id" :value="receipt.id">
+            {{ receiptLabel(receipt) }} · {{ formatMoney(String(receipt.details.sales_amount || receipt.amount), receipt.currency) }}
+          </option>
+        </select>
         <select v-else-if="field.type === 'card'" v-model="values[field.key]" class="input w-full" :required="field.required">
           <option value="">{{ t('accounting.form.select') }}</option>
           <option v-for="card in cards" :key="card.id" :value="card.id">{{ cardLabel(card) }} · {{ card.currency }}</option>
@@ -100,7 +106,8 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import AccountingFileUpload from '../AccountingFileUpload.vue'
 import * as api from '../../api'
-import { activeCards, cardLabel, entryDefinitions, taxRates, type EntryContext, type EntryValues } from '../../orderEntries'
+import { formatMoney } from '../../format'
+import { activeCards, cardLabel, entryDefinitions, invoiceFromReceipt, receiptLabel, taxRates, uninvoicedReceipts, type EntryContext, type EntryValues } from '../../orderEntries'
 import { commonCurrencies, errorMessage, moneyPattern as amountPattern } from '../../shared'
 import type { AccountingRecord, OrderItemKind, VendorKind } from '../../types'
 
@@ -128,6 +135,17 @@ const cards = computed(() => {
   return current && !active.includes(current) ? [...active, current] : active
 })
 const accounts = computed(() => props.context.receivingAccounts.filter((account) => account.currency === values.currency))
+// Payments an invoice can be for: those not invoiced yet, plus the one this invoice already names.
+const receipts = computed(() => {
+  const open = uninvoicedReceipts(props.context, props.record?.id)
+  const current = props.context.items.transfers.find((receipt) => receipt.id === values.transfer_id)
+  return current && !open.includes(current) ? [current, ...open] : open
+})
+// A new invoice takes the chosen payment's currency, amount and tax rate.
+function receiptChanged() {
+  const receipt = props.context.items.transfers.find((item) => item.id === values.transfer_id)
+  if (receipt && !props.record) Object.assign(values, invoiceFromReceipt(receipt, props.context))
+}
 // Disabled vendors only appear for records that already chose them.
 function vendorOptions(kind: VendorKind, current: string) {
   return props.context.vendors.filter((vendor) => vendor.kind === kind && (vendor.status === 'ACTIVE' || vendor.id === current))

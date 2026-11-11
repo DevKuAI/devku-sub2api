@@ -1,5 +1,15 @@
 <template>
-  <div class="rounded-xl border border-gray-200 bg-gray-50/70 p-4 dark:border-dark-700 dark:bg-dark-800/60" :aria-busy="busy">
+  <div
+    class="rounded-xl border border-gray-200 bg-gray-50/70 p-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 dark:border-dark-700 dark:bg-dark-800/60"
+    :class="{ 'border-primary-400 bg-primary-50/60 dark:border-primary-500': dragging }"
+    :aria-busy="busy"
+    tabindex="0"
+    data-testid="file-upload"
+    @paste="pasted"
+    @dragover.prevent="dragging = true"
+    @dragleave.prevent="dragging = false"
+    @drop.prevent="dropped"
+  >
     <input ref="input" type="file" class="hidden" accept=".jpg,.jpeg,.png,.webp,.pdf" :disabled="disabled || busy" :aria-label="t('accounting.files.choose')" @change="select" />
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center">
       <div class="flex min-w-0 flex-1 items-center gap-3">
@@ -36,7 +46,25 @@ const emit = defineEmits<{ 'update:modelValue': [file: File | null] }>()
 const { t } = useI18n()
 const id = useId()
 const input = ref<HTMLInputElement>()
+const dragging = ref(false)
+const accepted = /\.(jpe?g|png|webp|pdf)$/i
 
+function take(file?: File) {
+  // Pasted screenshots arrive as "image.png"; keep a recognizable name with a timestamp.
+  if (file && file.name === 'image.png') file = new File([file], `screenshot-${Date.now()}.png`, { type: file.type })
+  if (file && accepted.test(file.name) && !props.disabled && !props.busy) emit('update:modelValue', file)
+}
+// A screenshot can be pasted (⌘V / Ctrl+V) or a file dropped onto the box instead of choosing it.
+function pasted(event: ClipboardEvent) {
+  const file = event.clipboardData?.files?.[0]
+  if (!file) return
+  event.preventDefault()
+  take(file)
+}
+function dropped(event: DragEvent) {
+  dragging.value = false
+  take(event.dataTransfer?.files?.[0])
+}
 function select(event: Event) {
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]

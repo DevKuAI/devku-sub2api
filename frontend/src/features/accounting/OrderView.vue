@@ -70,7 +70,7 @@
             <div class="min-w-0">
               <p class="text-xs text-gray-500 dark:text-dark-300">{{ t('accounting.orders.nextStep') }}</p>
               <p class="mt-0.5 font-semibold text-gray-950 dark:text-white" data-testid="order-next-step">
-                {{ nextStep ? t(`accounting.entries.next.${nextStep.key}`) : t(order.status === 'CLOSED' ? 'accounting.entries.next.closed' : 'accounting.orders.allDone') }}
+                {{ nextStep ? t(`accounting.entries.next.${nextStep.key}`, { count: nextStep.count ?? 0 }) : t(order.status === 'CLOSED' ? 'accounting.entries.next.closed' : 'accounting.orders.allDone') }}
               </p>
             </div>
             <button v-if="nextStep && open && !editor" type="button" class="btn btn-primary" data-testid="order-next-action" @click="nextStep.run()">
@@ -116,6 +116,7 @@
                   :cards="items['vcc-cards']"
                   :editable="open && !editor"
                   :order="order"
+                  :items="rows"
                   @edit="startEdit(kind, record)"
                   @remove="pendingRemoval = { kind, record }"
                   @confirm="confirmDraft(kind, record)"
@@ -201,7 +202,7 @@ import EntryRow from './components/order/EntryRow.vue'
 import PageHeader from './components/PageHeader.vue'
 import * as api from './api'
 import { formatMoney } from './format'
-import { activeCards, type EntryContext, type EntryValues } from './orderEntries'
+import { activeCards, uninvoicedReceipts, type EntryContext, type EntryValues } from './orderEntries'
 import { recordLabel } from './schema'
 import { errorMessage, formatDate, ordersRoute } from './shared'
 import type { AccountingOrder, AccountingRecord, OrderItemKind, OrderStep, OrderTotal, ReceivingAccount, Vendor } from './types'
@@ -212,6 +213,11 @@ interface Block {
   step: OrderStep
   kinds: OrderItemKind[]
   link?: LinkKind
+}
+interface NextStep {
+  key: string
+  run: () => void
+  count?: number
 }
 interface Editor {
   kind: OrderItemKind
@@ -275,7 +281,7 @@ const totals = computed(() =>
     .filter((entry) => entry.values.length),
 )
 // The first step still missing, and the one action that finishes it.
-const nextStep = computed(() => {
+const nextStep = computed<NextStep | null>(() => {
   const current = order.value
   if (!current || current.status === 'CLOSED') return null
   const draft = (kind: OrderItemKind) => rows.value[kind].find((record) => record.status === 'DRAFT')
@@ -285,7 +291,12 @@ const nextStep = computed(() => {
   }
   const add = (key: string, kind: OrderItemKind) => ({ key, run: () => startAdd(kind) })
   if (!current.progress.receipt) return pending('transfers', 'confirmReceipt') || add('receipt', 'transfers')
-  if (!current.progress.invoice) return pending('invoices', 'confirmInvoice') || add('invoice', 'invoices')
+  if (!current.progress.invoice) {
+    // Each payment gets its invoice; once some are invoiced, say how many are left.
+    const left = uninvoicedReceipts(context.value).length
+    const started = rows.value.invoices.some((record) => record.status === 'VERIFIED')
+    return pending('invoices', 'confirmInvoice') || (started && left ? { ...add('invoiceReceipt', 'invoices'), count: left } : add('invoice', 'invoices'))
+  }
   if (!current.progress.purchase) {
     if (!cardsReady.value) return add('card', 'vcc-cards')
     // Spend arrives with the card statement.

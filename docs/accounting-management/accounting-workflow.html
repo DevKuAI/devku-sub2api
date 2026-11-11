@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>账目记录流程：从零开始</title>
+<style>
+  :root {
+    --ink: #1f2933; --muted: #616e7c; --line: #cbd2d9; --bg: #f5f7fa; --card: #fff;
+    --in: #2f855a; --in-bg: #f0fff4; --out: #2b6cb0; --out-bg: #ebf4ff; --ch: #b7791f; --ch-bg: #fffaf0;
+    --hand: #c05621; --auto: #4a5568; --opt: #718096;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.6 -apple-system, "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif; color: var(--ink); background: var(--bg); }
+  main { max-width: 1280px; margin: 0 auto; padding: 32px 24px 64px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 18px; margin: 40px 0 14px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+  .sub { color: var(--muted); margin: 0; }
+  code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; background: #edf2f7; padding: 0 4px; border-radius: 4px; }
+
+  /* 标记 */
+  .badge { display: inline-block; font-size: 11px; line-height: 18px; padding: 0 6px; border-radius: 4px; white-space: nowrap; vertical-align: 1px; }
+  .b-hand { color: var(--hand); border: 1px solid var(--hand); background: #fffaf0; }
+  .b-auto { color: #fff; background: var(--auto); }
+  .b-plat { color: #fff; background: var(--ch); }
+  .b-opt { color: var(--opt); border: 1px dashed var(--opt); }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 12px; font-size: 13px; color: var(--muted); }
+
+  /* 三本账 */
+  .books { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .book { background: var(--card); border: 2px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .book h3 { margin: 0 0 4px; font-size: 16px; }
+  .book p { margin: 4px 0; font-size: 13px; }
+  .book .where { color: var(--muted); font-size: 12px; margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--line); }
+  .book.in { border-color: var(--in); background: var(--in-bg); } .book.in h3 { color: var(--in); }
+  .book.out { border-color: var(--out); background: var(--out-bg); } .book.out h3 { color: var(--out); }
+  .book.ch { border-color: var(--ch); background: var(--ch-bg); } .book.ch h3 { color: var(--ch); }
+  .note { margin: 12px 0 0; padding: 10px 14px; background: #fff; border-left: 4px solid var(--out); border-radius: 6px; font-size: 13px; }
+
+  /* 准备 */
+  .prep { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .step-card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .step-card h4 { margin: 0 0 4px; font-size: 14px; }
+  .step-card p { margin: 0; font-size: 13px; color: var(--muted); }
+
+  /* 泳道流程 */
+  .lanes-wrap { overflow-x: auto; }
+  .lanes { display: grid; grid-template-columns: 120px repeat(3, minmax(260px, 1fr)); min-width: 980px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); overflow: hidden; }
+  .lanes > div { padding: 10px 12px; border-top: 1px solid #e4e7eb; border-left: 1px solid #e4e7eb; }
+  .lanes > .phase { border-left: 0; background: #f8fafc; font-weight: 600; font-size: 13px; color: var(--muted); display: flex; align-items: center; }
+  .lanes > .head { border-top: 0; font-weight: 700; text-align: center; padding: 12px; }
+  .lanes > .head.corner { border-left: 0; background: #f8fafc; }
+  .head.in { color: var(--in); background: var(--in-bg); } .head.out { color: var(--out); background: var(--out-bg); } .head.ch { color: var(--ch); background: var(--ch-bg); }
+  .lane-in { background: linear-gradient(var(--in-bg), var(--in-bg)) left / 4px 100% no-repeat; }
+  .lane-out { background: linear-gradient(var(--out-bg), var(--out-bg)) left / 4px 100% no-repeat; }
+  .lane-ch { background: linear-gradient(var(--ch-bg), var(--ch-bg)) left / 4px 100% no-repeat; }
+  .node { border: 1.5px solid var(--line); border-radius: 10px; padding: 8px 10px; background: #fff; position: relative; }
+  .node + .node { margin-top: 8px; }
+  .node .t { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .node .n { display: inline-flex; width: 20px; height: 20px; border-radius: 50%; align-items: center; justify-content: center; font-size: 12px; color: #fff; flex: 0 0 auto; }
+  .node p { margin: 4px 0 0; font-size: 12.5px; color: var(--muted); }
+  .node.in { border-color: var(--in); } .node.in .n { background: var(--in); }
+  .node.out { border-color: var(--out); } .node.out .n { background: var(--out); }
+  .node.ch { border-color: var(--ch); } .node.ch .n { background: var(--ch); }
+  .node.sys { border-style: dashed; }
+  .empty { color: #cbd2d9; font-size: 12px; text-align: center; align-self: center; }
+  .lanes > .empty { display: flex; align-items: center; justify-content: center; }
+  .link { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .link::before { content: "↘ "; }
+
+  /* 导入时 */
+  .import { display: grid; grid-template-columns: 1.2fr 1fr; gap: 14px; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .panel h3 { margin: 0 0 8px; font-size: 15px; }
+  .panel ol, .panel ul { margin: 0; padding-left: 20px; font-size: 13px; }
+  .panel li { margin: 4px 0; }
+  .pending { display: grid; gap: 8px; }
+  .pend { border: 1px solid #f6e05e; background: #fffff0; border-radius: 8px; padding: 8px 10px; font-size: 13px; }
+  .pend b { display: block; }
+  .pend span { color: var(--muted); }
+
+  /* 每月循环 */
+  .loop { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  .loop .pill { border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 600; border: 1.5px solid; background: #fff; }
+  .pill.in { color: var(--in); border-color: var(--in); } .pill.out { color: var(--out); border-color: var(--out); } .pill.ch { color: var(--ch); border-color: var(--ch); }
+  .loop .arr { color: var(--muted); }
+  .loop .back { flex-basis: 100%; font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  /* 检查 */
+  .checks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .check h4 { margin: 0 0 6px; font-size: 14px; }
+  .check ul { margin: 0; padding-left: 18px; font-size: 13px; color: var(--muted); }
+
+  .summary { margin-top: 28px; padding: 14px 18px; background: #1f2933; color: #fff; border-radius: 12px; font-size: 14px; }
+  .summary b { color: #9ae6b4; }
+  footer { margin-top: 24px; font-size: 12px; color: var(--muted); }
+  @media (max-width: 860px) { .books, .prep, .import, .checks { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>账目记录流程：从零开始</h1>
+  <p class="sub">以 SUNRATE 发卡、为企业采购 AI 服务为例。能从平台账单拿到的，系统自动记；只有客户付款、开票、AI 厂商发票需要手工登记。</p>
+  <div class="legend">
+    <span><span class="badge b-hand">手工登记</span> 在系统里录入</span>
+    <span><span class="badge b-auto">系统自动</span> 导入或保存后自动完成</span>
+    <span><span class="badge b-plat">平台操作</span> 在 SUNRATE 后台做，系统不用录</span>
+    <span><span class="badge b-opt">选填</span> 留档用，不影响金额</span>
+  </div>
+
+  <h2>一、三本账</h2>
+  <div class="books">
+    <div class="book in">
+      <h3>收入账</h3>
+      <p>客户付给公司的钱，以及我们开给客户的发票。</p>
+      <p>钱的走向：客户 → 公司银行账户</p>
+      <p class="where">系统位置：订单里的「收款」「开票」</p>
+    </div>
+    <div class="book out">
+      <h3>支出账</h3>
+      <p>公司用卡给客户买 AI 服务花的钱，以及 AI 厂商开给我们的发票。</p>
+      <p>钱的走向：SUNRATE 卡 → OpenAI / Anthropic 等</p>
+      <p class="where">系统位置：订单里的「采购（卡消费）」「AI 发票」</p>
+    </div>
+    <div class="book ch">
+      <h3>渠道账</h3>
+      <p>公司放在 SUNRATE 里的自有资金。</p>
+      <p>钱的走向：港币入金 → 换美元 → 划转到卡余额 → 卡消费</p>
+      <p class="where">系统位置：「渠道」页面，按平台对账单核对余额</p>
+    </div>
+  </div>
+  <p class="note">收入账和支出账<strong>互不关联</strong>：客户付的人民币和卡上花的美元不做一一匹配，卡上也不记"余额"。卡上的钱是公司自己的，看渠道账即可。</p>
+
+  <h2>二、一次性准备</h2>
+  <div class="prep">
+    <div class="step-card"><h4>收款账户 <span class="badge b-hand">手工登记</span></h4><p>登记公司收客户钱的银行账户。登记收款时选它，开票方名称也从这里带出。</p></div>
+    <div class="step-card"><h4>厂商列表 <span class="badge b-hand">手工登记</span></h4><p>发卡服务商 SUNRATE；AI 厂商 OpenAI、Anthropic 等，并填别名（如 <code>chatgpt</code>、<code>claude</code>），导入时靠别名认厂商。</p></div>
+    <div class="step-card"><h4>企业</h4><p>企业管理里已有的企业直接可用。</p></div>
+  </div>
+
+  <h2>三、一笔业务的完整流程</h2>
+  <div class="lanes-wrap">
+    <div class="lanes">
+      <div class="head corner"></div>
+      <div class="head in">收入账（客户 → 公司）</div>
+      <div class="head out">支出账（公司 → AI 厂商）</div>
+      <div class="head ch">渠道账（公司在 SUNRATE 的钱）</div>
+
+      <div class="phase">开始业务</div>
+      <div class="lane-in">
+        <div class="node in"><div class="t"><span class="n">1</span>建订单 <span class="badge b-hand">手工登记</span></div><p>选企业、起名字，如"中新软件 · ChatGPT 席位（按月续费）"。长期业务一个订单一直用。</p></div>
+      </div>
+      <div class="lane-out">
+        <div class="node out"><div class="t"><span class="n">2</span>开卡并登记卡 <span class="badge b-plat">平台操作</span> <span class="badge b-hand">手工登记</span></div><p>在 SUNRATE 给企业开卡（昵称 = 企业名），再在订单「采购」里添加卡，填 <b>Card ID</b> 和后四位。</p><p class="link">Card ID 是后面自动入账的关键</p></div>
+      </div>
+      <div class="empty">—</div>
+
+      <div class="phase">客户付款</div>
+      <div class="lane-in">
+        <div class="node in"><div class="t"><span class="n">3</span>登记收款 <span class="badge b-hand">手工登记</span></div><p>银行流水号、金额、税率，上传银行回单。没传会标"缺凭证"。</p></div>
+        <div class="node in"><div class="t"><span class="n">4</span>开票 <span class="badge b-hand">手工登记</span></div><p>系统自动选中最早一笔未开票的收款，带好金额、税率，填发票号即可。<b>一笔收款对应一张发票</b>，可以先开票后关联。</p></div>
+      </div>
+      <div class="empty">—</div>
+      <div class="lane-ch">
+        <div class="node ch"><div class="t"><span class="n">5</span>给卡上放钱 <span class="badge b-plat">平台操作</span></div><p>在 SUNRATE：港币入金 → 购汇换美元 → 划转到卡余额。系统里不用录，导入账单时自动记。</p></div>
+      </div>
+
+      <div class="phase">用卡采购</div>
+      <div class="empty">—</div>
+      <div class="lane-out">
+        <div class="node out"><div class="t"><span class="n">6</span>员工用卡买服务</div><p>用这张卡买 ChatGPT、Claude 等。<b>系统里什么都不用录</b>，卡消费只从账单导入。</p></div>
+      </div>
+      <div class="empty">—</div>
+
+      <div class="phase">导入账单</div>
+      <div class="empty">—</div>
+      <div class="lane-out">
+        <div class="node out sys"><div class="t"><span class="n">7</span>卡消费自动进订单 <span class="badge b-auto">系统自动</span></div><p>按 Card ID 找到卡，进入卡所在的订单；按商户名认出厂商。</p></div>
+        <div class="node out"><div class="t"><span class="n">8</span>收款凭证 <span class="badge b-opt">选填</span></div><p>在当月那笔采购上挂客户这次续费的转账截图，直接粘贴即可。</p></div>
+      </div>
+      <div class="lane-ch">
+        <div class="node ch"><div class="t"><span class="n">7</span>导入 SUNRATE 报表 <span class="badge b-hand">手工上传</span></div><p>每月一次或月中随时，把导出的报表一起拖进「渠道 → 导入账单」。</p></div>
+        <div class="node ch sys"><div class="t">渠道账自动核对 <span class="badge b-auto">系统自动</span></div><p>入金、购汇、划转、卡消费、手续费全部入账，余额与平台对账单核对；重复导入自动跳过。</p></div>
+      </div>
+
+      <div class="phase">厂商发票</div>
+      <div class="empty">—</div>
+      <div class="lane-out">
+        <div class="node out"><div class="t"><span class="n">9</span>登记 AI 发票 <span class="badge b-hand">手工登记</span></div><p>厂商、账期、金额，上传发票。系统自动对应到本订单的卡消费。</p></div>
+      </div>
+      <div class="empty">—</div>
+
+      <div class="phase">完成</div>
+      <div class="lane-in">
+        <div class="node in sys"><div class="t"><span class="n">10</span>订单自动完成 <span class="badge b-auto">系统自动</span></div><p>收款、开票（每笔收款都有发票）、采购、AI 发票四步齐全即完成。缺项要结束时手动结束并写原因。</p></div>
+      </div>
+      <div class="lane-out">
+        <div class="node out sys"><div class="t">采购与 AI 发票对齐 <span class="badge b-auto">系统自动</span></div><p>AI 发票覆盖全部卡消费后，"AI 发票"这一步完成。</p></div>
+      </div>
+      <div class="empty">—</div>
+    </div>
+  </div>
+
+  <h2>四、导入账单时系统做了什么</h2>
+  <div class="import">
+    <div class="panel">
+      <h3>需要导出的 SUNRATE 报表（同一时间区间）</h3>
+      <ul>
+        <li>卡余额流水 <code>CARD_BALANCES</code></li>
+        <li>授权明细 <code>AUTHORISATIONS</code>、手续费 <code>FEES</code></li>
+        <li>入金记录 <code>Record_Collection</code>、购汇记录 <code>Record_Currency_Conversion</code></li>
+        <li>收付款余额对账单（港币、美元各一份 PDF）</li>
+      </ul>
+      <h3 style="margin-top:14px">导入后</h3>
+      <ol>
+        <li>渠道账全部入账，三个余额（港币收付款、美元收付款、美元卡余额）与平台对账单核对。</li>
+        <li>每笔卡消费按 Card ID 找到系统里的卡，进入卡所在订单；那个订单已结束时，进入该企业最近一个进行中的订单。</li>
+        <li>退款跟随原消费；授权费等手续费是公司成本，只进渠道账。</li>
+        <li>以前手工登记过的同一笔消费会自动关联，不会重复记账。</li>
+        <li>同一份报表导入两次，第二次全部跳过。</li>
+      </ol>
+    </div>
+    <div class="panel">
+      <h3>可能出现的待处理</h3>
+      <div class="pending">
+        <div class="pend"><b>待绑定卡</b><span>账单里有张卡系统里没登记 → 去订单添加这张卡（填 Card ID），消费自动补入。</span></div>
+        <div class="pend"><b>待归属订单</b><span>企业没有进行中的订单 → 新建或重新打开订单，自动补入。</span></div>
+        <div class="pend"><b>待复核</b><span>如退款超过原消费 → 按原因处理后点「重新入账」。</span></div>
+        <div class="pend"><b>待选厂商</b><span>商户名认不出厂商 → 在订单里为这笔消费选厂商。</span></div>
+        <div class="pend"><b>入金缺凭证</b><span>给公司往 SUNRATE 的入金补转账截图。</span></div>
+      </div>
+    </div>
+  </div>
+
+  <h2>五、按月续费的订单：每月循环</h2>
+  <div class="loop">
+    <span class="pill in">③ 客户转账 → 登记收款</span><span class="arr">→</span>
+    <span class="pill in">④ 开票（自动选中这笔收款）</span><span class="arr">→</span>
+    <span class="pill ch">⑤ 给卡上放钱</span><span class="arr">→</span>
+    <span class="pill out">⑥ 用卡续费</span><span class="arr">→</span>
+    <span class="pill ch">⑦ 导入账单，消费自动进订单</span><span class="arr">→</span>
+    <span class="pill out">⑧ 挂收款凭证（选填）</span><span class="arr">→</span>
+    <span class="pill out">⑨ 登记 AI 发票</span>
+    <span class="back">↺ 下个月重复。订单页会提示"还有 N 笔收款没开票"或"AI 发票还没覆盖全部卡消费"。</span>
+  </div>
+
+  <h2>六、每月例行检查</h2>
+  <div class="checks">
+    <div class="panel check"><h4>渠道页</h4><ul><li>三个余额都显示"已对平"</li><li>待处理清零</li><li>入金都有凭证</li></ul></div>
+    <div class="panel check"><h4>订单列表</h4><ul><li>有没有"还有 N 笔收款没开票"</li><li>有没有"AI 发票还没覆盖全部卡消费"</li><li>有没有缺凭证的收款和发票</li></ul></div>
+    <div class="panel check"><h4>卡片页</h4><ul><li>每张卡的累计消费</li><li>顶部 SUNRATE 卡余额够不够下个月用</li></ul></div>
+  </div>
+
+  <div class="summary">一句话：<b>开卡时登记 Card ID</b> → 客户付钱登记收款、开票 → 员工用卡买服务 → <b>每月导入 SUNRATE 账单</b>并处理提示 → 登记 AI 厂商的发票。能从账单拿到的，都不用手动录。</div>
+
+  <footer>
+    口径确认于 2026-11-02。"一笔收款对应一张发票"和"采购上的收款凭证"在本地分支 <code>feat/accounting-receipt-invoice</code>；"导入即入账"在 PR #6，随 v0.2.19.3 上线。详细规则见 <a href="workflows.md">企业账务闭环</a> 与 <a href="channel-import.md">渠道账单导入</a>，资金链路见 <a href="sunrate-funds-architecture.html">SUNRATE 资金架构</a>。
+  </footer>
+</main>
+</body>
+</html>

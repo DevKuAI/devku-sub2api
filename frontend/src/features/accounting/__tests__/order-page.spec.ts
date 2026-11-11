@@ -138,6 +138,38 @@ describe('order page', () => {
     expect(router.push).toHaveBeenCalledWith({ name: 'AdminAccountingChannelImport' })
   })
 
+  it('shows which payments are invoiced and keeps payment proof on purchases', async () => {
+    const october = record({ id: 'receipt-oct', status: 'RECEIVED', amount: '1000', occurred_at: '2026-10-05T02:00:00Z', details: { bank_reference: 'B-10', sales_amount: '1000', tax_rate: '0.06', attachment_count: '1' } })
+    const november = record({ id: 'receipt-nov', status: 'RECEIVED', amount: '1000', occurred_at: '2026-11-05T02:00:00Z', details: { bank_reference: 'B-11', sales_amount: '1000', tax_rate: '0.06', attachment_count: '1' } })
+    const invoice = record({ id: 'invoice-oct', status: 'VERIFIED', amount: '990', details: { invoice_type: 'SALES', invoice_number: 'INV-10', transfer_id: 'receipt-oct', attachment_count: '1' } })
+    const spend = record({ id: 'spend-one', status: 'CONFIRMED', currency: 'USD', amount: '200', parent_id: 'card-one', details: { transaction_type: 'CONSUME', merchant: 'OpenAI', vendor_id: 'vendor-openai', source: 'CHANNEL', attachment_count: '0' } })
+    const progress = { receipt: true, invoice: false, purchase: true, ai_invoice: false }
+    const wrapper = await render(order({ progress }, { transfers: [october, november], invoices: [invoice], 'vcc-transactions': [spend] }))
+
+    const receipts = wrapper.findAll('[data-testid="entry-transfers"]')
+    expect(receipts[0]!.text()).toContain('已开票：INV-10')
+    expect(receipts[0]!.find('[data-testid="entry-uninvoiced"]').exists()).toBe(false)
+    expect(receipts[1]!.find('[data-testid="entry-uninvoiced"]').exists()).toBe(true)
+    const invoiceRow = wrapper.get('[data-testid="entry-invoices"]')
+    expect(invoiceRow.text()).toContain('对应收款 B-10')
+    expect(invoiceRow.find('[data-testid="entry-invoice-mismatch"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="order-next-step"]').text()).toBe('还有 1 笔收款没开票')
+
+    // The next invoice starts from the payment still to be invoiced.
+    await wrapper.get('[data-testid="order-next-action"]').trigger('click')
+    expect((wrapper.get('[data-testid="entry-receipt-transfer_id"]').element as HTMLSelectElement).value).toBe('receipt-nov')
+    wrapper.unmount()
+
+    api.attachments.mockResolvedValue([])
+    const page = await render(order({ progress }, { transfers: [october, november], invoices: [invoice], 'vcc-transactions': [spend] }))
+    const purchase = page.get('[data-testid="entry-vcc-transactions"]')
+    expect(purchase.find('[data-testid="entry-missing-file"]').exists()).toBe(false)
+    await purchase.get('[data-testid="entry-payment-proofs"]').trigger('click'); await flushPromises()
+    expect(purchase.get('[data-testid="record-files"]').text()).toContain('收款凭证')
+    expect(purchase.get('[data-testid="record-files"]').text()).toContain('选填')
+    expect(api.attachments).toHaveBeenCalledWith('vcc-transactions', 'spend-one', false)
+  })
+
   it('lets statement spend take a vendor and move orders, but not be removed', async () => {
     const card = record({ id: 'card-one', status: 'ACTIVE', currency: 'USD', details: { alias: '席位卡', last_four: '4444' } })
     const spend = record({ id: 'spend-one', status: 'CONFIRMED', currency: 'USD', amount: '200', version: 2, parent_id: 'card-one', details: { transaction_type: 'CONSUME', merchant: 'OPENAI *CHATGPT', source: 'CHANNEL' } })

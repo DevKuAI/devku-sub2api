@@ -396,12 +396,16 @@ func (e *Engine) summarizeOrder(ctx context.Context, q dbQuery, o *Order, withIt
 			total(r.Currency).received = total(r.Currency).received.Add(dec(detail(r, "effective_amount")))
 		}
 	}
+	invoicedReceipts := map[string]bool{}
 	for _, r := range items["invoices"] {
 		if r.Status == "VERIFIED" {
-			o.Progress.Invoice = true
 			total(r.Currency).invoiced = total(r.Currency).invoiced.Add(amount(r))
+			if id := detail(r, "transfer_id"); id != "" {
+				invoicedReceipts[id] = true
+			}
 		}
 	}
+	o.Progress.Invoice = receiptsInvoiced(items["transfers"], invoicedReceipts, totals)
 	allCostsCovered := true
 	for _, r := range items["vcc-transactions"] {
 		if r.Status != "CONFIRMED" {
@@ -456,6 +460,26 @@ func (e *Engine) summarizeOrder(ctx context.Context, q dbQuery, o *Order, withIt
 		o.Items = items
 	}
 	return nil
+}
+
+// receiptsInvoiced says whether every customer payment of the order has its invoice. A payment counts as invoiced
+// when an effective invoice names it; invoices recorded before they named payments still cover their currency's
+// payments by amount, so orders closed out that way stay complete.
+func receiptsInvoiced(receipts []*Record, invoiced map[string]bool, totals map[string]*struct{ received, invoiced, spent, aiCost decimal.Decimal }) bool {
+	found := false
+	for _, r := range receipts {
+		if r.Status != "RECEIVED" || internalFunding(r) {
+			continue
+		}
+		found = true
+		if invoiced[r.ID] {
+			continue
+		}
+		if t := totals[r.Currency]; t == nil || t.invoiced.LessThan(t.received) || t.received.IsZero() {
+			return false
+		}
+	}
+	return found
 }
 
 // countAttachments notes how many completed files each entry has, so the order page can flag missing proof.
@@ -693,6 +717,11 @@ func (h *Handler) linkOrder(c *gin.Context) {
 		}
 		if err = linkToOrder(ctx, tx, current.ID, in.ObjectKind, r, actor(c)); err != nil {
 			return nil, err
+		}
+		if in.ObjectKind == "invoices" {
+			if err = checkInvoiceReceipt(ctx, tx, r); err != nil {
+				return nil, err
+			}
 		}
 		if err = h.engine.afterOrderChange(ctx, tx, in.ObjectKind, r, actor(c)); err != nil {
 			return nil, err

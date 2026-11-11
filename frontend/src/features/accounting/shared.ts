@@ -128,7 +128,7 @@ const hiddenKeys = new Set([
   'receiving_bank_branch', 'contract_id', 'invoice_id', 'vendor_invoice_id', 'transaction_id', 'expense_id',
   'original_transaction_id', 'target_transfer_id', 'source_exchange_id', 'proof_attachment_id', 'document_type',
   'received_amount', 'effective_amount', 'contact_phone', 'contact_email', 'contact_wechat', 'has_difference',
-  'order_id', 'order_name', 'card_id',
+  'order_id', 'order_name', 'card_id', 'transfer_id', 'source', 'channel_line_id', 'channel_match',
   'reconciliation_status',
 ])
 // Adjustment bookkeeping is only worth showing once an adjustment exists.
